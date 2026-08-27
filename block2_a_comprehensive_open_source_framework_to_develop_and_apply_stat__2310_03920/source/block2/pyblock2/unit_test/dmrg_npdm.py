@@ -1,0 +1,610 @@
+import pytest
+import numpy as np
+from pyblock2._pyscf.ao2mo import integrals as itg
+from pyblock2.driver.core import DMRGDriver, SymmetryTypes, NPDMAlgorithmTypes
+
+pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
+
+
+@pytest.fixture(scope="module")
+def symm_type(pytestconfig):
+    return pytestconfig.getoption("symm")
+
+
+@pytest.fixture(scope="module")
+def fd_data(pytestconfig):
+    return pytestconfig.getoption("fd_data")
+
+
+@pytest.fixture(scope="module", params=["N2"])
+def name(request):
+    return request.param
+
+
+@pytest.fixture(scope="module", params=["Normal", "Fast", "SF", "SFLM"])
+def algo_type(request):
+    return request.param
+
+
+@pytest.fixture(scope="module", params=[0, 1, 2])
+def site_type(request):
+    return request.param
+
+
+@pytest.fixture(scope="module", params=[True, False])
+def fuse_ctrrot_type(request):
+    return request.param
+
+
+@pytest.fixture(scope="module", params=[True, False])
+def use_mask(request):
+    return request.param
+
+
+@pytest.fixture(scope="module", params=[True, False])
+def use_index_mask(request):
+    return request.param
+
+
+@pytest.fixture(scope="module", params=[True, False])
+def use_complex(request):
+    return request.param
+
+
+class TestNPDM:
+    def test_rhf(self, tmp_path, name, site_type, algo_type, fuse_ctrrot_type, symm_type, fd_data, use_complex, use_mask, use_index_mask):
+        symm = SymmetryTypes.SAnySU2 if symm_type == "sany" else SymmetryTypes.SU2
+        symm = symm | SymmetryTypes.CPX if use_complex else symm
+        driver = DMRGDriver(scratch=str(tmp_path / "nodex"), symm_type=symm, n_threads=4)
+
+        if fd_data == "":
+            from pyscf import gto, scf, fci
+
+            if name == "N2":
+                mol = gto.M(atom="N 0 0 0; N 0 0 1.1", basis="sto3g", symmetry="d2h", verbose=0)
+                mf = scf.RHF(mol).run(conv_tol=1e-14)
+                assert abs(mf.e_tot - -107.49650051179789) < 1e-10
+                ncore, ncas = 0, None
+            elif name == "C2":
+                mol = gto.M(
+                    atom="C 0 0 0; C 0 0 1.2425", basis="ccpvdz", symmetry="d2h", verbose=0
+                )
+                mf = scf.RHF(mol).run(conv_tol=1e-14)
+                assert abs(mf.e_tot - -75.386902377706) < 1e-10
+                ncore, ncas = 2, 8
+            else:
+                assert False
+
+            ncas, n_elec, spin, ecore, h1e, g2e, orb_sym = itg.get_rhf_integrals(mf, ncore, ncas)
+            driver.initialize_system(n_sites=ncas, n_elec=n_elec, spin=spin, orb_sym=orb_sym)
+        else:
+            assert name == "N2"
+            driver.read_fcidump(filename=fd_data + '/N2.STO3G.RHF.FCIDUMP', pg='d2h')
+            driver.initialize_system(n_sites=driver.n_sites, n_elec=driver.n_elec,
+                spin=driver.spin, orb_sym=driver.orb_sym)
+            h1e, g2e, ecore = driver.h1e, driver.g2e, driver.ecore
+
+        mpo = driver.get_qc_mpo(h1e=h1e, g2e=g2e, ecore=ecore, iprint=1)
+        ket = driver.get_random_mps(tag="GS", bond_dim=250, nroots=1)
+        bond_dims = [250] * 4 + [500] * 4
+        noises = [1e-4] * 4 + [1e-5] * 4 + [0]
+        thrds = [1e-10] * 8
+        energies = driver.dmrg(
+            mpo,
+            ket,
+            n_sweeps=10 + np.random.randint(0, 2),
+            tol=1e-12,
+            bond_dims=bond_dims,
+            noises=noises,
+            thrds=thrds,
+            iprint=1,
+        )
+        if name == "N2":
+            assert abs(energies - -107.654122447523) < 1e-6
+        elif name == "C2":  # may stuck in local minima
+            assert abs(energies - -75.552895292451) < 1e-6
+
+        if algo_type == "Normal":
+            n_algo_type = NPDMAlgorithmTypes.Normal
+        elif algo_type == "Fast":
+            n_algo_type = NPDMAlgorithmTypes.Fast
+        elif algo_type == "SF":
+            n_algo_type = NPDMAlgorithmTypes.SymbolFree | NPDMAlgorithmTypes.Compressed
+        elif algo_type == "SFLM":
+            n_algo_type = (
+                NPDMAlgorithmTypes.SymbolFree
+                | NPDMAlgorithmTypes.Compressed
+                | NPDMAlgorithmTypes.LowMem
+            )
+        else:
+            assert False
+
+        porder = 4 if algo_type == "SFLM" else 3
+        if site_type != 0:
+            porder = 2
+        if use_complex or use_mask or use_index_mask:
+            porder = min(3, porder)
+
+        pdms = []
+        for ip in range(1, porder + 1):
+            pdms.append(
+                driver.get_npdm(
+                    ket,
+                    pdm_type=ip,
+                    algo_type=n_algo_type,
+                    site_type=site_type,
+                    iprint=2,
+                    fused_contraction_rotation=fuse_ctrrot_type,
+                )
+            )
+
+        if use_mask or use_index_mask:
+            for ip in range(1, porder + 1):
+                def_idxs = np.mgrid[:len(pdms[ip - 1])]
+                mask = list(range(ip * 2))
+                index_masks = [[int(x) for x in def_idxs] for _ in range(ip * 2)]
+                if use_index_mask:
+                    for _ in range(np.random.randint(0, ip * 4)):
+                        ix = np.random.randint(len(mask))
+                        x = np.array(index_masks[ix], dtype=int)
+                        np.random.shuffle(x)
+                        index_masks[ix] = [int(px) for px in x[:np.random.randint(1, len(x) + 1)]]
+                if use_mask:
+                    for _ in range(np.random.randint(0, ip * 2)):
+                        ii, jj = [np.random.randint(len(mask)) for _ in range(2)]
+                        mask[ii] = mask[jj]
+                        index_masks[ii] = index_masks[jj]
+                print(mask)
+                print(index_masks)
+                xnpdm = driver.get_npdm(
+                    ket,
+                    pdm_type=ip,
+                    algo_type=n_algo_type,
+                    site_type=site_type,
+                    mask=mask if use_mask else None,
+                    index_masks=index_masks if use_index_mask else None,
+                    iprint=2,
+                    fused_contraction_rotation=fuse_ctrrot_type,
+                )
+                ix, nn, sli = 0, len(set(mask)), []
+                for ii, im in enumerate(mask):
+                    if im in mask[:ii]:
+                        sli.append(sli[mask.index(im)])
+                    else:
+                        idx = (None, ) * ix + (slice(None), ) + (None, ) * (nn - ix - 1)
+                        sli.append(np.array(index_masks[ii], dtype=int)[idx])
+                        ix += 1
+                znpdm = pdms[ip - 1][tuple(sli)]
+                assert znpdm.shape == xnpdm.shape
+                ddm = np.max(np.abs(znpdm - xnpdm))
+                print("ddm diff = %9.2g" % ddm)
+                assert ddm < 1e-5
+            driver.finalize()
+            return
+
+        driver.finalize()
+
+        if fd_data != "":
+            return
+
+        mx = fci.FCI(mf)
+        mx.kernel(h1e, g2e, ncas, n_elec, tol=1e-12)
+
+        if porder <= 3:
+            fdms = fci.rdm.make_dm123("FCI3pdm_kern_sf", mx.ci, mx.ci, ncas, n_elec)
+            E1, E2, E3 = [np.zeros_like(dm) for dm in fdms]
+        else:
+            fdms = fci.rdm.make_dm1234("FCI4pdm_kern_sf", mx.ci, mx.ci, ncas, n_elec)
+            E1, E2, E3, E4 = [np.zeros_like(dm) for dm in fdms]
+
+        deltaAA = np.eye(ncas)
+        E1 += np.einsum("pa->pa", fdms[0], optimize=True)
+        E2 += np.einsum("paqb->pqab", fdms[1], optimize=True)
+        E2 += -1 * np.einsum("aq,pb->pqab", deltaAA, E1, optimize=True)
+        E3 += np.einsum("paqbgc->pqgabc", fdms[2], optimize=True)
+        E3 += -1 * np.einsum("ag,pqcb->pqgabc", deltaAA, E2, optimize=True)
+        E3 += -1 * np.einsum("aq,pgbc->pqgabc", deltaAA, E2, optimize=True)
+        E3 += -1 * np.einsum("bg,pqac->pqgabc", deltaAA, E2, optimize=True)
+        E3 += -1 * np.einsum("aq,bg,pc->pqgabc", deltaAA, deltaAA, E1, optimize=True)
+
+        if porder == 4:
+            E4 += np.einsum("aebfcgdh->abcdefgh", fdms[3], optimize=True)
+            E4 += -1 * np.einsum("eb,acdfgh->abcdefgh", deltaAA, E3, optimize=True)
+            E4 += -1 * np.einsum("ec,abdgfh->abcdefgh", deltaAA, E3, optimize=True)
+            E4 += -1 * np.einsum("ed,abchfg->abcdefgh", deltaAA, E3, optimize=True)
+            E4 += -1 * np.einsum("fc,abdegh->abcdefgh", deltaAA, E3, optimize=True)
+            E4 += -1 * np.einsum("fd,abcehg->abcdefgh", deltaAA, E3, optimize=True)
+            E4 += -1 * np.einsum("gd,abcefh->abcdefgh", deltaAA, E3, optimize=True)
+            E4 += -1 * np.einsum(
+                "eb,fc,adgh->abcdefgh", deltaAA, deltaAA, E2, optimize=True
+            )
+            E4 += -1 * np.einsum(
+                "eb,fd,achg->abcdefgh", deltaAA, deltaAA, E2, optimize=True
+            )
+            E4 += -1 * np.einsum(
+                "eb,gd,acfh->abcdefgh", deltaAA, deltaAA, E2, optimize=True
+            )
+            E4 += -1 * np.einsum(
+                "ec,fd,abgh->abcdefgh", deltaAA, deltaAA, E2, optimize=True
+            )
+            E4 += -1 * np.einsum(
+                "ec,gd,abhf->abcdefgh", deltaAA, deltaAA, E2, optimize=True
+            )
+            E4 += -1 * np.einsum(
+                "ed,fc,abhg->abcdefgh", deltaAA, deltaAA, E2, optimize=True
+            )
+            E4 += -1 * np.einsum(
+                "fc,gd,abeh->abcdefgh", deltaAA, deltaAA, E2, optimize=True
+            )
+            E4 += -1 * np.einsum(
+                "eb,fc,gd,ah->abcdefgh", deltaAA, deltaAA, deltaAA, E1, optimize=True
+            )
+
+        E2 = E2.transpose(0, 1, 3, 2)
+        E3 = E3.transpose(0, 1, 2, 5, 4, 3)
+
+        if porder == 4:
+            E4 = E4.transpose(0, 1, 2, 3, 7, 6, 5, 4)
+
+        ddm1 = np.max(np.abs(pdms[0] - E1))
+        ddm2 = np.max(np.abs(pdms[1] - E2))
+        print("pdm1 diff = %9.2g" % ddm1)
+        print("pdm2 diff = %9.2g" % ddm2)
+
+        assert ddm1 < 1e-5
+        assert ddm2 < 1e-5
+
+        if porder >= 3:
+            ddm3 = np.max(np.abs(pdms[2] - E3))
+            print("pdm3 diff = %9.2g" % ddm3)
+            assert ddm3 < 1e-5
+
+        if porder >= 4:
+            ddm4 = np.max(np.abs(pdms[3] - E4))
+            print("pdm4 diff = %9.2g" % ddm4)
+            assert ddm4 < 1e-5
+
+    def test_uhf(self, tmp_path, name, site_type, algo_type, symm_type, fd_data, use_complex, use_mask, use_index_mask):
+        symm = SymmetryTypes.SAnySZ if symm_type == "sany" else SymmetryTypes.SZ
+        symm = symm | SymmetryTypes.CPX if use_complex else symm
+        driver = DMRGDriver(scratch=str(tmp_path / "nodex"), symm_type=symm, n_threads=4)
+        
+        if fd_data == "":
+            from pyscf import gto, scf, fci
+
+            if name == "N2":
+                mol = gto.M(atom="N 0 0 0; N 0 0 1.1", basis="sto3g", symmetry="d2h", verbose=0)
+                mf = scf.RHF(mol).run(conv_tol=1e-14)
+                umf = mf.to_uhf()
+                assert abs(mf.e_tot - -107.49650051179789) < 1e-10
+                ncore, ncas = 0, None
+            elif name == "C2":
+                mol = gto.M(
+                    atom="C 0 0 0; C 0 0 1.2425", basis="ccpvdz", symmetry="d2h", verbose=0
+                )
+                mf = scf.RHF(mol).run(conv_tol=1e-14)
+                umf = mf.to_uhf()
+                assert abs(mf.e_tot - -75.386902377706) < 1e-10
+                ncore, ncas = 2, 8
+            else:
+                assert False
+
+            ncas, n_elec, spin, ecore, h1es, g2es, orb_sym = itg.get_uhf_integrals(umf, ncore, ncas)
+            driver.initialize_system(n_sites=ncas, n_elec=n_elec, spin=spin, orb_sym=orb_sym)
+        else:
+            assert name == "N2"
+            driver.read_fcidump(filename=fd_data + '/N2.STO3G.UHF.FCIDUMP', pg='d2h')
+            driver.initialize_system(n_sites=driver.n_sites, n_elec=driver.n_elec,
+                spin=driver.spin, orb_sym=driver.orb_sym)
+            h1es, g2es, ecore = driver.h1e, driver.g2e, driver.ecore
+
+        mpo = driver.get_qc_mpo(h1e=h1es, g2e=g2es, ecore=ecore, iprint=1)
+        ket = driver.get_random_mps(tag="GS", bond_dim=250, nroots=1)
+        bond_dims = [250] * 4 + [500] * 4
+        noises = [1e-4] * 4 + [1e-5] * 4 + [0]
+        thrds = [1e-10] * 8
+        energies = driver.dmrg(
+            mpo,
+            ket,
+            n_sweeps=10 + np.random.randint(0, 2),
+            tol=1e-12,
+            bond_dims=bond_dims,
+            noises=noises,
+            thrds=thrds,
+            iprint=1,
+        )
+        if name == "N2":
+            assert abs(energies - -107.654122447523) < 1e-6
+        elif name == "C2":
+            assert abs(energies - -75.552895292345) < 1e-6
+
+        if algo_type == "Normal":
+            n_algo_type = NPDMAlgorithmTypes.Normal
+        elif algo_type == "Fast":
+            n_algo_type = NPDMAlgorithmTypes.Fast
+        elif algo_type == "SF":
+            n_algo_type = NPDMAlgorithmTypes.SymbolFree | NPDMAlgorithmTypes.Compressed
+        elif algo_type == "SFLM":
+            n_algo_type = (
+                NPDMAlgorithmTypes.SymbolFree
+                | NPDMAlgorithmTypes.Compressed
+                | NPDMAlgorithmTypes.LowMem
+            )
+
+        porder = 3 if site_type == 0 else 2
+        if use_complex:
+            porder = min(2, porder)
+
+        pdms = []
+        for ip in range(1, porder + 1):
+            pdms.append(
+                driver.get_npdm(
+                    ket,
+                    pdm_type=ip,
+                    algo_type=n_algo_type,
+                    site_type=site_type,
+                    iprint=2,
+                )
+            )
+
+        if use_mask or use_index_mask:
+            for ip in range(1, porder + 1):
+                def_idxs = np.mgrid[:len(pdms[ip - 1][0])]
+                mask = list(range(ip * 2))
+                index_masks = [[int(x) for x in def_idxs] for _ in range(ip * 2)]
+                if use_index_mask:
+                    for _ in range(np.random.randint(0, ip * 4)):
+                        ix = np.random.randint(len(mask))
+                        x = np.array(index_masks[ix], dtype=int)
+                        np.random.shuffle(x)
+                        index_masks[ix] = [int(px) for px in x[:np.random.randint(1, len(x) + 1)]]
+                if use_mask:
+                    for _ in range(np.random.randint(0, ip * 2)):
+                        ii, jj = [np.random.randint(len(mask)) for _ in range(2)]
+                        mask[ii] = mask[jj]
+                        index_masks[ii] = index_masks[jj]
+                print(mask)
+                print(index_masks)
+                xnpdms = driver.get_npdm(
+                    ket,
+                    pdm_type=ip,
+                    algo_type=n_algo_type,
+                    site_type=site_type,
+                    mask=mask if use_mask else None,
+                    index_masks=index_masks if use_index_mask else None,
+                    iprint=2,
+                )
+                ix, nn, sli = 0, len(set(mask)), []
+                for ii, im in enumerate(mask):
+                    if im in mask[:ii]:
+                        sli.append(sli[mask.index(im)])
+                    else:
+                        idx = (None, ) * ix + (slice(None), ) + (None, ) * (nn - ix - 1)
+                        sli.append(np.array(index_masks[ii], dtype=int)[idx])
+                        ix += 1
+                assert len(pdms[ip - 1]) == len(xnpdms)
+                for kpdm, kxpdm in zip(pdms[ip - 1], xnpdms):
+                    znpdm = kpdm[tuple(sli)]
+                    assert znpdm.shape == kxpdm.shape
+                    ddm = np.max(np.abs(znpdm - kxpdm))
+                    print("ddm diff = %9.2g" % ddm)
+                    assert ddm < 1e-5
+            driver.finalize()
+            return
+
+        driver.finalize()
+
+        if fd_data != "":
+            return
+
+        mx = fci.FCI(mf)
+        h1e, g2e = itg.get_rhf_integrals(mf, ncore, ncas, g2e_symm=8)[-3:-1]
+        mx.kernel(h1e, g2e, ncas, n_elec, tol=1e-12)
+
+        fdms = fci.rdm.make_dm123("FCI3pdm_kern_sf", mx.ci, mx.ci, ncas, n_elec)
+        E1, E2, E3 = [np.zeros_like(dm) for dm in fdms]
+
+        deltaAA = np.eye(ncas)
+        E1 += np.einsum("pa->pa", fdms[0], optimize=True)
+        E2 += np.einsum("paqb->pqab", fdms[1], optimize=True)
+        E2 += -1 * np.einsum("aq,pb->pqab", deltaAA, E1, optimize=True)
+        E3 += np.einsum("paqbgc->pqgabc", fdms[2], optimize=True)
+        E3 += -1 * np.einsum("ag,pqcb->pqgabc", deltaAA, E2, optimize=True)
+        E3 += -1 * np.einsum("aq,pgbc->pqgabc", deltaAA, E2, optimize=True)
+        E3 += -1 * np.einsum("bg,pqac->pqgabc", deltaAA, E2, optimize=True)
+        E3 += -1 * np.einsum("aq,bg,pc->pqgabc", deltaAA, deltaAA, E1, optimize=True)
+        E2 = E2.transpose(0, 1, 3, 2)
+        E3 = E3.transpose(0, 1, 2, 5, 4, 3)
+
+        _1pdm, _2pdm = pdms[:2]
+        _1pdm = _1pdm[0] + _1pdm[1]
+        _2pdm = _2pdm[0] + _2pdm[1] + _2pdm[1].transpose(1, 0, 3, 2) + _2pdm[2]
+        pdms[:2] = _1pdm, _2pdm
+
+        ddm1 = np.max(np.abs(pdms[0] - E1))
+        ddm2 = np.max(np.abs(pdms[1] - E2))
+        print("pdm1 diff = %9.2g" % ddm1)
+        print("pdm2 diff = %9.2g" % ddm2)
+
+        assert ddm1 < 1e-5
+        assert ddm2 < 1e-5
+
+        if porder >= 3:
+            _3pdm = pdms[2]
+            _3pdm = (
+                _3pdm[0]
+                + _3pdm[1]
+                + _3pdm[1].transpose(0, 2, 1, 4, 3, 5)
+                + _3pdm[1].transpose(2, 0, 1, 4, 5, 3)
+                + _3pdm[2]
+                + _3pdm[2].transpose(1, 0, 2, 3, 5, 4)
+                + _3pdm[2].transpose(1, 2, 0, 5, 3, 4)
+                + _3pdm[3]
+            )
+            ddm3 = np.max(np.abs(_3pdm - E3))
+            print("pdm3 diff = %9.2g" % ddm3)
+            assert ddm3 < 1e-5
+
+    def test_ghf(self, tmp_path, name, site_type, algo_type, symm_type, fd_data, use_complex, use_mask, use_index_mask):
+        symm = SymmetryTypes.SAnySGF if symm_type == "sany" else SymmetryTypes.SGF
+        symm = symm | SymmetryTypes.CPX if use_complex else symm
+        driver = DMRGDriver(scratch=str(tmp_path / "nodex"), symm_type=symm, n_threads=4)
+
+        if fd_data == "":
+            from pyscf import gto, scf, fci
+
+            if name == "N2":
+                mol = gto.M(atom="N 0 0 0; N 0 0 1.1", basis="sto3g", symmetry="d2h", verbose=0)
+                mf = scf.RHF(mol).run(conv_tol=1e-14)
+                gmf = mf.to_ghf()
+                assert abs(mf.e_tot - -107.49650051179789) < 1e-10
+                xncore, xncas = 0, None
+            elif name == "C2":
+                mol = gto.M(
+                    atom="C 0 0 0; C 0 0 1.2425", basis="ccpvdz", symmetry="d2h", verbose=0
+                )
+                mf = scf.RHF(mol).run(conv_tol=1e-14)
+                gmf = mf.to_ghf()
+                assert abs(mf.e_tot - -75.386902377706) < 1e-10
+                xncore, xncas = 2, 8
+            else:
+                assert False
+
+            ncas, n_elec, spin, ecore, h1e, g2e, orb_sym = itg.get_ghf_integrals(gmf, xncore, xncas)
+            driver.initialize_system(n_sites=ncas, n_elec=n_elec, spin=spin, orb_sym=orb_sym)
+        else:
+            assert name == "N2"
+            driver.read_fcidump(filename=fd_data + '/N2.STO3G.GHF.FCIDUMP', pg='d2h')
+            driver.initialize_system(n_sites=driver.n_sites, n_elec=driver.n_elec,
+                spin=driver.spin, orb_sym=driver.orb_sym)
+            h1e, g2e, ecore = driver.h1e, driver.g2e, driver.ecore
+
+        mpo = driver.get_qc_mpo(h1e=h1e, g2e=g2e, ecore=ecore, iprint=1)
+        ket = driver.get_random_mps(tag="GS", bond_dim=250, nroots=1)
+        bond_dims = [250] * 4 + [500] * 4
+        noises = [1e-4] * 4 + [1e-5] * 4 + [0]
+        thrds = [1e-10] * 8
+        energies = driver.dmrg(
+            mpo,
+            ket,
+            n_sweeps=10 + np.random.randint(0, 2),
+            tol=0,
+            bond_dims=bond_dims,
+            noises=noises,
+            thrds=thrds,
+            iprint=1,
+        )
+        if name == "N2":
+            assert abs(energies - -107.654122447523) < 1e-6
+        elif name == "C2":
+            assert abs(energies - -75.552895292345) < 1e-6
+
+        if algo_type == "Normal":
+            n_algo_type = NPDMAlgorithmTypes.Normal
+        elif algo_type == "Fast":
+            n_algo_type = NPDMAlgorithmTypes.Fast
+        elif algo_type == "SF":
+            n_algo_type = NPDMAlgorithmTypes.SymbolFree | NPDMAlgorithmTypes.Compressed
+        elif algo_type == "SFLM":
+            n_algo_type = (
+                NPDMAlgorithmTypes.SymbolFree
+                | NPDMAlgorithmTypes.Compressed
+                | NPDMAlgorithmTypes.LowMem
+            )
+
+        porder = 2
+
+        pdms = []
+        for ip in range(1, porder + 1):
+            pdms.append(
+                driver.get_npdm(
+                    ket,
+                    pdm_type=ip,
+                    algo_type=n_algo_type,
+                    site_type=site_type,
+                    iprint=2,
+                )
+            )
+        
+        if use_mask or use_index_mask:
+            for ip in range(1, porder + 1):
+                def_idxs = np.mgrid[:len(pdms[ip - 1])]
+                mask = list(range(ip * 2))
+                index_masks = [[int(x) for x in def_idxs] for _ in range(ip * 2)]
+                if use_index_mask:
+                    for _ in range(np.random.randint(0, ip * 4)):
+                        ix = np.random.randint(len(mask))
+                        x = np.array(index_masks[ix], dtype=int)
+                        np.random.shuffle(x)
+                        index_masks[ix] = [int(px) for px in x[:np.random.randint(1, len(x) + 1)]]
+                if use_mask:
+                    for _ in range(np.random.randint(0, ip * 2)):
+                        ii, jj = [np.random.randint(len(mask)) for _ in range(2)]
+                        mask[ii] = mask[jj]
+                        index_masks[ii] = index_masks[jj]
+                print(mask)
+                print(index_masks)
+                xnpdm = driver.get_npdm(
+                    ket,
+                    pdm_type=ip,
+                    algo_type=n_algo_type,
+                    site_type=site_type,
+                    mask=mask if use_mask else None,
+                    index_masks=index_masks if use_index_mask else None,
+                    iprint=2,
+                )
+                ix, nn, sli = 0, len(set(mask)), []
+                for ii, im in enumerate(mask):
+                    if im in mask[:ii]:
+                        sli.append(sli[mask.index(im)])
+                    else:
+                        idx = (None, ) * ix + (slice(None), ) + (None, ) * (nn - ix - 1)
+                        sli.append(np.array(index_masks[ii], dtype=int)[idx])
+                        ix += 1
+                znpdm = pdms[ip - 1][tuple(sli)]
+                assert znpdm.shape == xnpdm.shape
+                ddm = np.max(np.abs(znpdm - xnpdm))
+                print("ddm diff = %9.2g" % ddm)
+                assert ddm < 1e-5
+            driver.finalize()
+            return
+
+        driver.finalize()
+
+        if fd_data != "":
+            return
+
+        ncas = ncas // 2
+        xncore = xncore // 2
+        mx = fci.FCI(mf)
+        h1e, g2e = itg.get_rhf_integrals(mf, xncore, xncas, g2e_symm=8)[-3:-1]
+        mx.kernel(h1e, g2e, ncas, n_elec, tol=1e-12)
+
+        fdms = fci.rdm.make_rdm12("FCIrdm12kern_sf", mx.ci, mx.ci, ncas, n_elec)
+        E1, E2 = [np.zeros_like(dm) for dm in fdms]
+
+        deltaAA = np.eye(ncas)
+        E1 += np.einsum("pa->pa", fdms[0], optimize=True)
+        E2 += np.einsum("paqb->pqab", fdms[1], optimize=True)
+        E2 += -1 * np.einsum("aq,pb->pqab", deltaAA, E1, optimize=True)
+        E2 = E2.transpose(0, 1, 3, 2)
+
+        def take(x, i):
+            gg = []
+            for _ in range(x.ndim // 2):
+                gg.append(i % 2)
+                i = i // 2
+            sl = tuple(slice(g, None, 2) for g in gg)
+            return x[sl + sl[::-1]]
+
+        _1pdm, _2pdm = pdms[:2]
+        _1pdm = sum(take(_1pdm, i) for i in range(2 ** 1))
+        _2pdm = sum(take(_2pdm, i) for i in range(2 ** 2))
+
+        ddm1 = np.max(np.abs(_1pdm - E1))
+        ddm2 = np.max(np.abs(_2pdm - E2))
+        print("pdm1 diff = %9.2g" % ddm1)
+        print("pdm2 diff = %9.2g" % ddm2)
+
+        assert ddm1 < 1e-5
+        assert ddm2 < 1e-5

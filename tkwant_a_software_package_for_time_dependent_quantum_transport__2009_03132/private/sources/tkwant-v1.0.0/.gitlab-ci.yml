@@ -1,0 +1,60 @@
+image: gitlab.kwant-project.org:5005/kwant/tkwant:latest
+
+variables:
+      GIT_STRATEGY: clone
+      # rsync is used to send documentation to our web servers: we never send any
+      # secret information, and using 'ssh-keyscan' causes the CI server's IP to be blacklisted
+      IGNORE_HOSTKEY: "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+      OMP_NUM_THREADS: "1"
+
+
+stages:
+    - build
+    - test
+    - deploy
+
+# Build
+
+build:package:
+  stage: build
+  script:
+    - python3 setup.py build
+    - python3 setup.py build_ext -i
+  artifacts:
+    untracked: true
+    expire_in: 1 hour
+
+# Test
+
+test:package:
+    stage: test
+    script:
+        - py.test -rs --cache-clear --integtest
+
+build:documentation:
+    stage: test
+    script:
+        - make -C doc clean ; make -C doc doctest html
+    artifacts:
+      paths:
+        - doc/build/html/
+      expire_in: 1 week
+
+upload docs:
+  stage: deploy
+  environment:
+    name: production
+    url: https://kwant-project.org/extensions/tkwant/
+  only:
+    - master@kwant/tkwant
+  before_script:
+    - mkdir -p ~/.ssh
+    - echo $WEBSITE_KEY | base64 -d > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+  script:
+    # The webserver is set up such that when we log in with WEBSITE_KEY rsync can only
+    # see the relevant tkwant subfolder of the website, hence why we do not specify an
+    # explicit path on the remote machine.
+    - rsync -rlv -e "$IGNORE_HOSTKEY" --delete doc/build/html/* "kwant@kwant-project.org:"
+  after_script:
+    - rm -rf ~/.ssh
+

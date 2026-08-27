@@ -1,0 +1,1045 @@
+name: build
+
+on:
+  push:
+    branches: [ master ]
+    tags:
+      - v*
+      - p*
+  pull_request:
+    branches: [ master ]
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  test:
+    name: test ${{ matrix.python }} ${{ matrix.os }} ${{ matrix.parallel }} ${{ matrix.plat }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ ubuntu-24.04, ubuntu-24.04-arm, macos-15, windows-2025-vs2026 ]
+        python: [ '3.13' ]
+        plat: [ x86_64, arm64 ]
+        parallel: [ mpi, serial, serial-pytest, any-symm-pytest, main-test ]
+        exclude:
+          - os: ubuntu-24.04
+            plat: arm64
+          - os: macos-15
+            parallel: mpi
+          - os: macos-15
+            plat: x86_64
+          - os: windows-2025-vs2026
+            parallel: mpi
+          - os: windows-2025-vs2026
+            parallel: serial
+          - os: windows-2025-vs2026
+            plat: arm64
+          - os: ubuntu-24.04-arm
+            parallel: mpi
+          - os: ubuntu-24.04-arm
+            plat: x86_64
+        # include:
+        #   - os: ubuntu-24.04
+        #     python: '3.12'
+        #     plat: wasm
+        #     parallel: serial
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: install requirements (linux / macos)
+        if: matrix.os == 'ubuntu-24.04' && matrix.plat == 'x86_64'
+        env:
+          MKLROOT: ~/.local
+        run: |
+          python -m pip install pip build twine setuptools --upgrade
+          python -m pip install mkl==2024.2.2 mkl-include intel-openmp numpy 'cmake>=3.19' pybind11==2.12.0
+      
+      - name: install requirements (linux arm)
+        if: matrix.os == 'ubuntu-24.04-arm'
+        run: |
+          python -m pip install pip build twine setuptools --upgrade
+          python -m pip install numpy 'cmake>=3.19' pybind11==2.12.0
+          sudo apt-get update
+          sudo apt-get install -y libopenblas-dev
+
+      - name: install requirements (linux emscripten)
+        if: matrix.os == 'ubuntu-24.04' && matrix.plat == 'wasm'
+        run: |
+          python -m pip install pip build twine setuptools --upgrade
+          python -m pip install pyodide-build numpy 'cmake>=3.19' pybind11==2.12.0
+
+      - name: setup emscripten (linux emscripten)
+        if: matrix.os == 'ubuntu-24.04' && matrix.plat == 'wasm'
+        run: |
+          git clone -b main https://github.com/emscripten-core/emsdk.git
+          cd emsdk
+          PYODIDE_EMSCRIPTEN_VERSION=$(pyodide config get emscripten_version)
+          echo $PYODIDE_EMSCRIPTEN_VERSION
+          ./emsdk install ${PYODIDE_EMSCRIPTEN_VERSION}
+          ./emsdk activate ${PYODIDE_EMSCRIPTEN_VERSION}
+          source ./emsdk_env.sh
+          cd ..
+          em++ -v
+
+      - name: install requirements (linux / macos)
+        if: matrix.os == 'macos-15'
+        run: |
+          python -m pip install pip build twine setuptools --upgrade
+          python -m pip install numpy 'cmake>=3.19' pybind11==2.12.0
+
+      - name: install requirements (linux / mpi)
+        if: matrix.parallel == 'mpi' && matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get install libopenmpi-dev
+          python -m pip install mpi4py
+
+      - name: install requirements (windows)
+        if: matrix.os == 'windows-2025-vs2026'
+        run: |
+          python -m pip install pip build twine setuptools --upgrade
+          python -m pip install intel-openmp==2024.1.0 numpy 'cmake>=3.19' pybind11==2.12.0
+
+      - name: Download OpenBLAS (linux emscripten)
+        if: matrix.os == 'ubuntu-24.04' && matrix.plat == 'wasm'
+        run: |
+          wget -q https://github.com/pyodide/pyodide/releases/download/0.26.3/xbuildenv-0.26.3.tar.bz2
+          tar xjf xbuildenv-0.26.3.tar.bz2
+
+      - name: build gtest (linux emscripten)
+        if: matrix.os == 'ubuntu-24.04' && matrix.plat == 'wasm'
+        env:
+          GTESTROOT: /home/runner/work/gtest
+        run: |
+          source emsdk/emsdk_env.sh
+          git clone -b release-1.8.0 https://github.com/google/googletest
+          cd googletest
+          export GTEST_ROOT=$PWD/googletest/install
+          CC=emcc CXX=em++ emcmake cmake CMakeLists.txt -DCMAKE_INSTALL_PREFIX=${GTESTROOT} -Dgtest_disable_pthreads=ON \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          emmake make -j 4
+          emmake make install
+
+      - name: Download OpenBLAS (windows)
+        if: matrix.os == 'windows-2025-vs2026'
+        env:
+          BLAS_ROOT: D:\a\openblas
+        run: |
+          $file = "https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.27/OpenBLAS-0.3.27-x64.zip"
+          Invoke-WebRequest -Uri $file -OutFile "OpenBLAS-0.3.27-x64.zip"
+          Expand-Archive -Path "OpenBLAS-0.3.27-x64.zip" -DestinationPath $env:BLAS_ROOT
+
+      - name: build gtest (windows)
+        if: matrix.os == 'windows-2025-vs2026' && matrix.parallel == 'serial'
+        env:
+          GTEST_ROOT: D:\a\gtest
+        run: |
+          Get-CimInstance -Class Win32_Processor
+          git clone -b release-1.8.0 https://github.com/google/googletest.git
+          cd googletest
+          cmake -G "Visual Studio 18 2026" -A x64 -S . -B . `
+            -DCMAKE_CXX_FLAGS="-D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING -DGTEST_HAS_TR1_TUPLE=0 -DGTEST_HAS_CXX11_TUPLE=1" `
+            -Dgtest_force_shared_crt=ON -DCMAKE_POLICY_VERSION_MINIMUM="3.5"
+          cmake --build . -j 2 --config Release
+          cmake --install . --prefix $env:GTEST_ROOT
+
+      - name: build gtest (linux)
+        if: matrix.os == 'ubuntu-24.04' && matrix.plat == 'x86_64'
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          lscpu
+          sudo apt-get install libgtest-dev
+          cd /usr/src/gtest
+          sudo cmake CMakeLists.txt
+          sudo make
+          sudo cp lib/*.a /usr/lib
+      
+      - name: build gtest (linux arm)
+        if: matrix.os == 'ubuntu-24.04-arm'
+        run: |
+          lscpu
+          sudo apt-get install -y libgtest-dev
+          cd /usr/src/gtest
+          sudo cmake CMakeLists.txt
+          sudo make
+          sudo cp lib/*.a /usr/lib
+
+      - name: fix mkl for amd cpu
+        if: matrix.os == 'ubuntu-24.04' && matrix.plat == 'x86_64'
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          lscpu
+          export CPUTYPE=$(lscpu | grep 'Vendor ID' | awk '{print $3}')
+          echo $CPUTYPE
+          if [ "$CPUTYPE" = "AuthenticAMD" ]; then
+            echo "int mkl_serv_intel_cpu_true() { return 1; }" > fixcpu.c
+            echo "int (*mkl_serv_get_cpu_true(void))(void) { return &mkl_serv_intel_cpu_true; }" >> fixcpu.c
+            $CC -shared -fPIC -o libfixcpu.so fixcpu.c
+          fi
+          getconf LONG_BIT
+
+      - name: build gtest (macos)
+        if: matrix.os == 'macos-15'
+        env:
+          GTESTROOT: /Users/runner/work/gtest
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+        run: |
+          git clone -b release-1.8.0 https://github.com/google/googletest
+          cd googletest
+          cmake CMakeLists.txt -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_INSTALL_PREFIX=${GTESTROOT}
+          make
+          make install
+          brew update
+          brew install libomp
+
+      - name: build test (serial-pytest, linux)
+        if: |
+          (matrix.parallel == 'serial-pytest' || matrix.parallel == 'main-test') &&
+          matrix.os == 'ubuntu-24.04' && matrix.plat == 'x86_64'
+        env:
+          MKLROOT: ~/.local
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          mkdir build
+          cd build
+          cmake --version
+          cmake .. -DUSE_MKL=ON -DBUILD_LIB=ON -DLARGE_BOND=ON -DUSE_COMPLEX=ON -DUSE_SG=ON
+          make -j 2
+      
+      - name: build test (serial-pytest, linux arm)
+        if: |
+          (matrix.parallel == 'serial-pytest' || matrix.parallel == 'main-test') &&
+          matrix.os == 'ubuntu-24.04-arm'
+        run: |
+          mkdir build
+          cd build
+          cmake --version
+          cmake .. -DUSE_MKL=OFF -DBLA_VENDOR=OpenBLAS -DUSE_OPENBLAS=ON -DF77UNDERSCORE=ON \
+            -DBUILD_LIB=ON -DLARGE_BOND=ON -DUSE_COMPLEX=ON -DUSE_SG=ON
+          make -j 2
+
+      - name: build test (serial-pytest, macos-arm64)
+        if: (matrix.parallel == 'serial-pytest' || matrix.parallel == 'main-test') && matrix.os == 'macos-15'
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
+          CC: gcc-9
+          CXX: g++-9
+        run: |
+          mkdir build
+          cd build
+          cmake --version
+          export OMPROOT=$(brew --prefix libomp)
+          cmake .. -DUSE_MKL=OFF -DARCH_ARM64=ON -DCMAKE_CXX_FLAGS=-I${OMPROOT}/include -DOMP_LIB=OMP \
+            -DBUILD_LIB=ON -DLARGE_BOND=ON -DUSE_COMPLEX=ON -DUSE_SG=ON -DFORCE_LIB_ABS_PATH=OFF \
+            -DAPPLE_ACC_SINGLE_PREC=OFF
+          make -j 2
+
+      - name: build test (serial-pytest, windows)
+        if: (matrix.parallel == 'serial-pytest' || matrix.parallel == 'main-test') && matrix.os == 'windows-2025-vs2026'
+        env:
+          BLAS_ROOT: D:\a\openblas
+        run: |
+          ${env:OMPROOT} = "${env:Python_ROOT_DIR}\Library"
+          mkdir build
+          cd build
+          cmake --version
+          cmake -G "Visual Studio 18 2026" -A x64 -S .. -B . -DUSE_MKL=OFF -DBUILD_LIB=ON -DLARGE_BOND=ON `
+            -DUSE_COMPLEX=ON -DUSE_SG=ON -DUSE_SP_DMRG=OFF -DUSE_BIG_SITE=OFF
+          cmake --build . -j 2 --config Release -- '/v:d'
+
+      - name: build test (any-symm-pytest, linux)
+        if: matrix.parallel == 'any-symm-pytest' && matrix.os == 'ubuntu-24.04' && matrix.plat == 'x86_64'
+        env:
+          MKLROOT: ~/.local
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          mkdir build
+          cd build
+          cmake --version
+          cmake .. -DUSE_MKL=ON -DBUILD_LIB=ON -DLARGE_BOND=ON -DUSE_COMPLEX=ON -DUSE_SU2SZ=OFF -DUSE_SANY=ON
+          make -j 2
+      
+      - name: build test (any-symm-pytest, linux arm)
+        if: matrix.parallel == 'any-symm-pytest' && matrix.os == 'ubuntu-24.04-arm'
+        run: |
+          mkdir build
+          cd build
+          cmake --version
+          cmake .. -DUSE_MKL=OFF -DBLA_VENDOR=OpenBLAS -DUSE_OPENBLAS=ON -DF77UNDERSCORE=ON -DBUILD_LIB=ON \
+            -DLARGE_BOND=ON -DUSE_COMPLEX=ON -DUSE_SU2SZ=OFF -DUSE_SANY=ON
+          make -j 2
+
+      - name: build test (any-symm-pytest, macos-arm64)
+        if: matrix.parallel == 'any-symm-pytest' && matrix.os == 'macos-15'
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
+          CC: gcc-9
+          CXX: g++-9
+        run: |
+          mkdir build
+          cd build
+          cmake --version
+          export OMPROOT=$(brew --prefix libomp)
+          cmake .. -DUSE_MKL=OFF -DARCH_ARM64=ON -DCMAKE_CXX_FLAGS=-I${OMPROOT}/include -DBUILD_LIB=ON -DOMP_LIB=OMP \
+            -DLARGE_BOND=ON -DUSE_COMPLEX=ON -DUSE_SU2SZ=OFF -DUSE_SANY=ON -DFORCE_LIB_ABS_PATH=OFF \
+            -DAPPLE_ACC_SINGLE_PREC=OFF
+          make -j 2
+
+      - name: build test (any-symm-pytest, windows)
+        if: matrix.parallel == 'any-symm-pytest' && matrix.os == 'windows-2025-vs2026'
+        env:
+          BLAS_ROOT: D:\a\openblas
+        run: |
+          ${env:OMPROOT} = "${env:Python_ROOT_DIR}\Library"
+          mkdir build
+          cd build
+          cmake --version
+          cmake -G "Visual Studio 18 2026" -A x64 -S .. -B . -DUSE_MKL=OFF -DBUILD_LIB=ON -DLARGE_BOND=ON `
+            -DUSE_COMPLEX=ON -DUSE_SU2SZ=OFF -DUSE_SANY=ON -DUSE_SP_DMRG=OFF -DUSE_BIG_SITE=OFF
+          cmake --build . -j 2 --config Release -- '/v:d'
+
+      - name: build test (serial, windows)
+        if: matrix.parallel == 'serial' && matrix.os == 'windows-2025-vs2026'
+        env:
+          GTEST_ROOT: D:\a\gtest
+          BLAS_ROOT: D:\a\openblas
+        run: |
+          ${env:OMPROOT} = "${env:Python_ROOT_DIR}\Library"
+          mkdir build_test
+          cd build_test
+          cmake -G "Visual Studio 18 2026" -A x64 -S .. -B . -DUSE_MKL=OFF -DBUILD_TEST=ON -DLARGE_BOND=ON `
+            -DUSE_COMPLEX=ON -DUSE_SG=ON -DSIMPLE_TEST=ON
+          cmake --build . -j 2 --config Release -- '/v:d'
+
+      - name: build test (serial, linux emscripten)
+        if: matrix.parallel == 'serial' && matrix.os == 'ubuntu-24.04' && matrix.plat == 'wasm'
+        env:
+          GTESTROOT: /home/runner/work/gtest
+        run: |
+          source emsdk/emsdk_env.sh
+          export BLAS_ROOT=$PWD/xbuildenv/pyodide-root/packages/.libs
+          mkdir build_test
+          cd build_test
+          cmake --version
+          CC=emcc CXX=em++ cmake .. -DUSE_MKL=OFF -DARCH_EMSCRIPTEN=ON -DF77UNDERSCORE=ON -DBUILD_TEST=ON \
+              -DGTest_ROOT=${GTESTROOT} -DLARGE_BOND=ON -DUSE_COMPLEX=OFF -DUSE_DMRG=ON \
+              -DSIMPLE_TEST=ON -DCMAKE_BUILD_TYPE=Release -DOMP_LIB=NONE
+          emmake make -j 2
+
+      - name: build test (serial, linux)
+        if: matrix.parallel == 'serial' && matrix.os == 'ubuntu-24.04' && matrix.plat == 'x86_64'
+        env:
+          MKLROOT: ~/.local
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          mkdir build_test
+          cd build_test
+          cmake --version
+          cmake .. -DUSE_MKL=ON -DBUILD_TEST=ON -DLARGE_BOND=ON -DUSE_COMPLEX=ON -DUSE_SINGLE_PREC=ON -DUSE_SG=ON
+          make -j 2
+      
+      - name: build test (serial, linux arm)
+        if: matrix.parallel == 'serial' && matrix.os == 'ubuntu-24.04-arm'
+        run: |
+          mkdir build_test
+          cd build_test
+          cmake --version
+          cmake .. -DUSE_MKL=OFF -DBLA_VENDOR=OpenBLAS -DUSE_OPENBLAS=ON -DF77UNDERSCORE=ON -DBUILD_TEST=ON \
+            -DLARGE_BOND=ON -DUSE_COMPLEX=ON -DUSE_SINGLE_PREC=ON -DUSE_SG=ON -DSIMPLE_TEST=ON
+          make -j 2
+
+      - name: build test (serial, macos-arm64)
+        if: matrix.parallel == 'serial' && matrix.os == 'macos-15'
+        env:
+          GTESTROOT: /Users/runner/work/gtest
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
+        run: |
+          mkdir build_test
+          cd build_test
+          cmake --version
+          export OMPROOT=$(brew --prefix libomp)
+          cmake .. -DUSE_MKL=OFF -DARCH_ARM64=ON -DCMAKE_CXX_FLAGS=-I${OMPROOT}/include -DBUILD_TEST=ON -DOMP_LIB=OMP \
+            -DLARGE_BOND=ON -DUSE_COMPLEX=ON -DUSE_SINGLE_PREC=OFF -DUSE_SG=ON -DGTest_ROOT=${GTESTROOT} \
+            -DFORCE_LIB_ABS_PATH=OFF -DSIMPLE_TEST=ON
+          make -j 2
+
+      - name: run test (serial, windows)
+        if: matrix.parallel == 'serial' && matrix.os == 'windows-2025-vs2026'
+        env:
+          GTEST_ROOT: D:\a\gtest
+          BLAS_ROOT: D:\a\openblas
+        run: |
+          cd build_test/Release
+          Copy-Item -Path "..\data" -Destination ".\" -Recurse
+          $env:PATH = "${env:BLAS_ROOT}\bin;" + $env:PATH
+          $env:PATH = "${env:Python_ROOT_DIR}\Library\bin;" + $env:PATH
+          $vcpath = Get-ChildItem 'C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC'
+          $dumpbin = "$($vcpath[0].FullName)\bin\Hostx64\x64\dumpbin.exe"
+          & $dumpbin /DEPENDENTS .\block2_tests.exe
+          .\block2_tests.exe
+
+      - name: run test (serial, linux emscripten)
+        if: matrix.parallel == 'serial' && matrix.os == 'ubuntu-24.04' && matrix.plat == 'wasm'
+        run: |
+          source emsdk/emsdk_env.sh
+          cd build_test
+          node block2_tests.js
+
+      - name: run test (serial, linux)
+        if: matrix.parallel == 'serial' && matrix.os == 'ubuntu-24.04' && matrix.plat == 'x86_64'
+        run: |
+          export CPUTYPE=$(lscpu | grep 'Vendor ID' | awk '{print $3}')
+          if [ "$CPUTYPE" = "AuthenticAMD" ]; then
+            export LD_PRELOAD=$PWD/libfixcpu.so
+          fi
+          cd build_test
+          ./block2_tests
+      
+      - name: run test (serial, linux arm)
+        if: matrix.parallel == 'serial' && matrix.os == 'ubuntu-24.04-arm'
+        run: |
+          cd build_test
+          ./block2_tests
+
+      - name: run test (serial, macos)
+        if: matrix.parallel == 'serial' && matrix.os == 'macos-15'
+        run: |
+          cd build_test
+          ./block2_tests
+
+      - name: run test (serial-pytest, windows)
+        if: matrix.parallel == 'serial-pytest' && matrix.os == 'windows-2025-vs2026'
+        env:
+          BLAS_ROOT: D:\a\openblas
+        run: |
+          $vcpath = Get-ChildItem 'C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC'
+          $dumpbin = "$($vcpath[0].FullName)\bin\Hostx64\x64\dumpbin.exe"
+          & $dumpbin /DEPENDENTS .\build\Release\block2.cp313-win_amd64.pyd
+          $xpwd = Get-Location
+          $env:PYTHONPATH = "${xpwd};${xpwd}\build\Release;" + $env:PYTHONPATH
+          $env:PATH = "${env:BLAS_ROOT}\bin;" + $env:PATH
+          $env:PATH = "${env:Python_ROOT_DIR}\Library\bin;" + $env:PATH
+          $env:PATH = "${env:Python_ROOT_DIR};" + $env:PATH
+          $env:PATH = "$($vcpath[0].FullName)\bin\Hostx64\x64;" + $env:PATH
+          python -m pip install pytest
+          python -m pytest -s pyblock2/unit_test/dmrg.py pyblock2/unit_test/dmrg_mpo.py pyblock2/unit_test/dmrg_npdm.py --fd_data=${xpwd}/data
+
+      - name: run test (serial-pytest, linux)
+        if: matrix.parallel == 'serial-pytest' && matrix.os == 'ubuntu-24.04'
+        run: |
+          python -m pip install pytest 'pyscf==2.6.2' 'scipy==1.14.1'
+          export PYTHONPATH=$(pwd)/build:$(pwd):${PYTHONPATH}
+          export CPUTYPE=$(lscpu | grep 'Vendor ID' | awk '{print $3}')
+          if [ "$CPUTYPE" = "AuthenticAMD" ]; then
+            export LD_PRELOAD=$PWD/libfixcpu.so
+          fi
+          echo $LD_PRELOAD
+          py.test -s pyblock2/unit_test/*.py -k 'not dmrg_pde'
+      
+      - name: run test (serial-pytest, linux arm)
+        if: matrix.parallel == 'serial-pytest' && matrix.os == 'ubuntu-24.04-arm'
+        run: |
+          python -m pip install pytest 'pyscf==2.6.2' 'scipy==1.14.1'
+          export PYTHONPATH=$(pwd)/build:$(pwd):${PYTHONPATH}
+          py.test -s pyblock2/unit_test/*.py -k 'not dmrg_pde'
+
+      - name: run test (serial-pytest, macos)
+        if: matrix.parallel == 'serial-pytest' && matrix.os == 'macos-15'
+        run: |
+          python -m pip install pytest 'pyscf==2.6.2' 'scipy==1.14.1'
+          export PYTHONPATH=$(pwd)/build:$(pwd):${PYTHONPATH}
+          py.test -s pyblock2/unit_test/*.py -k 'not dmrg_pde'
+
+      - name: run test (main-test, windows)
+        if: matrix.parallel == 'main-test' && matrix.os == 'windows-2025-vs2026'
+        env:
+          BLAS_ROOT: D:\a\openblas
+        run: |
+          $vcpath = Get-ChildItem 'C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC'
+          $dumpbin = "$($vcpath[0].FullName)\bin\Hostx64\x64\dumpbin.exe"
+          & $dumpbin /DEPENDENTS .\build\Release\block2.cp313-win_amd64.pyd
+          $xpwd = Get-Location
+          $env:PYTHONPATH = "${xpwd};${xpwd}\build\Release;" + $env:PYTHONPATH
+          $env:PATH = "${env:BLAS_ROOT}\bin;" + $env:PATH
+          $env:PATH = "${env:Python_ROOT_DIR}\Library\bin;" + $env:PATH
+          $env:PATH = "${env:Python_ROOT_DIR};" + $env:PATH
+          $env:PATH = "$($vcpath[0].FullName)\bin\Hostx64\x64;" + $env:PATH
+          $env:block2main = "${xpwd}\pyblock2\driver\block2main"
+          python -m pip install 'scipy==1.14.1'
+          cd pyblock2\main_test
+          .\run-test.ps1
+
+      - name: run test (main-test, linux)
+        if: matrix.parallel == 'main-test' && matrix.os == 'ubuntu-24.04'
+        run: |
+          python -m pip install pytest 'pyscf==2.6.2' 'scipy==1.14.1'
+          export PYTHONPATH=$(pwd)/build:$(pwd):${PYTHONPATH}
+          export PATH=$(pwd)/pyblock2/driver:$PATH
+          export CPUTYPE=$(lscpu | grep 'Vendor ID' | awk '{print $3}')
+          if [ "$CPUTYPE" = "AuthenticAMD" ]; then
+            export LD_PRELOAD=$PWD/libfixcpu.so
+          fi
+          echo $LD_PRELOAD
+          cd pyblock2/main_test
+          ./run-test.sh
+      
+      - name: run test (main-test, linux arm)
+        if: matrix.parallel == 'main-test' && matrix.os == 'ubuntu-24.04-arm'
+        run: |
+          python -m pip install pytest 'pyscf==2.6.2' 'scipy==1.14.1'
+          export PYTHONPATH=$(pwd)/build:$(pwd):${PYTHONPATH}
+          export PATH=$(pwd)/pyblock2/driver:$PATH
+          cd pyblock2/main_test
+          ./run-test.sh
+
+      - name: run test (main-test, macos)
+        if: matrix.parallel == 'main-test' && matrix.os == 'macos-15'
+        run: |
+          python -m pip install pytest 'pyscf==2.6.2' 'scipy==1.14.1'
+          export PYTHONPATH=$(pwd)/build:$(pwd):${PYTHONPATH}
+          export PATH=$(pwd)/pyblock2/driver:$PATH
+          cd pyblock2/main_test
+          ./run-test.sh
+
+      - name: run test (any-symm-pytest, windows)
+        if: matrix.parallel == 'any-symm-pytest' && matrix.os == 'windows-2025-vs2026'
+        env:
+          BLAS_ROOT: D:\a\openblas
+        run: |
+          $vcpath = Get-ChildItem 'C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC'
+          $dumpbin = "$($vcpath[0].FullName)\bin\Hostx64\x64\dumpbin.exe"
+          & $dumpbin /DEPENDENTS .\build\Release\block2.cp313-win_amd64.pyd
+          $xpwd = Get-Location
+          $env:PYTHONPATH = "${xpwd};${xpwd}\build\Release;" + $env:PYTHONPATH
+          $env:PATH = "${env:BLAS_ROOT}\bin;" + $env:PATH
+          $env:PATH = "${env:Python_ROOT_DIR}\Library\bin;" + $env:PATH
+          $env:PATH = "${env:Python_ROOT_DIR};" + $env:PATH
+          $env:PATH = "$($vcpath[0].FullName)\bin\Hostx64\x64;" + $env:PATH
+          python -m pip install pytest scipy
+          python -m pytest -s pyblock2/unit_test/dmrg.py pyblock2/unit_test/dmrg_mpo.py pyblock2/unit_test/dmrg_npdm.py pyblock2/unit_test/dmrg_pde.py --symm sany --fd_data=${xpwd}/data
+
+      - name: run test (any-symm-pytest, linux)
+        if: matrix.parallel == 'any-symm-pytest' && matrix.os == 'ubuntu-24.04'
+        run: |
+          python -m pip install pytest 'pyscf==2.6.2' 'scipy==1.14.1'
+          export PYTHONPATH=$(pwd)/build:$(pwd):${PYTHONPATH}
+          export CPUTYPE=$(lscpu | grep 'Vendor ID' | awk '{print $3}')
+          if [ "$CPUTYPE" = "AuthenticAMD" ]; then
+            export LD_PRELOAD=$PWD/libfixcpu.so
+          fi
+          echo $LD_PRELOAD
+          py.test -s pyblock2/unit_test/*.py --symm sany
+      
+      - name: run test (any-symm-pytest, linux arm)
+        if: matrix.parallel == 'any-symm-pytest' && matrix.os == 'ubuntu-24.04-arm'
+        run: |
+          python -m pip install pytest 'pyscf==2.6.2' 'scipy==1.14.1'
+          export PYTHONPATH=$(pwd)/build:$(pwd):${PYTHONPATH}
+          py.test -s pyblock2/unit_test/*.py --symm sany
+
+      - name: run test (any-symm-pytest, macos)
+        if: matrix.parallel == 'any-symm-pytest' && matrix.os == 'macos-15'
+        run: |
+          python -m pip install pytest 'pyscf==2.6.2' 'scipy==1.14.1'
+          export PYTHONPATH=$(pwd)/build:$(pwd):${PYTHONPATH}
+          py.test -s pyblock2/unit_test/*.py --symm sany
+
+      - name: build test (mpi)
+        if: matrix.parallel == 'mpi'
+        env:
+          MKLROOT: ~/.local
+        run: |
+          sed -i "s|unit_test/test_|unit_test/mpi/test_|" CMakeLists.txt
+          mkdir build_test
+          cd build_test
+          cmake .. -DUSE_MKL=ON -DBUILD_TEST=ON -DLARGE_BOND=ON -DMPI=ON -DUSE_COMPLEX=ON -DUSE_SINGLE_PREC=ON -DUSE_SG=ON
+          make -j 1 # memory issue of mpi compiler
+
+      - name: run test (mpi)
+        if: matrix.parallel == 'mpi'
+        run: |
+          export CPUTYPE=$(lscpu | grep 'Vendor ID' | awk '{print $3}')
+          if [ "$CPUTYPE" = "AuthenticAMD" ]; then
+            export LD_PRELOAD=$PWD/libfixcpu.so
+          fi
+          cd build_test
+          mpirun -n 2 ./block2_tests
+
+  build:
+    name: build ${{ matrix.python }} ${{ matrix.os }} ${{ matrix.plat }} ${{ matrix.parallel }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ ubuntu-24.04, ubuntu-24.04-arm, windows-2025-vs2026, macos-15 ]
+        python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t' ]
+        manylinux: [ '2014', 2014-aarch64 ]
+        plat: [ x86_64, arm64, aarch64 ]
+        parallel: [ mpi, serial ]
+        exclude:
+          - manylinux: 2014-aarch64
+            plat: arm64
+          - manylinux: 2014-aarch64
+            plat: x86_64
+          - manylinux: 2014-aarch64
+            parallel: mpi
+          - manylinux: 2014
+            plat: aarch64
+          - os: macos-15
+            parallel: mpi
+          - os: macos-15
+            plat: x86_64
+          - os: macos-15
+            manylinux: 2014-aarch64
+          - os: ubuntu-24.04
+            plat: arm64
+          - os: ubuntu-24.04
+            manylinux: 2014-aarch64
+          - os: windows-2025-vs2026
+            parallel: mpi
+          - os: windows-2025-vs2026
+            plat: arm64
+          - os: windows-2025-vs2026
+            manylinux: 2014-aarch64
+          - os: ubuntu-24.04-arm
+            manylinux: 2014
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - if: matrix.os == 'macos-15' || matrix.os == 'windows-2025-vs2026'
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-24.04-arm'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - if: matrix.os == 'macos-15'
+        run: |
+          brew update
+          brew install libomp
+          brew install gnu-sed
+
+      - name: install requirements (linux / macos)
+        if: matrix.os == 'ubuntu-24.04'
+        env:
+          MKLROOT: ~/.local
+        run: |
+          export PYT=$(which python)
+          python -m pip install pip build twine setuptools --upgrade
+          python -m pip install mkl==2024.2.2 mkl-include intel-openmp numpy 'cmake>=3.19' pybind11==2.12.0
+
+      - name: install requirements (linux / macos)
+        if: matrix.os == 'macos-15'
+        env:
+          MKLROOT: ~/.local
+        run: |
+          export PYT=$(which python)
+          python -m pip install pip build twine setuptools --upgrade
+          python -m pip install numpy 'cmake>=3.19' pybind11==2.12.0
+
+      - name: install requirements (windows)
+        if: matrix.os == 'windows-2025-vs2026'
+        env:
+          BLAS_ROOT: D:\a\openblas
+        run: |
+          python -m pip install pip build twine setuptools --upgrade
+          python -m pip install intel-openmp==2024.1.0 numpy 'cmake>=3.19' pybind11==2.12.0
+          $file = "https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.27/OpenBLAS-0.3.27-x64.zip"
+          Invoke-WebRequest -Uri $file -OutFile "OpenBLAS-0.3.27-x64.zip"
+          Expand-Archive -Path "OpenBLAS-0.3.27-x64.zip" -DestinationPath $env:BLAS_ROOT
+
+      - name: build wheels (windows)
+        if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'windows-2025-vs2026'
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+          BLAS_ROOT: D:\a\openblas
+        run: |
+          $tagstr = ${env:TAG_STRING}.Substring(11)
+          echo $tagstr
+          sed -i "s/version=.*/version=`"${tagstr}`",/" setup.py
+          sed -i "s/version = .*/version = `"${tagstr}`"/" pyproject.toml
+          sed -i "/mkl/d" pyproject.toml
+          sed -i "/scipy/d" pyproject.toml
+          sed -i "/DUSE_SINGLE_PREC/d" setup.py
+          sed -i "/DUSE_MKL/c \                '-DUSE_MKL=OFF'," setup.py
+          sed -i "/DUSE_MKL/a \                '-DUSE_BIG_SITE=OFF'," setup.py
+          sed -i "/DUSE_MKL/a \                '-DUSE_SP_DMRG=OFF'," setup.py
+          sed -i "/DUSE_MKL/a \                '-DUSE_IC=OFF'," setup.py
+          sed -i "/DBUILD_EXE/c \                '-DBUILD_EXE=OFF'," setup.py
+          sed -i "/  `"block2`"/d" setup.py
+          ${env:OMPROOT} = "${env:Python_ROOT_DIR}\Library"
+          cmake --version
+          python -m pip install wheel delvewheel==1.7.1
+          python -m pip wheel . -w ./dist --no-deps
+          $env:PATH = "${env:BLAS_ROOT}\bin;" + $env:PATH
+          $env:PATH = "${env:Python_ROOT_DIR}\Library\bin;" + $env:PATH
+          $env:PATH = "${env:Python_ROOT_DIR};" + $env:PATH
+          $vcpath = Get-ChildItem 'C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC'
+          $env:PATH = "$($vcpath[0].FullName)\bin\Hostx64\x64;" + $env:PATH
+          $rr = Get-ChildItem -Path dist/*.whl
+          Write-Output "$($rr[0].FullName)"
+          delvewheel repair "$($rr[0].FullName)" -v -w dist
+
+      - name: build wheels (macos-arm64)
+        if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'macos-15' && matrix.plat == 'arm64'
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+        run: |
+          export PATH=/opt/homebrew/opt/gnu-sed/libexec/gnubin:$PATH
+          echo ${TAG_STRING:11}
+          export OMPROOT=$(brew --prefix libomp)
+          echo ${OMPROOT}
+          gsed -i "s/version=.*/version='${TAG_STRING:11}',/" setup.py
+          gsed -i "s/version = .*/version = \"${TAG_STRING:11}\"/" pyproject.toml
+          gsed -i "/DUSE_MKL/a \                '-DOMP_LIB=OMP'," setup.py
+          gsed -i "/DUSE_MKL/a \                '-DARCH_ARM64=ON'," setup.py
+          gsed -i "/DUSE_MKL/a \                '-DFORCE_LIB_ABS_PATH=OFF'," setup.py
+          gsed -i "/DUSE_MKL/a \                '-DCMAKE_CXX_FLAGS=-I${OMPROOT}/include'," setup.py
+          gsed -i "/mkl/d" pyproject.toml
+          gsed -i "/intel-openmp/d" pyproject.toml
+          gsed -i "/DUSE_MKL/c \                '-DUSE_MKL=OFF'," setup.py
+          cmake --version
+          python -m pip install wheel delocate==0.10.7
+          export _PYTHON_HOST_PLATFORM="macosx-15.0-arm64"
+          xcrun --sdk macosx --show-sdk-path
+          export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
+          export PLAT="arm64"
+          python -m pip wheel . -w ./dist --no-deps
+          delocate-wheel --require-archs=arm64 -k dist/*.whl
+
+      - name: prepare build wheels (manylinux)
+        if: startsWith(github.ref, 'refs/tags/') && (matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-24.04-arm')
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+        run: |
+          echo ${TAG_STRING:11}
+          sed -i "s/version=.*/version='${TAG_STRING:11}',/" setup.py
+          sed -i "s/version = .*/version = \"${TAG_STRING:11}\"/" pyproject.toml
+          cp ./.github/actions/build-wheel/Dockerfile.manylinux${{ matrix.manylinux }} ./.github/actions/build-wheel/Dockerfile
+
+      - name: build wheels (manylinux)
+        if: startsWith(github.ref, 'refs/tags/') && (matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-24.04-arm')
+        uses: ./.github/actions/build-wheel
+        with:
+          python-version: ${{ matrix.python }}
+          parallel: ${{ matrix.parallel }}
+
+      - name: release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
+      - name: upload artifacts
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.parallel }}-${{ matrix.python }}-${{ matrix.os }}-${{ matrix.plat }}
+          path: dist
+          retention-days: 2
+
+  pypi:
+    name: pypi
+    needs: [build, test]
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/')
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: build source dist (serial)
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+        run: |
+          echo ${TAG_STRING:11}
+          sed -i "s/version=.*/version='${TAG_STRING:11}',/" setup.py
+          sed -i "s/version = .*/version = \"${TAG_STRING:11}\"/" pyproject.toml
+          python -m pip install pip build twine setuptools --upgrade
+          python -m build --sdist
+
+      - name: release (serial)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
+      - name: build source dist (mpi)
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+        run: |
+          rm -r dist
+          echo ${TAG_STRING:11}
+          sed -i "/DUSE_MKL/a \                '-DMPI=ON'," setup.py
+          sed -i "s/name=\"block2\"/name=\"block2-mpi\"/g" setup.py
+          sed -i "s/name = \"block2\"/name = \"block2-mpi\"/g" pyproject.toml
+          sed -i "s/version=.*/version='${TAG_STRING:11}',/" setup.py
+          sed -i "s/version = .*/version = \"${TAG_STRING:11}\"/" pyproject.toml
+          python -m build --sdist
+          stat dist/block2_mpi-${TAG_STRING:11}.tar.gz
+
+      - name: release (mpi)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
+      - name: build index
+        env:
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python .github/workflows/build_pypi.py ${REPO} ./idx-dist/pypi
+
+      - name: setup pages
+        uses: actions/configure-pages@v5
+
+      - name: upload artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './idx-dist'
+
+      - name: deploy to gitHub pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  publish:
+    name: publish
+    needs: [build, test]
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: build source dist (serial)
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+        run: |
+          echo ${TAG_STRING:11}
+          sed -i "s/version=.*/version='${TAG_STRING:11}',/" setup.py
+          sed -i "s/version = .*/version = \"${TAG_STRING:11}\"/" pyproject.toml
+          python -m pip install pip build twine setuptools --upgrade
+          python -m build --sdist
+
+      - name: download wheels (serial)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-serial-*
+          path: dist
+          merge-multiple: true
+
+      - name: publish to pypi (serial)
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: build source dist (mpi)
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+        run: |
+          rm -r dist
+          echo ${TAG_STRING:11}
+          sed -i "/DUSE_MKL/a \                '-DMPI=ON'," setup.py
+          sed -i "s/name=\"block2\"/name=\"block2-mpi\"/g" setup.py
+          sed -i "s/name = \"block2\"/name = \"block2-mpi\"/g" pyproject.toml
+          sed -i "s/version=.*/version='${TAG_STRING:11}',/" setup.py
+          sed -i "s/version = .*/version = \"${TAG_STRING:11}\"/" pyproject.toml
+          python -m build --sdist
+
+      - name: download wheels (mpi)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-mpi-*
+          path: dist
+          merge-multiple: true
+
+      - name: publish to pypi (mpi)
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  check:
+    name: check ${{ matrix.python }} ${{ matrix.os }} ${{ matrix.plat }} ${{ matrix.parallel }}
+    needs: [pypi]
+    runs-on: ${{ matrix.os }}
+    if: startsWith(github.ref, 'refs/tags/')
+
+    strategy:
+      matrix:
+        os: [ ubuntu-24.04, ubuntu-24.04-arm, windows-2025-vs2026, macos-15 ]
+        python: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t' ]
+        manylinux: [ '2014', 2014-aarch64 ]
+        plat: [ x86_64, arm64, aarch64 ]
+        parallel: [ mpi, serial ]
+        exclude:
+          - manylinux: 2014-aarch64
+            plat: arm64
+          - manylinux: 2014-aarch64
+            plat: x86_64
+          - manylinux: 2014-aarch64
+            parallel: mpi
+          - manylinux: 2014
+            plat: aarch64
+          - os: macos-15
+            parallel: mpi
+          - os: macos-15
+            plat: x86_64
+          - os: macos-15
+            manylinux: 2014-aarch64
+          - os: ubuntu-24.04
+            plat: arm64
+          - os: ubuntu-24.04
+            manylinux: 2014-aarch64
+          - os: windows-2025-vs2026
+            parallel: mpi
+          - os: windows-2025-vs2026
+            plat: x86_64
+          - os: windows-2025-vs2026
+            plat: arm64
+          - os: windows-2025-vs2026
+            manylinux: 2014-aarch64
+          - os: ubuntu-24.04-arm
+            manylinux: 2014
+      fail-fast: false
+
+    steps:
+
+      - if: matrix.os == 'macos-15' || matrix.os == 'windows-2025-vs2026'
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - if: matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-24.04-arm'
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - if: matrix.os == 'macos-15'
+        run: |
+          brew update
+          brew install libomp
+
+      - name: install requirements
+        run: |
+          python -m pip install pip setuptools --upgrade
+          python -m pip install pytest scipy
+
+      - name: install requirements
+        if: matrix.os != 'windows-2025-vs2026'
+        run: |
+          python -m pip install pyscf
+
+      - name: install mpi
+        if: matrix.os == 'ubuntu-24.04' && matrix.parallel == 'mpi'
+        run: |
+          wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.5.tar.gz
+          tar zxf openmpi-5.0.5.tar.gz
+          cd openmpi-5.0.5
+          ./configure --prefix=/usr/local |& tee config.out
+          make -j 4 |& tee make.out
+          sudo make install |& tee install.out
+          cd ..
+
+      - name: install block2 (windows)
+        if: matrix.os == 'windows-2025-vs2026'
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+        run: |
+          $tagstr = ${env:TAG_STRING}.Substring(11)
+          echo $tagstr
+          python -m pip install intel-openmp==2024.1.0
+          python -m pip install "block2==${tagstr}" --extra-index-url=https://block-hczhai.github.io/block2-preview/pypi/
+
+      - name: install block2 (linux / macos)
+        if: (matrix.os == 'ubuntu-24.04' || matrix.os == 'ubuntu-24.04-arm' || matrix.os == 'macos-15') && matrix.parallel != 'mpi'
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+        run: |
+          echo ${TAG_STRING:11}
+          python -m pip install "block2==${TAG_STRING:11}" --extra-index-url=https://block-hczhai.github.io/block2-preview/pypi/
+
+      - name: install block2 (mpi)
+        if: matrix.os == 'ubuntu-24.04' && matrix.parallel == 'mpi'
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+        run: |
+          echo ${TAG_STRING:11}
+          python -m pip install "block2-mpi==${TAG_STRING:11}" --extra-index-url=https://block-hczhai.github.io/block2-preview/pypi/
+
+      - name: fix mkl for amd cpu
+        if: matrix.os == 'ubuntu-24.04' && matrix.plat == 'x86_64'
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: |
+          lscpu
+          export CPUTYPE=$(lscpu | grep 'Vendor ID' | awk '{print $3}')
+          echo $CPUTYPE
+          if [ "$CPUTYPE" = "AuthenticAMD" ]; then
+            echo "int mkl_serv_intel_cpu_true() { return 1; }" > fixcpu.c
+            echo "int (*mkl_serv_get_cpu_true(void))(void) { return &mkl_serv_intel_cpu_true; }" >> fixcpu.c
+            $CC -shared -fPIC -o libfixcpu.so fixcpu.c
+          fi
+          getconf LONG_BIT
+
+      - name: run test (windows)
+        if: matrix.os == 'windows-2025-vs2026'
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+        run: |
+          $tagstr = ${env:TAG_STRING}.Substring(10)
+          git clone https://github.com/block-hczhai/block2-preview.git -b $tagstr
+          $xpwd = Get-Location
+          cd block2-preview\pyblock2
+          python -m pytest -v unit_test\dmrg.py unit_test\dmrg_mpo.py unit_test\dmrg_npdm.py unit_test\dmrg_pde.py --symm sany --fd_data=${xpwd}\block2-preview\data
+
+      - name: run test (linux / macos)
+        if: matrix.os == 'ubuntu-24.04'
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+        run: |
+          export CPUTYPE=$(lscpu | grep 'Vendor ID' | awk '{print $3}')
+          if [ "$CPUTYPE" = "AuthenticAMD" ]; then
+            export LD_PRELOAD=$PWD/libfixcpu.so
+          fi
+          echo $LD_PRELOAD
+          git clone https://github.com/block-hczhai/block2-preview.git -b ${TAG_STRING:10}
+          cd block2-preview/pyblock2
+          export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+          python -m pytest -v unit_test/*.py --symm sany
+
+      - name: run test (linux / macos arm)
+        if: matrix.os == 'ubuntu-24.04-arm' || matrix.os == 'macos-15'
+        env:
+          TAG_STRING: ${{ github.event.ref }}
+        run: |
+          git clone https://github.com/block-hczhai/block2-preview.git -b ${TAG_STRING:10}
+          cd block2-preview/pyblock2
+          python -m pytest -v unit_test/*.py --symm sany

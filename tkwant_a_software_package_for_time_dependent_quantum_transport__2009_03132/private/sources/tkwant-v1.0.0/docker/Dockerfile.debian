@@ -1,0 +1,31 @@
+# Docker image for building and testing tkwant
+
+FROM debian:stable
+MAINTAINER Kwant developers <authors@kwant-project.org>
+
+RUN apt-get update && apt-get install -y --no-install-recommends\
+    # CI requirements
+    apt-transport-https file openssh-client rsync\
+    # all the hard non-Python dependencies
+    git g++ make patch gfortran libblas-dev liblapack-dev librsb-dev\
+    libmumps-scotch-dev pkg-config libfreetype6-dev texlive texlive-latex-extra\
+    dvipng\
+    # all the hard Python dependencies -- use the distribution's
+    # repositories so we don't rely on versions that are too new
+    python3-all-dev python3-pip python3-setuptools python3-tk python3-matplotlib\
+    cython3 python3-numpy python3-scipy python3-mpi4py python3-sympy
+
+RUN pip3 install wheel
+
+# install additional packages + kwant
+RUN pip3 install --upgrade\
+    tinyarray\
+    git+https://gitlab.kwant-project.org/kwant/kwant.git\
+    kwantspectrum
+
+# install testing and documentation building dependencies
+RUN pip3 install --upgrade\
+    pytest pytest-cov pytest-flake8\
+    # and documentation building dependencies
+    sphinx sphinx_rtd_theme numpydoc nbsphinx ipykernel jupyter_client\
+    git+https://github.com/jupyter/jupyter-sphinx.git

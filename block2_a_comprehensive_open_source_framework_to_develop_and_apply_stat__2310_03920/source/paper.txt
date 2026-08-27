@@ -1,0 +1,2178 @@
+Block2: a comprehensive open source framework to develop and apply
+state-of-the-art DMRG algorithms in electronic structure and beyond
+Huanchen Zhai,a) Henrik R. Larsson,b) Seunghoon Lee,c) Zhi-Hao Cui,d) Tianyu Zhu,e) Chong Sun,f) Linqing
+Peng, Ruojing Peng, Ke Liao,g) Johannes T¨ olle, Junjie Yang, Shuoxue Li, and Garnet Kin-Lic Chanh)
+Division of Chemistry and Chemical Engineering, California Institute of Technology, Pasadena, CA 91125,
+USA
+(Dated: 28 November 2023)
+block2 is an open source framework to implement and perform density matrix renormalization group and
+matrix product state algorithms. Out-of-the-box it supports the eigenstate, time-dependent, response, and
+finite-temperature algorithms. In addition, it carries special optimizations for ab initio electronic structure
+Hamiltonians and implements many quantum chemistry extensions to the density matrix renormalization
+group, such as dynamical correlation theories. The code is designed with an emphasis on flexibility, extensi-
+bility, and efficiency, and to support integration with external numerical packages. Here we explain the design
+principles and currently supported features and present numerical examples in a range of applications.
+I. INTRODUCTION
+The density matrix renormalization group (DMRG)
+algorithm1–3 is now a widely used numerical approach to
+obtain the low-energy eigenstates and other properties of
+a wide range of systems of interest in electronic structure,
+such as strongly correlated low-dimensional models, 4–8
+large active space problems in quantum chemistry, 9–18
+electronic quantum dynamics, 19,20 and even models to
+benchmark quantum computing protocols. 21,22 Over the
+last several decades, there have been many develop-
+ments and extensions of the original algorithm for
+these applications.23–25 For example, dynamical electron
+correlation,26,27 the effects of finite temperature, 28,29
+relativistic effects, 30 time-dependent phenomena, 31 and
+frequency-dependent32 response properties, can now all
+be treated within the DMRG framework.
+In parallel with these theoretical advances, we have
+also witnessed the success of many different DMRG im-
+plementations for electronic structure, 11,13,33–44 which
+together have helped demonstrate the power of DMRG
+in different settings. However, as more extensions of the
+DMRG algorithm have appeared and as DMRG tech-
+niques have grown to encompass more applications, so
+has the complexity grown in many implementations.
+a)Electronic mail: hczhai.ok@gmail.com
+b)Present address: Department of Chemistry and Biochemistry,
+University of California, Merced, CA 95343, USA
+c)Present address: Department of Chemistry, Seoul National Uni-
+versity, Seoul 151-747, South Korea
+d)Present address: Department of Chemistry, Columbia University,
+New York, NY 10027, USA
+e)Present address: Department of Chemistry, Yale University, New
+Haven, CT 06520, USA
+f)Present address: Department of Chemistry, Rice University,
+Houston, Texas 77005, USA
+g)Present address: Department of Physics and Arnold Sommerfeld
+Center for Theoretical Physics, Ludwig-Maximilians-Universit¨ at
+M¨ unchen, D-80333 Munich, Germany
+h)Electronic mail: gkc1000@gmail.com
+The new open source block2 code45 introduced here,
+represents an effort to provide users with a comprehen-
+sive set of state-of-the-art DMRG algorithms used to-
+day in electronic structure and other applications, while
+enabling access to the development and extensions of
+these methods. To this end, the core design principles
+in block2 aim to balance efficiency, flexibility, and sim-
+plicity. For example:
+(i) For efficiency and flexibility, we provide a special
+highly optimized DMRG implementation for the stan-
+dard quantum chemistry Hamiltonian, but many of the
+optimizations also accelerate computations with arbi-
+trary sparse Hamiltonians, thus enabling production level
+applications involving custom Hamiltonians.
+(ii) For efficiency and simplicity, we provide both opti-
+mized and unoptimized implementations of most features
+in the code, so a developer can always start with the
+simplest version to explore new ideas, or compare dif-
+ferent implementations to understand our optimization
+techniques. The framework supports both the matrix
+product state (MPS)/matrix product operator (MPO)
+and renormalized operator views of DMRG algorithms,
+balancing the ease of expressing algorithms with opti-
+mized performance.
+(iii) For flexibility and simplicity, while the algorithms
+in block2 support general Hamiltonian and operator
+expressions, e.g. arbitrary-order interactions, arbitrary-
+order density matrix computations, and arbitrary-order
+excitations, the computations can be specified through a
+simple symbolic Python syntax.
+We note that to achieve the above design goals, many
+implementations in block2 use techniques that to our
+knowledge have not been published in the literature. The
+following does not attempt to provide a full description
+of the implementation, which after all comprises approx-
+imately 200,000 lines of code. Instead, we introduce a
+sample of the existing features of block2, some ideas
+behind the implementation, and how the capabilities are
+used in applications and algorithm development.
+arXiv:2310.03920v2  [physics.chem-ph]  25 Nov 2023
+2
+II. PROGRAM FEATURES
+A. Standard DMRG
+block2 provides a highly optimized and flexible im-
+plementation of the DMRG algorithm for solving various
+aspects of the electronic structure problem using ab ini-
+tio and model Hamiltonians. This section presents an
+overview of the most common features of the code used
+in electronic structure calculations.
+1. Ab initio DMRG and symmetries
+The most common application of the ab initio DMRG
+algorithm is to compute a many-body ground state wave-
+function with some desired symmetries. 2,35,41,42,46–48
+One first requires the Hamiltonian expressed in a basis of
+orthogonal orbitals, which form the sites in DMRG. Such
+orbitals, and the corresponding Hamiltonian integrals,
+can be computed by many quantum chemistry packages,
+for example, PySCF.49,50
+The Hamiltonian expressed in the chosen orbital ba-
+sis typically has a number of symmetries. block2 has
+built-in efficient support for many different symmetries
+[including particle-number U(1), 34 total spin SU(2), 35
+projected spin U(1), 34 K-point Zn,51 SO(4) in the Hub-
+bard model,52,53 and the Abelian point group (D 2h and
+its subgroups24)] and is designed to be easily extensible
+to other symmetries.
+Fig. 1 illustrates the computational scaling with bond
+dimension of the ab initioDMRG algorithm implemented
+in block2 using different spin symmetries. We note that
+the actual scaling of ab initio DMRG is lower than the
+formal O(M3) scaling (where M is the MPS bond dimen-
+sion), mainly due to the use of symmetries and block-
+sparse matrix operations.54
+2. Sweep algorithms
+Standard DMRG optimizations (sweeps) update the
+wavefunction in one of two ways, termed the two-site
+and one-site algorithms.2,56,57 The local Hilbert space in
+DMRG refers to the Fock space of the site, which is of,
+e.g. dimension d = 4 for a spatial orbital and d = 2 for
+a spin orbital. Assuming each DMRG site is a spatial
+orbital, the two-site algorithm uses the product space of
+the larger two-site local Hilbert space d = 16 and the
+left and right block renormalized states to represent the
+DMRG renormalized wavefunction (which helps escape
+from local minima) while the one-site algorithm substi-
+tutes the d = 4 local Hilbert space, lowering memory
+and computational costs. An effective “half-site” calcu-
+lation with d = 2 can also be performed by using the
+one-site algorithm with spin orbital sites. One can also
+fuse sites in the sweep [by contracting adjacent tensors in
+the Hamiltonian matrix product operator (MPO)] before
+1000 2000 3000 4000 5000
+MPS bond dimension M
+102
+103
+104
+Wall time per sweep T (seconds)
+[Fe2S(CH3)(SCH3)4]3
+Fit T = M2.40/ 194476
+DMRG (non-spin-adapted)
+Fit T = M2.18/ 18450
+DMRG (spin-adapted)
+FIG. 1. The scaling of DMRG wall time (using 24 CPU
+cores) per sweep with respect to the MPS bond dimension
+M, for the (36o, 48e) active space of a protonated iron sul-
+fur dimer [Fe2S(CH3)(SCH3)4]3−. The active space model is
+from Ref. 55. Spin-adapted uses particle-number and SU(2)
+symmetry, while non-spin-adapted uses particle-number and
+projected-spin U(1) symmetry.
+performing DMRG, allowing block2 to perform larger
+site sweep optimizations.
+We note that the dimension of the local Hilbert space
+on different sites need not be the same. For example,
+DMRG algorithms with one or two large sites 58 use a
+single site to represent all the virtual and/or core orbitals
+to efficiently treat dynamic correlation. In such cases,
+block2 supports mixing the one-site and two-site sweep
+algorithms to balance efficiency and accuracy. 58
+3. Excited states
+The ground-state DMRG algorithm can be extended to
+optimize excited states and such excited-state algorithms
+are available in block2. The excited-state algorithms
+implemented in block2 take the following forms:
+(i) The state-averaged DMRG approach.59 In this for-
+malism, there is a common set of rotation matrices for all
+states, but the center site carries a unique tensor (renor-
+malized wavefunction) for each state. This algorithm is
+normally a robust and convenient choice for tens of roots,
+but for a given bond dimension, the accuracy decreases
+as the number of roots is increased.
+(ii) The projected orthogonalization approach. 40,60,61
+To improve the quality of the states obtained from the
+state-averaged DMRG, one can further refine each ex-
+cited state (as an independent MPS) by projecting out
+lower-lying states when optimizing the central site.
+(iii) The level-shift approach. 33,39 Here, we compute
+the ground and excited states one-by-one with a modified
+3
+level-shifted Hamiltonian defined as
+ˆH′
+k = ˆH +
+k−1X
+i=1
+wi|Ψi⟩⟨Ψi| (1)
+where |Ψi⟩ are the converged states below the targeted
+excited state |Ψk⟩, and wi are the energy level shifts.
+This can be combined with the state-averaged ansatz to
+determine batches of states at a time.
+(iv) The Harmonic Davidson approach.59 By changing
+the standard Davidson solver to the Harmonic Davidson
+solver, one can directly target interior excited states close
+to a given energy without computing all the states below.
+In the current implementation of block2, this approach
+is not as stable as the above approaches for dense spectra.
+4. Relativistic effects
+Relativistic effects can be classified into scalar rela-
+tivistic and spin-dependent relativistic effects, 62 where
+the mean-field level scalar relativistic effects can be de-
+scribed inexpensively.63 Block2 supports several strate-
+gies to include the scalar and spin-dependent relativistic
+effects.
+(i) Relativistic DMRG. 64–66 We can directly solve
+for eigenstates of four-component Dirac-Coulomb,
+Dirac-Coulomb-Gaunt, or Dirac-Coulomb-Breit
+Hamiltonians.67 Here DMRG is performed in com-
+plex number mode where both the MPS and MPO are
+complex.
+(ii) One-step SOC-DMRG. 68 Within the two-
+component formalism of relativistic quantum chemistry,
+we can include spin-orbit coupling (SOC) by adding a
+SOC term to the scalar-relativistic Hamiltonian, and
+then perform DMRG on this two-component Hamil-
+tonian with a complex MPO and MPS. Alternatively,
+we can simplify the SOC term within the spin-orbit
+mean-field (SOMF) approximation,69 giving rise to com-
+plex one-electron and real two-electron integrals. One
+can then represent the Hamiltonian as the sum of two
+MPOs where the expensive two-electron interaction is
+contained only in the second MPO, which is completely
+real.68 One then runs block2 in the hybrid complex
+and real arithmetic DMRG mode, where the real and
+imaginary parts of the effective wavefunction share the
+same real rotation matrices in the MPS.
+(iii) Two-step SOC-DMRG.30,70,71 When the SOC ef-
+fect is weak, we can first compute eigenstates of the
+scalar-relativistic Hamiltonian. Then SOC effects can
+be added by carrying out the state-interaction of a small
+number of eigenstates.
+Fig. 2 shows a numerical comparison of the accuracy
+of the 1-step and 2-step SOC-DMRG treatments.
+189 273 441
+Number of 2-step pure-spin states
+10 1
+100
+101
+102
+|E2 step E1 step| (cm 1)
+[DyCl6]3
+2nd excited state (with SOC)
+15th excited state (with SOC)
+FIG. 2. The energy difference between representative excited
+states computed from the 1-step and 2-step SOC-DMRG ap-
+proaches, for the (7o, 9e) active space of the [DyCl6]3− cluster.
+Adapted from Fig. 4(a) in Ref. 68.
+5. Non-standard Hamiltonians and operators
+In addition to computations involving the standard
+Hermitian quantum chemistry Hamiltonian with up to
+two-body interaction terms, block2 supports the use of
+other types of non-standard Hamiltonians and operators
+in DMRG algorithms and/or MPO/MPS operations.
+(i) General Hamiltonians with high-order interactions.
+Using the techniques in Section II C, block2 supports
+DMRG computations with arbitrary parity-preserving
+(i.e. even number of creation and annihilation opera-
+tor) Hamiltonians. For example, DMRG calculations
+can be carried out for Hamiltonians with three-body
+or up to n-body terms. We note that higher than
+two-body terms appear commonly in quantum chem-
+istry in effective Hamiltonians obtained from similarity
+transformations72 or canonical transformations 73–76 of
+the ab initio Hamiltonians.
+(ii) Normal-ordered Hamiltonians.77 The DMRG algo-
+rithm can work instead with the normal-ordered version
+of a Hamiltonian where the vacuum expectation value is
+separated out. This can make the DMRG algorithm with
+reduced floating point precision numerically more stable.
+(iii) Non-Hermitian Hamiltonians. 72,78–80 This allows
+DMRG to be used, for example, with Hamiltonians that
+arise from many-body similarity transformations, such as
+in coupled cluster theory or the transcorrelated method.
+(iv) Anti-Hermitian operators. block2 has special
+support for anti-Hermitian operators. Exponentials of
+anti-Hermitian operators appear in various applications,
+most notably, when performing orbital rotations of the
+MPS, or in canonical transformation theory. 74 The ex-
+plicit support for anti-Hermitian operators allows such
+unitaries to be expressed as an exponential of a real
+MPO, thus avoiding complex arithmetic.
+4
+(v) General MPO and MPS operations with arbitrary
+operators. block2 supports MPO and MPS opera-
+tions with arbitrary operators, including non-number-
+conserving operators, as described in Section II D. For
+example, to support the MPS compression approach for
+strongly-correlated NEVTP2,81 one needs to apply a par-
+tial Hamiltonian to the reference wavefunction to get the
+perturber wavefunction
+|Ψ′
+i⟩ =
+X
+abc
+viabc a†
+aa†
+bac
+
+|Ψ0⟩ (2)
+In block2 this is done by building an MPO for the op-
+erator part (as indicated by the parenthesis) in the above
+expression.
+6. Initial guesses
+block2 provides several ways to generate initial MPS
+guesses for various algorithms. It also provides an imple-
+mentation of perturbative noise56,57 which helps DMRG
+algorithms escape from poor initial guesses.
+(i) A random MPS with the desired bond dimension
+can be generated.24
+(ii) One can supply an estimate of the occupancy in-
+formation at each site from a cheaper method [e.g. cou-
+pled cluster singles and doubles (CCSD)]. block2 then
+uses this information to construct the initial quantum
+number distribution in the MPS (by assuming that the
+probability distribution of the occupancy at each site is
+independent from each other).
+(iii) We can generate an initial guess from another
+(more approximate) MPS using fitting. For example, we
+can use an MPS parameterized and optimized in the sin-
+gles and doubles excitation space to initialize the MPS
+in the full Hilbert space.
+(iv) We can construct an initial guess MPS from a
+given linear combination of determinants or Configura-
+tion State Functions (CSFs).
+7. Orbital reordering algorithms
+For a given bond dimension, the accuracy of DMRG is
+affected by the orbital ordering. 82 block2 provides sev-
+eral options to choose good orbital orderings in DMRG.
+(i) For molecules with non-trivial point group sym-
+metries, it can group the orbitals by irreducible
+representation.83,84
+(ii) For less symmetric systems, it can choose an order-
+ing using the Fiedler vector 85 of an appropriate metric
+matrix. This ordering method is very inexpensive. 86,87
+(iii) The Fiedler ordering can be further optimized us-
+ing a more expensive genetic algorithm (GA), 87 as used
+in the StackBlock code.60 In block2, this GA is reim-
+plemented with greatly increased efficiency.
+The Fiedler and GA orderings require one to define a
+metric to measure the correlation between pairs of or-
+bitals. block2 can use the absolute value of the ex-
+change matrix87 or the two-orbital mutual information
+[computed from the one- and two-orbital density matri-
+ces (1 and 2ODMs)] 88 for this purpose.
+8. DMRG-CASSCF
+For typical quantum chemistry problems, it is often
+not possible to treat all orbitals in DMRG. One can
+combine DMRG with the Complete Active Space Self-
+Consistent Field (CASSCF) method 89,90 to use DMRG
+to approximate the FCI problem within the active space
+while optimizing the active space orbitals. 91–95 Using
+block2 we can perform DMRG-CASSCF through in-
+terfaces provided by external quantum chemistry pack-
+ages, such as PySCF.49,50 With PySCF we currently
+support DMRG-CASSCF energy optimization92 for spin
+restricted and spin unrestricted orbitals, and DMRG-
+CASSCF gradients and geometry optimization94 for spin
+restricted orbitals.
+B. High performance DMRG
+Parallelization in ab initioDMRG is essential to realis-
+tic chemical problems. In block2 we have implemented
+a hierarchy of different parallel and related DMRG strate-
+gies.
+1. Standard parallelization strategies
+In a recent report, 96 we summarized five standard
+parallel DMRG strategies implemented in block2: (i)
+parallelism over the sum of sub-Hamiltonians, 97 (ii)
+parallelism over sites, 98,99 (iii) parallelism over normal
+and complementary operators,24,100 (iv) parallelism over
+symmetry sectors,11,101 and (v) parallelism within dense
+matrix multiplications.101,102 For large scale calculations,
+it is essential to combine these strategies to achieve high
+performance.96
+We have implemented most of these strategies in
+block2 not only for the ground state optimization prob-
+lem, but also for other types of calculations, such as time
+evolution and the calculation of response properties. The
+user can change the parallelization strategy at runtime to
+maximize the efficiency of custom workflows
+Fig. 3 shows a numerical example of the performance
+of parallel DMRG.
+2. Integral distribution strategies
+In large ab initiocalculations, the memory to store the
+two-electron integrals of the Hamiltonian can be a bottle-
+5
+448 672 1008 1512 1960 2800
+Number of CPU cores
+1
+2
+3
+4
+5
+6Average speed-up relative to 448 cores
+ideal
+MPS bond dimension M = 3000
+MPS bond dimension M = 4000
+FIG. 3. Speed-up of average wall time per sweep relative to
+the Ncore = 448 case for different MPS bond dimensions using
+parallel DMRG algorithms, for solving the ground state in a
+(108o, 30e) active space of the benzene molecule 103 using a
+cc-pVDZ basis.104 Adapted from Fig. 4 in Ref. 96.
+neck. In block2 we provide several integral/MPO distri-
+bution strategies to balance the CPU, disk, and memory
+consumption in such calculations.
+(i) In the default strategy for small- to medium-sized
+problems, integrals are replicated across different nodes,
+which provides the most flexibility for the DMRG al-
+gorithm. In this case, we have the freedom to switch
+between the normal/complementary (NC) paralleliza-
+tion strategy and the complementary/normal (CN) par-
+allelization strategy near the middle site of a sweep, 11
+which leads to higher computational efficiency.
+(ii) For larger calculations where integral replication
+is problematic, we provide an alternative strategy where
+each node only stores the portion of integrals required
+by that node. This strategy reduces the communication
+and memory costs, at the price of slightly reduced CPU
+efficiency.96
+(iii) When the number of orbitals is large and localiza-
+tion has been performed, there are many small or close-
+to-zero integral elements. block2 can store the inte-
+grals in a compressed format to further reduce memory
+consumption, using a floating point number compression
+algorithm introduced in Ref. 96. (Note that this only
+affects the memory consumption before the Hamiltonian
+MPO is built.)
+(iv) For even larger scale applications, the MPOs con-
+structed from the sub-Hamiltonians can also consume a
+large amount of memory on each node (since each MPO
+must contain at least the same amount of information as
+contained in the integrals). To alleviate this problem, we
+can store the MPO primarily on disk and only the MPO
+tensors required at the given one or two sites in an itera-
+tion of the sweep algorithm are loaded into memory. Note
+that MPO storage is not a problem in traditional DMRG
+implementations like StackBlock where the action of
+the MPO is performed on the fly.
+(v) At the cost of introducing some error, the bond
+dimension of the sub-Hamiltonian MPOs can be com-
+pressed during the construction as described in Sec-
+tion II C.
+3. Parallelization strategies for specific tasks
+The aforementioned parallelization strategies are com-
+mon to a wide range of DMRG algorithms. We have ad-
+ditionally implemented more specialized parallelization
+strategies for some specific computational tasks.
+(i) The generation of the Hamiltonian matrix elements
+in large-site DMRG calculations (used e.g. to treat mul-
+tireference dynamical correlation58) is implemented with
+shared-memory parallelization over the determinants or
+CSFs.
+(ii) Green’s function calculations in dynamical
+DMRG105 are parallelized in a distributed manner over
+the site index of the one-particle Green’s function matrix
+element.
+(iii) Stochastic perturbative DMRG106 is implemented
+with a hybrid shared-memory and distributed paralleliza-
+tion to sample determinants or CSFs.
+(iv) The GA algorithm for orbital reordering 87 is im-
+plemented with distributed parallelization over the dif-
+ferent initial populations in a multi-start style GA algo-
+rithm.
+(v) The MPS compression step in the DMRG ver-
+sion of second order strongly-contracted N-Electron Va-
+lence States for Multireference Perturbation Theory (SC-
+NEVPT2)81 is implemented with distributed paralleliza-
+tion over virtual orbital indices.
+C. General operators and MPO construction algorithms
+block2 provides full support for algorithms involv-
+ing general Hamiltonians (and other operators) expressed
+as MPOs. The implementation in block2 is carefully
+designed to support such general operations while not
+(severely) sacrificing efficiency. As discussed in Ref. 97,
+the original ab initioDMRG algorithm107 implicitly pro-
+vides an efficient implementation of the expectation value
+of a sparse MPO, but does not explicitly construct the
+MPO. The advantages of an explicit MPO object for rel-
+evant operators and Hamiltonians is that a wider variety
+of algorithms can be easily implemented. However, naive
+implementations of the MPO for complicated operators
+such as the ab initio Hamiltonian lead to the wrong cost
+scaling.97 Consequently, block2 uses the techniques de-
+scribed below to achieve high efficiency.
+6
+1. Symbolic MPO approach for ab initio Hamiltonians
+To obtain performance competitive with traditional
+implementations of ab initio DMRG (such as the one
+found in StackBlock),34,35 Block2 provides a sym-
+bolic MPO class for ab initio Hamiltonians. Here, the
+multiplication of the MPO matrices is interpreted as a set
+of formulae that reproduce the DMRG equations in tra-
+ditional ab initio implementations. Symbolic MPOs are
+available for different spin symmetries:S2 (SU2), Sz, and
+no spin symmetry, and support the Normal/Complemen-
+tary (NC) partition, the Complementary/Normal (CN)
+partition, and the more efficient mixed partition with a
+NC to CN transformation near the middle site. 11 In ad-
+dition, simplification rules are applied during the sym-
+bolic multiplication of the MPO matrices to use the in-
+dex permutation and transposition symmetry of the nor-
+mal and complementary operators11 (such as ˆAij = − ˆAji
+where ˆAij is defined as a†
+i a†
+j). This reduces the number
+of non-redundant renormalized operators that have to be
+stored and computed during DMRG sweeps. With this
+optimization, the DMRG algorithm implemented via the
+symbolic MPO is more memory efficient than with MPOs
+constructed using other approaches. In addition, because
+the symbols correspond to the labels of renormalized op-
+erators in a traditional DMRG algorithm, we can also
+implement conventional DMRG parallelization strategies
+in the literature within this MPO approach. 97,100
+2. General MPO construction for Hamiltonians
+block2 also implements general operator and Hamil-
+tonian MPOs efficiently. At the interface level, the user
+writes the definition of the operator as a symbolic ex-
+pression, using characters in a string to represent ele-
+mentary operators such as ˆ a† and ˆa. If non-standard
+elementary operators are required, the user can define
+the matrix representation of each elementary operator
+in a Python script. Bosonic operators 108,109 and general
+Pauli strings84 are supported. Starting from such an arbi-
+trary symbolic expression of a many-body operator (such
+as the Hamiltonian), and the matrix representation of the
+involved elementary operators (in any local orthonormal
+basis), the code generates the MPO automatically. One
+can then use the MPO to optimize or evaluate expecta-
+tion values, and carry out other DMRG computations.
+Both spin-adapted and non-spin-adapted MPOs can be
+generated. Listing 1 is an example Python script for
+performing DMRG of the Hubbard-Holstein model using
+block2.
+from pyblock2 . driver . core import DMRGDriver , SymmetryTypes , MPOAlgorithmTypes
+import numpy as np
+N_SITES_ELEC , N_SITES_PH , N_ELEC = 4, 4, 4
+N_PH , U, OMEGA , G = 11 , 2, 0.25 , 0.5
+L = N_SITES_ELEC + N_SITES_PH
+driver = DMRGDriver ( scratch ="./ tmp ", symm_type = SymmetryTypes .SZ , n_threads =4)
+driver . initialize_system ( n_sites =L, n_elec = N_ELEC , spin =0)
+# [ Part A] Set states and matrix representation of operators in local Hilbert space
+site_basis , site_ops = [] , []
+Q = driver .bw.SX # quantum number wrapper ( n_elec , 2 * spin , point group irrep )
+for k in range (L):
+if k < N_SITES_ELEC :
+# electron part
+basis = [(Q(0 , 0, 0) , 1) , (Q(1 , 1, 0) , 1) , (Q(1 , -1, 0) , 1) , (Q(2 , 0, 0) , 1)] # [0 ab2 ]
+ops = {
+"": np. array ([[1 , 0, 0, 0] , [0 , 1, 0, 0] , [0 , 0, 1, 0] , [0 , 0, 0, 1]]) , # identity
+"c": np. array ([[0 , 0, 0, 0] , [1 , 0, 0, 0] , [0 , 0, 0, 0] , [0 , 0, 1, 0]]) , # alpha +
+"d": np. array ([[0 , 1, 0, 0] , [0 , 0, 0, 0] , [0 , 0, 0, 1] , [0 , 0, 0, 0]]) , # alpha
+"C": np. array ([[0 , 0, 0, 0] , [0 , 0, 0, 0] , [1 , 0, 0, 0] , [0 , -1, 0, 0]]) , # beta +
+"D": np. array ([[0 , 0, 1, 0] , [0 , 0, 0, -1], [0 , 0, 0, 0] , [0 , 0, 0, 0]]) , # beta
+}
+else :
+# phonon part
+basis = [(Q(0 , 0, 0) , N_PH )]
+ops = {
+"": np. identity ( N_PH ), # identity
+"E": np. diag (np. sqrt (np. arange (1 , N_PH )), k= -1) , # ph+
+"F": np. diag (np. sqrt (np. arange (1 , N_PH )), k =1) , # ph
+}
+site_basis . append ( basis )
+site_ops . append ( ops )
+# [ Part B] Set Hamiltonian terms in Hubbard - Holstein model
+driver . ghamil = driver . get_custom_hamiltonian ( site_basis , site_ops )
+7
+b = driver . expr_builder ()
+# electron part
+b. add_term ("cd", np. array ([[i, i + 1, i + 1, i] for i in range ( N_SITES_ELEC - 1) ]). ravel () , -1)
+b. add_term ("CD", np. array ([[i, i + 1, i + 1, i] for i in range ( N_SITES_ELEC - 1) ]). ravel () , -1)
+b. add_term (" cdCD ", np. array ([[i, i, i, i] for i in range ( N_SITES_ELEC )]). ravel () , U)
+# phonon part
+b. add_term ("EF", np. array ([[ i + N_SITES_ELEC , ] * 2 for i in range ( N_SITES_PH )]). ravel () , OMEGA )
+# interaction part
+b. add_term (" cdE ", np. array ([[i, i, i + N_SITES_ELEC ] for i in range ( N_SITES_ELEC )]). ravel () , G)
+b. add_term (" cdF ", np. array ([[i, i, i + N_SITES_ELEC ] for i in range ( N_SITES_ELEC )]). ravel () , G)
+b. add_term (" CDE ", np. array ([[i, i, i + N_SITES_ELEC ] for i in range ( N_SITES_ELEC )]). ravel () , G)
+b. add_term (" CDF ", np. array ([[i, i, i + N_SITES_ELEC ] for i in range ( N_SITES_ELEC )]). ravel () , G)
+# [ Part C] Perform DMRG
+mpo = driver . get_mpo (b. finalize ( adjust_order = True ), algo_type = MPOAlgorithmTypes . FastBipartite )
+mps = driver . get_random_mps ( tag =" KET ", bond_dim =250 , nroots =1)
+energy = driver . dmrg (mpo , mps , n_sweeps =10 , bond_dims =[250] * 4 + [500] * 4,
+noises =[1e -4] * 4 + [1e -5] * 4 + [0] , thrds =[1e -10] * 8, dav_max_iter =30 , iprint =2)
+print (" DMRG energy = %20.15 f" % energy )
+Listing 1. A Python script to setup the Hubbard-Holstein model Hamiltonian and perform DMRG to find the ground state
+using block2. In the script, we use the characters c, d, C, D, E, and F (as an example) to represent the fermionic elementary
+operators a†
+α, aα, a†
+β, and aβ and the bosonic elementary operators b† and b, respectively. The expected output of this script
+(the ground state energy) is −6.956893.
+The key to achieving efficiency is to construct MPOs
+in such a way as to obtain sparse MPO tensors. We note
+that MPOs contain a gauge degree of freedom and can
+thus be written in multiple ways, but a sparse representa-
+tion is typically available as the operators of interest are
+quite restricted (e.g. of one- and two-particle form). To
+correctly identify a sparse MPO representation, several
+ideas have been discussed in the literature. 40,97,110,111 In
+block2, we implement two of them.
+(i) The bipartite approach. 111 This is an efficient
+graph-theory-based approach to build an exact MPO
+that identifies the best sparse representation. When used
+with the ab initio Hamiltonian, this produces the opti-
+mal MPO bond dimension and sparse structure of the
+matrices, and thus the correct complexity in an ab initio
+DMRG algorithm.
+(ii) The singular value decomposition (SVD)
+approach.97,112,113 This approach introduces the
+possibility of MPO bond dimension compression. For
+some operators, e.g. ab initio Hamiltonians of large
+molecules, the MPO bond dimension reduction can
+greatly increase the DMRG efficiency (see Fig. 4). For
+large numbers of orbitals and/or high-order (more than
+three-body) terms in the Hamiltonian, the direct SVD
+of integral matrices can be expensive, and we alleviate
+this problem by performing SVD for each symmetry
+block of the MPO tensors separately. Although the SVD
+does not preserve sparsity, sparsity can be introduced
+using the sub-Hamiltonian strategy, 97 which recovers
+the correct DMRG complexity and MPO tensor sparsity.
+Fig. 4 shows a numerical example comparing MPOs
+resulting from different constructions.
+10 6
+ 10 5
+ 10 4
+ 10 3
+MPO singular value cutoff
+1000
+2000
+3000
+4000
+5000
+6000MPO bond dimension
+Bipartite approach
+SVD approach
+10 6
+ 10 5
+ 10 4
+ 10 3
+MPO singular value cutoff
+10 8
+10 5
+10 2
+H  error (Hartree)
+FIG. 4. A comparison between the MPO bond dimensions for
+MPOs constructed using the bipartite approach 111 and the
+SVD approach97 with different cutoffs for the singular values,
+for the (76o, 113e) active space model of the FeMo cofactor.114
+The active space model is from Ref. 21. The inset plot shows
+the error in the expectation value ⟨MPS|MPO|MPS⟩ com-
+puted using MPOs constructed with different cutoffs and an
+MPS (optimized using the exact MPO) with bond dimen-
+sion M = 2000 for the FeMo cofactor system. In the SVD
+approach, the cutoff was applied to the unrescaled singular
+values of the unnormalized Hamiltonian integrals.
+D. MPO/MPS algebra
+The MPO and MPS representation of operators and
+states allow one to view DMRG algorithms in a very
+general sense as an extension of linear algebra.97 block2
+supports this general perspective with a convenient inter-
+8
+face to MPO/MPS algebraic operations and algorithms.
+The interface dispatches at the backend to several imple-
+mentations for different levels of efficiency.
+1. Sweep algorithms for MPO/MPS algebra
+Consider a general MPO/MPS algebraic expression
+|MPS′⟩ = poly(MPO)
+ 
+α|MPS1⟩ + β|MPS2⟩
+
+(3)
+where poly(MPO) (can be a linear combination of pow-
+ers of an MPO or its inverse), |MPS1⟩, and |MPS2⟩ are
+known quantities, andα and β are known scalar numbers.
+In one MPO/MPS algebra backend, we numerically find
+|MPS′⟩ by fitting. Namely, starting from a trial |MPS′⟩,
+we solve the optimization problem
+max
+|MPS′⟩
+∥⟨MPS′|poly(MPO)
+ 
+α|MPS1⟩ + β|MPS2⟩
+
+∥ (4)
+by updating the tensors in |MPS′⟩ using the one-site
+or two-site sweep algorithms. Due to its similarity to
+the standard DMRG algorithm, this procedure is imple-
+mented very efficiently in block2. The standard caveats
+of DMRG optimization apply however, namely, there can
+be a dependence on the initial guess (especially for small
+bond dimension) and the global optimality of the solution
+is not guaranteed. Using this approach, block2 imple-
+ments the following important primitives of MPO/MPS
+algebra.
+(i) Addition, subtraction, and scalar multiplication
+of MPS. This is implemented by fitting |MPS′⟩ to
+α|MPS1⟩ + β|MPS2⟩.
+(ii) Matrix-vector multiplication. This is implemented
+by fitting |MPS′⟩ to MPO |MPS⟩.
+(iii) Linear equation or matrix inversion. This can
+be formally expressed as |MPS′⟩ = MPO −1|MPS⟩. By
+using sweep algorithms, 32,105,115 we can transform this
+equation into an effective linear algebra equation de-
+fined on one or two sites of |MPS′⟩, which can be solved
+using iterative algorithms such as Conjugate Gradi-
+ent (CG),116 MINRES,117, GCROT(m, k),118, IDRS,119
+Chebyshev,120 and LSQR.121
+(iv) Matrix exponentiation. This can be formally ex-
+pressed as |MPS′⟩ = exp(−β MPO) |MPS⟩, and |MPS′⟩
+can be found using the time-dependent DMRG methods
+described in Section II G 3.
+2. Exact algorithms for MPO/MPS algebra
+MPO/MPS algebra can also be implemented exactly
+using block-sparse tensor contraction operations. For
+typical quantum chemistry problems the bond dimen-
+sions of the MPS and MPOs are on the order of several
+thousand, and intermediates generated by the contrac-
+tion of MPS and MPO tensors can quickly exceed the
+available memory. Nevertheless, this scheme can be use-
+ful for model Hamiltonians with simpler interactions or
+for benchmarking purposes.
+To support exact MPO/MPS algebra, we provide a
+separate open source library called pyblock3122 which
+more fully exposes the tensor network view of DMRG
+algorithms, at some cost to efficiency. In pyblock3,
+the MPO, MPS, and block-sparse tensor objects can be
+easily manipulated with an interface similar to perform-
+ing operations on numpy arrays,123 so that arbitrary
+MPO/MPS algebra is straightforward. We provide sub-
+routines to translate MPO and MPS objects back and
+forth between block2 and pyblock3. Note that we
+do not currently support SU(2) symmetry in pyblock3,
+thus this interoperability is only possible for non-spin-
+adapted objects.
+As MPS and MPO are represented as pure Python data
+structures in pyblock3, users can further explore many
+other possibilities through the interface between block2
+and pyblock3. For example, utilizing the automatic
+differentiation124 feature implemented in pyblock3, we
+can perform gradient style optimization of MPO or MPS
+tensors.
+3. Symbolic manipulation and simplification of operator
+expressions
+For algebra involving only fermionic operators,
+block2 provides an efficient symbolic engine to ma-
+nipulate, simplify, and truncate expressions using
+Wick’s theorem. 77 Compared to other existing simi-
+lar implementations, 125–131 we provide a user friendly
+Python interface with support for expressions arising in
+spin-free, spin unrestricted, and general spin theories.
+Once the algebraic simplifications have been performed,
+the resulting symbolic expression can be converted into
+an MPO using techniques in Section II C. Some examples
+of applications include:
+(i) MPO construction of the normal-ordered ˆH. Such
+MPOs increase the numerical stability in low precision
+DMRG.
+(ii) MPO construction of ˆH2, used to compute the en-
+ergy variance of an MPS. Note that computing the norm
+of ˆH|MPS⟩ (by first constructing an MPS intermediate
+of ˆH|MPS⟩ using fitting) is an alternative way to obtain
+the variance which is also often cheaper.
+(iii) MPO construction of e − ˆT ˆHe ˆT , which arises
+in theories involving a similarity transform of the
+Hamiltonian.77 In practice, we first rewrite the expres-
+sion in terms of nested commutators using the Baker-
+Campbell-Hausdorff expansion. After simplification (and
+truncation if necessary) we obtain an expression that can
+be used to generate the MPO.
+Fig. 5 shows a numerical example of DMRG using a
+similarity transformed Hamiltonian constructed from CC
+amplitudes.
+9
+0E+00 2E-07 4E-07 6E-07 8E-07
+Largest discarded weight
+0
+5
+10
+15
+20
+25
+30Energy error E Eextrap (cm 1)
+Estimated JCCSD/ST DMRG = 81 cm 1
+[Fe2OCl6]2
+DMRG for e THeT (Sz = 5)
+DMRG for e THeT (Sz = 0)
+FIG. 5. The extrapolation of DMRG sweep energies using
+MPS bond dimension M = 600, 500, 400, 300, and 200, for the
+(30o, 30e) active space of the similarity transformed Hamil-
+tonian e − ˆT ˆHe
+ˆT with only terms up to three-body interac-
+tion kept after normal ordering, computed for the high spin
+(Sz = 5) and low spin ( Sz = 0) states of the [Fe 2OCl6]2−
+cluster, using the cc-pVDZ-DK basis and the exact two-
+component relativistic correction.132 The cluster geometry is
+from Ref. 133.
+E. MPS analysis and properties
+Once we have computed an MPS (e.g. from the DMRG
+sweep algorithm) we can analyze it in terms of quantities
+familiar to standard quantum chemistry. Below, we list
+some representative quantities that can be extracted from
+an MPS (or a pair of bra and ket MPSs) in block2.
+1. N-particle reduced density matrices
+N-particle density matrices ( N-PDMs)92,134,135 sum-
+marize the information in a wavefunction and have many
+applications across quantum chemistry, such as in orbital
+optimization,91,92 (internally) contracted dynamical cor-
+relation theories,130,135 and so on. In block2 we provide
+an efficient algorithm to compute N-PDMs of MPS with
+arbitrary N (in practice, only N < 5 can be computed
+in non-trivial systems). The implementation has the fol-
+lowing features.
+(i) We support both N-PDMs (with integer N) and
+transition N-PDMs (with integer or half-integer N). In
+a unified framework, the user can compute spin-traced,
+spin specific, or general spin PDMs.
+(ii) The user can freely choose the fermionic operator
+ordering in the N-PDMs via an operator string input pa-
+rameter. For example, for the spin-traced 3-PDM, both
+E(1)
+abcdef :=
+X
+στλ
+⟨a†
+aσa†
+bτ a†
+cλadλaeτ afσ ⟩ (5)
+and
+E(2)
+abcdef :=
+X
+στλ
+⟨a†
+aσabσa†
+cτ adτ a†
+eλafλ ⟩ (6)
+notations are supported, where the former is compatible
+with the StackBlock convention,60 and the latter is
+used in the literature of spin-free NEVPT2. 136
+(iii) When obtaining multiple N-PDMs or PDMs with
+different operator orderings, they can be computed si-
+multaneously within a single sweep so that intermediates
+can be reused, saving computational time.
+(iv) When only a part of the PDM is required (by
+restricting the indices) we can compute only the required
+part with a greatly reduced complexity. For example, the
+diagonal 2-PDM
+Eppqq :=
+X
+στ
+⟨a†
+pσapσa†
+qτ aqτ ⟩ (7)
+required in perturbative DMRG106 can be computed with
+a complexity similar to that of the 1-PDM.
+(v) We use a hybrid distributed and shared-memory
+parallelization strategy. For the shared-memory part, we
+use parallelism over non-redundant collective matrix el-
+ement indices. For the distributed part, we use a hybrid
+strategy based on parallelism over sub-operator-strings
+and parallelism over single matrix element indices.
+2. Entanglement analysis
+We can compute various entanglement metrics of in-
+terest from the MPS. 37,86,88,137,138
+(i) One can access the bipartite entanglement
+entropy137,139 in the MPS at each site after a standard
+DMRG optimization.
+(ii) The 1 and 2 orbital DMs 37 (ODMs) can be com-
+puted using the general N-PDM interface implemented
+in block2, with a computational scaling similar to that
+of the 2-PDM. The mutual information matrix of orbital
+interactions can be constructed from these ODMs, as a
+measure of the entanglement between pairs of orbitals.138
+The mutual information can then be used as the cost
+function in GA,87 to find an optimal orbital ordering for
+DMRG. Currently this feature is only implemented for
+non-spin-adapted MPS.
+3. Coefficients of configuration state functions or
+determinants
+In quantum chemistry applications, it is useful to
+understand the determinant or CSF expansion of the
+DMRG wavefunction (MPS) and these can be computed
+using block2. In the following we provide some repre-
+sentative use cases:
+(i) In block2, one can extract all CSFs or determi-
+nants and their coefficients where the absolute value of
+10
+the coefficient in the CI expansion is above a given thresh-
+old. This uses a depth-first search algorithm performed
+along the sweep. 140 When only a few CSFs or determi-
+nants satisfy the criterion, the computational cost of this
+algorithm is almost negligible. From the spin coupling
+pattern in the dominant CSFs or determinants, one ob-
+tains valuable insights into the electronic structure. Cur-
+rently, for spin-adapted MPS with a non-zero total spin,
+the algorithm is only implemented for MPS in the singlet-
+embedding35 format.
+(ii) We can use this algorithm to extract the T3 and T4
+coupled cluster amplitudes, required in externally cor-
+rected CCSD 141 where the DMRG wavefunction is the
+external source. 140 For this purpose, we use a much
+smaller threshold for the CI coefficient, and an addi-
+tional restriction on the excitation order (up to quadru-
+ples) with respect to the Fermi vacuum to preserve the
+polynomial complexity of the overall algorithm.
+(iii) The same extraction algorithm can also be utilized
+in a tailored CCSD 142,143 code using the DMRG wave-
+function as the external source for extracting the T1 and
+T2 coupled cluster amplitudes in the active space. 144,145
+F. MPS transformations
+In block2 the MPS may be converted between dif-
+ferent representations suitable for different tasks. There
+are some limitations on the operations supported in dif-
+ferent MPS representations. Below, we discuss examples
+of such MPS transformations.
+1. Singlet embedding
+A spin-adapted MPS with non-zero total spin can be
+represented in either the singlet embedding (SE) 35,42,53
+format (with additional non-interacting fictitious spins
+added to the end of the DMRG lattice to create a singlet)
+or the non-singlet-embedding (NSE) format.
+For MPS expressed in the SE format, there is no accu-
+racy loss when changing the canonical form between sites,
+so the DMRG optimization process becomes more stable.
+However, the SE MPS form makes it difficult to evaluate
+certain quantities, such as the one-particle triplet transi-
+tion density matrix (1-TTDM), 42 required in the 2-step
+treatment of the SOC effect. 70 On the other hand, we
+do not support the computation of CSF coefficients from
+NSE MPS. To overcome these limitations, we have imple-
+mented the exact transformation from SE to NSE MPS,
+and from NSE to SE MPS. The user can perform the
+optimization of MPS using either the SE or NSE format,
+and then transform the MPS to the appropriate format
+before computing the 1-TTDM or extracting CSF coeffi-
+cients.
+2. Orbital rotations
+To improve the representation power of a given bond
+dimension MPS in DMRG, it is sometimes desirable to
+rotate the orbital basis.146 In block2 we use an exponen-
+tial parametrization of the orbital rotation matrix,147 and
+implement the orbital rotation as a time evolution. 31,105
+As an example usage of this transformation, one can
+perform DMRG optimization using a set of localized or-
+bitals, and then compute the determinant coefficients de-
+fined in a different set of orbitals after an MPS orbital
+rotation.
+As the MPS entanglement structure in two sets of or-
+bitals can be significantly different, often the MPS orbital
+rotation cannot be performed exactly. When a fixed bond
+dimension and time step is used for the transformation,
+the resulting MPS can sometimes be highly inaccurate.
+We provide a few additional options to improve the ac-
+curacy.
+(i) When we want the orbital transformation to ap-
+proximately preserve the orbital ordering, we use the
+Kuhn-Munkres algorithm 148,149 to first match the old
+and new orbitals.
+(ii) We can remove some artificial rotations in the log-
+arithm of the rotation matrix by forcing all leading prin-
+cipal minors of the rotation matrix to be non-negative.
+3. Symmetry mappings
+As described earlier, block2 supports many kinds of
+symmetries in the DMRG calculations. We also provide
+the ability to transform MPS from a higher to a lower
+symmetry group. For example:
+(i) We can transform spin-adapted (SA) MPS 35,39,41
+to non-spin-adapted (NSA) MPS. This can be done ex-
+actly, and the bond dimension of the transformed NSA
+MPS will generally be higher than that of the SA MPS.35
+Since the DMRG optimization of the SA MPS is often
+much cheaper, this can be useful when the analysis has to
+be performed on the NSA MPS (for example, when infor-
+mation on the determinant expansion is desired). When
+the SA MPS is not a singlet, the user can additionally set
+the desired projected spin of the transformed NSA MPS,
+and the transformed MPS will have both well-defined to-
+tal and projected spin.
+(ii) We can transform from an MPS expressed in one
+point group to a subgroup. To perform such a trans-
+formation, the user must provide a mapping between the
+irreducible representations in the two groups. In block2
+we implement this type of MPS symmetry mapping us-
+ing a fitting approach, where a small fitting error can be
+expected.
+11
+G. DMRG for dynamical and time-dependent quantities
+block2 supports a full suite of algorithms to compute
+dynamical quantities, such as Green’s functions, as well
+as to perform time-dependent state propagation.
+1. Dynamical DMRG
+Dynamical DMRG (DDMRG) is the original extension
+of the standard DMRG algorithm to compute dynamical
+quantities, such as Green’s functions and other spectro-
+scopic quantities32,105,150–152 [we will use the electron re-
+moval (IP) part of one-particle Green’s function in the
+examples below]. In block2, we provide an improved
+version of dynamical DMRG called DDMRG ++, intro-
+duced in Ref. 105. We provide the following options for
+this method.
+(i) We can solve the response equations to find the cor-
+rection vector as an MPS, and the IP one-particle Green’s
+function is obtained as the expectation value
+G−
+ij(ω) := ⟨Ψ0|a†
+j|Ψ′
+i(ω)⟩ (8)
+[ ˆH0 − E0 + ω − iη]|Ψ′
+i(ω)⟩ = ai|Ψ0⟩ (9)
+where |Ψ0⟩ and E0 are the (assumed real) ground state
+MPS and energy, |Ψ′
+i(ω)⟩ is the correction vector MPS,
+G−
+ij(ω) is the IP part of one-particle Green’s function, and
+ω and η are the real frequency and broadening factor,
+respectively. In general, |Ψ′
+i(ω)⟩ will be complex, and
+we solve this equation in the complex domain using the
+DDMRG++ sweep algorithm.
+(ii) Alternatively, we write the correction vector as
+|Ψ′
+i(ω)⟩ := |Xi(ω)⟩ + i|Yi(ω)⟩ and Eq. (9) becomes 32,105
+  ˆH0 − E0 + ω
+2
++ η2
+|Yi(ω)⟩ = ηai|Ψ0⟩ (10)
+In block2 we also use DDMRG ++ to solve the above
+equation in the real domain.
+(iii) For very small η, both Eq. (9) and Eq. (10) will
+become ill-conditioned for some ω, and the required num-
+ber of CG or GCROT118 iterations at each site during the
+sweep can become large. 153 To accelerate the computa-
+tion of the DMRG Green’s function, we support a multi-
+grid frequency strategy. At the coarse-grained level, we
+use a large η0 and a coarse grid of ω0 for the DDMRG
+sweeps. At the fine-grained level, we solve Eq. (9) or
+Eq. (10) using a smaller η only in the middle site in the
+sweep, for a few ω near the ω0 value. This method as-
+sumes that the renormalized basis in the correction vec-
+tor MPS generated at ω0 with a large broadening can be
+reused for adjacent frequencies. Using this strategy, we
+can often achieve a good balance between accuracy and
+efficiency.
+2. Chebyshev DMRG
+To avoid solving the ill-conditioned response equation
+in DDMRG, we have also implemented the Chebyshev
+DMRG approach,154–157 based on the Chebyshev expan-
+sion of the resolvent and the MPS representation of the
+Chebyshev vectors.
+3. Time-dependent DMRG
+block2 implements time-dependent DMRG (td-
+DMRG) for true non-equilibrium dynamics, as well as
+to simulate linear spectra (via the Fourier transform of
+the autocorrelation function).
+(i) We support both imaginary time evolution (ITE)
+and real time evolution (RTE). When the Hamiltonian is
+real (and the initial state is real) ITE can be performed
+using only real arithmetic, while RTE can be carried
+out in hybrid real-and-complex mode, where the MPO
+and rotation matrices in the MPS are represented as real
+objects, and the MPS tensor at the canonical center is
+complex. Alternatively, one can perform time evolution
+where both MPO and MPS are complex and the time
+step can also be a complex number.
+(ii) For the sweep algorithm used in td-DMRG, we
+implemented both the time-step targeting (TST)
+approach31 and the time-dependent variational
+principle151,158–161 approach. For the TST approach,
+we support both the td-DMRG and td-DMRG ++105
+variants. The Hamiltonian involved in these algorithms
+can be Hermitian or non-Hermitian (the latter appears
+when time evolution is used to perform orbital rotation).
+Fig. 6 shows a numerical example using time-
+dependent DMRG.
+H. Finite-temperature DMRG
+block2 supports several finite-temperature DMRG al-
+gorithms.
+1. Ancilla approach
+In the ancilla approach for finite temperature, 28 we
+perform imaginary time evolution of a purified thermal
+state in an enlarged Hilbert space. Within the context of
+DMRG, we represent the purified state as an MPS, where
+ancilla sites are added as a bath. In block2 we provide
+subroutines to create the initial finite-temperature MPS
+at inverse temperature β = 0 and the finite-temperature
+MPO, which is a normal MPO decorated with identity
+operators at the ancilla sites. We support the evaluation
+of free energies and PDMs of the finite-temperature MPS
+by tracing out the ancilla sites. The finite-temperature
+variants of dynamical DMRG 163 and time-dependent
+12
+0 5 10 15 20 25
+Time t
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+1.2
+1.4Current J(t)/V
+Time-dependent DMRG
+H = Hdot + Hleads
+Single-impurity Anderson model
+FIG. 6. Current as a function of time for the single impurity
+Anderson model with U = 0.5t, t′ = 0.3535t, V = 2U, Vg =
+−0.5U and 48 sites, simulated using time-dependent DMRG
+with the time-dependent variational principle approach, time
+step ∆t = 0.025, and MPS bond dimension M = 1000. (The
+curve is chosen to illustrate dynamics rather than full conver-
+gence with respect to all parameters.) Model parameters are
+taken from Ref. 162.
+DMRG164,165 are also available to compute dynamical
+quantities.
+Fig. 7 shows a numerical example of the finite-
+temperature DMRG using the ancilla approach.
+0 5 10 15 20 25 30 35 40
+Temperature T
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9Electronic energy E(T)
+Finite temperature DMRG (ancilla approach)
+H =
+k
+|k|2
+2 ak ak + 1
+2
+k 0, k1, k2
+ak1 + kak2 kak2ak1
+3D Uniform Electron Gas
+FIG. 7. Electronic energy at different temperatures for the
+three dimensional uniform electron gas model 166 with den-
+sity rs = 4, box length L = 10.24, and plane wave basis set
+kinetic energy cutoff Ecut = 0 .6199, simulated using finite-
+temperature DMRG with the ancilla approach28 and RK4 for
+imaginary time evolution,31 at chemical potential µ = −2.
+2. Sum-over-states approach
+To compute properties at very low temperatures
+(namely, when β is large), the ancilla approach can be
+inefficient since a large number of time steps is required
+and this can also generate large entanglement between
+the physical and ancillary degrees of freedom. We instead
+perform time-independent DMRG to find a few low-lying
+eigenstates, and the finite-temperature effects are then
+computed through a partition function sum over these
+states. Since the low-lying states can have different parti-
+cle numbers and spins, we can either represent them using
+a single particle-number-non-conserving state-averaged
+MPS, so that the required number of states in each sym-
+metry sector can be determined automatically, or by us-
+ing multiple state-averaged MPSs to cover all symmetry
+sectors. The latter scheme may be more efficient, but re-
+quires the knowledge of the number of low-energy states
+in each symmetry sector.
+I. DMRG and dynamical correlation
+When simulating realistic chemical problems, the num-
+ber of correlated orbitals can quickly exceed the capa-
+bilities of the standard DMRG algorithm for quantum
+chemistry. Thus it is necessary to combine DMRG with
+other ideas to treat both static and dynamic correlation
+effects.26,27,128,135,167–174 In the following we list a few
+different dynamical correlation treatments implemented
+in block2.
+1. Perturbative DMRG
+In perturbative DMRG,175 the energy of a small bond
+dimension variational DMRG calculation is corrected us-
+ing second-order perturbation theory, where the Hamilto-
+nian is partitioned similarly to the Epstein-Nesbet par-
+titioning. In block2, we include two implementations
+of this method (for both non-spin-adapted DMRG and
+spin-adapted DMRG).
+(i) In the deterministic perturbative DMRG
+approach,175 the first-order perturbative wavefunc-
+tion is represented as an MPS, which is optimized by
+solving the response equation using dynamical DMRG
+(without frequency).
+(ii) In the stochastic perturbative DMRG approach,106
+we first compress the first-order wavefunction to a low
+bond dimension MPS, then the second-order energy cor-
+rection is evaluated by determinant or CSF sampling.
+2. Uncontracted dynamical correlation theories
+It is natural to add dynamical correlation to DMRG
+in the framework of multireference theories, where the
+DMRG-CASSCF solution is used as a reference state,
+13
+and low-order excitations from this space are used for
+the dynamic correlation treatment. We can represent
+the wavefunction ansatz (including the active, core, and
+virtual sub-spaces) as an MPS that approximates an un-
+contracted correlation ansatz. 115,176 As introduced in a
+recent report,58 we provide a few different implementa-
+tions to represent and optimize MPS for uncontracted
+dynamical correlation theories.
+(i) We can construct a conventional MPS that de-
+scribes all the orbital spaces, but restrict the quantum
+numbers to limit the excitation order out of the ac-
+tive space. 58 This approach can be trivially supported
+in block2, so it is automatically compatible with many
+other features. However, its efficiency can be low. When
+the excitation order is restricted to singles, we provide
+an accelerated solver that bypasses the sweep iterations
+over the external orbitals.177
+(ii) For improved efficiency, we can introduce two large
+sites in the MPS to describe the core and virtual spaces
+so that operations on these orbitals can be handled
+specially.58 In block2, we support several different treat-
+ments of the large site. The CSF and determinant based
+large-site implementation provides the highest efficiency,
+for the spin-adapted and non-spin-adapted cases, respec-
+tively. We also support building a large-site MPO tensor
+by contracting normal MPO tensors, which is less effi-
+cient.
+Using the large-site scheme, we can optimize the
+MPS energy for different multireference theories (with
+large active spaces and many core orbitals), 58 includ-
+ing arbitrary-order multi-reference configuration inter-
+action (MRCI)58,178 and size-extensivity corrections, 167
+arbitrary-order averaged quadratic coupled cluster
+(AQCC),179 arbitrary-order coupled pair functional
+(ACPF),180 and arbitrary-order NEVPT 136,181,182 and
+restraining the excitation degree multireference pertur-
+bation theory (MRREPT). 170,183,184Our flexible imple-
+mentation further allows for the inclusion of arbitrary
+determinants/CSFs in a fashion similar to selected con-
+figuration interaction.
+3. Internally contracted dynamical correlations
+Internally contracted dynamical correlation theories
+form a second common framework for multireference
+correlation. When the active space indices in the ex-
+citation operator are also contracted, the correspond-
+ing theories are called strongly-contracted. 81,135,185 Cur-
+rently we provide the spin-free implementations of fully
+internally contracted MRCI singles and doubles (FIC-
+MRCISD),128,130 internally contracted NEVPT2,177 and
+strongly contracted NEVPT2 135 using automatic sym-
+bolic expression derivation and DMRG N-PDMs imple-
+mented in block2. Other internally contracted theo-
+ries are supported via the interface between block2 and
+some external packages, which will be discussed in the
+next section.
+Fig. 8 shows a numerical example of the performance
+of theories for DMRG with dynamical correlations.
+10 5
+10 4
+10 3
+10 2
+Energy error |E EDMRG| (Hartree)
+ (a)
+Perturbative DMRG
+Uncontracted NEVPT2
+Uncontracted MRREPT2
+Uncontracted MRCISD
+2.0 2.5 3.0 3.5 4.0
+C C bond length (Å)
+10 5
+10 4
+10 3
+10 2
+Energy error |E EDMRG| (Hartree)
+ (b)
+Strongly contracted NEVPT2
+Internally contracted NEVPT2
+Internally contracted MRREPT2
+Fully internally contracted MRCISD
+C C
+FIG. 8. A comparison between absolute energies computed
+using DMRG (with MPS bond dimension M = 3000) and
+(a) perturbative DMRG and uncontracted and (b) internally
+contracted dynamic correlation multi-reference theories im-
+plemented in block2, for carbon dimer in the cc-pVDZ basis
+set at different bond lengths. DMRG-CASSCF with a active
+space (8o, 8e) is performed to generate the reference state for
+MRCISD, NEVPT2, and MRREPT2. The reference state for
+perturbative DMRG is an MPS with M = 200.
+III. INTERFACES AND EXTENSIONS
+To extend the range of application of DMRG algo-
+rithms, we have designed block2 to be interoperable
+with other libraries. In this section, we list some of the
+available basic interfaces of block2, as well as the inter-
+faces between block2 and external packages.
+14
+A. Basic interfaces to block2
+The source code of block2 is mainly written in
+C++11, as a header-only library. We use templates ex-
+tensively for a concise treatment of different symmetry
+classes and floating point number types. The code can
+be compiled using GNU gcc, clang, Apple clang, Intel
+icc, or the msvc compilers, and supports the Linux, Ma-
+cOS, and Windows platforms. For MacOS we support
+both the x86 and arm64 instruction architectures. Cur-
+rently, development and testing focus on the Linux (x86)
+and MacOS (x86) platforms. We currently provide the
+following basic interfaces to block2.
+(i) A Python library interface to block2 and pyblock2
+(not to be confused with pyblock3). The former ex-
+poses almost all C++ classes and functions to Python
+using pybind11.186 The latter provides some helper and
+driver classes written in pure Python, for users to easily
+customize their workflow.
+(ii) The Python script block2main for parsing input
+files and running DMRG. This provides a simple inter-
+face which should be familiar to users of conventional
+quantum chemistry packages. The input file format is
+also compatible with that of StackBlock,60 so existing
+applications that call StackBlock as an executable can
+be directly used with block2. A list of the supported
+keywords is given in the documentation.
+(iii) A C++ executable block2 to parse input files
+and run DMRG. We have found this interface to be use-
+ful when performing very large scale distributed parallel
+computations, where the Python components can induce
+significant overheads.
+(iv) The C++ library libblock2.so, which can be
+used together with other packages written in C++. In
+principle, one can also simply includeblock2 header files
+in a C++ project without linking to the library. How-
+ever, in practice this may introduce unnecessary extra
+compilation time.
+Besides providing freely downloadable source code, 45
+we also provide precompiled packages for the Python
+interfaces, which can be installed using pip install
+block2 [without the Message Passing Interface (MPI)
+library dependence] or pip install block2-mpi (with
+MPI dependence).
+B. Extension interfaces to external packages
+We provide the following interfaces to external pack-
+ages to extend the functionality of block2.
+(i) PySCF.49,50 The orbitals and integrals required
+for running DMRG can be computed using mean-field
+methods implemented in PySCF. One can also per-
+form DMRG-CASSCF (energy and gradients),92 DMRG
+SC-NEVPT2 (using the exact 4-PDM 135 or MPS
+compression81) with PySCF and block2 (this par-
+tially reuses the existing PySCF interface to Stack-
+Block, which gives an alternative implementation of
+SC-NEVPT2 to the native implementation in block2).
+Using the Python interface to the block2 symbolic en-
+gine and some of the PySCF infrastructure, one can also
+automatically derive and implement a variety of coupled
+cluster theories.
+(ii) LibDMET.187 One can use ground state or finite
+temperature DMRG as the impurity solver188 for ab ini-
+tio Density Matrix Embedding Theory (DMET) through
+the interface betweenblock2 and LibDMET.189 In par-
+ticular, the ab initio DMRG with general spin orbitals
+was implemented as an impurity solver for the supercon-
+ducting Hamiltonian.190
+(iii) fcdmft.191,192 One can use dynamical DMRG or
+DMRG uncontracted MRCI as the impurity solver for ab
+initio full cell Dynamical Mean-Field Theory (DMFT)
+using block2 with fcdmft.
+(iv) StackBlock.35,60 We provide scripts to trans-
+form MPSs (in both directions) between StackBlock
+and block2. This is primarily useful for benchmarking
+purposes.
+(v) PyBlock3.122 We provide scripts to transform
+MPSs and MPOs in both directions between PyBlock3
+and block2.
+(vi) OpenMolcas.193 We can perform DMRG-
+CASSCF and DMRG-CASPT2 169,194–196 (with or with-
+out cumulant approximations 197) using OpenMolcas
+and block2. This is implemented using a small mod-
+ification to the existing interface between OpenMolcas
+and StackBlock.198
+(vii) Forte.199 One can perform DMRG-CASCI,
+DMRG-CASSCF, and DMRG-Driven-Similarity-
+Renormalization-Group (DSRG) 174 with the interface
+between Forte and block2.
+(viii) Qiskit.200 Through the Python interface in
+block2 one can perform fermionic or spin DMRG for
+Hamiltonian expressions generated in Qiskit. For exam-
+ple, one can perform fermionic DMRG from the Qiskit
+second quantized Hamiltonian expression, or DMRG
+for Hamiltonians expressed as linear combinations of
+arbitrary-length Pauli strings.84
+As suggested by these examples, it is also simple to
+extend block2 interfaces to work with many other pack-
+ages.
+IV. CONCLUSIONS
+After more than three years of development, the ro-
+bustness, utility, and comprehensiveness of the block2
+framework has been examined and tested across a great
+variety of projects. In our experience, the range of im-
+plementations and algorithms provided by block2 has
+allowed DMRG to be fruitfully applied for many different
+purposes, ranging from benchmarking other methods, to
+obtaining high-accuracy definitive results inab initioand
+model simulations. Moving forwards, we will continue to
+develop block2 as an open framework for DMRG algo-
+rithms and to further extend its integration with other
+15
+packages. We hope that block2 will serve as platform to
+extend DMRG to new domains and to generate insights
+into new scientific areas.
+ACKNOWLEDGMENTS
+H.Z. thanks Sandeep Sharma for helpful discussions.
+This framework was produced over several years with
+contributions from multiple individuals. Work by H.Z.
+was supported by the US National Science Foundation,
+under Award No. CHE-2102505. Work by H.R.L. and
+T.Z. was supported by the Air Force Office of Scientific
+Research, under Award FA9550-18-1-0095. H.R.L. ac-
+knowledges support from a postdoctoral fellowship from
+the German Research Foundation (DFG) via grant LA
+4442/1-1 during the first part of this work. Work by
+S.L. (this material) was supported by the US Depart-
+ment of Energy, Office of Science, National Quantum In-
+formation Science Research Centers, Quantum Systems
+Accelerator. Work by Z.C. was supported by the US De-
+partment of Energy, Office of Science, under Award No.
+DE-SC0018140. Work by C.S. was supported by the US
+Department of Energy, Office of Science, under Grant
+No. DE-SC0019374. Work by L.P. was supported by
+the US Department of Energy, Office of Science, via the
+M2QM EFRC under Grant No. DE-SC0019330. Work
+by R.P. was supported by the US National Science Foun-
+dation, under Award No. CHE-2102505. Work by K.L.
+was supported by the US Department of Energy, Of-
+fice of Science, Basic Energy Sciences and Office of Ad-
+vanced Scientific Computing Research, Scientific Discov-
+ery through Advanced Computing (SciDAC) program,
+under Award No. DE-SC0022088. Work by J.T. was
+supported by the US Department of Energy, Office of
+Science, under Award No. DE-SC0018140. J.T. acknowl-
+edges funding through a postdoctoral research fellowship
+from the Deutsche Forschungsgemeinschaft (DFG, Ger-
+man Research Foundation)-495279997. Work by J.Y. was
+supported by the US Department of Energy, Office of
+Science, via the M2QM EFRC under Grant No. DE-
+SC0019330. The computations presented in this work
+were conducted at the Resnick High Performance Com-
+puting Center, a facility supported by the Resnick Sus-
+tainability Institute at the California Institute of Tech-
+nology.
+DATA AVAILABILITY
+The reference input and output files for produc-
+ing data in the numerical examples can be found in
+the GitHub repository https://github.com/hczhai/
+block2-example-data. The reference software version
+is block2 0.5.2.
+1White, S. R. Density matrix formulation for quantum renormal-
+ization groups. Physical Review Letters 1992, 69, 2863.
+2White, S. R. Density-matrix algorithms for quantum renormal-
+ization groups. Physical Review B 1993, 48, 10345.
+3Verstraete, F.; Nishino, T.; Schollw¨ ock, U.; Ba˜ nuls, M. C.;
+Chan, G. K.-L.; Stoudenmire, M. E. Density matrix renormal-
+ization group, 30 years on. Nature Reviews Physics 2023, 1–4.
+4Hachmann, J.; Cardoen, W.; Chan, G. K.-L. Multireference cor-
+relation in long molecules with the quadratic scaling density ma-
+trix renormalization group. The Journal of Chemical Physics
+2006, 125, 144101–144101.
+5Singh, S.; Zhou, H.-Q.; Vidal, G. Simulation of one-dimensional
+quantum systems with a global SU(2) symmetry. New Journal
+of Physics 2010, 12, 033029.
+6LeBlanc, J. P.; Antipov, A. E.; Becca, F.; Bulik, I. W.; Chan, G.
+K.-L.; Chung, C.-M.; Deng, Y.; Ferrero, M.; Henderson, T. M.;
+Jim´ enez-Hoyos, C. A., et al. Solutions of the two-dimensional
+Hubbard model: Benchmarks and results from a wide range of
+numerical algorithms. Physical Review X 2015, 5, 041041.
+7Motta, M.; Ceperley, D. M.; Chan, G. K.-L.; Gomez, J. A.;
+Gull, E.; Guo, S.; Jim´ enez-Hoyos, C. A.; Lan, T. N.; Li, J.;
+Ma, F., et al. Towards the solution of the many-electron problem
+in real materials: Equation of state of the hydrogen chain with
+state-of-the-art many-body methods. Physical Review X 2017,
+7, 031059.
+8Motta, M.; Genovese, C.; Ma, F.; Cui, Z.-H.; Sawaya, R.;
+Chan, G. K.-L.; Chepiga, N.; Helms, P.; Jim´ enez-Hoyos, C.;
+Millis, A. J., et al. Ground-state properties of the hydrogen
+chain: dimerization, insulator-to-metal transition, and magnetic
+phases. Physical Review X 2020, 10, 031058.
+9Hachmann, J.; Dorando, J. J.; Avil´ es, M.; Chan, G. K.-L. The
+radical character of the acenes: A density matrix renormaliza-
+tion group study. The Journal of Chemical Physics 2007, 127,
+134309.
+10Marti, K. H.; Ondik, I. M.; Moritz, G.; Reiher, M. Density ma-
+trix renormalization group calculations on relative energies of
+transition metal complexes and clusters. The Journal of Chem-
+ical Physics 2008, 128, 014104–014104.
+11Kurashige, Y.; Yanai, T. High-performance ab initio density ma-
+trix renormalization group method: Applicability to large-scale
+multireference problems for metal compounds. The Journal of
+Chemical Physics 2009, 130, 234114–234114.
+12Mizukami, W.; Kurashige, Y.; Yanai, T. Communication: Novel
+quantum states of electron spins in polycarbenes from ab initio
+density matrix renormalization group calculations. The Journal
+of Chemical Physics 2010, 133, 091101.
+13Kurashige, Y.; Chan, G. K.-L.; Yanai, T. Entangled quantum
+electronic wavefunctions of the Mn 4CaO5 cluster in photosys-
+tem II. Nature Chemistry 2013, 5, 660–666.
+14Harris, T. V.; Kurashige, Y.; Yanai, T.; Morokuma, K. Ab ini-
+tio density matrix renormalization group study of magnetic cou-
+pling in dinuclear iron and chromium complexes. The Journal
+of Chemical Physics 2014, 140, 054303.
+15Sharma, S.; Sivalingam, K.; Neese, F.; Chan, G. K.-L. Low-
+energy spectrum of iron–sulfur clusters directly from many-
+particle quantum mechanics. Nature Chemistry 2014, 6, 927–
+933.
+16Chalupsky, J.; Rokob, T. A.; Kurashige, Y.; Yanai, T.;
+Solomon, E. I.; Rulisek, L.; Srnec, M. Reactivity of the bin-
+uclear non-heme iron active site of ∆ 9 desaturase studied by
+large-scale multireference ab initio calculations. Journal of the
+American Chemical Society 2014, 136, 15977–15991.
+17Li, Z.; Guo, S.; Sun, Q.; Chan, G. K.-L. Electronic landscape of
+the P-cluster of nitrogenase as revealed through many-electron
+quantum wavefunction simulations. Nature Chemistry 2019,
+11, 1026–1033.
+18Larsson, H. R.; Zhai, H.; Umrigar, C. J.; Chan, G. K.-L. The
+chromium dimer: closing a chapter of quantum chemistry.Jour-
+nal of the American Chemical Society 2022, 144, 15932–15937.
+19Frahm, L.-H.; Pfannkuche, D. Ultrafast ab initio quantum
+chemistry using matrix product states. Journal of Chemical
+Theory and Computation 2019, 15, 2154–2165.
+16
+20Baiardi, A. Electron dynamics with the time-dependent density
+matrix renormalization group. Journal of Chemical Theory and
+Computation 2021, 17, 3320–3334.
+21Li, Z.; Li, J.; Dattani, N. S.; Umrigar, C.; Chan, G. K.-L. The
+electronic complexity of the ground-state of the FeMo cofactor
+of nitrogenase as relevant to quantum simulations. The Journal
+of chemical physics 2019, 150, 024302.
+22Lee, S.; Lee, J.; Zhai, H.; Tong, Y.; Dalzell, A. M.; Kumar, A.;
+Helms, P.; Gray, J.; Cui, Z.-H.; Liu, W., et al. Evaluating the
+evidence for exponential quantum advantage in ground-state
+quantum chemistry. Nature Communications 2023, 14, 1952.
+23Chan, G. K.-L.; Sharma, S. The density matrix renormaliza-
+tion group in quantum chemistry. Annual Review of Physical
+Chemistry 2011, 62, 465–481.
+24Wouters, S.; Van Neck, D. The density matrix renormalization
+group for ab initio quantum chemistry. The European Physical
+Journal D 2014, 68, 1–20.
+25Baiardi, A.; Reiher, M. The density matrix renormalization
+group in chemistry and molecular physics: Recent developments
+and new challenges. The Journal of Chemical Physics 2020,
+152, 040903.
+26Yanai, T.; Kurashige, Y.; Mizukami, W.; Chalupsk` y, J.;
+Lan, T. N.; Saitow, M. Density matrix renormalization group
+for ab initio Calculations and associated dynamic correlation
+methods: A review of theory and applications. International
+Journal of Quantum Chemistry 2015, 115, 283–299.
+27Cheng, Y.; Xie, Z.; Ma, H. Post-density matrix renormalization
+group methods for describing dynamic electron correlation with
+large active spaces. The Journal of Physical Chemistry Letters
+2022, 13, 904–915.
+28Feiguin, A. E.; White, S. R. Finite-temperature density matrix
+renormalization using an enlarged Hilbert space. Physical Re-
+view B 2005, 72, 220401.
+29Stoudenmire, E.; White, S. R. Minimally entangled typical ther-
+mal state algorithms. New Journal of Physics 2010, 12, 055026.
+30Roemelt, M. Spin orbit coupling for molecular ab initio density
+matrix renormalization group calculations: Application to g-
+tensors. The Journal of Chemical Physics 2015, 143, 044112.
+31Feiguin, A. E.; White, S. R. Time-step targeting methods for
+real-time dynamics using the density matrix renormalization
+group. Physical Review B 2005, 72, 020404.
+32Jeckelmann, E. Dynamical density-matrix renormalization-
+group method. Physical Review B 2002, 66, 045114.
+33Fishman, M.; White, S.; Stoudenmire, E. The ITensor software
+library for tensor network calculations. SciPost Physics Code-
+bases 2022, 004.
+34Chan, G. K.-L.; Head-Gordon, M. Highly correlated calculations
+with a polynomial cost algorithm: A study of the density matrix
+renormalization group. The Journal of Chemical Physics 2002,
+116, 4462–4476.
+35Sharma, S.; Chan, K.-L. Spin-adapted density matrix renormal-
+ization group algorithms for quantum chemistry.The Journal of
+Chemical Physics 2012, 136, 124121–124121.
+36Legeza, ¨O.; R¨ oder, J.; Hess, B. Controlling the accuracy of the
+density-matrix renormalization-group method: The dynamical
+block state selection approach. Physical Review B 2003, 67,
+125114.
+37Boguslawski, K.; Tecmer, P.; Barcza, G.; Legeza, O.; Reiher, M.
+Orbital entanglement in bond-formation processes. Journal of
+Chemical Theory and Computation 2013, 9, 2959–2973.
+38Luo, H.-G.; Qin, M.-P.; Xiang, T. Optimizing Hartree-Fock or-
+bitals by the density-matrix renormalization group.Physical Re-
+view B 2010, 81, 235129.
+39Wouters, S.; Poelmans, W.; Ayers, P. W.; Van Neck, D.
+CheMPS2: A free open-source spin-adapted implementation of
+the density matrix renormalization group for ab initio quan-
+tum chemistry. Computer Physics Communications 2014, 185,
+1501–1514.
+40Keller, S.; Dolfi, M.; Troyer, M.; Reiher, M. An efficient ma-
+trix product operator representation of the quantum chemi-
+cal Hamiltonian. The Journal of Chemical Physics 2015, 143,
+244118.
+41Keller, S.; Reiher, M. Spin-adapted matrix product states and
+operators. The Journal of Chemical Physics 2016, 144, 134101.
+42Li, Z.; Chan, G. K.-L. Spin-projected matrix product states:
+Versatile tool for strongly correlated systems. Journal of Chem-
+ical Theory and Computation 2017, 13, 2681–2695.
+43Brabec, J.; Brandejs, J.; Kowalski, K.; Xantheas, S.; Leg-
+eza, ¨O.; Veis, L. Massively parallel quantum chemical density
+matrix renormalization group method. Journal of Computa-
+tional Chemistry 2021, 42, 534–544.
+44Xie, Z.; Song, Y.; Peng, F.; Li, J.; Cheng, Y.; Zhang, L.; Ma, Y.;
+Tian, Y.; Luo, Z.; Ma, H. Kylin 1.0: An ab-initio density matrix
+renormalization group quantum chemistry program. Journal of
+Computational Chemistry 2023, 44, 1316–1328.
+45Zhai, H.; Larsson, H. R.; Lee, S.; Cui, Z.-H. block2: Effi-
+cient MPO implementation of quantum chemistry DMRG. 2023;
+https://github.com/block-hczhai/block2-preview.
+46Zgid, D.; Nooijen, M. On the spin and symmetry adaptation of
+the density matrix renormalization group method. The Journal
+of Chemical Physics 2008, 128, 014107.
+47Sharma, S. A general non-Abelian density matrix renormaliza-
+tion group algorithm with application to the C2 dimer. The
+Journal of Chemical Physics 2015, 142, 024107.
+48Li, Z. Time-reversal symmetry adaptation in relativistic density
+matrix renormalization group algorithm. The Journal of Chem-
+ical Physics 2023, 158, 044119.
+49Sun, Q.; Berkelbach, T. C.; Blunt, N. S.; Booth, G. H.; Guo, S.;
+Li, Z.; Liu, J.; McClain, J. D.; Sayfutyarova, E. R.; Sharma, S.,
+et al. PySCF: the Python-based simulations of chemistry frame-
+work. Wiley Interdisciplinary Reviews: Computational Molecu-
+lar Science 2018, 8, e1340.
+50Sun, Q.; Zhang, X.; Banerjee, S.; Bao, P.; Barbry, M.;
+Blunt, N. S.; Bogdanov, N. A.; Booth, G. H.; Chen, J.;
+Cui, Z. H., et al. Recent developments in the P y SCF program
+package. The Journal of Chemical Physics 2020, 153, 024109.
+51Xiang, T. Density-matrix renormalization-group method in mo-
+mentum space. Physical Review B 1996, 53, R10445.
+52Zhang, S. SO(4) symmetry of the Hubbard model and its exper-
+imental consequences. International Journal of Modern Physics
+B 1991, 5, 153–168.
+53McCulloch, I. P.; Gul´ acsi, M. The non-Abelian density matrix
+renormalization group algorithm. Europhysics Letters 2002, 57,
+852.
+54Xiang, C.; Jia, W.; Fang, W.-H.; Li, Z. A distributed multi-
+GPU ab initio density matrix renormalization group algorithm
+with applications to the P-cluster of nitrogenase. arXiv preprint
+arXiv:2311.02854 2023,
+55Zhai, H.; Lee, S.; Cui, Z.-H.; Cao, L.; Ryde, U.; Chan, G. K.-L.
+Multireference protonation energetics of a dimeric model of ni-
+trogenase iron-sulfur clusters. arXiv preprint arXiv:2305.07227
+2023,
+56White, S. R. Density matrix renormalization group algorithms
+with a single center site. Physical Review B 2005, 72, 180403.
+57Hubig, C.; McCulloch, I. P.; Schollw¨ ock, U.; Wolf, F. A. Strictly
+single-site DMRG algorithm with subspace expansion. Physical
+Review B 2015, 91, 155115.
+58Larsson, H. R.; Zhai, H.; Gunst, K.; Chan, G. K.-L. Matrix
+product states with large sites. Journal of Chemical Theory and
+Computation 2022, 18, 749–762.
+59Dorando, J. J.; Hachmann, J.; Chan, G. K.-L. Targeted excited
+state algorithms. The Journal of Chemical Physics 2007, 127,
+084109.
+60Sharma, S.; Chan, G. K.-L. block: the density matrix renormal-
+ization group (DMRG) algorithm for quantum chemistry. 2012;
+https://github.com/sanshar/StackBlock.
+61Larsson, H. R. Computing vibrational eigenstates with tree ten-
+sor network states (TTNS). The Journal of Chemical Physics
+2019, 151, 204102.
+17
+62Li, Z.; Xiao, Y.; Liu, W. On the spin separation of algebraic
+two-component relativistic Hamiltonians: Molecular properties.
+The Journal of Chemical Physics 2014, 141, 054111.
+63Moritz, G.; Wolf, A.; Reiher, M. Relativistic DMRG calcula-
+tions on the curve crossing of cesium hydride. The Journal of
+Chemical Physics 2005, 123, 184105.
+64Knecht, S.; Legeza, ¨O.; Reiher, M. Communication: Four-
+component density matrix renormalization group. The Journal
+of Chemical Physics 2014, 140, 041101.
+65Battaglia, S.; Keller, S.; Knecht, S. Efficient relativistic density-
+matrix renormalization group implementation in a matrix-
+product formulation. Journal of Chemical Theory and Com-
+putation 2018, 14, 2353–2369.
+66Hoyer, C. E.; Hu, H.; Lu, L.; Knecht, S.; Li, X. Relativis-
+tic Kramers-unrestricted exact-two-component density matrix
+renormalization group. The Journal of Physical Chemistry A
+2022, 126, 5011–5020.
+67Dyall, K. G.; Fægri Jr, K. Introduction to relativistic quantum
+chemistry; Oxford University Press, 2007.
+68Zhai, H.; Chan, G. K.-L. A comparison between the one-and
+two-step spin–orbit coupling approaches based on the ab initio
+density matrix renormalization group. The Journal of Chemical
+Physics 2022, 157, 164108.
+69Neese, F. Efficient and accurate approximations to the molecu-
+lar spin-orbit coupling operator and their use in molecular g-
+tensor calculations. The Journal of Chemical Physics 2005,
+122, 034107.
+70Sayfutyarova, E. R.; Chan, G. K.-L. A state interaction spin-
+orbit coupling density matrix renormalization group method.
+The Journal of Chemical Physics 2016, 144, 234301.
+71Sayfutyarova, E.; Chan, G. K.-L. Electron paramagnetic reso-
+nance g-tensors from state interaction spin-orbit coupling den-
+sity matrix renormalization group. The Journal of Chemical
+Physics 2018, 148, 184103–184103.
+72Chan, G. K.-L.; Van Voorhis, T. Density-matrix
+renormalization-group algorithms with nonorthogonal or-
+bitals and non-Hermitian operators, and applications to
+polyenes. The Journal of Chemical Physics 2005, 122, 204101.
+73White, S. R. Numerical canonical transformation approach
+to quantum many-body problems. The Journal of Chemical
+Physics 2002, 117, 7472–7482.
+74Yanai, T.; Chan, G. K.-L. Canonical transformation theory
+for multireference problems. The Journal of Chemical Physics
+2006, 124, 194106.
+75Neuscamman, E.; Yanai, T.; Chan, G. K.-L. Strongly con-
+tracted canonical transformation theory. The Journal of Chem-
+ical Physics 2010, 132, 024106.
+76Yanai, T.; Kurashige, Y.; Neuscamman, E.; Chan, G. K.-L. Ex-
+tended implementation of canonical transformation theory: par-
+allelization and a new level-shifted condition. Physical Chem-
+istry Chemical Physics 2012, 14, 7809–7820.
+77Bartlett, R. J.; Musia l, M. Coupled-cluster theory in quantum
+chemistry. Reviews of Modern Physics 2007, 79, 291.
+78Mitrushenkov, A.; Fano, G.; Linguerri, R.; Palmieri, P. On the
+possibility to use non-orthogonal orbitals for Density Matrix
+Renormalization Group calculations in Quantum Chemistry.
+arXiv preprint arXiv:cond-mat/0306058 2003,
+79Liao, K.; Zhai, H.; Christlmaier, E. M.; Schraivogel, T.;
+R´ ıos, P. L.; Kats, D.; Alavi, A. Density Matrix Renormalization
+Group for Transcorrelated Hamiltonians: Ground and Excited
+States in Molecules. Journal of Chemical Theory and Compu-
+tation 2023, 19, 1734–1743.
+80Baiardi, A.; Reiher, M. Transcorrelated density matrix renor-
+malization group. The Journal of Chemical Physics 2020, 153,
+164115.
+81Sokolov, A. Y.; Guo, S.; Ronca, E.; Chan, G. K.-L. Time-
+dependent N-electron valence perturbation theory with matrix
+product state reference wavefunctions for large active spaces and
+basis sets: Applications to the chromium dimer and all-trans
+polyenes. The Journal of Chemical Physics 2017, 146, 244102.
+82Moritz, G.; Hess, B. A.; Reiher, M. Convergence behavior of the
+density-matrix renormalization group algorithm for optimized
+orbital orderings. The Journal of Chemical Physics 2005, 122,
+024107.
+83Ma, Y.; Ma, H. Assessment of various natural orbitals as
+the basis of large active space density-matrix renormalization
+group calculations. The Journal of Chemical Physics 2013, 138,
+224105.
+84Mishmash, R. V.; Gujarati, T. P.; Motta, M.; Zhai, H.; Chan, G.
+K.-L.; Mezzacapo, A. Hierarchical Clifford Transformations to
+Reduce Entanglement in Quantum Chemistry Wave Functions.
+Journal of Chemical Theory and Computation 2023, 19, 3194–
+3208.
+85Fiedler, M. A property of eigenvectors of nonnegative symmet-
+ric matrices and its application to graph theory. Czechoslovak
+Mathematical Journal 1975, 25, 619–633.
+86Barcza, G.; Legeza, ¨O.; Marti, K. H.; Reiher, M. Quantum-
+information analysis of electronic states of different molecular
+structures. Physical Review A 2011, 83, 012508.
+87Olivares-Amaya, R.; Hu, W.; Nakatani, N.; Sharma, S.;
+Yang, J.; Chan, G. K.-L. The ab-initio density matrix renor-
+malization group in practice. The Journal of chemical physics
+2015, 142, 034102.
+88Rissler, J.; Noack, R. M.; White, S. R. Measuring orbital in-
+teraction using quantum information theory. Chemical Physics
+2006, 323, 519–531.
+89Sun, Q.; Yang, J.; Chan, G. K.-L. A general second order com-
+plete active space self-consistent-field solver for large-scale sys-
+tems. Chemical Physics Letters 2017, 683, 291–299.
+90Smith, J. E.; Lee, J.; Sharma, S. Near-exact nuclear gradients of
+complete active space self-consistent field wave functions. The
+Journal of Chemical Physics 2022, 157, 094104.
+91Zgid, D.; Nooijen, M. The density matrix renormalization group
+self-consistent field method: Orbital optimization with the den-
+sity matrix renormalization group method in the active space.
+The Journal of Chemical Physics 2008, 128, 144116.
+92Ghosh, D.; Hachmann, J.; Yanai, T.; Chan, G. K.-L. Orbital
+optimization in the density matrix renormalization group, with
+applications to polyenes and β-carotene. The Journal of Chem-
+ical Physics 2008, 128, 144117–144117.
+93Yanai, T.; Kurashige, Y.; Ghosh, D.; Chan, G. K.-L. Accelerat-
+ing convergence in iterative solution for large-scale complete ac-
+tive space self-consistent-field calculations. International Jour-
+nal of Quantum Chemistry 2009, 109, 2178–2190.
+94Hu, W.; Chan, G. K.-L. Excited-state geometry optimization
+with the density matrix renormalization group, as applied to
+polyenes. Journal of Chemical Theory and Computation 2015,
+11, 3000–3009.
+95Iino, T.; Shiozaki, T.; Yanai, T. Algorithm for analytic nu-
+clear energy gradients of state averaged DMRG-CASSCF theory
+with newly derived coupled-perturbed equations. The Journal
+of Chemical Physics 2023, 158, 054107–054107.
+96Zhai, H.; Chan, G. K.-L. Low communication high performance
+ab initio density matrix renormalization group algorithms. The
+Journal of Chemical Physics 2021, 154, 224116.
+97Chan, G. K.-L.; Keselman, A.; Nakatani, N.; Li, Z.; White, S. R.
+Matrix product operators, matrix product states, and ab initio
+density matrix renormalization group algorithms. The Journal
+of chemical physics 2016, 145, 014102.
+98Stoudenmire, E.; White, S. R. Real-space parallel density matrix
+renormalization group. Physical Review B 2013, 87, 155137.
+99Chen, F.-Z.; Cheng, C.; Luo, H.-G. Real-space parallel density
+matrix renormalization group with adaptive boundaries. Chi-
+nese Physics B 2021, 30, 080202.
+100Chan, G. K.-L. An algorithm for large scale density matrix
+renormalization group calculations. The Journal of Chemical
+Physics 2004, 120, 3172–3178.
+101Levy, R.; Solomonik, E.; Clark, B. K. Distributed-memory
+DMRG via sparse and dense parallel tensor contractions. SC20:
+International Conference for High Performance Computing,
+18
+Networking, Storage and Analysis. 2020; pp 1–14.
+102Hager, G.; Jeckelmann, E.; Fehske, H.; Wellein, G. Paralleliza-
+tion strategies for density matrix renormalization group algo-
+rithms on shared-memory systems. Journal of Computational
+Physics 2004, 194, 795–808.
+103Eriksen, J. J.; Anderson, T. A.; Deustua, J. E.; Ghanem, K.;
+Hait, D.; Hoffmann, M. R.; Lee, S.; Levine, D. S.; Magoulas, I.;
+Shen, J., et al. The ground state electronic energy of benzene.
+The Journal of Physical Chemistry Letters 2020, 11, 8922–
+8929.
+104Dunning Jr, T. H. Gaussian basis sets for use in correlated
+molecular calculations. I. The atoms boron through neon and
+hydrogen. The Journal of Chemical Physics 1989, 90, 1007–
+1023.
+105Ronca, E.; Li, Z.; Jimenez-Hoyos, C. A.; Chan, G. K.-L. Time-
+step targeting time-dependent and dynamical density matrix
+renormalization group algorithms with ab initio Hamiltonians.
+Journal of Chemical Theory and Computation 2017, 13, 5560–
+5571.
+106Guo, S.; Li, Z.; Chan, G. K.-L. Communication: An efficient
+stochastic algorithm for the perturbative density matrix renor-
+malization group in large active spaces. The Journal of Chemi-
+cal Physics 2018, 148, 221104.
+107White, S. R.; Martin, R. L. Ab initio quantum chemistry us-
+ing the density matrix renormalization group. The Journal of
+Chemical Physics 1999, 110, 4127–4130.
+108Jeckelmann, E.; White, S. R. Density-matrix renormalization-
+group study of the polaron problem in the Holstein model.Phys-
+ical Review B 1998, 57, 6376.
+109Ge, Y.; Li, W.; Ren, J.; Shuai, Z. Computational Method for
+Evaluating the Thermoelectric Power Factor for Organic Materi-
+als Modeled by the Holstein Model: A Time-Dependent Density
+Matrix Renormalization Group Formalism.Journal of Chemical
+Theory and Computation 2022, 18, 6437–6446.
+110Hubig, C.; McCulloch, I.; Schollw¨ ock, U. Generic construction
+of efficient matrix product operators. Physical Review B 2017,
+95, 035129.
+111Ren, J.; Li, W.; Jiang, T.; Shuai, Z. A general automatic method
+for optimal construction of matrix product operators using bi-
+partite graph theory. The Journal of Chemical Physics 2020,
+153, 084118.
+112Stoudenmire, E. M.; White, S. R. Sliced basis density matrix
+renormalization group for electronic structure. Physical Review
+Letters 2017, 119, 046401.
+113Lin, L.; Tong, Y. Low-rank representation of tensor network
+operators with long-range pairwise interactions. SIAM Journal
+on Scientific Computing 2021, 43, A164–A192.
+114Kirn, J.; Rees, D. Crystallographic structure and functional
+implications of the nitrogenase molybdenum–iron protein from
+Azotobacter vinelandii. Nature 1992, 360, 553–560.
+115Sharma, S.; Chan, G. K.-L. Communication: A flexible multi-
+reference perturbation theory by minimizing the Hylleraas func-
+tional with matrix product states. The Journal of Chemical
+Physics 2014, 141, 111101.
+116Shewchuk, J. R., et al. An introduction to the conjugate gradient
+method without the agonizing pain. 1994.
+117Harman, H. H.; Jones, W. H. Factor analysis by minimizing
+residuals (minres). Psychometrika 1966, 31, 351–368.
+118Hicken, J. E.; Zingg, D. W. A simplified and flexible variant of
+GCROT for solving nonsymmetric linear systems. SIAM Jour-
+nal on Scientific Computing 2010, 32, 1672–1694.
+119Van Gijzen, M. B.; Sonneveld, P. Algorithm 913: An elegant
+IDR (s) variant that efficiently exploits biorthogonality proper-
+ties. ACM Transactions on Mathematical Software 2011, 38,
+1–19.
+120Mohr, S.; Dawson, W.; Wagner, M.; Caliste, D.; Nakajima, T.;
+Genovese, L. Efficient computation of sparse matrix functions
+for large-scale electronic structure calculations: The CheSS li-
+brary. Journal of Chemical Theory and Computation 2017, 13,
+4684–4698.
+121Paige, C. C.; Saunders, M. A. LSQR: An algorithm for sparse
+linear equations and sparse least squares. ACM Transactions on
+Mathematical Software 1982, 8, 43–71.
+122Zhai, H.; Gao, Y.; Chan, G. K.-L. pyblock3: an efficient python
+block-sparse tensor and MPS/DMRG library. 2021; https://
+github.com/block-hczhai/pyblock3-preview.
+123Harris, C. R.; Millman, K. J.; Van Der Walt, S. J.; Gommers, R.;
+Virtanen, P.; Cournapeau, D.; Wieser, E.; Taylor, J.; Berg, S.;
+Smith, N. J., et al. Array programming with NumPy. Nature
+2020, 585, 357–362.
+124Paszke, A.; Gross, S.; Chintala, S.; Chanan, G.; Yang, E.; De-
+Vito, Z.; Lin, Z.; Desmaison, A.; Antiga, L.; Lerer, A. Automatic
+differentiation in pytorch. 2017,
+125Hirata, S. Tensor contraction engine: Abstraction and au-
+tomated parallel implementation of configuration-interaction,
+coupled-cluster, and many-body perturbation theories. The
+Journal of Physical Chemistry A 2003, 107, 9887–9897.
+126Hirata, S. Symbolic algebra in quantum chemistry. Theoretical
+Chemistry Accounts 2006, 116, 2–17.
+127Neuscamman, E.; Yanai, T.; Chan, G. K.-L. Quadratic canon-
+ical transformation theory and higher order density matrices.
+The Journal of chemical physics 2009, 130, 124102.
+128Saitow, M.; Kurashige, Y.; Yanai, T. Multireference configura-
+tion interaction theory using cumulant reconstruction with in-
+ternal contraction of density matrix renormalization group wave
+function. The Journal of Chemical Physics 2013, 139, 044118.
+129MacLeod, M. K.; Shiozaki, T. Communication: Automatic code
+generation enables nuclear gradient computations for fully inter-
+nally contracted multireference theory.The Journal of Chemical
+Physics 2015, 142, 051103.
+130Saitow, M.; Kurashige, Y.; Yanai, T. Fully internally contracted
+multireference configuration interaction theory using density
+matrix renormalization group: A reduced-scaling implementa-
+tion derived by computer-aided tensor factorization. Journal of
+Chemical Theory and Computation 2015, 11, 5120–5131.
+131Evangelista, F. A. Automatic derivation of many-body theories
+based on general Fermi vacua.The Journal of Chemical Physics
+2022, 157, 064111.
+132Saue, T. Relativistic Hamiltonians for chemistry: A primer.
+ChemPhysChem 2011, 12, 3077–3094.
+133Schurkus, H.; Chen, D.-T.; Cheng, H.-P.; Chan, G. K.-L.; Stan-
+ton, J. Theoretical prediction of magnetic exchange coupling
+constants from broken-symmetry coupled cluster calculations.
+The Journal of Chemical Physics 2020, 152, 234115.
+134Zgid, D.; Nooijen, M. Obtaining the two-body density matrix in
+the density matrix renormalization group method. The Journal
+of Chemical Physics 2008, 128, 144115.
+135Guo, S.; Watson, M. A.; Hu, W.; Sun, Q.; Chan, G. K.-L. N-
+electron valence state perturbation theory based on a density
+matrix renormalization group reference function, with applica-
+tions to the chromium dimer and a trimer model of poly (p-
+phenylenevinylene). Journal of Chemical Theory and Compu-
+tation 2016, 12, 1583–1591.
+136Angeli, C.; Cimiraglia, R.; Malrieu, J.-P. n-electron valence state
+perturbation theory: A spinless formulation and an efficient im-
+plementation of the strongly contracted and of the partially con-
+tracted variants. The Journal of Chemical Physics 2002, 117,
+9138–9153.
+137Legeza, ¨O.; S´ olyom, J. Optimizing the density-matrix renor-
+malization group method using quantum information entropy.
+Physical Review B 2003, 68, 195116.
+138Boguslawski, K.; Tecmer, P.; Legeza, O.; Reiher, M. Entangle-
+ment measures for single-and multireference correlation effects.
+The Journal of Physical Chemistry Letters 2012, 3, 3129–3135.
+139Liu, G.; Li, W.; You, W. Bipartite entanglement of the one-
+dimensional extended quantum compass model in a transverse
+field. The European Physical Journal B 2012, 85, 1–6.
+140Lee, S.; Zhai, H.; Sharma, S.; Umrigar, C. J.; Chan, G. K.-L.
+Externally corrected ccsd with renormalized perturbative triples
+(R-ecCCSD (T)) and the density matrix renormalization group
+19
+and selected configuration interaction external sources. Journal
+of Chemical Theory and Computation 2021, 17, 3414–3425.
+141Magoulas, I.; Gururangan, K.; Piecuch, P.; Deustua, J. E.;
+Shen, J. Is externally corrected coupled cluster always better
+than the underlying truncated configuration interaction? Jour-
+nal of Chemical Theory and Computation 2021, 17, 4006–4027.
+142Kinoshita, T.; Hino, O.; Bartlett, R. J. Coupled-cluster method
+tailored by configuration interaction. The Journal of Chemical
+Physics 2005, 123, 074106.
+143Hino, O.; Kinoshita, T.; Chan, G. K.-L.; Bartlett, R. Tailored
+coupled cluster singles and doubles method applied to calcu-
+lations on molecular structure and harmonic vibrational fre-
+quencies of ozone. The Journal of Chemical Physics 2006, 124,
+114311–114311.
+144Veis, L.; Antal´ ık, A.; Brabec, J.; Neese, F.; Legeza, O.; Pit-
+tner, J. Coupled cluster method with single and double exci-
+tations tailored by matrix product state wave functions. The
+Journal of Physical Chemistry Letters 2016, 7, 4072–4078.
+145Faulstich, F. M.; M´ at´ e, M.; Laestadius, A.; Csirik, M. A.;
+Veis, L.; Antalik, A.; Brabec, J.; Schneider, R.; Pittner, J.;
+Kvaal, S., et al. Numerical and theoretical aspects of the
+DMRG-TCC method exemplified by the nitrogen dimer. Jour-
+nal of Chemical Theory and Computation 2019, 15, 2206–2220.
+146Mitrushchenkov, A. O.; Fano, G.; Linguerri, R.; Palmieri, P.
+On the importance of orbital localization in QC-DMRG cal-
+culations. International Journal of Quantum Chemistry 2012,
+112, 1606–1619.
+147Shepard, R.; Brozell, S. R.; Gidofalvi, G. The representation and
+parametrization of orthogonal matrices.The Journal of Physical
+Chemistry A 2015, 119, 7924–7939.
+148Kuhn, H. W. The Hungarian method for the assignment prob-
+lem. Naval Research Logistics Quarterly 1955, 2, 83–97.
+149Fukuda, K.; Matsui, T. Finding all the perfect matchings in
+bipartite graphs. Applied Mathematics Letters 1994, 7, 15–18.
+150Ramasesha, S.; Pati, S. K.; Krishnamurthy, H.; Shuai, Z.;
+Br´ edas, J. Low-lying electronic excitations and nonlinear optic
+properties of polymers via symmetrized density matrix renor-
+malization group method. Synthetic Metals 1997, 85, 1019–
+1022.
+151Dorando, J. J.; Hachmann, J.; Chan, G. K.-L. Analytic response
+theory for the density matrix renormalization group. The Jour-
+nal of Chemical Physics 2009, 130, 184111.
+152Lee, S.; Zhai, H.; Chan, G. K.-L. An Ab Initio Correction Vec-
+tor Restricted Active Space Approach to the L-Edge XAS and
+2p3d RIXS Spectra of Transition Metal Complexes. Journal of
+Chemical Theory and Computation 2023, 19, 7753–7763.
+153Wathen, A. J. Preconditioning. Acta Numerica 2015, 24, 329–
+376.
+154Holzner, A.; Weichselbaum, A.; McCulloch, I. P.;
+Schollw¨ ock, U.; von Delft, J. Chebyshev matrix product
+state approach for spectral functions. Physical Review B 2011,
+83, 195115.
+155Braun, A.; Schmitteckert, P. Numerical evaluation of Green’s
+functions based on the Chebyshev expansion. Physical Review
+B 2014, 90, 165112.
+156Xie, H.; Huang, R.; Han, X.; Yan, X.; Zhao, H.; Xie, Z.; Liao, H.;
+Xiang, T. Reorthonormalization of Chebyshev matrix product
+states for dynamical correlation functions. Physical Review B
+2018, 97, 075111.
+157Jiang, T.; Ren, J.; Shuai, Z. Chebyshev matrix product states
+with canonical orthogonalization for spectral functions of many-
+body systems. The Journal of Physical Chemistry Letters 2021,
+12, 9344–9352.
+158Haegeman, J.; Cirac, J. I.; Osborne, T. J.; Piˇ zorn, I.; Ver-
+schelde, H.; Verstraete, F. Time-dependent variational princi-
+ple for quantum lattices. Physical Review Letters 2011, 107,
+070601.
+159Kinder, J. M.; Ralph, C. C.; Chan, G. K.-L. Analytic time evo-
+lution, random phase approximation, and Green functions for
+matrix product states. Quantum Information and Computation
+for Chemistry 2014, 179–192.
+160Nakatani, N.; Wouters, S.; Van Neck, D.; Chan, G. K.-L. Linear
+response theory for the density matrix renormalization group:
+Efficient algorithms for strongly correlated excited states. The
+Journal of Chemical Physics 2014, 140, 024108.
+161Haegeman, J.; Lubich, C.; Oseledets, I.; Vandereycken, B.; Ver-
+straete, F. Unifying time evolution and optimization with ma-
+trix product states. Physical Review B 2016, 94, 165116.
+162Heidrich-Meisner, F.; Feiguin, A. E.; Dagotto, E. Real-time sim-
+ulations of nonequilibrium transport in the single-impurity An-
+derson model. Physical Review B 2009, 79, 235336.
+163Jiang, T.; Li, W.; Ren, J.; Shuai, Z. Finite temperature dynam-
+ical density matrix renormalization group for spectroscopy in
+frequency domain. The Journal of Physical Chemistry Letters
+2020, 11, 3761–3768.
+164Ren, J.; Shuai, Z.; Chan, G. K.-L. Time-dependent density ma-
+trix renormalization group algorithms for nearly exact absorp-
+tion and fluorescence spectra of molecular aggregates at both
+zero and finite temperature. Journal of Chemical Theory and
+Computation 2018, 14, 5027–5039.
+165Peng, R.; White, A. F.; Zhai, H.; Chan, G. K.-L. Conserva-
+tion laws in coupled cluster dynamics at finite temperature. The
+Journal of Chemical Physics 2021, 155, 044103.
+166Loos, P.-F.; Gill, P. M. The uniform electron gas. Wiley Inter-
+disciplinary Reviews: Computational Molecular Science 2016,
+6, 410–429.
+167Szalay, P. G.; Muller, T.; Gidofalvi, G.; Lischka, H.; Shepard, R.
+Multiconfiguration self-consistent field and multireference con-
+figuration interaction methods and applications. Chemical Re-
+views 2012, 112, 108–181.
+168Yanai, T.; Kurashige, Y.; Neuscamman, E.; Chan, G. K.-L. Mul-
+tireference quantum chemistry through a joint density matrix
+renormalization group and canonical transformation theory.The
+Journal of chemical physics 2010, 132, 024105.
+169Kurashige, Y.; Yanai, T. Second-order perturbation theory
+with a density matrix renormalization group self-consistent field
+reference function: Theory and application to the study of
+chromium dimer. The Journal of Chemical Physics 2011, 135,
+094104.
+170Sharma, S.; Alavi, A. Multireference linearized coupled clus-
+ter theory for strongly correlated systems using matrix product
+states. The Journal of Chemical Physics 2015, 143, 102815.
+171Luo, Z.; Ma, Y.; Wang, X.; Ma, H. Externally-contracted mul-
+tireference configuration interaction method using a DMRG ref-
+erence wave function. Journal of Chemical Theory and Compu-
+tation 2018, 14, 4747–4755.
+172Sharma, P.; Bernales, V.; Knecht, S.; Truhlar, D. G.;
+Gagliardi, L. Density matrix renormalization group pair-density
+functional theory (DMRG-PDFT): singlet–triplet gaps in poly-
+acenes and polyacetylenes. Chemical Science 2019, 10, 1716–
+1723.
+173Beran, P.; Matouˇ sek, M.; Hapka, M.; Pernal, K.; Veis, L. Den-
+sity matrix renormalization group with dynamical correlation
+via adiabatic connection.Journal of Chemical Theory and Com-
+putation 2021, 17, 7575–7585.
+174Khokhlov, D.; Belov, A. Toward an accurate Ab initio descrip-
+tion of low-lying singlet excited states of polyenes. Journal of
+Chemical Theory and Computation 2021, 17, 4301–4315.
+175Guo, S.; Li, Z.; Chan, G. K.-L. A perturbative density matrix
+renormalization group algorithm for large active spaces.Journal
+of Chemical Theory and Computation 2018, 14, 4063–4071.
+176Sharma, S.; Jeanmairet, G.; Alavi, A. Quasi-degenerate per-
+turbation theory using matrix product states. The Journal of
+Chemical Physics 2016, 144, 034103.
+177Sharma, S.; Knizia, G.; Guo, S.; Alavi, A. Combining inter-
+nally contracted states and matrix product states to perform
+multireference perturbation theory. Journal of Chemical The-
+ory and Computation 2017, 13, 488–498.
+178Barcza, G.; Werner, M. A.; Zar´ and, G.; Pershin, A.;
+Benedek, Z.; Legeza, O.; Szilv´ asi, T. Toward Large-Scale Re-
+20
+stricted Active Space Calculations Inspired by the Schmidt De-
+composition. The Journal of Physical Chemistry A 2022, 126,
+9709–9718.
+179Szalay, P. G.; Bartlett, R. J. Multi-reference averaged quadratic
+coupled-cluster method: a size-extensive modification of multi-
+reference CI. Chemical Physics Letters 1993, 214, 481–488.
+180Gdanitz, R. J.; Ahlrichs, R. The averaged coupled-pair func-
+tional (ACPF): A size-extensive modification of MRCI(SD).
+Chemical Physics Letters 1988, 143, 413–420.
+181Angeli, C.; Cimiraglia, R.; Evangelisti, S.; Leininger, T.; Mal-
+rieu, J.-P. Introduction of n-electron valence states for multiref-
+erence perturbation theory. The Journal of Chemical Physics
+2001, 114, 10252–10264.
+182Angeli, C.; Pastore, M.; Cimiraglia, R. New perspectives in mul-
+tireference perturbation theory: the n-electron valence state ap-
+proach. Theoretical Chemistry Accounts 2007, 117, 743–754.
+183Fink, R. F. Two new unitary-invariant and size-consistent per-
+turbation theoretical approaches to the electron correlation en-
+ergy. Chemical Physics Letters 2006, 428, 461–466.
+184Fink, R. F. The multi-reference retaining the excitation de-
+gree perturbation theory: A size-consistent, unitary invariant,
+and rapidly convergent wavefunction based ab initio approach.
+Chemical Physics 2009, 356, 39–46.
+185Roemelt, M.; Guo, S.; Chan, G. K.-L. A projected approxima-
+tion to strongly contracted N-electron valence perturbation the-
+ory for DMRG wavefunctions.The Journal of Chemical Physics
+2016, 144, 204113.
+186Jakob, W.; Rhinelander, J.; Moldovan, D. pybind11–Seamless
+operability between C++11 and Python. 2017; https://
+github.com/pybind/pybind11.
+187Cui, Z.-H.; Zhu, T.; Chan, G. K.-L. Efficient implementation of
+ab initio quantum embedding in periodic systems: Density ma-
+trix embedding theory. Journal of Chemical Theory and Com-
+putation 2019, 16, 119–129.
+188Sun, C.; Ray, U.; Cui, Z.-H.; Stoudenmire, M.; Ferrero, M.;
+Chan, G. K.-L. Finite-temperature density matrix embedding
+theory. Physical Review B 2020, 101, 075131.
+189Cui, Z.-H.; Zhai, H.; Zhang, X.; Chan, G. K.-L. Systematic
+electronic structure in the cuprate parent state from quantum
+many-body simulations. Science 2022, 377, 1192–1198.
+190Cui, Z.-H.; Yang, J.; T¨ olle, J.; Ye, H.-Z.; Zhai, H.; Kim, R.;
+Zhang, X.; Lin, L.; Berkelbach, T. C.; Chan, G. K.-L. Ab initio
+quantum many-body description of superconducting trends in
+the cuprates. arXiv preprint arXiv:2306.16561 2023,
+191Zhu, T.; Cui, Z.-H.; Chan, G. K.-L. Efficient formulation of
+ab initio quantum embedding in periodic systems: Dynamical
+mean-field theory. Journal of Chemical Theory and Computa-
+tion 2019, 16, 141–153.
+192Zhu, T.; Chan, G. K.-L. Ab Initio Full Cell G W+ DMFT for
+Correlated Materials. Physical Review X 2021, 11, 021006.
+193Aquilante, F.; Autschbach, J.; Baiardi, A.; Battaglia, S.;
+Borin, V. A.; Chibotaru, L. F.; Conti, I.; De Vico, L.; Del-
+cey, M.; Fdez. Galv´ an, I., et al. Modern quantum chemistry
+with [Open] Molcas. The Journal of Chemical Physics 2020,
+152, 214117.
+194Liu, F.; Kurashige, Y.; Yanai, T.; Morokuma, K. Multirefer-
+ence ab initio density matrix renormalization group (DMRG)-
+CASSCF and DMRG-CASPT2 study on the photochromic ring
+opening of spiropyran. Journal of Chemical Theory and Com-
+putation 2013, 9, 4462–4469.
+195Wouters, S.; Van Speybroeck, V.; Van Neck, D. DMRG-
+CASPT2 study of the longitudinal static second hyperpolariz-
+ability of all-trans polyenes. The Journal of Chemical Physics
+2016, 145, 054120.
+196Nakatani, N.; Guo, S. Density matrix renormalization group
+(DMRG) method as a common tool for large active-space CASS-
+CF/CASPT2 calculations. The Journal of Chemical Physics
+2017, 146, 094102.
+197Kurashige, Y.; Chalupsk` y, J.; Lan, T. N.; Yanai, T. Com-
+plete active space second-order perturbation theory with cumu-
+lant approximation for extended active-space wavefunction from
+density matrix renormalization group. The Journal of Chemical
+Physics 2014, 141, 174111.
+198Phung, Q. M.; Wouters, S.; Pierloot, K. Cumulant approxi-
+mated second-order perturbation theory based on the density
+matrix renormalization group for transition metal complexes:
+A benchmark study. Journal of Chemical Theory and Compu-
+tation 2016, 12, 4352–4361.
+199Li, C.; Evangelista, F. A. Multireference theories of electron
+correlation based on the driven similarity renormalization group.
+Annual Review of Physical Chemistry 2019, 70, 245–273.
+200Qiskit contributors, Qiskit: An Open-source Framework
+for Quantum Computing. 2023; https://github.com/Qiskit/
+qiskit.

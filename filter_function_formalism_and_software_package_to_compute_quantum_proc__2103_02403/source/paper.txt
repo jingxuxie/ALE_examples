@@ -1,0 +1,4077 @@
+Filter Function Formalism and Software Package to Compute Quantum Processes of
+Gate Sequences for Classical Non-Markovian Noise
+Tobias Hangleiter,∗ Pascal Cerfontaine,† and Hendrik Bluhm
+JARA-FIT Institute for Quantum Information, Forschungszentrum
+Jülich GmbH and RWTH Aachen University, 52074 Aachen, Germany
+Correlated, non-Markovian noise is present in many solid-state systems employed as hosts for
+quantum information technologies, signiﬁcantly complicating the realistic theoretical description of
+these systems. In this regime, the eﬀects of noise on sequences of quantum gates cannot be described
+by concatenating isolated quantum operations if the environmental correlation times are on the scale
+of the typical gate durations. The ﬁlter function formalism has been successful in characterizing the
+decay of coherence under the inﬂuence of such classical, non-Markovian environments and here we
+show it can be applied to describe unital evolution within the quantum operations formalism. We
+ﬁnd exact results for the quantum process and a simple composition rule for a sequence of operations.
+This enables the detailed study of eﬀects of noise correlations on algorithms and periodically driven
+systems. Moreover, we point out the method’s suitability for numerical applications and present
+the open-source Python software packagefilter_functions. Amongst other things, it facilitates
+computing the noise-averaged transfer matrix representation of a unital quantum operation in the
+presence of universal classical noise for arbitrary control sequences. We apply the presented methods
+to selected examples.
+I. INTRODUCTION
+In the circuit model of quantum computing, computa-
+tions are driven by applying time-local quantum gates.
+Any algorithm can be compiled using sequences of one-
+and two-qubit gates [1]. Ideal, error-free gates are repre-
+sented by unitary transformations, so that simulating the
+action of an algorithm on an initial state of a quantum
+computer amounts to simple matrix multiplication. Real
+implementationsaresubjecttonoisethatcausesdecoher-
+ence resulting in gate errors. If the noise is uncorrelated
+between gates, its eﬀect can be described by quantum op-
+erations acting as linear maps on density matrices, even
+when several gates are concatenated. A closely related
+approach is the use of a Master equation in Lindblad
+form [2], which governs the dynamics of density matrices
+under the inﬂuence of Markovian noise with a ﬂat power
+spectral density.
+Yet many physical systems used as hosts for qubits
+do not satisfy the condition of uncorrelated noise. One
+example frequently encountered in solid state systems is
+that of 1/f noise, which in principle contains arbitrarily
+long correlation times. It emerges for instance as ﬂux
+noise in superconducting qubits and electrical noise in
+quantum dot qubits [3–6]. Whereas simple approaches
+exist to treat for example quasistatic noise, which cor-
+responds to perfectly correlated noise (i.e. a spectrum
+with weight only at zero frequency), they cannot be ap-
+plied to 1/f noise because of the wide distribution of
+correlation times it contains. Thus, there is a gap in the
+mathematical descriptions of gate operations for noises
+with arbitrary power spectra that exist between the ex-
+tremal cases of perfectly ﬂat (white) and sharply peaked
+∗ tobias.hangleiter@rwth-aachen.de
+† pascal.cerfontaine@rwth-aachen.de
+(quasistatic) spectra. To capture experimentally relevant
+eﬀects important to understand the capabilities of quan-
+tum computing systems, a universally applicable formal-
+ism is hence desirable. For example, one may expect the
+ﬁdelity requirements for quantum error correction to be
+more stringent for correlated noise as errors of diﬀerent
+gates can interfere constructively [7]. On the other hand,
+it might also be possible to use correlation eﬀects to one’s
+beneﬁt, attenuating decoherence by cleverly constructing
+the gate sequences in algorithms.
+As experimental platforms begin to approach ﬁdelity
+limits set by employing primitive pulse schemes [5, 8, 9]
+and detailed knowledge about noise sources and spectra
+in solid-state systems becomes available [10–12], control
+pulse optimizations tailored towards speciﬁc systems will
+be required to further push ﬁdelities beyond the error
+correction threshold [13, 14]. This calls for ﬂexible and
+generically applicable tools as a basis for the numerical
+optimization of pulses as well as the detailed analysis of
+the quantum processes they eﬀect. In order to obtain a
+useful description also for gate operations that decouple
+from leading orders of noise, such as dynamically cor-
+rected gates (DCGs) [15], beyond leading order or exact
+results are required.
+In an accompanying publication [16] we presented a
+formalism based on ﬁlter functions and the Magnus ex-
+pansion (ME) that addresses these needs and limitations
+of the canonical master equation approach for correlated
+noise. Speciﬁcally, we showed how process descriptions
+can be obtained perturbatively for arbitrary classical
+noise spectra and derived a concatenation rule to obtain
+the ﬁlter function of a sequence of gates from those of
+the individual gates. This paper extends these results.
+Filter functions (FFs) were originally introduced to de-
+scribe the decay of phase coherence under dynamical de-
+coupling (DD) sequences [17–20] consisting of wait times
+and perfect π-pulses. The formalism facilitated recog-
+arXiv:2103.02403v2  [quant-ph]  25 Oct 2021
+
+2
+nizing these sequences as band-pass ﬁlters that allow
+for probing the environmental noise characteristics of a
+quantum system through noise spectroscopy [12, 21–23]
+or optimizing sequences to suppress speciﬁc noise bands
+[24–27]. It can also be extended to ﬁdelities of gate oper-
+ations for single [28, 29] or multiple [30, 31] qubits using
+the ME [32, 33] as well as more general DD protocols
+[34]. The works by Greenet al. [29] and Clausenet al.
+[35] also introduced the notion of the control matrix as
+a quantity closely related to the canonical ﬁlter function
+that is convenient for calculations. In this context, the
+formalism’s capability to predict ﬁdelities of gate imple-
+mentations has been identiﬁed and experimentally tested
+[26, 29, 36, 37]. Recently, it has also proved useful in as-
+sessing the performance requirements for classical control
+electronics [38].
+While analytic approaches allow for the calculation of
+ﬁlter functions of arbitrary quantum control protocols in
+principle, it is in practice often a tedious task to deter-
+mine analytic solutions to the integrals involved if the
+complexity of the applied wave forms goes beyond sim-
+ple square pulses or extend to multiple qubits. Moreover,
+one does not always have a closed-form expression of the
+control at hand, such as is the case for numerically opti-
+mized control pulses. This calls for a numerical approach
+which, while giving up some of the insights an analytical
+form oﬀers, is universally applicable and eliminates the
+need for laborious analytic calculations.
+Here, we build and extend upon our accompanying
+work of Ref. 16 and that of Ref. 29 to show that the for-
+malism can be recast within the framework of stochastic
+Liouville equations by means of the cumulant expansion
+[39, 40] which, for Gaussian noise, entails exact results
+for the quantum process of an arbitrary control opera-
+tion using only ﬁrst and second order terms of the ME
+[32]. Moreover, due to the fact that the ME retains
+the algebraic structure of the expanded quantity [33] we
+are able to separate decoherent and coherent contribu-
+tions to the process. We give explicit methods to eval-
+uate these terms for piecewise-constant control pulses.
+Moreover, we show that the formalism naturally lends
+itself as a tool for numerical calculations and present
+the filter_functions Python software package that en-
+ables calculating the ﬁlter function of arbitrary, piecewise
+constant deﬁned pulses [41]. On top of providing meth-
+ods to handle individual quantum gates, the package also
+implements the concatenation operation as well as paral-
+lelized execution of pulses on diﬀerent groups of qubits,
+allowing for a highly modular and hence computationally
+powerful treatment of quantum algorithms in the pres-
+ence of correlated noise. Given an arbitrary, classical
+noise spectral density, it can be used to calculate a ma-
+trix representation of the error process. From this matrix
+one can extract average gate ﬁdelities, transition proba-
+bilities, and leakage rates as we derive below. To simplify
+adaptation the software’s API is strongly inspired by and
+compatible with QuTiP [42] as well asqopt [43]. This al-
+lows users to use these packages in conjunction. Assess-
+ing the computational performance, we show that our
+method outperforms Monte Carlo simulations for single
+gates. New analytic results applicable to periodic Hamil-
+tonians and employing the concatenation property make
+this advantage even more pronounced for sequences of
+gates. To highlight the main software features, we show
+example applications below.
+We provide this package in the expectation that it will
+be a useful tool for the community. Besides recasting
+and expanding on our earlier introduction of the formal-
+ism in Ref. 16, the present paper is intended to provide
+an overview of the software and its capabilities. It is
+structured as follows: In Section II we derive an exact
+expression for unital quantum operations in the presence
+of non-Markovian Gaussian noise and lay out how it may
+be evaluated using the ﬁlter function formalism. We re-
+view the concatenation of quantum operations shown in
+Ref.16andfurthermoreadaptthemethodbyGreen et al.
+[29] to calculate the ﬁlter function of an arbitrary con-
+trol sequence numerically. We will speciﬁcally focus on
+computational aspects of the formalism and lay out how
+to compute various quantities of interest. Moreover, we
+classify its computational complexity for calculating av-
+erage gate ﬁdelities and remark on simpliﬁcations that
+allow for drastic improvements in performance in certain
+applications. In Section IV, we introduce the software
+packagebyoutliningtheprogrammaticstructureandgiv-
+ing a brief overview over the API. Lastly, in Section V,
+we show the application of the software by means of four
+examples that highlight various features of the formal-
+ism and its implementation. Therein, we ﬁrst demon-
+strate that the formalism can predict average gate ﬁdeli-
+ties for complex two-qubit quantum gates in agreement
+with computationally much more costly Monte Carlo cal-
+culations. Next, we show how it can be applied to pe-
+riodically driven systems to eﬃciently analyze Rabi os-
+cillations. We ﬁnally establish the formalism’s ability to
+predict deviations from the simple concatenation of uni-
+tary gates for sequences and algorithms in the presence
+of correlated noise by simulating a randomized bench-
+marking experiment as well as assembling a quantum
+Fourier transform (QFT) circuit from numerically opti-
+mized gates. We conclude by brieﬂy remarking on pos-
+sible future application and extension of our method in
+Section VI.
+Throughout the paper we will denote operators by Ro-
+man font, e.g.U, and quantum operations and their rep-
+resentations as transfer matrices by calligraphic font, e.g.
+U, which we also use for the control matrix ˜B to em-
+phasize its innate connection to a transfer matrix. For
+consistency, a unitary quantum operation will share the
+same character as the corresponding unitary operator.
+An operator in the interaction picture will furthermore
+be designated by an overset tilde, e.g.˜H =U†HU withU
+the unitary operator deﬁning the co-moving frame. Def-
+initions of new quantities on the left and right side of
+an equality are denoted by:= and =:, respectively. We
+use a central dot (·) as a placeholder in some deﬁnitions
+
+3
+of abstract operators such as the Liouvillian, denoted by
+L := [H,· ], which is to be understood as the commuta-
+tor of the corresponding HamiltonianH and the operator
+thatL acts on. The identity matrix is denoted by1 and
+its dimension always inferred from context. Furthermore,
+we will use Greek letters for indices that correspond to
+noise operators in order to distinguish them clearly from
+thosethatcorrespondtobasisormatrixelements. Lastly,
+we work in units whereℏ = 1.
+II. FILTER FUNCTION FORMALISM FOR
+UNITAL QUANTUM OPERATIONS
+We begin the theoretical part of this article by showing
+how a superoperator matrix representation of the error
+process, the “error transfer matrix”, of a unital quantum
+operation can be computed from the control matrix of
+the pulse implementing the operation. The control ma-
+trix relates the operators through which noise couples
+into the system to a set of basis operators in the inter-
+action picture and we detail how it can be calculated
+in a relatively eﬃcient manner for two diﬀerent situa-
+tions. First, we consider a sequence of gates whose con-
+trol matrices have been precomputed. Second, we lay out
+how the control matrix can be obtained from scratch un-
+der the assumption of piecewise constant control, which
+is often convenient for approximating continuous pulse
+shapes. Other wave forms can be dealt with analogously
+by solving the corresponding integrals. We then move
+on to show how several quantities of interest can be ex-
+tracted and present optimized strategies for computing
+the central objects of the formalism.
+A. Transfer matrix representation of quantum
+operations
+1. Brief review of quantum operations and superoperators
+The quantum operations formalism provides a general
+framework for the description of open quantum systems
+[44, 45]. It forms the mathematical basis for quantum
+process tomography (QPT) [46, 47] as well as gate set
+tomography (GST) [48, 49] and has also been extensively
+employed in the context of randomized benchmarking
+(RB) [50, 51]. Several diﬀerent representations of quan-
+tum operations exist. While all of them are equivalent
+one typically chooses the most convenient for the prob-
+lem at hand. For an overview of the most commonly used
+representationsseeRef.49andformatrixrepresentations
+in particular Ref. 52 and the references therein. In this
+work we employ the Liouville representation, to the best
+of our knowledge ﬁrst formalized by Fano [53], to proﬁt
+from its simple properties under composition. It is also
+known as the transfer matrix representation and we will
+use the terms interchangeably below. We now brieﬂy re-
+view the concept and refer the reader to the literature for
+further details. Concretely, the Liouville representation
+of an operationE :ρ→E (ρ) acting on density operators
+in a Hilbert spaceH of dimensiond is given by
+Eij
+.= tr
+(
+C†
+iE(Cj)
+)
+(1)
+with an operator basisC ={C0,C 1,...,C d2−1} for the
+space of linear operators over H , L(H ), orthonormal
+with respect to the Hilbert-Schmidt product⟨A,B⟩ :=
+tr
+(
+A†B
+)
+. In the case that the operator basis corresponds
+to the Pauli matrices Eq. (1) is known as the Pauli trans-
+fer matrix (PTM). The operationE is thus associated
+with ad2×d2 matrix inLiouville space L that describes
+its action as the degree to which thej-th basis element
+is mapped onto thei-th. On L one can identify a set
+of basis kets{|Ci⟩⟩}d2−1
+i=0 ={|i⟩⟩}d2−1
+i=0 isomorphic to the
+operatorsCi (and correspondingly bras⟨⟨i| to the adjoint
+C†
+i) as well as the inner product⟨⟨i|j⟩⟩=⟨Ci,Cj⟩. As the
+vectors|i⟩⟩form an orthonormal basis, any operator on
+H can be written as a vector onL,|A⟩⟩=∑
+i|i⟩⟩⟨⟨i|A⟩⟩,
+whereas a superoperator onH becomes a matrix onL,
+see Eq. (1). It can then be shown that density opera-
+tors represented by vectors are propagated by transfer
+matrices so that the action of a quantum operationE
+on a density operator ρ is given by|E(ρ)⟩⟩ =E|ρ⟩⟩ =∑
+ij|i⟩⟩⟨⟨i|E|j⟩⟩⟨⟨j|ρ⟩⟩. Thus, the composition of two op-
+erationsE1 andE2 corresponds to matrix multiplication
+in Liouville space,[E2◦E1]ik =∑
+j[E2]ij[E1]jk, a property
+which makes the representation particularly attractive
+for sequences of operations. Although from a numerical
+perspective the computational complexity scales unfavor-
+ably with the system dimensiond (c.f. Section IIID), we
+will employ the Liouville representation for its transpar-
+ent interpretation and concise behavior under composi-
+tion in the following analytical considerations. Lastly,
+we note that forC0∝ 1, trace-preservation and unital-
+ity are encoded in the relationsE0j =δ0j andEj0 =δj0,
+respectively.
+2. Liouville representation of the error channel
+We will now derive an expression for the quantum pro-
+cess of a quantum gate in the presence of arbitrary classi-
+cal noise. As a single realization of a classical noise gen-
+erates strictly unitary dynamics, we will be interested in
+the expectation value of the dynamics over many such re-
+alizations, which willlead toa quantum processincluding
+decoherence. If the noise is additionally Gaussian, these
+results are exact and therefore apply without restrictions
+to arbitrarily large noise strength as well as to gates that
+partially decouple from noise. For such DCGs or DD
+sequences [15, 20] higher order terms can become dom-
+inant. In the case that the environment is not strictly
+Gaussian, our approach becomes perturbative and we re-
+cover the results presented in Ref. 16. As most of our
+discussion later on in this article will focus on the lead-
+ingorderapproximation, readersnotinterestedinthefull
+
+4
+generality may refer to that publication for a less general
+but perhaps more accessible derivation and skip ahead to
+Section IIB.
+The diﬀerence is that in Ref. 16, the Magnus expansion
+is applied to the solution of the Schrödinger equation,
+whereas the approach presented here is based on the the-
+ory of stochastic Liouville equations and the cumulant
+expansion [39, 40]. In the ﬁlter function context, the cu-
+mulant expansion has been used to express the decay of
+the oﬀ-diagonal terms of a single-qubit density matrix in
+Ref. 20. More recently, Paz-Silva and Viola [34] employed
+it in conjunction with the ME to obtain the matrix ele-
+ments of the perturbed density operator after a timeT of
+noisy evolution. In Ref. 54, the authors made use of the
+cumulant expansion and stochastic Liouville equations
+for the purpose of gate optimization. Here, we combine
+diﬀerent aspects of these works and make the connec-
+tion to the quantum operations formalism by determin-
+ing the noise-averaged error propagator in the Liouville
+representation. This form completely characterizes the
+error process and hence allows for detailed insight into
+the decoherence mechanisms of the operation.
+Concretely, we consider a system described by the
+stochastic Hamiltonian
+H(t) =Hc(t) +Hn(t), (2)
+Hn(t) =
+∑
+α
+bα(t)Bα(t). (3)
+Hc(t) is implemented by the experimentalist to generate
+the desired control operation during the timet∈ [0,τ ]
+and Hn(t) describes classical ﬂuctuating noise environ-
+mentsbα(t)∈ R that couple to the quantum system via
+theHermitiannoiseoperators Bα(t)∈ L(H ). Thesemay
+carry a general, deterministic time dependence and with-
+out loss of generality, we can require them to be trace-
+less since any contributions proportional to the identity
+do not contribute to noisy evolution in any case [55].
+The bα(t) are random variables drawn from (not neces-
+sarily Gaussian) distributions with zero mean that are
+assumed to be independent and identically distributed
+(i.i.d.) both with respect to repetitions of the exper-
+iment. Note that this concept of independence does
+not preclude correlations between diﬀerent noise sources
+α⁄= β nor between one noise source at diﬀerent times
+t⁄=t′, but only serves to obtain a well-deﬁned ensemble
+average. Lastly, to be able to later on relate the cor-
+relation functions of thebα(t) to their spectral density,
+we require the noise ﬁelds to be wide-sense stationary,
+meaning that their correlation function depends only on
+the time diﬀerence.
+For noise operators without explicit time dependence,
+Eq. (3) constitutes a universal decomposition as can
+be seen by choosing the Bα from an orthonormal ba-
+sis for L(H ). To motivate the time-dependent form
+of Eq. (3), assume the true Hamiltonian is a function
+of a set of noisy parameters⃗˜λ(t) = ⃗λ(t) + ⃗δλ(t) where
+⃗δλ(t) = vec({bα(t)}α) are the stochastic variables. Ex-
+panding the Hamiltonian in an orthonormal operator
+basis yields H(⃗˜λ(t)) = ∑
+αfα(⃗λ(t), ⃗δλ(t))Bα. In gen-
+eral, however, the expansion coeﬃcientsfα will be arbi-
+trary functions of both the deterministic parameters⃗λ(t)
+and the stochastic noises ⃗δλ(t), which prohibits a fac-
+torized form like Eq. (3). We can address this problem
+by ﬁrst expandingH around ⃗λ(t) for small ﬂuctuations
+⃗δλ(t). Then, the Hamiltonian approximately becomes
+H(⃗˜λ(t))≈ H(⃗λ(t)) + ⃗δλ(t)· ⃗∇λH(⃗λ(t)), where we can
+deﬁne the control Hamiltonian asHc(t) :=H(⃗λ(t)). Ex-
+pandingthesecondtermintheoperatorbasisnowresults
+in the form (3) for the noise Hamiltonian as it is linear in
+⃗δλ(t) and the deterministic time dependence is contained
+in ⃗∇λH(⃗λ(t)) alone.
+This permits us to model complex relations between
+physical noise sources and the noise operators that cap-
+ture the coupling to the quantum system, arising for ex-
+ample through control hardware or eﬀective Hamiltoni-
+ans obtained from e.g. Schrieﬀer-Wolﬀ transformations.
+While the linearization is in most cases an approxima-
+tion, it does not impose signiﬁcant constraints since the
+noise is typically weak compared to the control [56]. As
+an example, we could capture a dependence of the de-
+vice sensitivity on external controls (see also Ref. 30).
+In a widely used setting electrons conﬁned in solid-state
+quantum dots are manipulated using the exchange in-
+teraction J that depends non-linearly on the potential
+diﬀerenceϵ between two dots. Since the dominant physi-
+cal noise source aﬀecting this control is charge noise, one
+could include the eﬀect onJ(ϵ) to ﬁrst order withsϵ(t) =
+∂J (ϵ(t))/∂ϵ(t) so thatHn(t) =bϵ(t)Bϵ(t) =bϵ(t)sϵ(t)Bϵ
+for some operatorBϵ which represents the exchange cou-
+pling.
+Weproceedinourderivationbynotingthatthecontrol
+HamiltonianHc gives rise to the noise-free Liouville–von
+Neumann equation
+dρ(t)
+dt =−i[Hc(t),ρ (t)] =−iLc(t)ρ(t) (4)
+on the Hilbert space H with the Liouvillian super-
+operator Lc(t) representing the control. Analogous to
+the Schrödinger equation we may also write this dif-
+ferential equation in terms of time evolution superop-
+erators (superpropagators), dUc(t)/dt = −iLc(t)Uc(t)
+where the action ofUc on a stateρ is to be understood
+asUc :ρ→UcρU†
+c withUc the usual time evolution oper-
+ator satisfying the corresponding Schrödinger equation.
+This allows us to write the superpropagator for the total
+LiouvillianL =Lc +Ln asU(t) =Uc(t) ˜U(t) where the
+unitary error superpropagator ˜U(t) contains the eﬀect of
+a speciﬁc noise realization in Eq. (3). Next, we transform
+the noise LiouvillianLn to the interaction picture with
+respect to the control LiouvillianLc so that ˜U(t) satisﬁes
+
+5
+the modiﬁed Liouville equation
+d ˜U(t)
+dt =−i ˜Ln(t) ˜U(t), (5)
+˜Ln(t) =U†
+c (t)Ln(t)Uc(t). (6)
+Equation (5) may be formally solved using the Magnus
+expansion [32] so that at timet =τ
+˜U(τ) = exp(−iτLeﬀ(τ)) (7)
+withLeﬀ(τ) = ∑∞
+n=1Leﬀ,n(τ). A suﬃcient criterion for
+the convergence of the expansion is given by Moanet al.
+[57] as
+∫τ
+0 dt‖ ˜Ln(t)‖ < πwhere‖·‖ =
+√
+⟨· ,·⟩ is the
+Frobenius (Hilbert-Schmidt) norm. The ﬁrst and second
+terms of the ME are given by [32, 33]
+Leﬀ,1(τ) = 1
+τ
+∫ τ
+0
+dt ˜Ln(t), (8a)
+Leﬀ,2(τ) =− i
+2τ
+∫ τ
+0
+dt1
+∫ t1
+0
+dt2
+[
+˜Ln(t1), ˜Ln(t2)
+]
+. (8b)
+The n-th term of the expansion contains n factors of
+the noise variablesbα(t) and scales withn factors of the
+control duration τ, suggesting that higher-order terms
+can be neglected if their product is small. In the Bloch
+sphere picture this corresponds to requiring that the an-
+gle by which the Bloch vector is rotated away from its
+intended trajectory due to the noise be small. Below, we
+will use the parameterξ to denote the magnitude of this
+deviation. It is properly deﬁned in Appendix D1 where
+also bounds for the convergence of the ME are discussed.
+Here, we only state thatLeﬀ,n∼ξn (see also Ref. 29).
+We have suggestively written the ME in terms of an
+eﬀective LiouvillianLeﬀ = [Heﬀ,· ] to interpret it as the
+generator of atime-averaged evolution of a single noise
+realization up to timeτ. In order to obtain theensemble-
+averaged evolution of many realizations of the stochastic
+Hamiltonian in Eq. (3), we apply the cumulant expansion
+to ˜U (see also Refs. 58 and 59),
+⟨ ˜U(τ)⟩ =⟨exp(−iτLeﬀ(τ))⟩ =: expK(τ) (9)
+with⟨·⟩ denoting the ensemble average [60] and the cu-
+mulant function [39]
+K(τ) =
+∞∑
+k=1
+(−iτ)k
+k!
+⟨
+Leﬀ(τ)k⟩
+c (10)
+=
+∞∑
+k=1
+(−iτ)k
+k!
+⟨[∞∑
+n=1
+Leﬀ,n(τ)
+]k⟩
+c
+. (11)
+The notation⟨·⟩ c denotes the cumulant average which
+prescribes a certain averaging operation. The ﬁrst cumu-
+lantofasetofrandomvariables {Xi(t)}i issimplytheex-
+pectation value,⟨Xi(t)⟩c =⟨Xi(t)⟩, whereas the second
+cumulant corresponds to the covariance,⟨Xi(t)Xj(t)⟩c =
+⟨Xi(t)Xj(t)⟩−⟨ Xi(t)⟩⟨Xj(t)⟩. Remarkably, third and
+higher-order cumulants vanish for Gaussian processes
+[40, 61], making Eq. (11) exact by truncating the sums
+already at k = 2 and n = 2. In this case, the conver-
+gence radius of the ME becomes inﬁnite. The terms with
+k =n = 2 do not contribute as they involve fourth-order
+cumulants. Since furthermore we assume that the noise
+ﬁeldsbα(t)havezeromean, alsothetermswith k =n = 1
+vanish and⟨Xi(t)Xj(t)⟩c =⟨Xi(t)Xj(t)⟩. We can hence
+write the cumulant function succinctly as
+K(τ) =−iτ⟨Leﬀ,2(τ)⟩− τ 2
+2
+⟨
+Leﬀ,1(τ)2⟩
+. (12)
+Equations (9) and (12) allow us to exactly compute the
+full quantum process ⟨ ˜U⟩ : ρ → ⟨˜U(ρ)⟩ for Gaussian
+noise with arbitrary spectral density and power. For non-
+Gaussian noise these expressions are approximate up to
+O
+(
+ξ2)
+and higher order terms include both higher or-
+ders of the ME and the cumulant expansion. Inspecting
+Eq. (12), we observe that the ﬁrst term is anti-Hermitian
+as it is a pure Magnus term (remember that the ME pre-
+serves algebraic structure to every order) and thus gen-
+erates unitary, coherent time evolution. Conversely, the
+second term is Hermitian and thus generates decoher-
+ence [62]. The former is more diﬃcult to compute than
+the latter because the second order of the ME, Eq. (8b),
+contains nested time integrals. Arguments can be made
+[16], however, that for single gates in an experimental
+context the coherent errors captured by this term can
+be calibrated out to a large degree [63, 64]. Moreover,
+many of the central quantities of interest that can be
+extracted from the quantum process, among which are
+gate ﬁdelities and certain measurement probabilities, are
+functions of only the diagonal elements ofK. By virtue
+of the antisymmetry of the second order terms, they do
+not contribute to these quantities to leading order as we
+show in Section IID.
+While we will also lay out how to compute the second
+order, our discussion will therefore focus on contributions
+from the incoherent term below. As it turns out, this
+term can be computed using a ﬁlter function formalism
+based on that by Greenet al.[29]. To see this, we insert
+theexplicitformsoftheMEgiveninEq.(8)andthenoise
+HamiltoniangiveninEq.(3)intoEq.(12). Togetherwith
+[L,L′] = [[H,H′],· ] andLL′ = [H, [H′,· ]], we ﬁnd that
+
+6
+K(τ) =−1
+2
+∑
+αβ
+(∫ τ
+0
+dt1
+∫ t1
+0
+dt2⟨bα(t1)bβ(t2)⟩
+[[
+˜Bα(t1), ˜Bβ(t2)
+]
+,·
+]
++
+∫ τ
+0
+dt1
+∫ τ
+0
+dt2⟨bα(t1)bβ(t2)⟩
+[
+˜Bα(t1),
+[
+˜Bβ(t2),·
+]])
+, (13)
+where ˜Bα(t) = U†
+c (t)Bα(t)Uc(t) are the noise operators
+of Eq. (3) in the interaction picture.⟨bα(t1)bβ(t2)⟩ is the
+cross-correlation function of noise sourcesα andβ which
+we will later relate to the spectral density. For now, we
+stay in the time domain and introduce an orthonormal
+and Hermitian operator basis for the Hilbert spaceH to
+deﬁne the Liouville representation,
+C ={Ck∈ L(H ) :C†
+k =Ck and tr(CkCl) =δkl}d2−1
+k=0 ,
+(14)
+where we chooseC0 = 1
+/
+d 1/2 for convenience so that
+the remaining elements are traceless. In order to separate
+the commutators from the time-dependence and hence
+the integral in Eq. (13), we expand the noise operators
+in this basis so that
+˜Bα(t) =:
+∑
+k
+˜Bαk(t)Ck. (15)
+The expansion coeﬃcients ˜Bαk(t)∈ R are given by the
+inner product of a noise operator in the interaction pic-
+ture on the one hand and a basis element on the other:
+˜Bαk(t) =⟨ ˜Bα(t),Ck⟩ = tr
+(
+U†
+c (t)Bα(t)Uc(t)Ck
+)
+. (16)
+In line with Greenet al.[29], we call these coeﬃcients the
+control matrix (see also Refs. 65 and 35). In the trans-
+fer matrix (superoperator) picture we can take up the
+following interpretation for the control matrix by virtue
+of the cyclicity of the trace: it describes a mapping of a
+state, represented by the basis elementCk and subject
+to the control operationUc(t) :Ck→Uc(t)CkU†
+c (t), onto
+the noise operatorBα(t). That is, we can write theα-
+th row of the control matrix as⟨⟨˜Bα(t)| =⟨⟨Bα(t)|U c(t).
+In this connection lies the power of the FF formalism
+as will become clear shortly; we can ﬁrst determine the
+ideal evolution without noise and subsequently evaluate
+the error process by linking the unitary control operation
+to the noise operators.
+Having expanded the noise operators in the basisC,
+we can already anticipate that upon substituting them,
+Eq. (13) will separate into a time-dependent part involv-
+ing on one hand the control matrix and cross-correlation
+functions and on the other a time-independent part in-
+volving commutators of basis elements. This will sim-
+plify our calculations in the following. To see this, we
+recall the deﬁnition of the Liouville representation in
+Eq. (1) and apply it to the cumulant function so that
+Kij = tr(CiK[Cj]), where the notationK[Cj] means sub-
+stitutingCj for the placeholder· in the commutators in
+Eq. (13) and we suppressed the time argument for leg-
+ibility. Finally, we insert the expanded noise operators
+given by Eq. (15) and obtain the Liouville representation
+of the cumulant function,
+Kij(τ) =:−1
+2
+∑
+αβ
+∑
+kl
+(fijkl∆αβ,kl +gijklΓαβ,kl). (17)
+Here, we captured the ordering of the noise operators due
+to the commutators in Eq. (13) in the coeﬃcientsfijkl
+and gijkl. These are trivial functions of the fourth order
+trace tensor [66]
+Tijkl = tr(CiCjCkCl) (18)
+given by
+fijkl =Tklji−Tlkji−Tklij +Tlkij and (19a)
+gijkl =Tklji−Tkjli−Tkilj +Tkijl. (19b)
+Furthermore, we introduced the frequency (Lamb) shifts
+∆ and decay amplitudesΓ which contain all information
+on the noise and qubit dynamics as captured by the con-
+trol matrix ˜B(t):
+∆αβ,kl =
+∫ τ
+0
+dt1
+∫ t1
+0
+dt2⟨bα(t1)bβ(t2)⟩ ˜Bαk(t1) ¯Bβl(t2),
+(20)
+Γαβ,kl =
+∫ τ
+0
+dt1
+∫ τ
+0
+dt2⟨bα(t1)bβ(t2)⟩ ˜Bαk(t1) ¯Bβl(t2).
+(21)
+The frequency shifts ∆ correspond to the ﬁrst term in
+Eq. (12), hence incurring coherent errors, i.e. generalized
+axis and overrotation errors. They reﬂect a perturbative
+correction to the quantum evolution due to a change of
+the Hamiltonian at two points in time, and thus time or-
+dering matters. Conversely, the decay amplitudesΓ cor-
+respond to the second term and capture the decoherence.
+These terms are due to an incoherent average that only
+takes classical correlations into account, so that time or-
+dering does not play a role. Note that Eq. (17) together
+with Eq. (9) constitutes an exact version (in the Liou-
+ville representation) of Eq. (4) from Ref. 16 for Gaussian
+noise. The approximation of Ref. 16 is obtained by ex-
+panding the exponential to linear order and neglecting
+the second order terms∆.
+
+7
+For a single qubit andC the Pauli basis one can make
+use of the simple commutation relations so that the cu-
+mulant function takes the form (see Appendix A)
+Kij(τ) =
+{
+−∑
+k⁄=i Γkk if i =j,
+−∆ij + ∆ji + Γij if i⁄=j, (22)
+for i,j > 0 and anyα,β. As mentioned in Section IIA
+the casesj = 0 and i = 0 encode trace-preservation and
+unitality, respectively, and as suchK0j =Ki0 = 0 since
+our model is both trace-preserving and unital.
+B. Calculating the decay amplitudes
+In order to evaluate the cumulant functionK(τ) given
+by Eq. (17) and thus the transfer matrix⟨ ˜U(τ)⟩ from
+Eq. (9) for a given control operation, we solely require
+the decay amplitudesΓkl and frequency shifts∆kl since
+the trace tensorTijkl depends only on the choice of basis
+and is therefore trivial (although quite costly for large di-
+mensions, c.f. Section IIIC) to calculate. In this section,
+we describe simple methods for calculatingΓkl using an
+extension of the ﬁlter function formalism developed by
+Green et al.[29] that we introduced in Ref. 16. The cen-
+tral quantity of interest will be the control matrix that
+we already introduced above. It relates the interaction
+picture noise operators to the operator basis and we will
+compute it in Fourier space in order to identify the cross-
+correlation functions with the noise spectral density in
+Eq. (21). We distinguish between a sequence of quantum
+gates, as already presented in our related work [16], and
+a single gate. In the ﬁrst case the control matrix of the
+entire sequence can be calculated from those of the in-
+dividual gates, greatly simplifying the calculation if the
+latter have been precomputed. This approach gives rise
+to correlation terms in the expression forΓkl that cap-
+ture the eﬀects of sequencing gates. In the second case,
+as was shown by Greenet al.[29], one can calculate the
+control matrix for arbitrary single pulses under the as-
+sumption of piecewise constant control and we lay out
+how to adapt the approach for numerical applications.
+We start by noting that, because we assumed the noise
+ﬁeldsbα(t) to be wide-sense stationary, that is to say
+the cross-correlation functions evaluated at two diﬀer-
+ent points in timet1 and t2 depend only on their dif-
+ference t1−t2, we can deﬁne the two-sided noise power
+spectral densitySαβ(ω) as the Fourier transform of the
+cross-correlation functions⟨bα(t1)bβ(t2)⟩,
+⟨bα(t1)bβ(t2)⟩ =
+∫ ∞
+−∞
+dω
+2πSαβ(ω)e−iω(t1−t2). (23)
+Note that the spectrum only characterizes the noise fully
+in the case of Gaussian noise. For non-Gaussian compo-
+nents in the noise, additional polyspectra have in princi-
+pletobeconsideredforhigher-ordercorrelationfunctions
+[67]. However, since we only discuss second-order con-
+tributions which involve two-point correlation functions
+here, we only need to takeSαβ(ω) into account. Inserting
+the deﬁnition of the spectral density into Eq. (21), one
+ﬁnds
+Γαβ,kl =
+∫ ∞
+−∞
+dω
+2π
+˜B∗
+αk(ω)Sαβ(ω) ˜Bβl(ω) (24)
+with ˜B(ω) =
+∫τ
+0 dt ˜B(t)eiωt the frequency-domain control
+matrix. Note that ˜B∗(ω) = ˜B(−ω) because ˜B(t) is real.
+In the above equation, the fourth order tensor
+Fαβ,kl(ω) := ˜B∗
+αk(ω) ˜Bβl(ω) (25)
+is the generalized ﬁlter function that captures the sus-
+ceptibility of the decay amplitudes to noise at frequency
+ω. For α = β,k = l, and by summing over the basis
+elements,
+Fα(ω) =
+∑
+k
+⏐⏐ ˜Bαk(ω)
+⏐⏐2
+= tr
+(
+˜B†
+α(ω) ˜Bα(ω)
+)
+, (26)
+and this tensor reduces to the canonical ﬁdelityﬁlter
+function [28] from which the entanglement ﬁdelity can
+be obtained, see Section IID1. Thus, if the frequency-
+domain control matrix ˜Bαk(ω) for noise source α and
+basis element k is known, the transfer matrix can be
+evaluated by integrating Eq. (24). Moreover, one can
+study the contributions of each pair of noise sources
+(α,β ) both separately or, at virtually no additional cost
+and to leading order, collectively by summing over them,
+Γkl =∑
+αβ Γαβ,kl.
+We now discuss how to calculate the control matrix
+˜B(ω) in frequency space for a given control operation.
+We focus ﬁrst on sequences of quantum gates, assuming
+that the control matrices ˜B(g)(ω) for each gateg have
+been calculated before.
+1. Control matrix of a gate sequence
+For a sequence of gates with precomputed interaction
+picture noise operators the approach developed by Green
+et al. [29] based on piecewise constant control can be
+adapted to yield an analytical expression for those of the
+composite gate sequence that is computationally eﬃcient
+to evaluate [16]. Here we review these results to give a
+complete picture of the formalism. While our results are
+general and apply to any superoperator representation,
+we employ the Liouville representation here for its simple
+compositionoperation: matrixmultiplication. Computa-
+tionally, this is not the most eﬃcient choice since transfer
+matrices have dimensiond2×d2 and thus their matrix
+multiplication scales unfavorably compared to, for exam-
+ple, left-right conjugation by unitaries (c.f. Section IIID).
+However, because the structure of the control matrix˜B
+is similar to that of a transfer matrix (remember that it
+corresponds to a basis expansion of the interaction pic-
+ture noise operators), we will obtain a particularly con-
+cise expression for the sequence in the following. For a
+
+8
+P1 P2 · · · PG // ≡ QG //
+t0 t1 t2 tG−1 tG t0 tG
+Figure 1. Illustration of a sequence of G gates. Individual
+gates with propagatorsPg start at timetg−1 and complete at
+time tg. The total action fromt0 to tg is given byQg.
+perhaps more intuitive description employing exclusively
+conjugation by unitaries, we refer the reader to our ac-
+companying publication Ref. 16.
+A sequence of G gates with propagators Pg =
+Uc(tg,tg−1),g∈{ 1,...,G } that act during theg-th time
+interval (tg−1,tg] with t0 = 0,tG = τ as illustrated in
+Fig. 1 is considered. The cumulative propagator of the
+sequence up to timetg is then given byQg =∏0
+g′=gPg′
+with P0 = 1 and its Liouville representation denoted by
+Q(g). Furthermore, the control matrix of theg-th pulse
+at the timet−tg−1 relative to the start of segmentg is
+˜B(g)
+αk (t−tg−1) = tr
+(
+U†
+c (t,tg−1)Bα(t−tg−1)Uc(t,tg−1)Ck
+)
+.
+(27)
+We can now exploit the fact that in the transfer ma-
+trix picture quantum operations compose by matrix mul-
+tiplication to write the total control matrix at time
+t∈ (tg−1,tg] as
+˜B(t) = ˜B(g)(t−tg−1)Q(g−1). (28)
+The Fourier transform of Eq. (28) can then be obtained
+by evaluating the transform of each gate separately,
+˜B(ω) =
+G∑
+g=1
+eiωtg−1 ˜B(g)(ω)Q(g−1) (29)
+˜B(g)(ω) =
+∫ ∆tg
+0
+dt eiωt ˜B(g)(t), (30)
+with ∆tg =tg−tg−1 the duration of gateg. Hence, cal-
+culating the control matrix of the full sequence requires
+only the knowledge of the temporal positions, encoded in
+the phase factors eiωtg−1, and the total intended action
+Q(g−1) of the individual pulses if their control matrices
+havebeenprecomputed. Thesequencestructurecanthus
+be exploited to one’s beneﬁt. If the same gates appear
+multiple times during the sequence one can reuse control
+matrices for equal pulses to facilitate calculating ﬁlter
+functions for complex sequences with modest computa-
+tional eﬀort. Most importantly, Eq. (29) is independent
+of the inner structure of the individual pulses and there-
+fore takes the same time to evaluate whether they are
+highly complex or very simple. In Section IIID, we will
+analyze the computational eﬃciency of capitalizing on
+this feature in more detail.
+As we have seen, the total control matrix of a compos-
+ite pulse sequence is given by a sum over the individual
+control matrices. Since ˜B(ω) enters Eq. (24) twice, this
+leads to correlation terms between two gates at diﬀerent
+positions in the sequence when computing the total de-
+cay amplitudes Γαβ,kl. Inserting Eq. (29) into Eq. (24)
+gives
+Γαβ,kl =
+G∑
+g,g′=1
+∫ ∞
+−∞
+dω
+2π
+[
+Q(g′−1)† ˜B(g′)†(ω)
+]
+kαSαβ(ω)
+[ ˜B(g)(ω)Q(g−1)]
+βleiω(tg−1−tg′−1)
+=:
+G∑
+g,g′=1
+∫ ∞
+−∞
+dω
+2πSαβ(ω)F (gg′)
+αβ,kl(ω)
+(31)
+where we deﬁned the pulse correlation ﬁlter function
+F (gg′)
+αβ,kl(ω) that captures the temporal correlations be-
+tween pulses at diﬀerent positionsg and g′ in the se-
+quence. Unlike regular ﬁlter functions, these can be neg-
+ative forg⁄=g′ and therefore reduce the overall noise sus-
+ceptibility of a sequence given byF (ω) =∑
+gg′F (gg′)(ω).
+We have thus gained a concise description of the noise-
+cancelling properties of gate sequences: in this picture,
+they arise purely from the concatenation of diﬀerent
+pulses, quantifying, for instance, the eﬀectiveness of dy-
+namical decoupling (DD) sequences [16].
+2. Control matrix of a single gate
+Previous eﬀorts have derived the control matrix an-
+alytically for selected pulses such as dynamical decou-
+pling (DD) sequences [20], special dynamically corrected
+gates (DCGs) [30], as well as developed a general analytic
+framework [28, 29]. However, analytical solutions might
+not always be accessible, e.g. for numerically optimized
+pulses, and are generally laborious to obtain. Therefore,
+we now detail a method to obtain the control matrix
+numerically under the assumption of piecewise constant
+control. Our method is similar in spirit to that of Green
+et al.[28] for single qubits withd = 2, but whereas those
+authors computed analytical solutions to the relevant in-
+tegrals during each time step, here we use matrix diago-
+
+9
+nalization to obtain the propagator of a control operation
+to make the approach amenable to numerical implemen-
+tation. This allows carrying out the Fourier transform of
+the control matrix Eq. (16) analytically by writing the
+control propagators in terms of their eigenvalues in diag-
+onal form.
+We divide the total duration of the control operation,
+τ, into G intervals (tg−1,tg] of duration ∆tg with g ∈
+{0,...,G } andt0 = 0,tG =τ. We then approximate the
+control Hamiltonian as constant within each interval so
+that within theg-th
+Hc(t) =H(g)
+c = const. (32)
+and similarly the deterministic time dependence of the
+noiseoperatorsas Bα(t) =sα(t)Bα =s(g)
+α Bα. Underthis
+approximation we can diagonalize the time-independent
+Hamiltonians H(g)
+c with eigenvalues ω(g)
+i numerically
+and write the time evolution operator that solves
+the noise-free Schrödinger equation as Uc(t,tg−1) =
+V (g)D(g)(t,tg−1)V (g)†. Here, V (g) is the unitary ma-
+trix of eigenvectors of H(g)
+c and the diagonal matrix
+D(g)
+ij (t,tg−1) = δij exp{−iω(g)
+i (t− tg−1)} contains the
+time evolution of the eigevalues. Using this result to-
+gether withQg−1, the cumulative propagator up to time
+tg−1, we can acquire the total time evolution operator at
+time t from Uc(t) =Uc(t, 0) =Uc(t,tg−1)Qg−1. We then
+substitute this relation into the deﬁnition of the control
+matrix, Eq. (16), and obtain
+˜Bαk(t) =s(g)
+α tr
+(
+Q†
+g−1V (g)D(g)†(t,tg−1)V (g)†Bα
+× V (g)D(g)(t,tg−1)V (g)†Qg−1Ck
+)
+(33)
+=:s(g)
+α
+∑
+ij
+¯B(g)
+α,ij ¯C(g)
+k,jieiΩ(g)
+ij (t−tg−1), (34)
+where Ω(g)
+ij =ω(g)
+i −ω(g)
+j , ¯C(g)
+k =V (g)†Qg−1CkQ†
+g−1V (g),
+and ¯B(g)
+α =V (g)†BαV (g). Carrying out the Fourier trans-
+form of Eq. (34) to get the frequency-domain control
+matrix of the pulse generated by the Hamiltonian from
+Eq. (32) is now straightforward since the integrals in-
+volved are over simple exponential functions. We obtain
+˜Bαk(ω) =
+G∑
+g=1
+s(g)
+α eiωtg−1 tr
+([ ¯B(g)
+α ◦I(g)(ω)
+] ¯C(g)
+k
+)
+(35)
+with I(g)
+ij (ω) =−i(ei(ω+Ω(g)
+ij )∆tg− 1)/(ω + Ω(g)
+ij ) and the
+Hadamard product(A◦B)ij :=Aij·Bij. Equation (35) is
+readily evaluated on a computer and thus enables the cal-
+culation of ﬁlter functions of arbitrary control sequences,
+either on its own or in conjunction with Eq. (29). A sim-
+ilar expression is obtained for representations other than
+the Liouville representation.
+C. Calculating the frequency shifts
+The frequency shifts∆αβ,kl in Eq. (17) correspond to
+the second order of the ME and thus involve a double in-
+tegral with a nested time dependence. This makes their
+evaluation more involved than that of the decay ampli-
+tudes Γαβ,kl and, in contrast to the previous section, we
+cannot identify a concatenation rule or single out corre-
+lation terms as in Eq. (31). However, we can still apply
+the approximation of piecewise constant control and fol-
+low a similar approach as in Section IIB2 to compute∆
+in Fourier space. Since these terms correspond to a co-
+herent gate error that can in principle be calibrated out
+in experiments we will not go into much detail here.
+We follow the arguments made above for the decay
+amplitudes and express the cross-correlation functions
+⟨bα(t)bβ(t′)⟩ by their Fourier transform, the spectral den-
+sitySαβ(ω), using Eq. (23). Inserting this equation into
+the deﬁnition of the frequency shifts in the time domain,
+Eq. (20), yields
+∆αβ,kl =
+∫ ∞
+−∞
+dω
+2πSαβ(ω)
+∫ τ
+0
+dt ˜Bαk(t)e−iωt
+×
+∫ t
+0
+dt′ ˜Bβl(t′)eiωt′
+. (36)
+We again assume piecewise constant time segments so
+that the inner time integral can be split up into a sum
+of integrals over complete constant segments(tg′−1,tg′]
+as well as a single integral that contains the last, incom-
+plete segment up to timet. That is, taking the timet of
+the outer integral to be within the interval(tg−1,tg] we
+perform the replacement
+∫ t
+0
+dt′→
+g−1∑
+g′=1
+∫ tg′
+tg′−1
+dt′ +
+∫ t
+tg−1
+dt′. (37)
+We have thus divided our taskintotwo: Theﬁrstterm al-
+lows, as before in Sections IIB1 and IIB2, to identify the
+Fourier transform of the control matrix during time steps
+g′ andg for both the inner and the outer integral accord-
+ing to Eq. (35). The second term remains a nested double
+integral, but now the integrand contains only products of
+complex exponentials because we assume the control to
+be constant within the limits of integration. As a next
+step, we also replace the outer time integral by a sum of
+integrals over single segments,
+∫τ
+0 dt→∑G
+g=1
+∫tg
+tg−1
+dt, to
+obtain
+
+10
+∆αβ,kl =
+∫ ∞
+−∞
+dω
+2πSαβ(ω)
+G∑
+g=1
+∫ tg
+tg−1
+dt e−iωt ˜Bαk(t)
+
+
+
+g−1∑
+g′=1
+∫ tg′
+tg′−1
+dt′ +
+∫ t
+tg−1
+dt′
+
+
+ eiωt′
+˜Bβl(t′). (38)
+Before continuing, we ease notation and deﬁne˜B(ω) =:∑
+gG(g)(ω) withG(g)(ω) obtained from Eq. (35) and further-
+more adopt the Einstein summation convention for the remainder of this section, meaning multiple subscript indices
+that appear on only one side of an equality are summed over implicitly. We now proceed like in Section IIB2 and
+make use of the piecewise constant approximation to diagonalize the control Hamiltonian during each segment. For
+the nested integrals, we obtain˜Bαk(t) from Eq. (34), whereas the remaining integrals factorize and we can identify
+the Fourier transformed quantityG(g)(ω). Equation (38) then becomes
+∆αβ,kl =
+∫ ∞
+−∞
+dω
+2πSαβ(ω)
+G∑
+g=1
+
+G(g)∗
+αk (ω)
+g−1∑
+g′=1
+G(g′)
+βl (ω) +s(g)
+α ¯B(g)
+α,ij ¯C(g)
+k,jiI(g)
+ijmn(ω) ¯C(g)
+l,nm ¯B(g)
+β,mns(g)
+β
+
+ (39)
+with ¯B(g)
+α,ij, ¯C(g)
+k,ij, Ω(g)
+ij as deﬁned above in Section IIB2 and
+I(g)
+ijmn(ω) =
+∫ tg
+tg−1
+dt eiΩ(g)
+ij (t−tg−1)−iωt
+∫ t
+tg−1
+dt′ eiΩ(g)
+mn(t′−tg−1)+iωt′
+. (40)
+Explicit results for the integration in Eq. (40) are given
+in Appendix A2. To calculate the frequency shifts ∆,
+we can thus reuse the quantityG(g)(ω) also required for
+the decay amplitudes Γ. The only additional computa-
+tion, apart from contraction, involves theG integrations
+I(g)
+ijmn(ω). Importantly, Eq. (39) has the same structure
+as the corresponding Eq. (24) forΓ in that the individ-
+ual entries of∆ are given by an integral over the spectral
+density of the noise multiplied with a – in this case second
+order – ﬁlter function that describes the susceptibility to
+noise at frequencyω:
+∆αβ,kl =
+∫ ∞
+−∞
+dω
+2πSαβ(ω)F (2)
+αβ,kl(ω). (41)
+D. Computing derived quantities
+By means of Eqs. (29), (35) and (39), one can obtain
+the cumulant functionK(τ) from Eq. (17) and hence the
+error process ⟨ ˜U(τ)⟩ from Eq. (9) for an arbitrary se-
+quence of gates. From this, several quantities of interest
+for the characterization of a given control operation can
+be extracted. We explicitly review the average gate and
+state ﬁdelities as well as expressions to quantify leakage
+here, but emphasize that this is not exhaustive. Because
+for many applications the noise is weak and hence the
+parameterξ≪ 1, we will in the following expand the ex-
+ponential in Eq. (7) to leading order inξ in the following.
+That is, we approximate (remember thatK(τ)∈O
+(
+ξ2)
+)
+⟨ ˜U(τ)⟩≈ 1 +K(τ). (42)
+For Gaussian noise, higher order corrections can be ob-
+tained either by explicitly calculating higher powers ofK
+or by numerically evaluating the exponential of the cu-
+mulant function. The former method often leads to sim-
+pler expressions than Eq. (17) for which the trace tensor
+Tijkl need not be computed directly. In the weak-noise
+regime, one can also deﬁne speciﬁc ﬁlter functions for
+each derived quantity that are given in terms of linear
+combinations of the generalized ﬁlter functionsFαβ,kl(ω).
+The ensemble expectation value of the quantity can then
+be obtained directly from the overlap with the spectral
+density,
+∫
+dω/2π F(ω)S(ω). Finally, we will drop the av-
+eraging brackets and the argument of the error transfer
+matrix ⟨ ˜U(τ)⟩ for brevity in the following.
+1. Average gate and entanglement ﬁdelity
+The average gate ﬁdelity is a commonly quoted ﬁg-
+ure of merit used to characterize physical gate imple-
+mentations [5, 8, 68–70]. It represents the ﬁdelity be-
+tween an implementationU and the ideal gateQ aver-
+aged over the uniform Haar measure. SinceFavg(U,Q) =
+Favg(Q†◦U , 1) =Favg( ˜U), the average gate ﬁdelity can
+be obtained from the error channel˜U as [71, 72]
+Favg( ˜U) = tr ˜U +d
+d(d + 1) (43)
+= d×F e( ˜U) + 1
+d + 1 , (44)
+where d is the system dimension andFe( ˜U) = tr ˜U/d2 is
+the entanglement ﬁdelity. In the low-noise regime where
+Eq. (42) holds, we can write the entanglement ﬁdelity in
+
+11
+terms of the cumulant functionKαβ approximately as
+Fe( ˜U) = 1 + 1
+d2
+∑
+αβ
+trKαβ (45)
+=: 1−
+∑
+αβ
+Iαβ( ˜U). (46)
+Here, we deﬁnedIαβ, the inﬁdelity due to a pair of noise
+sources (α,β ). As we show in Appendix A3, we can
+simplify the trace of the cumulant function so that the
+inﬁdelity reads
+Iαβ = 1
+d tr Γαβ. (47)
+Equation(47)reducestoEq.(32)fromRef.28forasingle
+qubit (d = 2) and pure dephasing noise up to a diﬀerent
+normalization convention; by pulling the trace through
+to the generalized ﬁlter functionFαβ,kl(ω) in Eq. (24),
+we recover the relation (settingα =β for simplicity)
+Iα = 1
+d
+∫ ∞
+−∞
+dω
+2πSα(ω)Fα(ω) (48)
+with the ﬁdelity ﬁlter functionFα(ω) given by Eq. (26).
+Notably, only the decay amplitudesΓ contribute to the
+ﬁdelity to leading order since the frequency shifts∆ are
+antisymmetric and therefore vanish under the trace.
+2. State ﬁdelity and measurements
+In the context of quantum information processing we
+are often interested in the probability of measuring the
+expected state during readout. We can extract this pro-
+jective readout probability from the transfer matrix in
+Eq. (7) by inspecting the transition probability, or state
+ﬁdelity, between a pure stateρ =|ψ⟩⟨ψ| and an arbitrary
+stateσ that evolves according to the quantum operation
+E : σ→E (σ). Using the double braket notation intro-
+duced at the beginning of Section II we then deﬁne the
+state ﬁdelity as
+F(|ψ⟩,U(σ)) = tr(ρE(σ))
+=⟨⟨ρ|E(σ)⟩⟩
+=⟨⟨ρ|E|σ⟩⟩,
+(49)
+where we have expressed the density matrices by vectors
+on the Liouville spaceL andE as a transfer matrix. We
+can thus calculate arbitrary pure state ﬁdelities by sim-
+ple matrix-vector multiplications of the transfer matrices
+E =Q ˜U andthevectorizeddensitymatrices |ρ⟩⟩and|σ⟩⟩.
+In Section VC we employ this measure to simulate a RB
+experiment where return probabilities are of interest so
+thatF(|ψ⟩,E(ρ)) =⟨⟨ρ|Q ˜U|ρ⟩⟩.
+General measurements can be incorporated in the
+superoperator formalism we have employed here in a
+straightforward manner using the positive operator-
+valued measure (POVM) formalism [49, 73]. POVMs
+constitute a set of Hermitian, positive semideﬁnite op-
+erators{Ei}i (in contrast to the projective measurement
+{|ψ⟩⟨ψ|, 1−|ψ⟩⟨ψ|}) that fulﬁll the completeness relation∑
+iEi = 1 and in the double braket notation may be
+represented as the row vectors{⟨⟨Ei|}i in Liouville space.
+Consequently, the measurement probability for outcome
+Ei is given by⟨⟨Ei|E(σ)⟩⟩ =⟨⟨Ei|E|σ⟩⟩if the system was
+prepared in the stateσ and evolved according toE.
+3. Leakage
+In many physical implementations qubits are not en-
+coded in real two-level systems but in two levels of a
+larger Hilbert space (e.g. transmon [74] or singlet-triplet
+[75] spin qubits) such that population can leak between
+this computational subspace and other energy levels.
+Thus, it is often of interest to quantify leakage when as-
+sessinggateperformance. Recently, WoodandGambetta
+[76] have suggested two separate measures for quantify-
+ing leakage out of the computational subspace on the one
+hand and seepage into the subspace on the other. With
+the ﬁlter function formalism and the transfer matrix of
+the error process given by Eqs. (7) and (17), we can easily
+extract these quantities.
+Using the deﬁnitions from Ref. 76 and the double
+braket notation we can write the leakage rate generated
+by a quantum operationE as
+Lc(E) := 1
+dc
+⟨⟨Π𝓁|E| Πc⟩⟩ (50a)
+and the seepage rate as
+L𝓁(E) := 1
+d𝓁
+⟨⟨Πc|E| Π𝓁⟩⟩. (50b)
+Here, Πc,𝓁 are projectors onto the computational and
+leakage subspaces, respectively, anddc,𝓁 the correspond-
+ing dimensions. For unital channels the leakage and seep-
+age rates are not independent but satisfydcLc = d𝓁L𝓁
+[76] so that we only need to consider one of the above
+expressions here (c.f. Section IIA2).
+Equations (50a) and (50b) can be used to determine
+both coherent and incoherent leakage separately by sub-
+stitutingQ or ˜U, respectively, forE. While the former is
+due to systematic errors of the applied pulse and could
+thus be corrected for by calibration, the latter is induced
+by noise only. Alternatively, the leakage from both con-
+tributions can also be determined collectively by substi-
+tutingU forE.
+III. PERFORMANCE ANALYSIS AND
+EFFICIENCY IMPROVEMENTS
+In this section we focus on computational aspects of
+the formalism, remarking ﬁrst on several mathematical
+simpliﬁcations that make the calculation of control ma-
+trices and decay amplitudes more economical. Following
+
+12
+this, we investigate the computational complexity of the
+method in comparison with Monte Carlo techniques and
+show that our software implementation surpasses the lat-
+ter’s performance in relevant parameter regimes.
+A. Periodic Hamiltonians
+If the control Hamiltonian is periodic, that isHc(t) =
+Hc(t + T ), we can reduce the computational eﬀort of
+calculating the control matrix by potentially orders of
+magnitude (see Section VB for an application in Rabi
+driving). We start by making the following observations:
+First, the frequency domain control matrix of every pe-
+riod of the control is the same so that˜B(g)(ω) = ˜B(1)(ω).
+Moreover, eiω∆tg = e iωT for all g so that eiωtg−1 =
+eiωT (g−1) andbythecompositionpropertyoftransferma-
+tricesQ(g−1) =
+[
+Q(1)]g−1
+where the superscript without
+parentheses denotes matrix power. We can then simplify
+Eq. (29) to read
+˜B(ω) = ˜B(1)(ω)
+G−1∑
+g=0
+[
+eiωTQ(1)
+]g
+. (51)
+Furthermore, if the matrix 1− eiωTQ(1) is invertible,
+which is typically the case for the vast majority of values
+of ω, the previous expression can be rewritten as
+˜B(ω) = ˜B(1)(ω)
+(
+1− eiωTQ(1)
+)−1(
+1−
+[
+eiωTQ(1)]G)
+(52)
+by evaluating the sum as a ﬁnite Neumann series. Equa-
+tion (52) oﬀers a signiﬁcant performance beneﬁt over reg-
+ular concatenation in the case of many periodsG as we
+will show in Section IIID. Beyond numerical advantages,
+it also provides an analytic method for studying ﬁlter
+functions of periodic driving Hamiltonians.
+B. Extending Hilbert spaces
+Examining Eq. (16), we can see that the columns of
+the control matrix and therefore also the ﬁlter function
+are invariant (up to normalization) under an extension of
+the Hilbert space. This allows parallelizing pulses with
+precomputed control matrices in a very resource-eﬃcient
+manner if one chooses a suitable operator basis. Note
+that the same also applies to other representations of
+quantum operations.
+Suppose we extend the Hilbert spaceH1 of a gate for
+which we have already computed the control matrix by
+a second Hilbert spaceH2 so that H12 = H1⊗ H2. If
+we can ﬁnd an operator basis whose elements separate
+into tensor products themselves, i.e.C12 =C1⊗C 2 as for
+the Pauli basis (c.f. Section IIIC), the control matrix of
+the composite gate deﬁned onH12 has the same non-
+trivial columns as that of the original gate onH1 up to
+a diﬀerent normalization factor. The remaining columns
+are simply zero. This is because the trace over a tensor
+productfactorsintotracesovertheindividualsubsystems
+so that ˜Bαk(t)∝ tr
+(
+[U†
+1⊗U†
+2][Bα⊗1][U1⊗U2][1⊗Ck]
+)
+=
+tr
+(
+U†
+1BαU11
+)
+tr
+(
+U†
+2 1U2Ck
+)
+= 0 since we assumed that
+the noise operatorsBα are traceless (c.f. Section IIA2).
+Generalizing this result to multiple originally disjoint
+Hilbert spaces we write the composite space as H =⨂
+i Hi and the corresponding basis asC =⨂
+iCi. The
+control matrix of the composite pulse on H is then a
+combination of the columns of the control matrices on
+Hi for noise operatorsBα that are non-trivial, i.e. not
+the identity, only on their original space. For noise op-
+erators deﬁned on more than one subspace, e.g.Bij =
+Bi⊗Bj,Bi∈ Hi,Bj∈ Hj, this does not hold anymore
+and the corresponding row in the composite control ma-
+trix needs to be computed from scratch.
+One can thus reuse precomputed control matrices be-
+yond the concatenation laid out above when studying
+multi-qubit pulses or algorithms. For concreteness, con-
+sider a set of one- and two-qubit pulses whose control ma-
+trices have been precomputed. We can then remap those
+control matrices to any other qubit in a larger register if
+the entire Hilbert space is deﬁned by the tensor product
+of the single-qubit Hilbert spaces, and even map the con-
+trol matrices of two diﬀerent pulses to the same time slot
+on diﬀerent qubits. Thus, we do not need to perform the
+possibly costly computation of the control matrices again
+but instead only need to remap the columns of˜B to the
+equivalent basis elements in the basis of the complete
+Hilbert space, making the assembly of algorithms that
+consist of a limited set of gates which are used at several
+points in the algorithm more eﬃcient. In Section VD we
+simulate a four-qubit QFT algorithm making use of the
+shortcuts described here.
+C. Operator bases
+Up to this point, we have not explicitly speciﬁed the
+basis that deﬁnes the Liouville representation. The only
+conditions imposed by Eq. (14) are orthonormality with
+respect to the Hilbert-Schmidt product and that the ba-
+sis elements are Hermitian. Yet, the choice of operator
+basis can have a large impact on the time it takes to
+compute the control matrix as discussed in the previous
+section. We therefore give a short overview over two pos-
+sible choices in the following. As we are mostly interested
+in the computational properties, we represent linear op-
+erators in L(H ) as matrices onCd×d.
+Then-qubit Pauli basis fulﬁlls the requirements set by
+Eq. (14) and furthermore allows for the simpliﬁcations
+described before. In our normalization convention where
+⟨Ci,Ci⟩ = 1 it can be written as
+{σi}d2−1
+i=0 =
+{ 1√
+2, σx√
+2, σy√
+2, σz√
+2
+}⊗n
+(53)
+with the Pauli matricesσx,σy and σz . While it is ob-
+vious that it is separable, meaning it factors into tensor
+
+13
+products of the single-qubit Pauli matrices, the dimen-
+sion of the Pauli basis is restricted to powers of two, i.e.
+d = 2n. An operator basis without this restriction is
+the generalized Gell-Mann (GGM) basis [77, 78]. In the
+following we will discuss optimizations pertaining to this
+basis that are also implemented in the software (see Sec-
+tion IV).
+The GGM matrices are a generalization of the Gell-
+Mann matrices known from particle physics to arbitrary
+dimensions. In our normalization convention, the basis
+(excluding the identity element) is given by [79]
+{Λi}d2−1
+i=1 ={ujk,vjk,wl}j,k,l (54)
+with
+ujk = 1√
+2 (|j⟩⟨k| +|k⟩⟨j|), (54a)
+vjk =− i√
+2 (|j⟩⟨k|−| k⟩⟨j|), (54b)
+wl = 1√
+l(l + 1)
+( l∑
+m=1
+|m⟩⟨m|− l|l + 1⟩⟨l + 1|
+)
+, (54c)
+for 1 ≤ j < k ≤ d, 1 ≤ l ≤ d− 1, and an or-
+thonormal vector basis {|j⟩}d
+j=1 of the Hilbert space.
+Expanding an arbitrary matrix A ∈ Cd×d in the ba-
+sis of Eq. (54) is then simply a matter of adding up
+the corresponding matrix elements of A according to
+Eqs. (54a) to (54c). For instance, the expansion co-
+eﬃcient for the ﬁrst symmetric basis element is given
+by u12 = (A12|1⟩⟨2| +A21|2⟩⟨1|)
+/√
+2. The explicit con-
+struction prescription of the GGM basis thus allows cal-
+culating inner products of the form⟨Λj|A⟩ at constant
+cost instead of the quadratic cost of the trace of a ma-
+trix product, speeding up the computation of the transfer
+matrix from Eq. (1) (in which caseA =E(Λk)). In nu-
+merical experiments, calculating the transfer matrix of
+a unitaryU with dimensiond and precomputed matrix
+products Ak = UΛkU† scaled as∼ d4.16. This agrees
+with the expected scaling of∼d4 (a transfer matrix has
+d2×d2 elements) and presents a signiﬁcant improvement
+over the explicit calculation with trace overlapstr(ΛjAk)
+that we observed to scale as∼d5.93 (we expected∼d6).
+Further inspection of the GGM basis additionally re-
+veals an increasing sparsity for larged (the ﬁlling factor
+scales roughly withd−2), so that it is well suited for com-
+puting the trace tensor Eq. (18). Since this tensor has
+d8 elements, the amount of memory required for a dense
+representation becomes unreasonably large quite quickly.
+To overcome this constraint, we can use a GGM basis in-
+stead of a dense basis like the Pauli basis (which has a
+ﬁlling factor of1/2). In this case, the resulting tensor
+is also sparse because the overlap between diﬀerent basis
+elements is small. This not only enables storing the ten-
+sor in memory but also makes the calculation much faster
+since one can employ algorithms optimized for operations
+on sparse arrays (see Section IV).
+As an illustration, consider a system of four qubits
+so that the Hilbert space has dimension d = 2 4. An
+operator basis for this space hasd2 = 2 8 elements and
+consequently the tensor Tijkl has (28)4 = 2 32 entries.
+Using 128 bitcomplex ﬂoats to represent the entries the
+tensor would take up≈ 68 GB of memory in a dense
+format. Conversely, for a GGM basis stored in a sparse
+data structure, the resulting trace tensor only takes up≈
+100 MBof memory. Furthermore, calculatingT takes≈
+2.89 son an Intel® Core™ i9-9900K eight-core processor
+since a GGM has a low ﬁlling factor. By contrast, the
+same calculation with a Pauli basis takes≈ 217 s. This
+is due to the larger ﬁlling factor on the one hand and
+because sparse matrix multiplication algorithms perform
+poorly with dense matrices on the other.
+D. Computational complexity
+In order to assess the performance of ﬁlter functions
+(FF) for computing ﬁdelities compared to Monte Carlo
+(MC) methods, we determine each method’s asymptotic
+scaling behavior as a function of the system dimension
+d. For the ﬁlter functions, we calculate the ﬁdelities
+using Eqs. (26) and (48) in our software implementa-
+tion, described in more detail in Section IV and hence
+neglect contributions ofO
+(
+ξ4)
+from the frequency shifts
+∆. Additionally, we distinguish between three diﬀerent
+approaches for calculating the control matrix; ﬁrst, for
+a single pulse following Eq. (35), second for an arbitrary
+sequence of pulses following Eq. (29), and third for a
+periodic sequence of pulses following Eq. (52). For the
+single pulse, we run benchmarks using exemplary values
+for the various parameters on a machine with an AMD
+FX™-6300 processor with six logical cores and24 GB of
+memory. We also discuss the ﬁlter function method us-
+ing left-right conjugation by unitaries instead of the Li-
+ouville representation. The latter has higher memory
+requirements and is expected to perform poorly for large
+system dimensionsd since one deals withd2×d2 transfer
+matrices on a Liouville space L instead of d×d uni-
+taries on a Hilbert space H . In the software package,
+the calculations are currently implemented in Liouville
+space and calculation by conjugation is only partially
+supported through the low-level API. However, both rep-
+resentations perform similarly for small dimensions as we
+show below. Note that for a fair performance comparison
+the diﬀerent nature of errors needs to be kept in mind.
+Monte Carlo becomes less costly if larger statistical errors
+can be tolerated, whereas the ﬁlter function formalism is
+typically limited by higher order errors. For reference,
+the following considerations are summarized in Table I
+for each approach and a representative set of parameters.
+To calculate the ﬁdelity using MC, we generatenMC
+diﬀerent noise traces that slice every time step∆t of
+the pulse intonseg = fUV∆t segments to appropriately
+sample the spectral density with fUV being the ultra-
+violet cutoﬀ frequency. In total, there aren∆tnMCnseg
+
+14
+Method Dominating scaling Ex. values
+MC (H ) n∆tnMCnseg(db +d3) 1 .3× 108
+FF (L, explicit) n∆tnωnαd4 +n∆tdb+2 2.4× 107
+FF (H , explicit) n∆tnωnα(d2 +db) 1 .4× 107
+FF (L, concat.) Gnωnαd4 +Gd2b 2.4× 106
+FF (H , concat.) Gnωnαdb 7.8× 105
+FF (L, periodic) nω(nαd4 +d2b +d2b logG) 1 .0× 105
+Table I. Complexity scaling of the three approaches for cal-
+culating average gate ﬁdelities discussed in the text. “FF
+(explicit)” stands for calculating ﬁlter functions from scratch
+following Eq. (35), “FF (concat.)” for sequences following
+Eq. (29), and “FF (periodic)” for periodic Hamiltonians fol-
+lowing Eq. (52). H and L designate the vector space on
+which calculations are performed. Example values for the
+dominant contributions listed in the table are given for matrix
+multiplication exponentb = 2.376, dimensiond = 2, number
+of time stepsn∆t = 1000, and number of gatesG = 100 (cor-
+responding to a sequence of 100 single-qubit gates with 10
+time steps each) with the remaining parameters as in Fig. 2.
+For increasingd the computational advantage of FF (L) over
+MC diminishes but is conserved for FF (H ).
+noise samples for each of which the Hamiltonian is diag-
+onalized, exponentiated, and the resulting propagators
+multiplied to get the ﬁnal, noisy unitary. The entan-
+glement ﬁdelity is then obtained by averaging the trace
+overlap tr
+(
+Q†U
+)/
+d of ideal and noisy unitary over all
+noise realizations. Taking the complexity of matrix di-
+agonalization to beO
+(
+d3)
+and matrix multiplication to
+beO
+(
+db)
+withb = 3 for a naive algorithm andb = 2.376
+for the Coppersmith-Winograd algorithm [80], we expect
+MC to scale with the dimension d of the problem as
+∼ n∆tnMCnseg(db +d3). For simplicity, we use a white
+noise spectrum for whichS(ω) = const . but note that
+sampling arbitrary spectra induces additional overhead
+for MC, depending on which method is used to gener-
+ate the noise traces. Typical time-domain methods in-
+clude the simulation of the underlying physical process
+(like two-state ﬂuctuators) or the application of an in-
+verse Fourier transform to white noise multiplied by a
+frequency-domain transfer function.
+By contrast, the computational cost of the ﬁlter func-
+tion formalism as realized by Eq. (35) is independent of
+the form of the spectrum. For this approach we ﬁnd the
+leading terms to scale as∼n∆tnωnαd4+n∆tdb+2 withnα
+the number of noise operators andnω the number of fre-
+quency samples. Here, the ﬁrst term is due to the trace in
+Eq. (35) which boils down to the trace of a matrix prod-
+uct, ∑
+ijAijBji, that scales with d2 and is performed
+once for each of thed2 basis elements,nα noise opera-
+tors, n∆t time steps, andnω frequency points. The sec-
+ond term is due to the transformationCk→ ¯C(g)
+k which
+requires multiplication ofd×d matrices for every time
+step and basis element. As nαnω < nMCnseg for real-
+istic parameters because the ultraviolet cutoﬀ frequency
+needs to be chosen suﬃciently high and the relative error
+of the method decreases with1
+/√nMC, we expect that
+in the case of a single pulse the ﬁlter function formal-
+ism in Liouville representation should outperform Monte
+Carlo calculations for reasonably small dimensionsd. Us-
+ingleft-rightconjugation, thisadvantageshouldholdalso
+for larged. In this case the Hadamard product (∼d2) as
+well as matrix multiplication (∼ db) are carried out for
+each frequency, noise operator, and time step to calculate
+the interaction picture noise operators ¯Bα(ω). We thus
+ﬁnd this method to scale with∼n∆tnωnα(d2 +db).
+Figure 2 shows exemplary wall times for both methods
+and d∈ [2, 120] that conﬁrm our expectation. Only for
+about d≈ 100 the overhead from the extra time steps
+and trajectories over which is averaged is compensated
+for MC. For smaller dimensions the calculation using FFs
+is faster by almost two orders of magnitude (see the inset
+showing the same data in a log-log plot). The lines show
+ﬁts tot = adb. The data is not quite in the asymptotic
+regime due to limited memory so that even for large di-
+mensiontermsoflowerpowerin dcontributesigniﬁcantly
+to the run time. Even though this causes the ﬁts to un-
+derestimate the exponentb, the general trend agrees with
+our expectation. Note that the crossover does not always
+occur at the same dimensiond. On a diﬀerent system
+with an Intel® Core™ i9-9900K eight-core processor the
+FF method outperformed MC even ford = 120 beyond
+which available memory limited the simulation.
+Quantifying the performance gain from using the con-
+trol matrices’ concatenation property to calculate ﬁdeli-
+ties of gate sequences is more diﬃcult since it strongly
+depends on the number of gates occurring multiple times
+in the sequence (enabling reuse of precomputed con-
+trol matrices) as well as the complexity of the individ-
+ual gates. The evaluation using the concatenation rule
+Eq. (29) performs asymptotically worse than the eval-
+uation for a complete pulse according to Eq. (35) be-
+cause of higher powers ofd dominating the calculation
+in the former case. Performing theG matrix multiplica-
+tions ˜B(g)(ω)Q(g−1) fromEq.(29)isoforder ∼Gnωnαd4,
+with G the number of pulses in the sequence. Further-
+more, calculating the transfer matrix of the total prop-
+agators Qg−1 involves multiplication ofd×d matrices
+for all d4 combinations of basis elements amounting to
+∼ Gdb+4. In case the Liouville representation of the in-
+dividual pulses’ total propagatorsPg, P(g), have been
+precomputed, the latter computation can be made more
+eﬃcient since one can just propagate the transfer matri-
+cesP(g) to obtain the cumulative transfer matrices for
+the sequence,Q(g) =∏0
+g′=gQ(g′), at cost∼ Gd2b. The
+restriction to small dimensions does not apply for con-
+jugation by unitaries as in this case the matrix multi-
+plications involved×d matrices and we do not have to
+compute the Liouville representation. We thus obtain a
+more favorable asymptotic scaling of∼Gnωnαdb.
+Utilizing the concatenation property in the Liouville
+representation thus corresponds to eﬀectively reducing
+the number of times the calculations scaling with ∼
+nωnαd4 have to be carried out but incurs additional cal-
+
+15
+100 101 102
+d
+10−5
+10−3
+10−1
+101
+103
+t (s)
+0 50 100
+FF (L ): O(d4.11)
+FF (H ): O(d2.23)
+MC: O(d2.50)
+0
+100
+Figure 2. Performance of the formalism using Eq. (35) com-
+pared to a Monte Carlo method for a single gate as a func-
+tion of problem dimensiond. Parameters are:n∆t = 1,nα =
+3,n MC = 100,f UV = 10 2/
+∆t,n ω = 500 wherenα is the num-
+ber of noise operators considered,nMC the number of Monte
+Carlo trajectories over which is averaged, andnω the number
+of frequency samples. The calculation using ﬁlter functions
+clearly outperforms MC for small system sizes. For dimen-
+sions larger than d≈ 100 (roughly equivalent to 7 qubits)
+Monte Carlo (blue squares) performs better than the FF cal-
+culation with transfer matrices (green triangles) for this set
+of parameters and processor due to the better scaling behav-
+ior. Using conjugation by unitaries (orange diamonds) signif-
+icantly outperforms MC also for large dimensions. While the
+ﬁts tot = adb (lines) underestimate the leading order expo-
+nent due to the data not being in the asymptotic regime, they
+support the expected relationship of complexity between the
+approaches. The inset shows the same data on a linear scale,
+highlighting the diﬀerent scaling behaviors for larged.
+culations scaling with∼ d2b. Accordingly, it provides a
+performance beneﬁt if a sequence consists of either very
+complex pulses, in which case single repetitions already
+make the calculation much more eﬃcient, or of few pulses
+that occur many times. In the extremal case ofG repe-
+titions of a single gate the beneﬁt of employing the con-
+catenation property is most pronounced and can be im-
+proved even further utilizing the simpliﬁcations laid out
+inSectionIIIA.Sincematrixinversionhasthesamecom-
+plexity as matrix multiplication and taking a matrix to
+theG-th power requiresO(logG) matrix multiplications,
+Eq. (52) should scale with∼nω(nαd4 +d2b +d2b logG)
+(the ﬁrst two terms are due to the ﬁnal matrix multi-
+plications and are independent ofG). It hence allows
+for a vast speedup over Eq. (29) in that the asymptotic
+behavior as a function of the number of gates changes
+from∼G to∼ logG. An example of this is presented in
+Section VB for the context of Rabi driving. Note that
+this closed form is a unique feature of the transfer ma-
+trix representation and not applicable to conjugation by
+unitaries.
+IV. SOFTWARE IMPLEMENTATION
+In this section we give an overview over the
+filter_functions software package implementing the
+main features of the formalism derived above. This in-
+cludes the calculation of the decay amplitudesΓ and ﬁ-
+delities as well as the calculation of the control matrices
+for single gates and both generic and periodic sequences
+of gates. Moreover, control matrices may be eﬃciently
+extended to and merged on larger Hilbert spaces. Cal-
+culations using unitary conjugation instead of transfer
+matrices are implemented but at this point not available
+in the high-level API.
+Our software is written in Python and available on
+GitHub [41] under the GPLv3 license. We also provide
+a current snapshot in the Supplementary Material [81].
+It features a broad coverage through unit tests and ex-
+tensive API documentation as well as didactic examples
+(see Section V). The package relies on theNumPy [82] and
+SciPy [83] libraries for vectorized array operations. Data
+visualization is handled bymatplotlib [84]. For tensor
+multiplications with optimized contraction order we use
+opt_einsum [85] for whichsparse [86], a library aiming
+to extend theSciPy sparse module to multi-dimensional
+arrays, serves as a backend in the calculation of the trace
+tensor from Eq. (18). Lastly, the package is written to
+interface with qopt [43, 87] and QuTiP [42], frameworks
+for the simulation and optimization of open quantum sys-
+tems, and mirrors the latter’s data structure for Hamil-
+tonians ensuring easy interoperability between the two.
+A. Package overview
+In the filter_functions package all operations are
+understood as sequences of pulses that are applied to a
+quantum system. These pulses are represented by in-
+stances of thePulseSequence class which holds informa-
+tion about the physical system (control and noise Hamil-
+tonians) as well as the mathematical description (e.g. the
+basis used for the Liouville representation). As indicated
+above, the HamiltoniansHc(t) and Hn(t) are given in a
+similar structure as inQuTiP. That is, a Hamiltonian is
+expressed as a sum of Hermitian operators with the time
+dependence encoded in piecewise constant coeﬃcients so
+that
+Hc(t) =
+∑
+i
+a(g)
+i Ai = const. (55a)
+Hn(t) =
+∑
+α
+s(g)
+α Bα = const. (55b)
+for t ∈ (tg−1,tg],g ∈ {1,...,G } and where the a(g)
+i
+are the amplitudes of thei-th control ﬁeld. Note that
+the noise variablesbα(t) are missing from Eq. (55b) be-
+cause they are captured by the spectral densityS(ω).
+In the software, Eqs. (55a) and (55b) are represented
+as lists whose i-th element corresponds to a sublist of
+
+16
+two elements: thei-th operator and thei-th coeﬃcients
+[a(0)
+i ,...,a (G)
+i ].
+The PulseSequence class provides methods to calcu-
+late and cache the ﬁlter function according to Eq. (30).
+Alternatively, ﬁlter functions may also be cached man-
+ually to permit using the package with analytical solu-
+tions for the control matrix. Concatenation of pulses
+is implemented by the functions concatenate() and
+concatenate_periodic() which will attempt to use the
+cached attributes of the PulseSequence instances rep-
+resenting the pulses to eﬃciently calculate the ﬁlter
+function of the composite pulse following Eq. (29) and
+Eq. (52), respectively.
+Operator bases fulﬁlling Eq. (14) are implemented by
+the Basis class. There are two predeﬁned types of bases:
+1. Pauli bases forn = 2d qubits from Eq. (53) and
+2. generalized Gell-Mann (GGM) bases of arbitrary
+dimension d from Eq. (54).
+The Pauli basis is both unitary and separable while the
+GGM basis is sparse for large dimensions but neither uni-
+tary nor separable. As mentioned in Section IIIB (see
+also Section VD), using a separable basis can provide
+signiﬁcant performance beneﬁts for calculating the ﬁlter
+functions of algorithms. On the other hand, a sparse ba-
+sis makes the calculation of the trace tensorTijkl and
+therefore also of the error transfer matrix˜U much faster
+(c.f. Section IIIC). Additionally, the user can deﬁne cus-
+tom bases using the class constructor.
+The error transfer matrix ˜U can be calculated
+for a given pulse and noise spectrum using the
+error_transfer_matrix() function [88]. Various other
+quantities can be computed from ˜U as outlined in Sec-
+tion IID. Furthermore, the package includes a plotting
+module that oﬀers several functions, e.g. for the visual-
+ization of ﬁlter functions or the evolution of the Bloch
+vector using QuTiP.
+B. Workﬂow
+We now give a short introduction into the workﬂow of
+the filter_functions package by showing how to cal-
+culate the dephasing ﬁlter function of a simple Hahn spin
+echo sequence [89] as an example. The sequence consists
+of a singleπ-pulse of ﬁnite duration around thex-axis
+of the Bloch sphere in between two periods of free evo-
+lution. We can hence divide the control ﬁelds into three
+constant segments and write the control Hamiltonian as
+H(SE)
+c (t) = σx
+2 ·
+{
+π/tπ , if τ≤t<τ +tπ
+0, otherwise (56)
+with τ the duration of the free evolution period andtπ
+that of theπ pulse. For the noise Hamiltonian we only
+need to deﬁne the deterministic time dependencesα(t)
+and operators Bα since the noise strength is captured
+by the spectrum S(ω). Thus we have sz(t) = 1 and
+Bz = σz/2 for pure dephasing noise that couples linearly
+to the system.
+In the software, we ﬁrst deﬁne aPulseSequence object
+representing the spin echo (SE) sequence. As was already
+mentioned, the control and noise Hamiltonians are given
+asalistcontaininglistsforeverycontrolornoiseoperator
+thatisconsidered. Thesesublistsconsistoftherespective
+operator as aNumPy array or QuTiP Qobj and the ampli-
+tudes (a(g)
+i or s(g)
+α ) in an iterable data structure such as
+a list. We can hence instantiate thePulseSequence with
+the following code:
+import filter_functions as ff
+import qutip as qt
+from math import pi
+tau, t_pi = (1, 1e-3)
+# Control Hamiltonian for pi rotation in 2nd time step
+H_c = [[qt.sigmax()/2, [0, pi/t_pi, 0]]]
+# Pure dephasing noise Hamiltonian with linear coupling
+H_n = [[qt.sigmaz()/2, [1, 1, 1]]]
+# Durations of piecewise constant segments
+dt = [tau, t_pi, tau]
+ECHO = ff.PulseSequence(H_c, H_n, dt)
+where a basis is automatically chosen since we did not
+specify it in the constructor in the last line. Calculating
+theﬁlterfunctionofthepulseforagivenfrequencyvector
+omega can then be achieved by calling
+F = ECHO.get_filter_function(omega)
+where F is the dephasing ﬁlter functionFzz(ω) as we
+only deﬁned a single noise operator. Finally, we calculate
+the error transfer matrix˜U for the noise spectral density
+Szz(ω) =ω−2,
+S = 1/omega**2
+U = ff.error_transfer_matrix(ECHO, S, omega)
+This code uses the control matrix previously cached when
+the ﬁlter function was ﬁrst computed. Therefore, only
+the integration in Eq. (24) and the calculation of the
+trace tensor in Eq. (18) are carried out in the last line.
+An alternative approach to calculate the spin echo ﬁl-
+ter function is to employ the concatenation property. For
+this, we interpret the SE as a sequence consisting of three
+separate pulses. Each of the pulses has a single time seg-
+ment during which a constant control is applied and con-
+catenating the separatePulseSequence instances yields
+the PulseSequence representing a spin echo. This way
+analytic control matrices may be used to calculate the
+control matrix of the composite sequence. Pulses can be
+concatenated by using either the concatenate() func-
+tion or the overloaded@ operator:
+# Define PulseSequence objects as shown above
+FID = ff.PulseSequence(...)
+NOT = ff.PulseSequence(...)
+# Cache the analytic control matrices at frequency omega
+FID.cache_control_matrix(omega, B_FID)
+NOT.cache_control_matrix(omega, B_NOT)
+# Concatenate the pulses
+ECHO = FID @ NOT @ FID
+
+17
+Since we have cached the control matrices of theFID and
+NOT pulses, that of theECHO object is also automatically
+calculated and stored. Concatenating PulseSequence
+objects is implemented as an arithmetic operator of the
+class to reﬂect the intrinsic composition property of the
+control matrices.
+Further development of the software has focused on
+making it available in a gate optimization and simulation
+framework [43, 87]. Besides using it to compute decoher-
+ence eﬀects and ﬁdelities, analytic derivatives of the ﬁlter
+functions have been implemented to allow for optimizing
+pulse parameters in the presence of non-Markovian noise
+within the framework of quantum optimal control [90].
+Additionally, building an interface withqupulse [91,
+92], a software toolkit for parametrizing and sequencing
+control pulses and relaying them to control hardware,
+would implement the capability to compute ﬁlter func-
+tions of pulses assembled inqupulse, thereby allowing a
+user in the lab to easily inspect the noise susceptibility
+characteristics of the pulse they are currently applying
+to their device.
+V. EXAMPLE APPLICATIONS
+We now present example applications of the software
+package and the formalism. As stated before, we focus
+on the decay amplitudesΓ and its associated ﬁlter func-
+tions and assume that the unitary errors generated by
+the frequency shifts ∆ are either small (as is the case
+for gate ﬁdelities) or calibrated out. All of the exam-
+ples shown below are part of the software documentation
+as either interactive Jupyter notebooks [93] or Python
+scripts. In the following, we give angular frequencies and
+energies in units of inverse times (e.g.s−1) while ordinary
+frequencies are given inHz and we write⟨ ˜U(τ)⟩ = ˜U for
+legibility.
+A. Singlet-triplet two-qubit gates
+In order to benchmark ﬁdelity predictions of our im-
+plementation as well as demonstrate its application to
+nontrivial pulses, we compute the ﬁrst-order inﬁdelity of
+the two-qubit gates presented in Ref. 94 and compare
+the results to the reference’s Monte Carlo calculations.
+There, a numerically optimized gate set consisting of
+{Xπ/2⊗I, Yπ/2⊗I, CNOT}forexchange-coupledsinglet-
+triplet spin qubits is introduced, taking into account dif-
+ferent noise spectra and realistic control hardware.
+For readers unfamiliar with the reference we brieﬂy
+summarize the physical system and noise model entering
+the optimization. The authors consider four electrons
+conﬁned in a linear array of four quantum dots in a semi-
+conductor heterostructure. Each electroni∈{ 1, 2, 3, 4}
+experiences a diﬀerent static magnetic ﬁeldBi so that
+there is a gradientbij = Bi−Bj between two adjacent
+dotsiandj. Thisgivesrisetospinquantizationalongthe
+magnetic ﬁeld axis and deﬁnes the eigenstates{|↑↓⟩,|↓↑⟩}
+that span the computational subspace of a single qubit
+so that the accessible Hilbert space of the two-qubit sys-
+tem is spanned by{|↑↓⟩,|↓↑⟩}⊗2. The magnitude of the
+exchange interaction Jij between two adjacent dots i
+and j is controlled via gate electrodes located on top of
+the heterostructure that can be pulsed on a nanosecond
+timescale with an arbitrary waveform generator (AWG).
+Changing the gate voltages changes the detuningϵij of
+the electrochemical potential between dots and in turn
+leads to a change in exchange coupling according to the
+phenomenological modelJij(ϵij)∝ exp(ϵij).
+The pulses are deﬁned by a set of discrete detuning
+voltages ϵij passed to an AWG with a sample rate of
+1 GS/s and constant magnetic ﬁeld gradientsbij are as-
+sumed. To reﬂect the fact that the qubits experience a
+diﬀerent pulse than what is programmed into the AWG
+due to cable dispersion and non-ideal control hardware,
+the detunings are convoluted with an experimental im-
+pulse response [94]. Finally, the signal is discretized as
+piecewise constant by slicing each segment into ﬁve steps,
+yielding a time increment of∆t = 0.2 ns.
+To ﬁnd optimal detuning pulses, a Levenberg-
+Marquardt algorithm iteratively minimizes the inﬁdelity,
+leakage, and trace distance from the target unitary. For
+the inﬁdelity, contributions from quasistatic magnetic
+ﬁeld noise as well as quasistatic and white charge noise
+are taken into account during each iteration. Because
+treating colored (correlated) noise using Monte Carlo
+methodsiscomputationallyexpensive(c.f.SectionIIID),
+the inﬁdelity due to fast1/f-like noise is only computed
+for the ﬁnal gate and not used during the optimization.
+Two-qubit interactions are mediated via the exchange
+J23 that makes the states|↑↑↓↓⟩ and|↓↓↑↑⟩ accessible.
+They constitute levels outside of the computational sub-
+space that ideally should only be occupied during an en-
+tangling gate operation. A non-vanishing population of
+these states after the operation has ended is therefore un-
+wanted and considered leakage, the magnitude of which
+we could quantify following Section IID3. However, here
+we limit ourselves to determine the inﬁdelity contribution
+from fast, viz. non-quasistatic, charge noise entering the
+system through ϵij. That is, we consider noise sources
+α∈{ ϵ12,ϵ 23,ϵ 34}. We take the non-linear dependence
+of the Hamiltonian on the detuningsϵij into account by
+setting sϵij(t) = ∂Jij(ϵij(t))/∂ϵij(t)∝Jij(ϵij(t)).
+Figure 3 shows the ﬁltered (convoluted) exchange in-
+teraction Jij between each pair of dots during the pulse
+sequence in panel (a) and ﬁlter functions plotted as func-
+tion of frequency in panel (b) for the three diﬀerent de-
+tunings. For a detailed description on how the ﬁlter func-
+tions were computed in the presence of additional leak-
+age levels refer to Appendix B. As one would expect from
+the fact that the intermediate (inter-qubit) exchange in-
+teraction J23 (orange dash-dotted lines) is only turned
+on for short times to entangle the qubits, the ﬁlter func-
+tion forϵ23 is smaller by roughly an order of magnitude
+than the intra-qubit exchange ﬁlter functions. Notably,
+
+18
+the ﬁlter functions forϵ12 and ϵ34 show clear character-
+istics of DCGs, that is they drop to zero asω→ 0, and
+decouple from quasistatic noise with an error suppres-
+sion∝ ω2. This is not unexpected as the optimization
+minimizesquasistaticnoisecontributionstotheinﬁdelity.
+In addition, one can also observe small oscillations with
+period 5 ns−1 in frequency space that arise as a numer-
+ical artifact of the piecewise constant discretization of
+the control parameters as investigations have shown. If
+high-frequency spectral components are expected to play
+a signiﬁcant role, one needs to be aware of these eﬀects
+and adjust the simulation parameters appropriately.
+The inset of Fig. 3(b) shows the same ﬁlter functions
+for the DC tail on a linear scale. Most notably, Fϵ12
+and Fϵ34 have maxima around ω = 2 π/τ, i.e. exactly
+the frequency matching the pulse duration, and around
+ω = 50/τ = 1 ns−1 with τCNOT = 50 ns. The former is
+the typical window in which a pulse is most susceptible
+to noise whereas the latter matches the absolute value of
+the magnetic ﬁeld gradients,b12 =−b34 = 1 ns−1, indi-
+cating that the peak corresponds to the qubit dynamics
+generated by the magnetic ﬁeld gradients. Panels (c)–
+(e) show the cumulant functionsKϵij(τ) of the detuning
+error channelsϵij on the computational subspace.Kϵ12
+displays clear characteristics of a Pauli channel with only
+elements on the diagonal and secondary diagonals deviat-
+ingfromzerosigniﬁcantlywhereas Kϵ34 (thetargetqubit)
+possesses a more complicated structure.
+We now compute the inﬁdelity contribution originating
+fromfastchargenoiseusingEq.(43)buttracingonlyover
+the computational subspace to compare to the Monte
+Carlo calculations of Ref. 94 (see Appendix B for fur-
+ther details). Like the reference, we use a noise spectrum
+Sϵ,a(f)∝ 1/fa with Sϵ,a(1 MHz) = 4× 10−20 V2 Hz−1
+and consider white noise (a = 0) and correlated noise
+with a = 0.7 [10] with infrared and ultraviolet cutoﬀs
+1/τ and 100 ns−1, respectively. Table II compares the
+results in this work with the reference. The values com-
+puted here are consistent with the more elaborate Monte
+Carlo calculations within a few percent. Notably, the de-
+viation is smaller for the smaller noise levels witha = 0.7,
+in line with the fact that we have only computed the
+contributions from the decay amplitudesΓ and thus the
+leading order perturbation. If we had additionally eval-
+uated the frequency shifts∆ we could have obtained the
+exact ﬁdelity in the case of Gaussian noise.
+B. Rabi driving
+A widely used method for qubit control is Rabi driv-
+ing [8, 13, 26, 95]. If we restrict ourselves to the resonant
+case for simplicity, the control Hamiltonian takes on the
+general formHc = ω0σz/2 +A sin(ω0t +φ)σx. Here,ω0
+is the resonance frequency,A the drive amplitude cor-
+responding to the Rabi frequency in the weak driving
+limit A/ω0 ≪ 1, ΩR≈ A, and φ an adjustable phase
+giving control over the rotation axis in thexy-plane of
+This work Ref. 94
+a 0 0 .7 0 0 .7
+Xπ/2⊗ I 1 .7× 10−3 5.8× 10−5 1.9× 10−3 5.7× 10−5
+Yπ/2⊗ I 1 .6× 10−3 5.7× 10−5 1.7× 10−3 5.6× 10−5
+CNOT 1.5× 10−3 6.4× 10−5 1.6× 10−3 6.3× 10−5
+Table II. Fast charge noise inﬁdelity contributions to the to-
+tal average gate ﬁdelity of the two-qubit gate set from Ref. 94
+without capacitive coupling for GaAsS-T0 qubits compared
+to the original results. The ﬁdelities are consistent with re-
+sults from the reference within the uncertainty bounds of3 %
+of the Monte Carlo calculation. The inﬁdelities presented here
+are all average gate inﬁdelities (cf. Eq. (43), Refs. 71 and 72).
+the Bloch sphere. This Hamiltonian and associated deco-
+herence mechanisms are well-studied in the weak driving
+regime, where the rotating wave approximation (RWA)
+can be applied to remove fast-oscillating terms in the
+rotating frame [96, 97]. There is a comprehensive un-
+derstanding of how spectral densities transform to this
+frame and which frequencies are most relevant to loss of
+coherence [98].
+By contrast, the description of a system in the strong
+driving regime, where A/ω0 ∼ 1, is more complicated
+since the RWA cannot be applied without making large
+errors. Yet, an improved understanding is desirable be-
+cause strong driving allows for much shorter gate times
+and thus shifts the window of relevant noise frequencies
+towards higher energies where the total noise power is
+typically lower, e.g. for 1/f noise. Conversely, faster
+control also requires more accurate timing to prevent ro-
+tation errors. It is therefore of interest to have available
+tools that can provide a comprehensive picture for Rabi
+pulses over a wide range of driving amplitudes. By mak-
+ing use of the concatenation property of the ﬁlter func-
+tions, our formalism can do just that.
+The problem that arises when trying to numerically
+investigate Rabi pulses in the weak driving regime in the
+lab frame is that typical control operations have a dura-
+tion τ≫ T with T = 2π/ω0. Since the sampling time
+step ∆t should additionally be chosen much smaller than
+a single drive period in order to sample the time evo-
+lution accurately (∆t≪ T), brute-force simulations are
+costly.
+For T /∆t = 100 samples per period and assuming
+Rabi and drive frequencies in typical regimes for SiGe
+and MOS quantum dots [99, 100] or trapped ions [26],
+ΩR = 1 µs−1 and ω0 = 20 ns−1, a Monte Carlo simu-
+lation of a π-rotation with approximately 3 % relative
+error would require109 samples in total. Using the ﬁlter
+function formalism, we can drastically reduce the simu-
+lation time even beyond the improvement gained from
+concatenating precomputed ﬁlter functions of individual
+drive periods using Eq. (29). This can be achieved with
+Eq. (52), which simpliﬁes the calculation of the control
+matrix for periodic Hamiltonians.
+To benchmark our implementation, we use the param-
+
+19
+0 10 20 30 40 50
+t (ns)
+0.0
+0.5
+1.0
+1.5
+2.0
+J(ϵij ) (ns−1)
+(a)
+10−1 100 101 102
+ω (ns−1)
+10−9
+10−7
+10−5
+10−3
+10−1
+101
+103
+Fϵij (ω)
+(b) ϵ12
+ϵ23
+ϵ34
+0.0 0.5 1.0 1.5 2.0
+0
+20
+40
+60
+II
+IX
+IY
+IZ
+XI
+XX
+XY
+XZ
+YI
+YX
+YY
+YZ
+ZI
+ZX
+ZY
+ZZ
+II
+IX
+IY
+IZ
+XI
+XX
+XY
+XZ
+YI
+YX
+YY
+YZ
+ZI
+ZX
+ZY
+ZZ
+(c) ϵ12
+II
+IX
+IY
+IZ
+XI
+XX
+XY
+XZ
+YI
+YX
+YY
+YZ
+ZI
+ZX
+ZY
+ZZ
+II
+IX
+IY
+IZ
+XI
+XX
+XY
+XZ
+YI
+YX
+YY
+YZ
+ZI
+ZX
+ZY
+ZZ
+(d) ϵ23
+II
+XI
+YI
+ZI
+IX
+XX
+YX
+ZX
+IY
+XY
+YY
+ZY
+IZ
+XZ
+YZ
+ZZ
+II
+XI
+YI
+ZI
+IX
+XX
+YX
+ZX
+IY
+XY
+YY
+ZY
+IZ
+XZ
+YZ
+ZZ
+(e) ϵ34
+−4
+−2
+0
+2
+4
+Cumulant function Kϵij (τ)
+×10−5
+Figure 3. (a) Exchange interactionJ(ϵij) for the CNOT gate presented in Ref. 94 as function of time. (b) Filter functionsFϵij
+for noise in the detunings evaluated on the computational subspace. The ﬁlter functions are modulated by oscillations at high
+frequencies due to numerical artifacts of the ﬁnite step size for the time evolution. The inset shows the ﬁlter functions in the
+DC regime on a linear scale with distinct peaks aroundω = 2π/τ andω = 50/τ (τ = 50 ns). (c)–(e) Computational subspace
+block of the ﬁrst order approximation of the error transfer matrix, given by the cumulant functionKαα excluding second order
+contributions, for the CNOT gate and the three detuningsα∈{ϵ12,ϵ 23,ϵ 34}. Note that in panel (e) the order of the rows and
+columns was permuted for better comparability.
+eters from above and calculate the control matrix of a
+NOT gate generated by a Rabi Hamiltonian with three
+diﬀerent methods on an Intel® Core™ i9-9900K eight-
+core processor. First, we use Eq. (29) in a brute force
+approach. Second, we utilize the concatenation property
+following Eq. (35). Third, we employ the simpliﬁed ex-
+pression given by Eq. (52). The brute force approach
+takes 250 s of wall time whereas calculating the ﬁlter
+function using the standard concatenation is faster by
+two orders of magnitude, taking1.5 sto run. Lastly, the
+calculation utilizing the optimized method is faster again
+by two orders of magnitude and is completed in0.056 s.
+As an example application, we calculate the ﬁlter func-
+tions for continuous Rabi driving in the weak and strong
+driving regimes. For weak driving, we use the parame-
+ters from the benchmark above for a pulse of duration
+τweak≈ 20 µs that corresponds to 20 identity rotations
+in total. For the strong driving regime, we use the ap-
+proximate analytical solution for a ﬂux qubit biased at
+its symmetry point from Ref. 101 with A = ω0/4 to
+drive the qubit forτstrong≈ 4 ns so that we achieve the
+same amount of identity rotations as in the weak driv-
+ing case. In the reference, strong driving in this regime is
+showntogiverisetonon-negligiblecounterrotatingterms
+that modulate the Rabi oscillations and which are well-
+described by Floquet theory applied to the Rabi driving
+Hamiltonian. While for the regime studied here only two
+additionalmodesappear, theresultsextendtotheregime
+where A > ω0 and up to eight diﬀerent frequency com-
+ponents were observed.
+Figure 4 shows the ﬁlter functionsFxx and Fzz for
+the σx and σz noise operators in the weak (a) and the
+strong (b) driving regime. Both display sharp peaks at
+their Rabi frequencies and the resonance frequency for
+Fzz and Fxx, respectively. We expect these features as
+they correspond to perturbations of the qubit Hamilto-
+nian that are resonant with the qubit dynamics about
+an axis orthogonal to them. For weak driving, Fxx is
+constant up to the resonance frequency where it peaks
+sharply and then aligns withFzz. The latter has a peak
+at the Rabi frequency before rolling oﬀ withω−2 and a
+DC level that is almost ten orders of magnitude larger
+than that of the transverse ﬁlter function. This behav-
+ior is consistent with the results by Yanet al.[98], who
+show that the noise sources dominating decoherence dur-
+ing driven evolution areSxx(ω0) andSzz(ΩR). Note that
+the piecewise constant control approximation causes the
+weak driving ﬁlter functions to level oﬀ towards low fre-
+
+20
+10−7 10−5 10−3 10−1 101 103
+10−6
+10−2
+102
+106
+F (ω)
+(a)
+10−2 10−1 100 101 102 103 104
+ω (ns−1)
+10−9
+10−6
+10−3
+100
+F (ω)
+(b)
+Fxx
+Fzz
+Ω R
+ω0
+Figure 4. Filter functions for weak (a) and strong (b) Rabi
+driving (20 identity gates in total). Grey dashed (dotted)
+lines indicate the respective drive (Rabi) frequenciesω0 (ΩR).
+(a) Weak driving withA/ω0≪ 1. The ﬁlter functionFxx for
+noise operator σx is approximately constant up to the reso-
+nance frequency where it peaks sharply and then aligns with
+the ﬁlter functionFzz forσz. Fzz peaks at the Rabi frequency
+before rolling oﬀ withω−2 and a DC level that is almost ten
+orders of magnitude larger than the DC level of the transverse
+ﬁlter functionFxx. (b) Strong driving withA/ω0∼ 1. Again
+Fzz peaks at ΩR whereas Fxx has three distinct peaks atω0
+and ω0± ΩR. These features also appear at slightly higher
+frequencies inFzz due to the strong coupling.
+quencies after an initial roll-oﬀ (here atω ∼ 1 ms−1).
+By decreasing the discretization time step∆t, one can
+shift the frequency at which this eﬀect occurs to lower
+frequencies and thus attribute the feature to a numerical
+artefact of the approximation. However, the decoupling
+properties depend quite sensitively on the pulse duration.
+In case of strong driving, the two ﬁlter functions are
+closer in amplitude for lower frequencies. In addition,
+Fxx also peaks atω = ω0± ΩR. These peaks also show
+up at higher frequencies in the dephasing ﬁlter function
+Fzz, reﬂecting frequency mixing in the strong coupling
+regime. While both ﬁlter functions show characteristics
+of a DCG in the weak driving regime, that is they drop
+to zero asω→ 0, this is not the case in the strong driving
+regime. Instead, there they approach a constant level for
+small frequencies. On top of rotation errors from timing
+inaccuracies, we may thus expect naive strong driving
+gates to be more susceptible to quasistatic noise than
+weak driving gates. By shaping the pulse envelope of the
+strong driving gate the decoupling properties could be
+recovered.
+C. Randomized Benchmarking
+Standard Randomized Benchmarking (SRB) and re-
+lated methods, for example interleaved RB, are popu-
+lar tools to assess the quality of a qubit system and the
+operations used to control it [50, 102, 103]. The basic
+protocol consists of constructingK random sequences of
+varying lengthm of gates drawn from the Cliﬀord group
+[104], and appending a ﬁnal inversion gate so that the
+identity operation should be performed in total. Each
+of these pulse sequences is applied to an initial state|ψ⟩
+in order to measure the survival probabilityp(|ψ⟩) af-
+ter the sequence. In reality, the applied operations are
+subject to noise and experimental imprecisions. This ren-
+ders them imperfect and results in a survival probability
+smaller than one. Assuming gate-independent errors, the
+average gate ﬁdelityFavg is then obtained by ﬁtting the
+measured survival probabilities for each sequence length
+to the zeroth-order exponential model [103]
+p(|ψ⟩) =A
+(
+1− dr
+d− 1
+)m
++B, (57)
+where r = 1−F avg is the average error per single gate
+to be extracted from the ﬁt,A and B are parameters
+capturing state preparation and measurement (SPAM)
+errors, andd is the dimensionality of the system.
+One of the main assumptions of the SRB protocol
+is that temporal correlations of the noise are small on
+timescales longer than the average gate time [103]. If
+this requirement is not satisﬁed, e.g. if1/f noise plays a
+dominant role, the decay of the sequence ﬁdelity can have
+non-exponential components [105–107] and a single expo-
+nential ﬁt will not produce the true average gate ﬁdelity
+[108, 109]. The ﬁlter function formalism suggests itself
+to numerically probe RB experiments in such systems
+for two reasons. First, it enables the study of gate per-
+formance subject to noise with correlation times longer
+than individual gate times. This regime, where a simple
+description in terms of individual, isolated quantum op-
+erations fails, is accessible in the ﬁlter function formalism
+because universal classical noise can be included by the
+power spectral densityS(ω). Second, the simulation of a
+RB experiment can be performed eﬃciently by using the
+concatenation property. Because RB sequences are com-
+piled from a limited set of gates whose ﬁlter functions
+may be precomputed, one only needs to concatenatem
+ﬁlter functions for a single sequence of lengthm to gain
+access to the survival probability.
+Since for suﬃciently long RB sequencesr∈O (1), and
+we would need to include the frequency shifts∆ in a full
+simulation following Eq. (9) because the low-noise ap-
+proximation Eq. (42) does not hold in this regime. Un-
+fortunately, the concatenation property does not hold for
+∆. Therefore, we focus on the high-ﬁdelity regime where
+the exponential decay of the sequence ﬁdelity may be ap-
+proximated to linear order and only the decay amplitudes
+Γ need to be considered.
+
+21
+In order to evaluate the survival probability of a RB
+experiment using ﬁlter functions, we employ the state
+ﬁdelity from Section IID2 and focus on the single-qubit
+case with d = 2 and the (normalized) Pauli basis from
+Eq. (53). Because the ideal action of a RB sequence is
+the identity we haveQ = 1. Assuming we prepare and
+measure in the computational basis,|ψ⟩∈{| 0⟩,|1⟩} so
+that
+√
+2|ρ⟩⟩=|σ0⟩⟩±| σ3⟩⟩, we simplify Eq. (49) to
+F(|ψ⟩,URB(|ψ⟩⟨ψ|)) = 1
+2
+( ˜U00 + ˜U33± ˜U03± ˜U30
+)
+= 1 + ˜U33
+2 ≈ 1− 1
+2
+∑
+k⁄=3
+Γkk.
+(58)
+Forthesecondequalityweusedthat ˜U istrace-preserving
+and unital (c.f. Section IIA2) while in the last step we
+approximated the expression using Eqs. (22) and (42).
+For our simulation, we neglect SPAM errors so thatA =
+B = 0.5, choose|ψ⟩ =|0⟩, and approximate Eq. (57) as
+p(|0⟩) =F(|0⟩,URB(|0⟩⟨0|))≈ 1−rm (59)
+for small gate errorsr≪ 1 since this is the regime which
+we can eﬃciently simulate using the concatenation prop-
+erty.
+We simulate single-qubit SRB experiments using three
+diﬀerent gate sets to generate the 24 elements of the Clif-
+ford group. For the ﬁrst gate set we implement the group
+by naive “single” rotations about the symmetry axes of
+the cube. Each pulse corresponds to a single time seg-
+ment during which one rotation is performed so that the
+j-th element is given byQj = exp(−iφj⃗ nj·⃗ σ). We com-
+pile the other two gate sets from primitiveπ/2 x- and
+y-rotations so that on average each Cliﬀord gate consists
+of 3.75 primitive gates (see Ref. 110). For the speciﬁc
+implementation of the primitiveπ/2-gates we compare
+“naive” rotations, i.e. with a single time segment so that
+Qj = exp(−iπσj/4) for j∈{ x,y}, and the “optimized”
+gates from Ref. 94. Pulse durations are chosen such that
+the average duration of all 24 Cliﬀord gates generated
+from a single gate set is equal for all three gate sets. This
+istoensurethatthediﬀerentimplementationsoftheClif-
+ford gates are sensitive to the same noise frequencies.
+We investigate white noise and correlated noise with
+S(ω)∝ω−0.7 assuming the same noise spectrum on each
+Cartesian axis of the Bloch sphere and normalize the
+noise power for each gate set and noise type (white and
+correlated) so that the average Cliﬀord inﬁdelityr is the
+same throughout. We then randomly draw K = 100
+sequences for 11 diﬀerent lengthsm∈ [1, 101] and con-
+catenate them Cliﬀord gates using Eq. (29) to compute
+the control matrix of the entire sequence. For the in-
+tegral in Eq. (24) we choose the ultraviolet cutoﬀ fre-
+quency two orders of magnitude above the inverse dura-
+tion of the shortest pulse,fUV = 10 2/
+τmin. Similarly,
+the infrared cutoﬀ is chosen asfIR = 10−2/
+mmaxτmax
+with mmax = 101 and τmax = 7τmin (since the longest
+gate is compiled from seven primitive gates with dura-
+tion τmin) to guarantee that all nontrivial structure of
+the ﬁlter functions is resolved at small frequencies [111].
+Finally, we ﬁt Eq. (59) to the inﬁdelities computed for
+the diﬀerent noise spectra.
+The results of the simulation are shown in Fig. 5 (a)
+and (b) for white and correlated noise, respectively. For
+white noise, the survival probability agrees well with the
+SRB prediction for all gate types whereas for 1/f-like
+noise the “single” gates (green pluses) deviate consider-
+ably. Hence, ﬁtting the zeroth-order SRB model to such
+datawillnotrevealthetrueaveragegateﬁdelityalthough
+errors are of order unity. We note that Refs. 105 and 37
+found similar results using diﬀerent methods for1/f and
+perfectly correlated DC noise, respectively. The former
+observed SRB to estimater within 25 % and the latter
+found the mean of the SRB ﬁdelity distribution to de-
+viate from the mode, thereby giving rise to incorrectly
+estimated ﬁdelities.
+On top of aﬃrming the ﬁndings by the references, our
+results demonstrate that the accuracy of the predictions
+made by SRB theory, i.e. that the RB decay rate di-
+rectly corresponds to the average error rate of the gates,
+not only depends on the gate implementation but also
+on which error channels are assumed. This can be seen
+from the inset of Fig. 5(b), where only dephasing noise
+(σz) contributions are shown. For this noise channel
+and the “naive” gates, one ﬁnds a slower RB decay than
+expected from the actual average gate ﬁdelity, so that
+the latter would be overestimated by an RB experiment,
+whereas the “single” gates show the opposite behavior.
+Depending on the gate set and relevant error channels,
+non-Markovian noise may thus even lead to improved se-
+quence ﬁdelities due to errors interfering destructively.
+This behavior is captured by the pulse correlation ﬁl-
+ter functions whose contributions to the sequence ﬁdelity
+lead to the deviations from the SRB prediction.
+Notably, the data for the “optimized” gates agree with
+the prediction for every noise channel individually which
+implies that correlations between pulses are suppressed.
+This highlights the formalism’s attractiveness for numer-
+ical gate optimization as the pulse correlation ﬁlter func-
+tions F (gg′)(ω) may be exploited to suppress correlation
+errors. To be more explicit, the correlation decay am-
+plitudes Γ(gg′) from Eq. (31) can be used to construct
+cost functions for quantum optimal control algorithms
+like GRAPE [112, 113] or CRAB [114]. By constructing
+linear combinations ofΓ(gg′) with diﬀerent pulse indices
+g and g′, correlations between any number of pulses can
+be speciﬁcally targeted and suppressed using numerical
+pulse optimization.
+D. Quantum Fourier transform
+To demonstrate the ﬂexibility of our software im-
+plementation, we calculate ﬁlter functions for a four-
+qubit quantum Fourier transform (QFT) [45, 115] cir-
+cuit. QFT plays an important role in many quantum
+algorithms such as Shor’s algorithm [116] and quantum
+
+22
+0.925
+0.950
+0.975
+1.000
+(a)
+naive
+optimized
+single
+0th order SRB theory
+0 20 40 60 80 100
+Sequence length m
+0.925
+0.950
+0.975
+1.000
+(b)
+Survival probability p(|ψ ⟩)
+0 20 40 60 80 100
+0.96
+0.98
+1.00
+Figure 5. Simulation of a Standard RB (SRB) experiment
+using 100 random sequences per point for diﬀerent gate and
+noise types (see the main text for an explanation of the gate
+type monikers). Dashed lines are ﬁts of Eq. (59) to the data
+while the solid black lines correspond to a zeroth-order SRB
+model with A = B = 0.5 and the true average gate inﬁ-
+delity per Cliﬀordr. Errorbars show the standard deviation
+of the SRB sequence ﬁdelities, illustrating that for the “sin-
+gle” gate set noise correlations can lead to ampliﬁed destruc-
+tive and constructive interference of errors. The same noise
+spectrum is used for all three error channels (σx,σy,σz) and
+the large plots show the sum of all contributions. (a) Un-
+correlated white noise with the noise power adjusted for each
+gate type so that the average error per gater is constant over
+all gate types. No notable deviation is seen between diﬀerent
+gate types. (b) Correlated 1/f-like noise with noise power
+adjusted to match the average Cliﬀord ﬁdelity in (a). The
+decay of the “single” gateset diﬀers considerably from that of
+the other gate sets and the SRB decay expected for the given
+average gate ﬁdelity, whereas “naive” and “optimized” gates
+match the zeroth order SRB model well, indicating that cor-
+relations in the noise aﬀect the relation between SRB decay
+and average gate ﬁdelity in a gateset-dependent way. Inset:
+contributions from σz-noise show that the sequence ﬁdelity
+can be better than expected for certain gate types and noise
+channels.
+phase estimation [45]. For the underlying gate set, we
+assume a standard Rabi driving model with IQ con-
+trol and nearest neighbor exchange. That is, we as-
+sume full control of the x- and y-axes of the individ-
+ual qubits as well as the exchange interaction medi-
+ating coupling between two neighboring qubits. This
+system allows for native access to the minimal gateset
+G = {Xi(π/2), Yi(π/2), CRij(π
+/
+23 )} where CRij(φ)
+denotes a controlled rotation byφ about z with control
+qubiti and target qubitj. Controlled-z rotations by an-
+gles π/2m as required for the QFT can thus be obtained
+by concatenating 23−m minimal gates CRij(π
+/
+23 ).
+Despite native access to all necessary gates, we em-
+ploy QuTiP’s implementation [42] of the GRAPE algo-
+rithm [112, 113] to generate the gates in order to high-
+light our method’s suitability for numerically optimized
+pulses. For the optimization we choose a time step of
+∆t = 1 ns and a total gate duration of τ = 30 ns .
+For completeness, see Appendix C for details on the
+optimized gates. We then construct the remaining re-
+quired gates by sequencing these elementary gates, i.e.
+the Hadamard gateHi = Xi(π/2)◦ Xi(π/2)◦ Yi(π/2),
+where B◦ A denotes the composition of gates A and B
+such that gate A is executed before gate B. To map the
+canonical circuit [45] onto our speciﬁc qubit layout with
+only nearest-neighbor coupling, we furthermore intro-
+duce SWAP operations to couple distant qubits. These
+gates can be implemented by three CNOTs,SWAPij =
+CNOTij◦CNOTji◦CNOTij. The CNOTs in turn are ob-
+tained by a Hadamard transform of the controlled phase
+gate, CNOTij = Hj◦ CRij(π)◦ Hj. The complete quan-
+tum circuit is shown at the top of Fig. 6; for the canonical
+circuit with all-to-all connectivity refer to Ref. 45. In to-
+tal, there are 442 elementary pulses, 198 of which are
+required for the three SWAPs on the ﬁrst two qubits,
+so that the entire algorithm would take∼ 13 µs to run.
+Note that the circuit could be compressed in time by
+parallelizing some operations but for simplicity we only
+execute gates sequentially and do not execute dedicated
+idling gates.
+In order to leverage the extensibility of the ﬁlter func-
+tion approach (see Section IIIB), we use a Pauli basis for
+the pulses and proceed as follows:
+1. Instantiate thePulseSequence objects for the ele-
+mentary gates G for the ﬁrst two qubits and cache
+the control matrices.
+2. Compileallrequiredsingle-andtwo-qubitpulsesby
+concatenating thePulseSequences that implement
+G.
+3. Extend the PulseSequences to the full four-qubit
+Hilbert space.
+4. Recursively concatenate recurring gate sequences
+by concatenating four-qubit PulseSequences, e.g.
+SWAP10◦ CR10(π
+/
+21 )◦ H0, in order to optimally
+use the performance beneﬁt oﬀered by Eq. (29)
+5. Concatenate the last PulseSequences to get the
+complete QFT pulse.
+For our gate parameters and400 frequency points, this
+procedure takes around5 son an Intel® Core™ i9-9900K
+eight-core processor, whereas computing the ﬁlter func-
+tions naively using Eq. (35) takes around 4 min. The
+resulting ﬁlter functions are shown in Fig. 6 for the noise
+operators aﬀecting the ﬁrst qubit; for an in-depth dis-
+cussion and validation of the ﬁdelities predicted, see the
+accompanying letter Ref. 16 and its supplementary infor-
+mation. Evidently, the ﬁdelity of the algorithm is most
+
+23
+3 • × // 0
+2 • × R(π
+/
+23 ) × • × // 1
+1 • × R(π
+/
+22 ) × • × R(π
+/
+22 ) × • × // 2
+0 H R(π
+/
+21 ) × H R(π
+/
+21 ) × H R(π
+/
+21 ) × H // 3
+10−4 10−3 10−2 10−1 100 101 102
+ω (ns−1)
+10−2
+100
+102
+104
+106
+108
+Fα(ω)
+σ(0)
+x
+σ(0)
+y
+σ(0)
+z σ(1)
+z
+0.0
+0.2
+0.4
+0.6
+0.8
+1.0
+Iα(0, ω)/Iα(0, ∞ )
+Figure 6. Top: Circuit for a QFT on four qubits with nearest-neighbor coupling. Labels next to the wires indicate the qubit
+index, showing that the ﬁnal SWAP operation has already been carried out. Bottom: Filter functions for noise operators on
+the ﬁrst qubit (i = 0). Dotted grey lines indicate the positions of then-th harmonic,ωn = 2πn/τ withτ = 30 nsthe duration
+of the gates inG, forn∈{ 1, 2, 3, 4}. The ﬁlter functions have a baseline of around104 in the rangeω∈ [10−1, 101] ns−1 before
+they drop down to follow the usual1/ω2 behavior. The dashed lines show the error sensitivitiesIα(ω1,ω 2) :=
+∫ω2
+ω1
+dωFα(ω) in
+the frequency band[0,ω ] as a fraction of the total sensitivityIα(0,∞). These are closely related to the entanglement ﬁdelity
+(c.f. Eqs. (26) and (48)) and suggest that high frequencies up to the knee atω≈ 10 ns−1 cannot be neglected if the cutoﬀ
+frequency of the noise is suﬃciently high or the spectrum does not drop oﬀ quickly enough (note the linear scale as opposed to
+the logarithmic scale for the ﬁlter functions).
+susceptible to DC noise; below roughlyω ⪅ 10−3 ns−1
+the ﬁlter functions level oﬀ at their maximum value. In
+the GHz range there is a plateau with sharp peaks cor-
+responding to the n-th harmonics of the inverse pulse
+duration ωn = 2 πn/τ, where the leftmost belongs to
+n = 1 . The dashed lines show the error sensitivities
+Iα(ω1,ω 2) :=
+∫ω2
+ω1
+dωF (ω) in the frequency band [0,ω ]
+relative to the total sensitivityIα(0,∞). For a white
+spectrum, i.e.S(ω) = const., this quantiﬁes the fraction
+of the total entanglement inﬁdelity that is accumulated
+up to frequency ω (c.f. Eqs. (26) and (48)). Thus, to
+obtain a precise estimate of the algorithm’s ﬁdelity, ﬁve
+frequency decades need to be taken into account.
+Theseinsightsdemonstratethatourmethodrepresents
+a useful tool to analyze how and to which degree small
+algorithms are aﬀected by correlated errors, and how this
+eﬀect depends on the gate implementation. It could thus
+also be used to choose or optimize gates in an algorithm-
+speciﬁc way.
+VI. FURTHER CONSIDERATIONS
+Before we conclude, let us address two possible avenues
+for future work, one for the formalism itself and one for
+its application.
+To extend our approach to the ﬁlter function for-
+malism beyond the scope discussed in this work, the
+most evident path forward is to allow for quantum me-
+chanical baths instead of purely classical ones. Such
+an extension would facilitate studying for example non-
+unital T1-like processes. In fact, the ﬁlter function for-
+malism was originally introduced considering quantum
+baths such as spin-boson models [18, 19] or more gen-
+eral baths [17, 23, 117], but it remains an open question
+whether this can be applied to our presentation of the
+formalism and the numerical implementation in partic-
+ular. In a fully quantum-mechanical treatment, (suﬃ-
+ciently weak) noise coupling into the quantum system
+can be modelled via a set of bath operators{Dα(t)}α
+so that Hn(t) = ∑
+αBα(t)⊗Dα(t) (the classical case
+is recovered by replacing Dα(t) → bα(t)1) [118]. Ac-
+cordingly, the ensemble average over the stochastic bath
+variables{bα(t)}α needs to be replaced by the quantum
+expectation valuetrB(·ρB) with respect to the stateρB
+
+24
+of the bath B. One therefore needs to deal with cor-
+relation functions of bath operators instead of stochas-
+tic variables. An immediate consequence for numerical
+applications is hence an increased dimensionality of the
+system, which could be dealt with by using analytical
+expressions for the partial trace over the bath.
+For future applications of our method, it would be in-
+terestingtostudytheeﬀectsofnoisecorrelationsinquan-
+tum error correction (QEC) schemes [119–121]. While
+extensive research has been performed on QEC, noise is
+usually assumed to be uncorrelated between error correc-
+tion cycles. In this respect, our formalism may shed light
+on eﬀects that need to be taken into account for a real-
+istic description of the protocol. As outlined above, we
+can compute expectation values of (stabilizer) measure-
+ments in a straightforward manner from the error trans-
+fer matrix. Unfortunately, this implies performing the
+ensemble average over diﬀerent noise realizations, there-
+fore removing all correlations between subsequent mea-
+surement outcomes for a given noise realization. Hence,
+the same feature that allows us to calculate the quantum
+process for correlated noise, namely that we compute
+only the ﬁnal map by averaging over all “paths” lead-
+ing to it, prevents us from studying correlations between
+consecutive cycles. To overcome this limitation in the
+context of quantum memory one could invoke the princi-
+ple of deferred measurement [45] and move all measure-
+ments to the end of the circuit, replacing classically con-
+trolled operations dependent on the measurement out-
+comes by conditional quantum operations. Alternatively,
+to incorporate the probabilistic nature of measurements,
+one could devise a branching model that implements
+the classically controlled recovery operation by follow-
+ing both conditional branches of measurement outcomes
+with weights corresponding to the measurement proba-
+bilities as computed from the ensemble-averaged error
+transfer matrix. An intriguing connection also exists to
+the quantum Zeno eﬀect, for which quantum systems
+subject to periodic projective measurements have been
+identiﬁed with a ﬁlter function [17, 122, 123].
+VII. CONCLUSION AND OUTLOOK
+As quantum control schemes become more sophisti-
+catedandtakeintoaccountrealistichardwareconstraints
+andsequencingeﬀects, theiranalyticdescriptionbecomes
+cumbersome, making numerical tools invaluable for ana-
+lyzing pulse performance. In the above, we have shown
+that the ﬁlter function formalism lends itself naturally
+to these tasks since the central objects of our formula-
+tion, the interaction picture noise operators, obey a sim-
+ple composition rule which can be utilized to eﬃciently
+calculate them for a sequence of quantum gates. Because
+thenatureofthenoiseisencodedinapowerspectralden-
+sity in the frequency domain, its eﬀects are isolated from
+the description of the control until they are evaluated by
+the overlap integral of noise spectrum and ﬁlter function.
+Hence, the noise operators are highly reusable in calcu-
+lations and can serve as an economic way of simulating
+pulse sequences.
+Building on the results of a separate publication [16],
+we have presented a general framework to study deco-
+herence mechanisms and pulse correlations in quantum
+systems coupled to generic classical noise environments.
+By combining the quantum operations and ﬁlter function
+formalisms, we have shown how to compute the Liouville
+representation of the exact error channel of an arbitrary
+control operation in the presence of Gaussian noise. For
+non-Gaussian noise our results become perturbative in
+the noise strength. Furthermore, we have introduced the
+filter_functions Python software package that imple-
+ments the aforementioned method. We showed both an-
+alytically and numerically that our software implementa-
+tion can outperform Monte Carlo techniques by orders of
+magnitude. By employing the formalism and software to
+study several examples we demonstrated the wide range
+of possible applications.
+The capacity for applications in quantum optimal con-
+trol has already been established above. In a forthcom-
+ing publication, we will present analytical derivatives for
+the ﬁdelity ﬁlter function, Eq. (26), and their implemen-
+tation in the software package [90]. Together with the
+inﬁdelity, Eq. (48), they can serve as eﬃcient cost func-
+tions for pulse optimization in the presence of realistic,
+correlated noise [43, 87]. Since our method oﬀers insight
+into correlations between pulses at diﬀerent positions in
+a sequence, the pulse correlation ﬁlter functionF (gg′)(ω)
+with g⁄= g′ can additionally serve as a tool for study-
+ing under which conditions pulses decouple from noise
+with long correlation times. Such insight would be valu-
+able to design pulses for algorithms. Another interest-
+ing application could be quantum error correction in the
+regime of long-time correlated noise as outlined above in
+Section VI, where we also brieﬂy touched upon a possi-
+ble extension of the framework to quantum mechanical
+baths.
+The tools presented here, both analytical and numer-
+ical as implemented in thefilter_functions software
+package [41], provide an accessible way for computing ﬁl-
+ter functions in generic control settings across the diﬀer-
+entmaterialplatformsemployedinquantumtechnologies
+and beyond.
+ACKNOWLEDGMENTS
+This work was supported by the European Research
+Council (ERC) under the European Union’s Horizon
+2020 research and innovation program (Grant Agreement
+No. 679342).
+
+25
+Appendix A: Additional derivations
+In this appendix we show additional derivations omitted from the main text.
+1. Derivation of the single-qubit cumulant function in the Liouville representation
+For a single qubit, the Pauli basis{σi}3
+i=0 ={1,σx,σy,σz}
+/√
+2 is a natural choice to deﬁne the Liouville represen-
+tation. In this case, the trace tensor Eq. (18) can be simpliﬁed and thus Eq. (17) given a more intuitive form which we
+derive in this appendix. Since the cumulant function is linear in the noise indicesα,β we drop them in the following
+for legibility. Our results hold for both a single pair of noise indices and the total cumulant. We start by observing
+the relation
+Tklij = tr(σkσlσiσj) = (δklδij−δkiδlj +δkjδji)/2 (A1)
+for the Pauli basis elementsσk,k ∈{ 1, 2, 3}. Including the identity elementσ0 in the trace tensor gives additional
+terms. However, as we show now none of these contribute toK because they cancel out.
+First, since the noise HamiltonianHn(t) is traceless and therefore˜Bα0(t) = 0, we haveΓkl, ∆kl∝ (1−δk0)(1−δ0l),
+i.e. the ﬁrst column and row of both the decay amplitude and frequency shift matrices are zero, and hence terms in
+the sum of Eq. (17) with eitherk = 0 orl = 0 vanish. Next, fori =j = 0 all of the traces cancel out as can be easily
+seen. The last possible cases are given byi = 0,j ⁄= 0 and vice versa. For these cases we have
+Tkl0j =Tklj0 = 1√
+2 tr(σkσlσj) = i
+2εklj (A2)
+with εkli the completely antisymmetric tensor. Both of the above cases vanish inK since, taking the casej = 0 for
+example,
+1
+2 (Tkl0i−Tk0li−Tkil0 +Tki0l) = i
+2 (εklj−εlkj−εklj +εlkj) = 0 (A3a)
+for the decay amplitudesΓ and
+1
+2 (Tkl0i−Tlk0i−Tkli0 +Tlki0) = i
+2 (εkli−εlki−εkli +εlki) = 0 (A3b)
+for the frequency shifts∆. Hence, only terms withi,j > 0 contribute and we can plug the simpliﬁed expressions for
+the trace tensorTklij, Eq. (A1), into Eq. (17) to write the cumulant function for a single qubit and the Pauli basis
+concisely as
+Kij(τ) =−1
+2
+∑
+kl
+(
+∆kl (Tklji−Tlkji−Tklij +Tlkij) + Γkl (Tklji−Tkjli−Tkilj +Tkijl)
+)
+(A4)
+=−
+∑
+kl
+(
+∆kl(δkiδlj−δkjδli) + Γkl(δklδij−δkjδli)
+)
+(A5)
+= ∆ji− ∆ij + Γij−δij tr Γ (A6)
+=
+{
+−∑
+k⁄=i Γkk if i =j,
+−∆ij + ∆ji + Γij if i⁄=j, (A7)
+as given in the main text.
+2. Evaluation of the integrals in Eq. (39)
+Here we calculate the integrals appearing in the calculation of the frequency shifts∆, Eq. (40), given by
+I(g)
+ijmn(ω) =
+∫ tg
+tg−1
+dt eiΩ(g)
+ij (t−tg−1)−iωt
+∫ t
+tg−1
+dt′ eiΩ(g)
+mn(t′−tg−1)+iωt′
+. (A8)
+
+26
+The inner integration is simple to perform and we get
+I(g)
+ijmn(ω) =
+∫ tg
+tg−1
+dt eiΩ(g)
+ij (t−tg−1)−iω(t−tg−1)×
+
+
+
+ei(ω+Ω(g)
+mn)(t−tg−1)−1
+i(ω+Ω(g)
+mn) if ω + Ω(g)
+mn⁄= 0
+t−tg−1 if ω + Ω(g)
+mn = 0.
+(A9)
+Shifting the limits of integration and performing integration by parts in the caseω + Ω(g)
+mn = 0 then yields
+I(g)
+ijmn(ω) =
+
+
+
+1
+ω+Ω(g)
+mn
+(
+e
+i(Ω(g)
+ij −ω)∆tg−1
+Ω(g)
+ij −ω − e
+i(Ω(g)
+ij +Ω(g)
+mn)∆tg−1
+Ω(g)
+ij +Ω(g)
+mn
+)
+if ω + Ω(g)
+mn⁄= 0,
+1
+Ω(g)
+ij −ω
+(
+e
+i(Ω(g)
+ij −ω)∆tg−1
+Ω(g)
+ij −ω − i∆tgei(Ω(g)
+ij −ω)∆tg
+)
+if ω + Ω(g)
+mn = 0∧ Ω(g)
+ij −ω⁄= 0,
+∆t2
+g
+/
+2 if ω + Ω(g)
+mn = 0∧ Ω(g)
+ij −ω = 0.
+(A10)
+3. Simplifying the calculation of the entanglement inﬁdelity
+In the main text, we claimed that the contribution of noise sources(α,β ) to the total entanglement inﬁdelity
+Ie( ˜U) =∑
+αβIαβ reduces from the trace of the cumulant functionK to
+Iαβ =− 1
+d2 trKαβ (A11)
+= 1
+d tr Γαβ. (A12)
+To show this, we substituteK by its deﬁnition in terms of∆ and Γ according to Eq. (17). This yields for the trace
+trKαβ =−1
+2
+∑
+kl
+δij(fijkl∆αβ,kl +gijklΓαβ,kl)
+=−1
+2
+∑
+ikl
+Γαβ,kl (Tklii +Tlkii− 2Tkili)
+(A13)
+since ∆ is antisymmetric. In order to further simplify the trace tensors on the right hand side of Eq. (A13), we
+observe that the orthonormality and completeness of the operator basisC deﬁning the Liouville representation ofK
+(c.f. Eq. (14)) is equivalent to requiring thatC†C = 1 withC reshaped into ad2×d2 matrix by a suitable mapping.
+This condition may also be written as
+δacδbd =
+∑
+k
+C∗
+k,abCk,cd
+=
+∑
+k
+Ck,baCk,cd
+(A14)
+because every elementCk is Hermitian. Using this relation in Eq. (A13) then yields
+trKαβ =−1
+2
+∑
+kl
+Γαβ,kl (2dδkl− 2 tr(Ck) tr(Cl))
+=−d tr Γαβ.
+(A15)
+The last equality only holds true for bases with a single non-traceless element (the identity), such as the bases discussed
+in Section IIIC. This is because in this case,tr(Ck) = 0 for k >0 whereas Γαβ,kl = 0 for eitherk = 0 or l = 0 since
+Γ is a function of the traceless noise Hamiltonian for whichtr(C0Hn)∝ trHn = 0 (i.e. the ﬁrst column of the control
+matrix is zero, see Eqs. (16) and (21)). Finally, substituting Eq. (A15) into Eq. (A11) we obtain our result
+Iαβ = 1
+d tr Γαβ. (A16)
+
+27
+Appendix B: Singlet-Triplet Gate Fidelity
+In this appendix we lay out in more detail how the ﬁdelity of the optimizedS-T0 qubit gates from Ref. 94 was
+calculatedusingﬁlterfunctions. Intwosinglet-tripletqubits, angularmomentumconservationsuppressesoccupancyof
+stateswithnon-vanishingmagneticspinquantumnumber ms sothatthetotalaccessiblestatespaceofdimension d = 6
+is spanned by{|↑↓↑↓⟩,|↑↓↓↑⟩,|↓↑↑↓⟩,|↓↑↓↑⟩,|↑↑↓↓⟩,|↓↓↑↑⟩}. A straightforward method to single out the computational
+subspace (CS) dynamics from those on the whole space would be to simply project the error transfer matrix˜U≈ 1+K
+withK the cumulant function onto the CS as proposed by Wood and Gambetta [76], that is calculate the ﬁdelity as
+Fe = tr
+(
+Πc ˜U
+)
+/d2
+c where Πc is the Liouville representation of the projector onto the CS anddc = 4 the dimension of
+the CS. However, here we use a more involved procedure in order to gain more insight from the error transfer matrix
+as well as to obtain a better comparison to the ﬁdelities computed by Cerfontaineet al.[94], who map the ﬁnal6× 6
+propagator to the closest unitary on the4× 4 CS during their Monte Carlo simulation.
+To calculate the ﬁdelity of the target unitary on the4× 4 CS, we thus construct an orthonormal operator basis
+C of the full6× 6 space that is partitioned into elements which are nontrivial only on the CS on the one hand and
+elements which are nontrivial only on the remaining space on the other such thatC =Cc∪C𝓁. Using such a basis, we
+can then trace only over CS elements of the error transfer matrix˜U in Eq. (45) to obtain the ﬁdelity of the gate on
+the CS. Moreover, we retain the opportunity to characterize the gates on the basis of the Pauli matrices.
+Since there is no obvious way to extend the Pauli basis for two qubits to the complete space we proceed as follows:
+For the CS, we pad the two-qubit Pauli basis with zeros on the leakage levels, i.e.
+Cc
+i
+.=
+
+
+|↑↑↓↓⟩ |↓↓↑↑⟩
+Pi 0 0
+⟨↑↑↓↓| 0 0 0
+⟨↓↓↑↑| 0 0 0
+
+, i ∈{ 0,..., 15}, (B1)
+where thePi are normalized two-qubit Pauli matrices (c.f. Eq. (53)) in the basis{|↑↓↑↓⟩,|↑↓↓↑⟩,|↓↑↑↓⟩,|↓↑↓↑⟩}. To
+complete the basis we require an additional 20 elements orthogonal to the 16 padded Pauli matrices. We obtain the
+remaining elements by ﬁrst expanding theCc
+i in an arbitrary basis{Λi}35
+i=0 of the complete space (we choose a GGM,
+c.f. Eq. (54), for simplicity), yielding a16× 36 matrix of expansion coeﬃcients:
+Mij = tr(Cc
+i Λj). (B2)
+We then compute an orthonormal vector basisV (a matrix of size36× 20) for the null space ofM using singular
+value decompositionM =UΣV† and acquire the corresponding basis matrices as
+C𝓁
+i =
+∑
+j
+ΛjVji, i ∈{ 0,..., 19}. (B3)
+Finally, to account for the fact that Ref. 94 map the total propagator to the closest unitary on the CS, we exclude the
+identity Pauli elementCc
+0∝ diag(1, 1, 1, 1, 0, 0) from the trace over the computational subspace part of˜U represented
+in the basisC =Cc∪C 𝓁 when calculating the ﬁdelity,
+Fe = 1
+16
+15∑
+i=1
+˜Uii, (B4)
+since for unitary operations on the CS we haveK00≈ 1− ˜U00 = 1− tr
+(
+Cc
+0 ˜UCc
+0 ˜U†)
+= 0. Hence, excluding ˜U00 from
+the trace corresponds to partially disregarding non-unitary components of the error channel on the computational
+subspace. Although not the only element that diﬀers compared to the closest subspace unitary,K00 contains the most
+obvious contribution, whereas those of other elements are more diﬃcult to disentangle into unitary and non-unitary
+components.
+Similar to the ﬁdelity, we also obtain the canonical ﬁlter function shown in panel (b) of Fig. 3 by summing only
+over columns one through 15 of the control matrix,Fϵij(ω) = ∑15
+k=1
+⏐⏐ ˜Bϵijk(ω)
+⏐⏐2
+. In fact, including the ﬁrst column,
+corresponding to the padded identity matrixCc
+0, in the ﬁlter function removes the DCG character ofFϵ12(ω) and
+Fϵ34(ω), which instead approach a constant level of around 20 (note that the ﬁlter function is dimensionless in our
+units) at zero frequency. This is consistent with the fact that the gates were optimized using quasistatic and fast
+white noise contributions to the ﬁdelity after mapping to the closest unitary on the computational subspace. We have
+performed Monte Carlo resimulations that support this reading. In Fig. 7 we show the ﬁlter functions once including
+and once excluding the contributions fromCc
+0.
+
+28
+10−1 100
+ω (ns−1)
+10−2
+10−1
+100
+101
+102
+Fϵij (ω)
+(a)
+10−1 100
+ω (ns−1)
+(b)
+ϵ12
+ϵ23
+ϵ34
+Figure 7. Filter functions of the voltage detuningsϵij excluding (a) and including (b) the zero-padded identity matrix basis
+elementCc
+0∝ diag(1, 1, 1, 1, 0, 0) for the computational subspace. Evidently, includingCc
+0 removes the DCG character, namely
+thatFϵij (ω)→ 0asω→ 0, of the gates but has little eﬀect on the high-frequency behavior. As the pulse optimization minimizes,
+among other ﬁgures of merit, the inﬁdelity of the ﬁnal propagator mapped to the closest unitary on the computational subspace
+due to quasistatic and fast white noise, this indicates that excludingCc
+0 from the ﬁlter function corresponds to partially
+neglecting non-unitary components of the propagator on the computational subspace.
+Appendix C: GRAPE-optimized gate set for QFT
+For completeness, in this appendix we give details on the GRAPE-optimized pulses for the gate set G =
+{Xi(π/2), Yi(π/2), CRij(π
+/
+23 )} used in Section VD to simulate a QFT algorithm. As mentioned in the main
+text, we consider a toy Rabi driving model with IQ single-qubit control and exchange to mediate inter-qubit coupling.
+Cast in the language of quantum optimal control theory this translates to a vanishing drift (static) Hamiltonian,
+Hd = 0, and a control Hamiltonian in the rotating frame given by
+Hc(t) =H(0)
+c (t)⊗ 1 + 1⊗H(1)
+c (t) +H(01)
+c (t), (C1)
+H(i)
+c (t) =Ii(t)σ(i)
+x +Qi(t)σ(i)
+y , H (ij)
+c (t) =Jij(t)σ(i)
+z ⊗σ(j)
+z , (C2)
+where Ii(t) and Qi(t) are the in-phase and quadrature pulse envelopes andσ(i)
+x,y are the Pauli matrices acting on
+the i-th and extended trivially to the other qubit. As our goal is only of illustrative nature and not to provide
+a detailed gate optimization, we obtain the controls{I0(t),Q 0(t),I 1(t),Q 1(t),J 12(t)} for the gate set G using the
+GRAPE algorithm implemented inQuTiP [42] initialized with randomly distributed amplitudes. The resulting pulses
+and the corresponding ﬁlter functions for the relevant noise operators are shown in Fig. 8.
+Appendix D: Convergence Bounds
+In this appendix we give bounds for the convergence of the expansions employed in the main text for the case
+of purely auto-correlated noise, Sαβ(ω) = δαβSαβ(ω) = Sα(ω), following the approach by Greenet al. [29]. For
+Gaussian noise, our expansion is exact when including ﬁrst and second order Magnus expansion (ME) terms. Hence,
+the convergence radius of the ME becomes inﬁnite and the ﬁdelity can be computed exactly by evaluating the matrix
+exponential Eq. (11). For non-Gaussian noise, the following considerations apply.
+1. Magnus Expansion
+The ME of the error propagator Eq. (8a) converges if
+∫τ
+0 dt‖ ˜Hn(t)‖ < πwith‖A‖2 =⟨A,A⟩ = ∑
+ij|Aij|2 the
+Frobenius norm [57]. We assume a time dependence of the noise operators of the formBα(t) = sα(t)Bα. By the
+
+29
+0 10 20 30
+t (ns)
+0
+1
+2
+3Control (ns−1)
+(a) I0
+Q0
+0 10 20 30
+t (ns)
+(c) I0
+Q0
+0 10 20 30
+t (ns)
+(e) I0
+I1
+J01
+Q0
+Q1
+10−4 10−2 100 102
+ω (ns−1)
+0
+100
+200
+300
+400F (ω)
+(b)
+σ(0)
+x
+σ(0)
+y
+10−4 10−2 100 102
+ω (ns−1)
+(d)
+σ(0)
+x
+σ(0)
+y
+10−4 10−2 100 102
+ω (ns−1)
+(f)
+σ(0)
+x
+σ(1)
+x
+σ(0)
+y
+σ(1)
+y
+σ(0)
+z σ(1)
+z
+Figure 8. Control ﬁelds (top row) and corresponding ﬁlter functions (bottom row) of the GRAPE-optimized pulses inG.
+(a),(b) X0(π/2); (c),(d) Y0(π/2); (e),(f) CR01(π
+/
+23 ). Note that the optimization is neither very sophisticated nor realistic
+as the algorithm only maximizes the systematic (coherent) ﬁdelitytr
+(
+UQ†
+targ
+)
+/d and the randomly distributed initial control
+amplitudes are not subject to any constraints.
+Cauchy-Schwarz inequality we then have
+‖‖ ˜Hn(t)
+‖‖2
+=‖Hn(t)‖2
+=
+∑
+αβ
+sα(t)sβ(t)bα(t)bβ(t)⟨Bα,Bβ⟩
+≤
+∑
+αβ
+sα(t)sβ(t)bα(t)bβ(t)‖Bα‖‖Bβ‖
+≤
+[∑
+α
+G∑
+g=1
+ϑ(g)(t)s(g)
+α b(m)
+α ‖Bα‖
+]2
+(D1)
+where b(m)
+α is the maximum value that the noise assumes during the pulse,ϑ(g)(t) = Θ(t−tg−1)− Θ(t−tg) is one
+during the g-th time interval and zero else, and where we approximated the time evolution as piecewise constant.
+
+30
+Then, in order to guarantee convergence of the ME,
+∫ τ
+0
+dt‖ ˜Hn(t)‖≤
+∫ τ
+0
+dt
+⏐⏐⏐⏐
+∑
+α
+G∑
+g=1
+ϑ(g)(t)s(g)
+α b(m)
+α ‖Bα‖
+⏐⏐⏐⏐
+=
+∑
+α
+b(m)
+α ‖Bα‖
+G∑
+g=1
+s(g)
+α
+∫ tg
+tg−1
+dt
+=
+∑
+α
+Cmδbα‖Bα‖
+G∑
+g=1
+s(g)
+α ∆tg
+=:N
+(D2)
+where we have expressed the in principle unknown maximum noise amplitudeb(m)
+α in terms of the root mean square
+value δbα. That is, b(m)
+α = Cm⟨bα(0)2⟩1/2 = Cmδbα for a suﬃciently large valueCm. Finally, realizing thatδb2
+α =∫ dω
+2πSα(ω) and by the triangle inequality,
+N =Cm
+∑
+α
+‖Bα‖
+[∫ ∞
+−∞
+dω
+2πSα(ω)
+]1/2 G∑
+g=1
+s(g)
+α ∆tg
+≤Cm
+[∑
+α
+‖Bα‖2
+∫ ∞
+−∞
+dω
+2πSα(ω)
+( G∑
+g=1
+s(g)
+α ∆tg
+)2]1/2
+=:Cmξ
+!
+<π
+(D3)
+where we have introduced the parameterξ. Thus, the expansion converges ifξ < π/Cm. However, we note that
+in practice the rms noise amplitudeδbα will often be inﬁnite, limiting the usefulness of this bound for certain noise
+spectra.
+2. Inﬁdelity
+Again assuming a time dependenceBα(t) = sα(t)Bα as well as piecewise constant control, we note that for the
+inﬁdelity we have (c.f. Eq. (45))
+|tr(Γ)| =
+⏐⏐⏐⏐⏐
+∑
+α
+∫ τ
+0
+dt2
+∫ τ
+0
+dt1⟨bα(t1)bα(t2)⟩
+∑
+k
+˜Bαk(t1) ˜Bαk(t2)
+⏐⏐⏐⏐⏐
+≤
+⏐⏐⏐⏐⏐
+∑
+α
+∫ τ
+0
+dt2
+∫ τ
+0
+dt1⟨bα(t1)bα(t2)⟩
+G∑
+g,g′=1
+ϑ(g)(t1)ϑ(g′)(t2)s(g)
+α s(g′)
+α ‖Bα‖2
+⏐⏐⏐⏐⏐
+≤
+∑
+α
+‖Bα‖2 ⟨
+b2
+α(0)
+⟩
+| {z }∫ dω
+2πSα(ω)
+G∑
+g,g′=1
+s(g)
+α s(g′)
+α
+⏐⏐⏐⏐⏐
+∫ tg′
+tg′−1
+dt2
+∫ tg
+tg−1
+dt1⟨bα(t1)bα(t2)⟩| {z }
+|·|≤ 1
+⏐⏐⏐⏐⏐
+≤
+∑
+α
+[
+‖Bα‖2
+∫ ∞
+−∞
+dω
+2πSα(ω)
+( G∑
+g=1
+s(g)
+α ∆tg
+)2]
+=ξ2,
+(D4)
+where, going from the second to the third line, we have factored out the total power of noise sourceα from the
+cross-correlation function,⟨bα(t1)bα(t2)⟩ =
+⟨
+b2
+α(0)
+⟩⏐⏐⟨bα(t1)bα(t2)⟩
+⏐⏐. Thus, the ﬁrst order inﬁdelity Eq. (45) is upper
+bounded byξ2/
+d, the same parameter also bounding the convergence of the ME, and higher orders can be neglected
+if ξ2≪ 1.
+Note that similar arguments can be made for the higher orders of the ME [29]. In particular, then-th order ME
+term containingn-point correlation functions of the noise is of orderO(ξn) as stated in the main text.
+
+31
+[1] David P. DiVincenzo, “Two-bit gates are universal for
+quantum computation,” Phys. Rev. A51, 1015–1022
+(1995).
+[2] Goran Lindblad, “On the generators of quantum dy-
+namical semigroups,” Communications in Mathematical
+Physics 48, 119–130 (1976).
+[3] M. Brownnutt, M. Kumph, P. Rabl, and R. Blatt, “Ion-
+trap measurements of electric-ﬁeld noise near surfaces,”
+Rev. Mod. Phys.87, 1419–1482 (2015).
+[4] P. Kumar, S. Sendelbach, M. A. Beck, J. W. Freeland,
+Zhe Wang, Hui Wang, Clare C. Yu, R. Q. Wu, D. P.
+Pappas, and R. McDermott, “Origin and Reduction of
+1/f Magnetic Flux Noise in Superconducting Devices,”
+Phys. Rev. Applied6, 041001(R) (2016).
+[5] Jun Yoneda, Kenta Takeda, Tomohiro Otsuka, Takashi
+Nakajima, Matthieu R. Delbecq, Giles Allison, Takumu
+Honda, Tetsuo Kodera, Shunri Oda, Yusuke Hoshi,
+Noritaka Usami, Kohei M. Itoh, and Seigo Tarucha,
+“A quantum-dot spin qubit with coherence limited by
+charge noise and ﬁdelity higher than 99.9%,” Nature
+Nanotechnology 13, 102–106 (2018).
+[6] E. Paladino, Y. M. Galperin, G. Falci, and B. L. Alt-
+shuler, “1/f noise: Implications for solid-state quantum
+information,” Reviews of Modern Physics86, 361–418
+(2014).
+[7] Hui Khoon Ng and John Preskill, “Fault-tolerant quan-
+tum computation versus Gaussian noise,” Phys. Rev. A
+79, 032318 (2009).
+[8] M. Veldhorst, J. C. C. Hwang, C. H. Yang, A. W.
+Leenstra, B. de Ronde, J. P. Dehollain, J. T. Muho-
+nen, F. E. Hudson, K. M. Itoh, A. Morello, and
+A. S. Dzurak, “An addressable quantum dot qubit with
+fault-tolerant control-ﬁdelity,” Nature Nanotechnology
+9, 981–985 (2014).
+[9] S. Debnath, N. M. Linke, C. Figgatt, K. A. Landsman,
+K. Wright, and C. Monroe, “Demonstration of a small
+programmable quantum computer with atomic qubits,”
+Nature 536, 63–66 (2016).
+[10] O. E. Dial, M. D. Shulman, S. P. Harvey, H. Bluhm,
+V. Umansky, and A. Yacoby, “Charge Noise Spec-
+troscopy Using Coherent Exchange Oscillations in a
+Singlet-Triplet Qubit,” Phys. Rev. Lett.110, 146804
+(2013).
+[11] C. M. Quintana, Yu Chen, D. Sank, A. G. Petukhov,
+T. C. White, Dvir Kafri, B. Chiaro, A. Megrant,
+R. Barends, B. Campbell, Z. Chen, A. Dunsworth,
+A. G. Fowler, R. Graﬀ, E. Jeﬀrey, J. Kelly,
+E. Lucero, J. Y. Mutus, M. Neeley, C. Neill, P. J. J.
+O’Malley, P. Roushan, A. Shabani, V. N. Smelyanskiy,
+A. Vainsencher, J. Wenner, H. Neven, and John M.
+Martinis, “Observation of Classical-Quantum Crossover
+of 1/f Flux Noise and Its Paramagnetic Temperature
+Dependence,” Phys. Rev. Lett.118, 057702 (2017).
+[12] Filip K. Malinowski, Frederico Martins, Łukasz Cy-
+wiński, Mark S. Rudner, Peter D. Nissen, Saeed Fallahi,
+Geoﬀrey C. Gardner, Michael J. Manfra, Charles M.
+Marcus, and Ferdinand Kuemmeth, “Spectrum of the
+Nuclear Environment for GaAs Spin Qubits,” Phys.
+Rev. Lett.118, 177702 (2017).
+[13] R. Barends, J. Kelly, A. Megrant, A. Veitia,
+D. Sank, E. Jeﬀrey, T. C. White, J. Mutus, A. G.
+Fowler, B. Campbell, Y. Chen, Z. Chen, B. Chiaro,
+A. Dunsworth, C. Neill, P. O’Malley, P. Roushan,
+A. Vainsencher, J. Wenner, A. N. Korotkov, A. N. Cle-
+land, and John M. Martinis, “Superconducting quan-
+tum circuits at the surface code threshold for fault tol-
+erance,” Nature508, 500–503 (2014).
+[14] Robin Blume-Kohout, John King Gamble, Erik Nielsen,
+Kenneth Rudinger, Jonathan Mizrahi, Kevin Fortier,
+and Peter Maunz, “Demonstration of qubit operations
+below a rigorous fault tolerance threshold with gate set
+tomography,” Nature Communications8, 1–13 (2017).
+[15] Kaveh Khodjasteh and Lorenza Viola, “Dynamically
+Error-Corrected Gates for Universal Quantum Compu-
+tation,” Phys. Rev. Lett.102, 080501 (2009).
+[16] Pascal Cerfontaine, Tobias Hangleiter, and Hendrik
+Bluhm, “Filter Functions for Quantum Processes under
+Correlated Noise,” [Reference inserted by publisher].
+[17] A. G. Kofman and G. Kurizki, “Universal dynamical
+control of quantum mechanical decay: Modulation of
+the coupling to the continuum,” Phys. Rev. Lett.87,
+270405–270405–4 (2001).
+[18] John M. Martinis, S. Nam, J. Aumentado, K. M. Lang,
+andC.Urbina,“Decoherenceofasuperconductingqubit
+due to bias noise,” Phys. Rev. B67, 094510 (2003).
+[19] Götz S. Uhrig, “Keeping a Quantum Bit Alive by Opti-
+mizedπ-Pulse Sequences,” Phys. Rev. Lett.98, 100504
+(2007).
+[20] Łukasz Cywiński, Roman M. Lutchyn, Cody P. Nave,
+and S. Das Sarma, “How to enhance dephasing time
+in superconducting qubits,” Phys. Rev. B77, 174509
+(2008).
+[21] Gonzalo A. Álvarez and Dieter Suter, “Measuring the
+Spectrum of Colored Noise by Dynamical Decoupling,”
+Phys. Rev. Lett.107, 230501 (2011).
+[22] Jonas Bylander, Simon Gustavsson, Fei Yan, Fumiki
+Yoshihara, Khalil Harrabi, George Fitch, David G.
+Cory, Yasunobu Nakamura, Jaw-Shen Tsai, and
+William D. Oliver, “Noise spectroscopy through dynam-
+ical decoupling with a superconducting ﬂux qubit,” Na-
+ture Physics7, 565–570 (2011).
+[23] Gerardo A. Paz-Silva, Leigh M. Norris, and Lorenza
+Viola, “Multiqubit spectroscopy of Gaussian quantum
+noise,” Phys. Rev. A95, 022121 (2017).
+[24] Michael J. Biercuk, Hermann Uys, Aaron P. VanDeven-
+der, Nobuyasu Shiga, Wayne M. Itano, and John J.
+Bollinger, “Optimized dynamical decoupling in a model
+quantum memory.” Nature458, 996–1000 (2009).
+[25] Hermann Uys, Michael J. Biercuk, and John J.
+Bollinger, “Optimized Noise Filtration through Dynam-
+ical Decoupling,” Phys. Rev. Lett.103, 040501 (2009).
+[26] A.Soare, H.Ball, D.Hayes, J.Sastrawan, M.C.Jarratt,
+J. J. Mcloughlin, X. Zhen, T. J. Green, and M. J. Bier-
+cuk, “Experimental noise ﬁltering by quantum control,”
+Nature Physics10, 825–829 (2014).
+[27] Filip K. Malinowski, Frederico Martins, Peter D. Nis-
+sen, Edwin Barnes, Łukasz Cywiński, Mark S. Rudner,
+Saeed Fallahi, Geoﬀrey C. Gardner, Michael J. Manfra,
+Charles M. Marcus, and Ferdinand Kuemmeth, “Notch
+ﬁltering the nuclear environment of a spin qubit,” Na-
+ture Nanotechnology12, 16–20 (2016).
+[28] Todd Green, Hermann Uys, and Michael J. Biercuk,
+
+32
+“High-order noise ﬁltering in nontrivial quantum logic
+gates,” Phys. Rev. Lett.109, 020501 (2012).
+[29] Todd J. Green, Jarrah Sastrawan, Hermann Uys, and
+Michael J. Biercuk, “Arbitrary quantum control of
+qubits in the presence of universal noise,” New Journal
+of Physics15, 095004 (2013).
+[30] Utkan Güngördü and J. P. Kestner, “Pulse sequence de-
+signed for robustC-phase gates in SiMOS and Si/SiGe
+double quantum dots,” Phys. Rev. B98, 165301 (2018).
+[31] Harrison Ball, Michael J. Biercuk, Andre Carvalho, Ji-
+ayin Chen, Michael Hush, Leonardo A. De Castro, Li Li,
+Per J. Liebermann, Harry J. Slatyer, Claire Edmunds,
+Virginia Frey, Cornelius Hempel, and Alistair Milne,
+“Software tools for quantum control: Improving quan-
+tumcomputerperformancethroughnoiseanderrorsup-
+pression,” (2020), arXiv:2001.04060.
+[32] Wilhelm Magnus, “On the exponential solution of diﬀer-
+ential equations for a linear operator,” Communications
+on Pure and Applied Mathematics7, 649–673 (1954).
+[33] S. Blanes, F. Casas, J.A. Oteo, and J. Ros, “The Mag-
+nus expansion and some of its applications,” Physics Re-
+ports 470, 151–238 (2009).
+[34] Gerardo A. Paz-Silva and Lorenza Viola, “General
+Transfer-Function Approach to Noise Filtering in Open-
+Loop Quantum Control,” Phys. Rev. Lett.113, 250501
+(2014).
+[35] Jens Clausen, Guy Bensky, and Gershon Kurizki,
+“Bath-Optimized Minimal-Energy Protection of Quan-
+tum Operations from Decoherence,” Phys. Rev. Lett.
+104, 040401 (2010).
+[36] Chingiz Kabytayev, Todd J. Green, Kaveh Khod-
+jasteh, Michael J. Biercuk, Lorenza Viola, and Ken-
+neth R. Brown, “Robustness of composite pulses to
+time-dependent control noise,” Phys. Rev. A90, 012316
+(2014).
+[37] Harrison Ball, Thomas M. Stace, Steven T. Flammia,
+and Michael J. Biercuk, “Eﬀect of noise correlations on
+randomized benchmarking,” Phys. Rev. A93, 022303
+(2016).
+[38] J.P.G. van Dijk, E. Kawakami, R.N. Schouten, M. Veld-
+horst, L.M.K. Vandersypen, M. Babaie, E. Charbon,
+and F. Sebastiano, “Impact of Classical Control Elec-
+tronics on Qubit Fidelity,” Phys. Rev. Applied 12,
+044054 (2019).
+[39] Ryogo Kubo, “Generalized Cumulant Expansion
+Method,” J. Phys. Soc. Japan17, 1100–1120 (1962).
+[40] Ryogo Kubo, “Stochastic Liouville Equations,” J. Math.
+Phys. 4, 174–183 (1963).
+[41] Tobias Hangleiter, Isabel Nha Minh Le, and Ju-
+lian D. Teske, “ﬁlter_functions: A package for eﬃ-
+cient numerical calculation of generalized ﬁlter func-
+tions to describe the eﬀect of noise on quantum gate
+operations,” (2021), available athttps://github.com/
+qutech/filter_functions/.
+[42] J.R. Johansson, P.D. Nation, and Franco Nori, “QuTiP
+2: A Python framework for the dynamics of open quan-
+tum systems,” Computer Physics Communications184,
+1234–1240 (2013).
+[43] J. D. Teske, P. Cerfontaine, and H. Bluhm, “qopt: A
+Qubit Simulation and Quantum Optimal Control Pack-
+age,” in preparation.
+[44] Karl Kraus, A. Böhm, J. D. Dollard, and W. H. Woot-
+ters, eds.,States, Eﬀects, and Operations Fundamental
+Notions of Quantum Theory, Lecture Notes in Physics,
+Vol. 190 (Springer Berlin Heidelberg, Berlin, Heidel-
+berg, 1983).
+[45] Michael A. Nielsen and Isaac L. Chuang, Quantum
+Computation and Quantum Information: 10th Anniver-
+sary Edition, 10th ed. (Cambridge University Press,
+2011).
+[46] Isaac L. Chuang and M. A. Nielsen, “Prescription for ex-
+perimental determination of the dynamics of a quantum
+black box,” Journal of Modern Optics44, 2455–2467
+(1997).
+[47] J. F. Poyatos, J. I. Cirac, and P. Zoller, “Complete
+Characterization of a Quantum Process: The Two-Bit
+Quantum Gate,” Phys. Rev. Lett.78, 390–393 (1997).
+[48] Robin Blume-Kohout, John King Gamble, Erik Nielsen,
+Jonathan Mizrahi, Jonathan D. Sterk, and Peter
+Maunz, “Robust, self-consistent, closed-form tomogra-
+phy of quantum logic gates on a trapped ion qubit,”
+(2013), arXiv:1310.4492.
+[49] Daniel Greenbaum, “Introduction to Quantum Gate Set
+Tomography,” (2015), arXiv:1509.02921.
+[50] Easwar Magesan, Jay M. Gambetta, B. R. Johnson,
+Colm A. Ryan, Jerry M. Chow, Seth T. Merkel, Mar-
+cus P. da Silva, George A. Keefe, Mary B. Rothwell,
+Thomas A. Ohki, Mark B. Ketchen, and M. Steﬀen,
+“Eﬃcient Measurement of Quantum Gate Error by In-
+terleaved Randomized Benchmarking,” Phys. Rev. Lett.
+109, 080505 (2012).
+[51] Shelby Kimmel, Marcus P. da Silva, Colm A. Ryan,
+Blake R. Johnson, and Thomas Ohki, “Robust Ex-
+traction of Tomographic Information via Randomized
+Benchmarking,” Phys. Rev. X4, 011050 (2014).
+[52] Yoshihiro Nambu and Kazuo Nakamura, “On the Ma-
+trix Representation of Quantum Operations,” (2005),
+arXiv:quant-ph/0504091.
+[53] U. Fano, “Description of States in Quantum Mechan-
+ics by Density Matrix and Operator Techniques,” Rev.
+Mod. Phys.29, 74–93 (1957).
+[54] Yuan-Chi Yang, S. N. Coppersmith, and Mark Friesen,
+“Achieving high-ﬁdelity single-qubit gates in a strongly
+driven charge qubit with1/f charge noise,” npj Quan-
+tum Inf.5, 12 (2019).
+[55] The identity commutes with the control Hamiltonian at
+all times and hence does not generate any evolution in
+the interaction picture in which we work later on (c.f.
+Eq. (13)).
+[56] The same argument forms the basis for the perturbative
+approach for non-Gaussian noise.
+[57] P.C.Moan, J.A.Oteo, andJ.Ros,“Ontheexistenceof
+the exponential solution of linear diﬀerential systems,”
+Journal of Physics A: Mathematical and General32,
+5133–5139 (1999).
+[58] Félix Beaudoin and W. A. Coish, “Microscopic mod-
+els for charge-noise-induced dephasing of solid-state
+qubits,” Phys. Rev. B91, 165432 (2015).
+[59] Kyle Willick, Daniel K. Park, and Jonathan Baugh,
+“Eﬃcient continuous-wave noise spectroscopy beyond
+weak coupling,” Phys. Rev. A98, 013414 (2018).
+[60] The ensemble average represents the expectation value
+over identical repetitions of an operation in an experi-
+ment. It can be taken to be a spatial ensemble of many
+identical systems, e.g. an NMR system, or, for ergodic
+systems, a time ensemble of a single system under sta-
+tionary noise as would be the case for a single spin mea-
+sured repeatedly, for instance.
+
+33
+[61] P Szańkowski, G Ramon, J Krzywda, D Kwiatkowski,
+and Ł Cywiński, “Environmental noise spectroscopy
+with qubits subjected to dynamical decoupling,” Jour-
+nal of Physics: Condensed Matter29, 333001 (2017).
+[62] In the Liouville representation, the ﬁrst term is an anti-
+symmetric matrix that generates a rotation and the sec-
+ond a symmetric matrix that generates a deformation
+of the generalized,d2− 1-dimensional Bloch sphere.
+[63] Pascal Cerfontaine, René Otten, and Hendrik Bluhm,
+“Self-Consistent Calibration of Quantum-Gate Sets,”
+Phys. Rev. Applied13, 044071 (2020).
+[64] Shelby Kimmel, Guang Hao Low, and Theodore J.
+Yoder, “Robust calibration of a universal single-qubit
+gate set via robust phase estimation,” Phys. Rev. A92,
+062315 (2015).
+[65] Mark Byrd and Daniel Lidar, “Bang–Bang Operations
+from a Geometric Perspective,” Quantum Inf. Process.
+1, 19–34 (2002).
+[66] Note the similarity to the relationship of a transfer ma-
+trix with the χ–matrix,Eij = ∑
+klχklTikjl, with χkl
+deﬁned byE(ρ) = ∑
+klχklCkρCl or, in terms of the
+Kraus operators Ki of the quantum operation,χkl =∑
+i tr(KiCk)tr(K†
+iCl) =
+[∑
+i|Ki⟩⟩⟨⟨Ki|
+]
+kl [49].
+[67] Leigh M. Norris, Gerardo A. Paz-Silva, and Lorenza
+Viola, “Qubit Noise Spectroscopy for Non-Gaussian De-
+phasing Environments,” Phys. Rev. Lett.116, 150503
+(2016).
+[68] Daniel Loss and David P. DiVincenzo, “Quantum com-
+putation with quantum dots,” Phys. Rev. A57, 120–126
+(1998).
+[69] Thaddeus D. Ladd, Fedor Jelezko, Raymond Laﬂamme,
+Yasunobu Nakamura, Christopher Monroe, and
+Jeremy L. O’Brien, “Quantum Computing,” Nature
+464, 45–53 (2010).
+[70] Jerry M. Chow, Jay M. Gambetta, A. D. Córcoles,
+Seth T. Merkel, John A. Smolin, Chad Rigetti, S. Po-
+letto, George A. Keefe, Mary B. Rothwell, J. R. Rozen,
+Mark B. Ketchen, and M. Steﬀen, “Universal Quantum
+Gate Set Approaching Fault-Tolerant Thresholds with
+Superconducting Qubits,” Phys. Rev. Lett.109, 060501
+(2012).
+[71] Michał Horodecki, Paweł Horodecki, and Ryszard
+Horodecki, “General teleportation channel, singlet frac-
+tion, and quasidistillation,” Phys. Rev. A60, 1888–1898
+(1999).
+[72] Michael A. Nielsen, “A simple formula for the aver-
+age gate ﬁdelity of a quantum dynamical operation,”
+Physics Letters A303, 249–252 (2002).
+[73] Joel J. Wallman and Steven T. Flammia, “Randomized
+benchmarking with conﬁdence,” New Journal of Physics
+16, 103032 (2014).
+[74] Jens Koch, Terri M. Yu, Jay Gambetta, A. A. Houck,
+D. I. Schuster, J. Majer, Alexandre Blais, M. H. De-
+voret, S. M. Girvin, and R. J. Schoelkopf, “Charge-
+insensitive qubit design derived from the Cooper pair
+box,” Phys. Rev. A76, 042319 (2007).
+[75] J. R. Petta, A. C. Johnson, J. M. Taylor, E. A. Laird,
+A. Yacoby, M. D. Lukin, C. M. Marcus, M. P. Hanson,
+and A. C. Gossard, “Coherent Manipulation of Coupled
+Electron Spins in Semiconductor Quantum Dots,” Sci-
+ence 309, 2180–2184 (2005).
+[76] Christopher J. Wood and Jay M. Gambetta, “Quan-
+tiﬁcation and characterization of leakage errors,” Phys.
+Rev. A97, 032306 (2018).
+[77] Gen Kimura, “The Bloch vector for N-level systems,”
+Physics Letters A314, 339–349 (2003).
+[78] Reinhold A Bertlmann and Philipp Krammer, “Bloch
+vectors for qudits,” Journal of Physics A: Mathematical
+and Theoretical41, 235303 (2008).
+[79] F. T. Hioe and J. H. Eberly, “N-Level Coherence Vec-
+tor and Higher Conservation Laws in Quantum Optics
+and Quantum Mechanics,” Phys. Rev. Lett.47, 838–841
+(1981).
+[80] Don Coppersmith and Shmuel Winograd, “Matrix mul-
+tiplication via arithmetic progressions,” Journal of Sym-
+bolic Computation9, 251–280 (1990).
+[81] See Supplementary Material at [URL inserted by pub-
+lisher] for a current snapshot of the software package.
+[82] Charles R. Harris, K. Jarrod Millman, Stéfan J. van der
+Walt, Ralf Gommers, Pauli Virtanen, David Cour-
+napeau, Eric Wieser, Julian Taylor, Sebastian Berg,
+Nathaniel J. Smith, Robert Kern, Matti Picus, Stephan
+Hoyer, Marten H. van Kerkwijk, Travis E. Oliphant,
+et al., “Array programming with NumPy,” Nature585,
+357–362 (2020).
+[83] Pauli Virtanen, Ralf Gommers, Travis E. Oliphant,
+Matt Haberland, Tyler Reddy, David Cournapeau,
+Evgeni Burovski, Pearu Peterson, Warren Weckesser,
+Jonathan Bright, Stéfan J. van der Walt, Matthew
+Brett, Joshua Wilson, K. Jarrod Millman, Nikolay May-
+orov, and SciPy 1.0 Contributors, “SciPy 1.0: funda-
+mental algorithms for scientiﬁc computing in Python,”
+Nature Methods17, 261–272 (2020).
+[84] John D. Hunter, “Matplotlib: A 2D Graphics Environ-
+ment,” Computing in Science & Engineering9, 90–95
+(2007).
+[85] Daniel G. A. Smith and Johnnie Gray, “opt_einsum -
+A Python package for optimizing contraction order for
+einsum-like expressions,” Journal of Open Source Soft-
+ware 3, 753 (2018).
+[86] https://github.com/pydata/sparse/.
+[87] https://github.com/qutech/qopt/.
+[88] Note that while the calculation of the frequency shifts
+∆ is implemented, it should at time of publication be
+understood as preliminary and not thoroughly tested.
+[89] E. L. Hahn, “Spin Echoes,” Phys. Rev.80, 580–594
+(1950).
+[90] Isabel Nha Minh Le, Julian D. Teske, Tobias Hangleiter,
+Pascal Cerfontaine, and Hendrik Bluhm, “Analytic Fil-
+ter Function Derivatives for Quantum Optimal Con-
+trol,” arXiv:2103.09126.
+[91] S. Humpohl, L. Prediger, L. Lankes, A. Willmes, P. Cer-
+fontaine, P. Bethke, E. Kammerloher, L. Schreiber,
+S. Meyer, B. Rumpe, and H. Bluhm, “qutech/qupulse,”
+(2021), available at https://github.com/qutech/
+qupulse/.
+[92] S. Humpohl, L. Prediger, L. Lankes, A. Willmes, P. Cer-
+fontaine, P. Bethke, E. Kammerloher, L. Schreiber,
+S. Meyer, B. Rumpe, and H. Bluhm, “qupulse: A
+quantum computing pulse parametrization & sequenc-
+ing framework,” in preparation.
+[93] Thomas Kluyver, Benjamin Ragan-kelley, Fernando
+Pérez, Brian Granger, Matthias Bussonnier, Jonathan
+Frederic, Kyle Kelley, Jessica Hamrick, Jason Grout,
+Sylvain Corlay, Paul Ivanov, Damián Avila, Saﬁa Ab-
+dalla, and Carol Willing, “Jupyter Notebooks—a pub-
+lishing format for reproducible computational work-
+ﬂows,” inPositioning and Power in Academic Publish-
+
+34
+ing: Players, Agents and Agendas(2016) pp. 87–90.
+[94] Pascal Cerfontaine, René Otten, M. A. Wolfe, Patrick
+Bethke, and Hendrik Bluhm, “High-ﬁdelity gate set for
+exchange-coupled singlet-triplet qubits,” Phys. Rev. B
+101, 155311 (2020).
+[95] A. Wallraﬀ, D. I. Schuster, A. Blais, L. Frunzio, R. S.
+Huang, J. Majer, S. Kumar, S. M. Girvin, and R. J.
+Schoelkopf, “Strong coupling of a single photon to a su-
+perconducting qubit using circuit quantum electrody-
+namics,” Nature431, 162–167 (2004).
+[96] E.T. Jaynes and F.W. Cummings, “Comparison of
+quantum and semiclassical radiation theories with ap-
+plication to the beam maser,” Proceedings of the IEEE
+51, 89–109 (1963).
+[97] Christopher Gerry, Peter Knight, and Peter L Knight,
+Introductory quantum optics (Cambridge university
+press, 2005).
+[98] Fei Yan, Simon Gustavsson, Jonas Bylander, Xiaoyue
+Jin, Fumiki Yoshihara, David G. Cory, Yasunobu Naka-
+mura, Terry P. Orlando, and William D. Oliver,
+“Rotating-frame relaxation as a noise spectrum anal-
+yser of a superconducting qubit undergoing driven evo-
+lution,” Nature Communications4, 2337 (2013).
+[99] D. M. Zajac, A. J. Sigillito, M. Russ, F. Borjans, J. M.
+Taylor, G.Burkard, andJ.R.Petta,“Resonantlydriven
+CNOT gate for electron spins,” Science359, 439–442
+(2018).
+[100] Jarryd J. Pla, Kuan Y. Tan, Juan P. Dehollain, Wee H.
+Lim, John J. L. Morton, David N. Jamieson, Andrew S.
+Dzurak, and Andrea Morello, “A single-atom electron
+spin qubit in silicon,” Nature489, 541–545 (2012).
+[101] Chunqing Deng, Jean-Luc Orgiazzi, Feiruo Shen, Sahel
+Ashhab, and Adrian Lupascu, “Observation of Floquet
+States in a Strongly Driven Artiﬁcial Atom,” Phys. Rev.
+Lett. 115, 133601 (2015).
+[102] E. Knill, D. Leibfried, R. Reichle, J. Britton, R. B.
+Blakestad, J. D. Jost, C. Langer, R. Ozeri, S. Sei-
+delin, and D. J. Wineland, “Randomized benchmarking
+of quantum gates,” Phys. Rev. A77, 012307 (2008).
+[103] Easwar Magesan, J. M. Gambetta, and Joseph Emer-
+son, “Scalable and robust randomized benchmarking
+of quantum processes,” Phys. Rev. Lett.106, 180504
+(2011).
+[104] The Cliﬀord group is a subgroup of the special unitary
+group with the advantage that compositions are easy to
+compute and that averaging over all unitaries can under
+reasonable assumptions be replaced by averaging over
+all Cliﬀords. This makes the Cliﬀord gates a convenient
+choice for benchmarking. For a nice, short introduction
+as well as further references, see [124].
+[105] Jeﬀrey M. Epstein, Andrew W. Cross, Easwar Mage-
+san, and Jay M. Gambetta, “Investigating the limits of
+randomized benchmarking protocols,” Phys. Rev. A89,
+062321 (2014).
+[106] M. A. Fogarty, M. Veldhorst, R. Harper, C. H. Yang,
+S. D. Bartlett, S. T. Flammia, and A. S. Dzurak, “Non-
+exponential ﬁdelity decay in randomized benchmarking
+with low-frequency noise,” Phys. Rev. A92, 022326
+(2015).
+[107] Guanru Feng, Joel J Wallman, Brandon Buonacorsi,
+Franklin H Cho, Daniel K Park, Tao Xin, Dawei Lu,
+JonathanBaugh, andRaymondLaﬂamme,“Estimating
+the Coherence of Noise in Quantum Control of a Solid-
+State Qubit,” Phys. Rev. Lett.117, 260501 (2016).
+[108] S. Mavadia, C. L. Edmunds, C. Hempel, H. Ball, F. Roy,
+T. M. Stace, and M. J. Biercuk, “Experimental quan-
+tum veriﬁcation in the presence of temporally correlated
+noise,” npj Quantum Inf.4, 7 (2018).
+[109] C. L. Edmunds, C. Hempel, R. J. Harris, V. Frey, T. M.
+Stace, and M. J. Biercuk, “Dynamically corrected gates
+suppressing spatiotemporal error correlations as mea-
+sured by randomized benchmarking,” Phys. Rev. Re-
+search 2, 013156 (2020).
+[110] Pascal Cerfontaine, Tim Botzem, Julian Ritzmann, Si-
+mon Sebastian Humpohl, Arne Ludwig, Dieter Schuh,
+Dominique Bougeard, Andreas D. Wieck, and Hendrik
+Bluhm, “Closed-loop control of a GaAs-based singlet-
+triplet spin qubit with 99.5% gate ﬁdelity and low leak-
+age,” Nature Communications11, 4144 (2020).
+[111] For a precise ﬁdelity estimate, the infrared cutoﬀ should
+be extended to f = 0 . However, we are only inter-
+ested in a qualitative picture and neglect this part of
+the spectrum here. At frequencies much smaller than
+≈ 1/τ where τ is the duration of the entire control
+operation, the ﬁlter function is constant and we there-
+fore do not disregard any interesting features by setting
+fIR = 10−2/
+τ = 10−2/
+mmaxτmax.
+[112] Navin Khaneja, Timo Reiss, Cindie Kehlet, Thomas
+Schulte-Herbrüggen, and Steﬀen J. Glaser, “Optimal
+control of coupled spin dynamics: design of NMR pulse
+sequences by gradient ascent algorithms,” Journal of
+Magnetic Resonance172, 296 – 305 (2005).
+[113] T. Schulte-Herbrüggen, A. Spörl, N. Khaneja, and
+S. J. Glaser, “Optimal control-based eﬃcient synthesis
+of building blocks of quantum algorithms: A perspec-
+tive from network complexity towards time complexity,”
+Phys. Rev. A72, 042331 (2005).
+[114] Tommaso Caneva, Tommaso Calarco, and Simone
+Montangero, “Chopped random-basis quantum opti-
+mization,” Phys. Rev. A84, 022326 (2011).
+[115] D. Coppersmith, “An approximate Fourier transform
+useful in quantum factoring,” (2002), arXiv:quant-
+ph/0201067.
+[116] Peter W. Shor, “Polynomial-Time Algorithms for Prime
+Factorization and Discrete Logarithms on a Quantum
+Computer,” SIAM Journal on Computing26, 1484–
+1509 (1997).
+[117] Tatsuro Yuge, Susumu Sasaki, and Yoshiro Hirayama,
+“Measurement of the Noise Spectrum Using a Multiple-
+Pulse Sequence,” Phys. Rev. Lett.107, 170504 (2011).
+[118] Heinz-Peter Breuer and Francesco Petruccione, The
+Theory of Open Quantum Systems(Oxford University
+Press, Oxford, 2007) p. 656.
+[119] Simon J. Devitt, William J. Munro, and Kae Nemoto,
+“Quantum error correction for beginners,” Reports on
+Progress in Physics76, 076001 (2013).
+[120] Hui Khoon Ng, Daniel A. Lidar, and John Preskill,
+“Combining dynamical decoupling with fault-tolerant
+quantum computation,” Phys. Rev. A 84, 012305
+(2011).
+[121] Naomi H. Nickerson and Benjamin J. Brown,
+“Analysing correlated noise on the surface code using
+adaptive decoding algorithms,” Quantum3, 131 (2019).
+[122] A.G.KofmanandG.Kurizki,“Accelerationofquantum
+decay processes by frequent observations,” Nature405,
+546–550 (2000).
+[123] Adam Zaman Chaudhry, “A general framework for the
+QuantumZenoandanti-Zenoeﬀects,” ScientiﬁcReports
+
+35
+6 (2016), 10.1038/srep29497. [124] M¯ aris Ozols, “Cliﬀord group,” Essays at University of
+Waterloo, Spring (2008).

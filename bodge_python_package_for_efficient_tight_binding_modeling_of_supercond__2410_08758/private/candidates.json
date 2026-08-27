@@ -1,0 +1,119 @@
+{
+  "assessment_type": "private_phase_1_shortcut_audit",
+  "hidden_families_are_proposed_not_built": true,
+  "decisions_are_hypothetical_not_empirically_demonstrated": true,
+  "selected_for_pilot": [],
+  "candidates": [
+    {
+      "id": "candidate_01",
+      "title": "Repair and validate scalable symmetry-preserving BdG assembly",
+      "archetype": "A",
+      "central_contribution": "Sparse four-component spin/Nambu Hamiltonian construction and lattice extensibility.",
+      "central_claim": "Construction time and memory scale linearly with sites while retaining BdG symmetries.",
+      "real_artifacts": ["main:bodge/hamiltonian.py", "main:bodge/lattice.py", "main:misc/benchmark.py"],
+      "consequential_decisions": [
+        {"decision": "Diagnose wrong spectra", "choices": ["block conjugation or pairing orientation", "graph connectivity or duplicated edges"], "evidence": "Small exact matrices, particle-hole residuals, edge multiplicities", "poor_choice_effect": "Incorrect complex spin/pairing cases"},
+        {"decision": "Choose assembly organization", "choices": ["preallocated block-sparse skeleton", "coordinate accumulation with canonical duplicate reduction"], "evidence": "Build-time and memory traces on each geometry", "poor_choice_effect": "Superlinear copying or excessive peak memory"},
+        {"decision": "Choose boundary representation", "choices": ["explicit directed bonds", "canonical undirected bonds with reverse completion"], "evidence": "Periodic small-cell and complex-hopping checks", "poor_choice_effect": "Double-counted or sign-reversed couplings"}
+      ],
+      "feedback_loop": "Reproduce matrix mismatch and scaling baseline, repair assembly, rerun physical invariants and construction timings.",
+      "public_evidence": "Official constructor, graph iterators, tiny exact symmetry tests, and existing Bodge/Kwant benchmark pattern.",
+      "hidden_families": ["Open cubic superconductor/ferromagnet", "Noncubic triangular graph", "Periodic flux-threaded graph", "Unconventional bond-pairing graph", "Large sparse three-dimensional lattice"],
+      "multi_objective_evaluator": ["Matrix and physical-invariant correctness", "Construction time", "Peak memory and worst-family error"],
+      "likely_shortcut": "Canonicalize edges, fill the standard 4x4 BdG blocks, and assemble a SciPy COO/BSR matrix; the official code already supplies the pattern.",
+      "nonstandard_work_claim_assessed": "Integration and profiling are real work, but no residual scientific decision remains after ordinary sparse-constructor repair.",
+      "failed_gates": [4, 7, 12],
+      "decision": "reject_before_build",
+      "reason": "Ordinary multi-file coding and sparse assembly, not a frontier-hard research workflow."
+    },
+    {
+      "id": "candidate_02",
+      "title": "Resolve contradictory local spectroscopy across superconducting interfaces",
+      "archetype": "A",
+      "central_contribution": "Sparse BdG export and local-density-of-states convenience calculation.",
+      "central_claim": "Sparse representations support efficient local calculations while modeling conventional and unconventional superconductors.",
+      "real_artifacts": ["main:bodge/hamiltonian.py:ldos", "main:tests/test_physics.py", "develop:bodge/utils.py:ldos"],
+      "consequential_decisions": [
+        {"decision": "Diagnose a zero-bias feature", "choices": ["physical interface/edge state", "energy-grid-dependent broadening artifact"], "evidence": "Grid refinement, location dependence, and spectral sum rules", "poor_choice_effect": "False physical conclusion or erased narrow peak"},
+        {"decision": "Choose spectral backend", "choices": ["sparse resolvent with selected right-hand sides", "dense spectral decomposition"], "evidence": "Number of queried sites/energies and measured crossover", "poor_choice_effect": "Unnecessary memory or repeated factorization cost"},
+        {"decision": "Use particle-hole relations", "choices": ["signed electron/hole projection with symmetry reuse", "solve every requested signed energy directly"], "evidence": "Small asymmetric spin-resolved control", "poor_choice_effect": "Incorrect negative-energy electron spectral weight"}
+      ],
+      "feedback_loop": "Reproduce suspect spectra, change broadening/projection or backend, rerun sum rules and interface-versus-bulk comparisons.",
+      "public_evidence": "Tiny exact BdG spectra, qualitative bulk/edge tests, convergence and positivity diagnostics without full target curves.",
+      "hidden_families": ["Conventional superconductor/ferromagnet interface", "p-wave edge spectrum", "d-wave boundary spectrum", "Spin-orbit-coupled magnetic wire", "Three-dimensional local defect"],
+      "multi_objective_evaluator": ["Projected LDOS error", "Energy/site query runtime", "Worst-family sum-rule and resolution error"],
+      "likely_shortcut": "Solve the same shifted sparse linear system and select the correct diagonal entries for every family. Direct signed-energy solves bypass the symmetry trap entirely.",
+      "nonstandard_work_claim_assessed": "Apparent spectral complexity does not remove the single resolvent algorithm; the remaining work is explicit broadening and projection conventions.",
+      "failed_gates": [7, 12],
+      "decision": "reject_before_build",
+      "reason": "One standard sparse-resolvent method transfers to all proposed hidden families."
+    },
+    {
+      "id": "candidate_03",
+      "title": "Audit and repair the altermagnetic Josephson current pipeline",
+      "archetype": "A",
+      "central_contribution": "Sparse BdG matrices for user-defined Fermi-operator calculations in magnetic heterostructures.",
+      "central_claim": "The sparse interface enables efficient calculations whose approximation/performance tradeoff depends on the system.",
+      "real_artifacts": ["develop:superalter_cpr.py", "develop:sns.py", "develop:bodge/fermi.py", "develop:bodge/chebyshev.py"],
+      "consequential_decisions": [
+        {"decision": "Localize current disagreement", "choices": ["wrong hopping/observable contraction", "under-resolved Fermi expansion"], "evidence": "Small dense control and expansion-order sweep", "poor_choice_effect": "Biased current even when one convergence metric looks acceptable"},
+        {"decision": "Choose finite-temperature spectral treatment", "choices": ["damped polynomial approximation", "undamped converged expansion or exact dense matrix function"], "evidence": "Temperature, bandwidth, gap scale, and convergence traces", "poor_choice_effect": "Artificial smoothing of the current-phase relation"},
+        {"decision": "Validate transport geometry", "choices": ["one observation section", "multiple normal-region cuts with gauge/phase controls"], "evidence": "Section-to-section continuity and boundary dependence", "poor_choice_effect": "Reporting a boundary/source artifact as transport current"}
+      ],
+      "feedback_loop": "Compare cuts and dense/sparse currents, isolate contraction versus resolution errors, revise method, and repeat phase and order sweeps.",
+      "public_evidence": "Existing current-phase script, current contraction source, dense controls on small systems, qualitative continuity/gauge invariants.",
+      "hidden_families": ["Ordinary SNS junction", "Bond-anisotropic altermagnetic interlayer", "Noncollinear ferromagnetic junction", "Spin-orbit and complex-hopping junction", "Oblique junction geometry"],
+      "multi_objective_evaluator": ["Current-phase accuracy", "Runtime and memory", "Worst-cut conservation and gauge consistency"],
+      "likely_shortcut": "Use the standard Fermi matrix followed by corrected local hopping contractions; dense diagonalization provides the control, and the supplied Chebyshev implementation provides the scalable pattern.",
+      "nonstandard_work_claim_assessed": "This is the strongest realistic repair proposal, but fixed-gap hidden models all share the same matrix-function calculation and already-visible source pattern.",
+      "failed_gates": [6, 7, 12],
+      "decision": "reject_before_build",
+      "reason": "Backend tuning and ordinary contraction repair remain; adding sizes or a tighter runtime would not fundamentally redesign the workflow."
+    },
+    {
+      "id": "candidate_04",
+      "title": "Establish reliable self-consistent condensate and transition curves",
+      "archetype": "B",
+      "central_contribution": "Sparse/dense BdG interoperability for superconducting order-parameter calculations.",
+      "central_claim": "The package supports downstream superconducting calculations, with method-dependent sparse/dense tradeoffs.",
+      "real_artifacts": ["develop:swave.py", "develop:bodge/fermi.py:order_swave", "develop:bodge/utils.py:critical_temperature", "feat/swave:test_gap.py"],
+      "consequential_decisions": [
+        {"decision": "Choose nonlinear iteration", "choices": ["damped fixed-point update", "accelerated/root-solving update"], "evidence": "Residual trajectories and spatial gap profiles", "poor_choice_effect": "False convergence or unstable iteration"},
+        {"decision": "Locate a transition", "choices": ["warm-start continuation", "small-gap stability/bisection control"], "evidence": "Seed and sweep-direction dependence", "poor_choice_effect": "Numerical hysteresis mistaken for physical hysteresis"},
+        {"decision": "Choose initialization and branch checks", "choices": ["one uniform seed", "multiple normal and paired starts with thermodynamic checks"], "evidence": "Competing residuals and energy comparisons", "poor_choice_effect": "Selection of a metastable or trivial branch"}
+      ],
+      "feedback_loop": "Reproduce a gap sweep, inspect residual/seed dependence, revise acceleration or temperature bracketing, and repeat against a dense control.",
+      "public_evidence": "Existing iteration, gap extraction and bisection code, tiny dense controls, residual and symmetry diagnostics.",
+      "hidden_families": ["Uniform attractive s-wave bulk", "Proximity-coupled inhomogeneous superconducting region", "Magnetic pair-breaking system", "Spin-orbit-coupled wire", "Flux-threaded multiply connected geometry"],
+      "multi_objective_evaluator": ["Gap and transition-curve accuracy", "Nonlinear residual and branch consistency", "Runtime/memory and worst-family behavior"],
+      "likely_shortcut": "The source-grounded bounded problem is a standard gap map with damping/acceleration and bisection, with visible implementations. A fully specified finite-dimensional variational version admits generic multistart minimization.",
+      "nonstandard_work_claim_assessed": "Flux-winding branch competition and validated first-order equilibrium could be genuinely harder, but establishing that expanded study would be a benchmark-authored scientific project beyond the result and reference evidence reconstructed from this paper.",
+      "failed_gates": [1, 6, 12],
+      "gate_scope_note": "Gate 1 fails for the ambitious equilibrium extension, not for basic gap calculation; the basic version fails the shortcut gates instead.",
+      "decision": "reject_before_build",
+      "reason": "Do not inflate a visible standard self-consistency loop into an unvalidated loosely related phase-diagram problem."
+    },
+    {
+      "id": "candidate_05",
+      "title": "Reconcile mixed-parity impurity interaction and orientation evidence",
+      "archetype": "D",
+      "central_contribution": "Flexible unconventional-pairing/magnetic BdG construction and spectral free-energy computation.",
+      "central_claim": "The package is usable for conventional and unconventional superconducting magnetic research, including cited impurity-interaction workflows.",
+      "real_artifacts": ["develop:rkky_sp_open.py", "develop:rkky_plot.py", "develop:bodge/utils.py:free_energy", "main:bodge/hamiltonian.py:pwave"],
+      "consequential_decisions": [
+        {"decision": "Distinguish exchange from single-impurity preference", "choices": ["two-orientation energy difference", "balanced orientation design separating lower-order terms"], "evidence": "Orientation reversal and tensor consistency checks", "poor_choice_effect": "Single-spin anisotropy misidentified as a two-spin coupling"},
+        {"decision": "Control small energy differences", "choices": ["independent absolute free energies", "matched calculations and cancellation controls"], "evidence": "Solver tolerance and energy-scale convergence", "poor_choice_effect": "Spurious tiny antisymmetric interaction"},
+        {"decision": "Assess boundary transfer", "choices": ["one finite open sample", "matched open/periodic or size-controlled geometry study"], "evidence": "Interaction-versus-separation and boundary dependence", "poor_choice_effect": "Finite-boundary signal overinterpreted as a bulk conclusion"}
+      ],
+      "feedback_loop": "Generate orientation energies, inspect symmetry and fit residuals, revise orientation design or numerical controls, and repeat the extraction.",
+      "public_evidence": "Actual simulation and analysis source, impurity geometry, pairing controls, and small symmetry checks.",
+      "hidden_families": ["Conventional singlet host", "Unitary triplet host", "Mixed-parity host", "Edge-localized impurity environment", "Periodic phase-winding host"],
+      "multi_objective_evaluator": ["Interaction-energy and tensor accuracy", "Worst-family symmetry/held-out orientation consistency", "Simulation runtime and memory"],
+      "likely_shortcut": "Compute BdG spectral free energies and use the signed combinations already written in rkky_plot.py, or an ordinary linear fit to the same orientation design.",
+      "nonstandard_work_claim_assessed": "The simulation-to-analysis workflow is real, but the bounded requested output is standard spectral evaluation plus linear coefficient extraction. Nonbilinear/self-consistent extensions would change the study.",
+      "failed_gates": [6, 7, 12],
+      "decision": "reject_before_build",
+      "reason": "Visible coefficient-extraction implementation or an ordinary linear-fit shortcut defeats the proposed core work."
+    }
+  ]
+}

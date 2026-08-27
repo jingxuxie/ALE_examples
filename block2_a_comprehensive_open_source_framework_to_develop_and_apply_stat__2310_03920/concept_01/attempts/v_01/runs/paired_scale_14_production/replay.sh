@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+export ALE_SETTINGS='{"exact_limit": 600000, "bond": 96, "sweeps": 14, "step": 0.15, "energy_tol": 1e-11, "eig_tol": 2e-12, "cutoff": 1e-16, "optimize_layout": true, "general_symmetry": false, "davidson_tol": 1e-15, "krylov_tol": 1e-18, "spin_orbitals": true, "number_as_sz": false, "one_site_after": 0.25, "sparse_memory_limit_mb": 2600, "threads": 2, "seed": 1729, "normalization_during_evolution": false, "sector": {"kind": "parity", "value": 0}, "sector_dimension": 134217728, "estimated_sparse_mb": 490084.0, "method": "two-site DMRG and two-site TDVP; one-site TDVP after 0.25", "tensor_layout": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27], "symmetry_implementation": "general Abelian modes", "local_electronic_dimension": 2, "initial_bond": 32, "bond_schedule": [32, 32, 64, 64, 96], "mode_layout_override": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]}'
+bash "$HERE/../../run.sh" "$HERE/case.json" "${1:?Provide an empty replay directory}" production

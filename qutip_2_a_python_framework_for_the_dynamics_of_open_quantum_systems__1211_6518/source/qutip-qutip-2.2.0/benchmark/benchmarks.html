@@ -1,0 +1,212 @@
+<html>
+  <head>
+  <script src="http://d3js.org/d3.v3.min.js"></script>
+  <style>
+    .fig {
+      font-family:Arial;
+      font-size:10pt;
+    }
+  </style>
+	<title>QuTiP vs. qotoolbox Benchmarks</title>
+  </head>
+  <body>
+    <div align='center'>
+	<h1>QuTiP Benchmarks: Comparison with the qotoolbox<h1>
+	</div>
+	<script type="text/javascript" src="benchmark_data.js"></script>
+	<script type="text/javascript">
+	
+	d3.scale.genericLog = function() {
+	    return GenericLog();
+	};
+	
+	function GenericLog() {
+	    var PROJECTION=[1,100];
+	    var linearScale, logScale;
+
+	    linearScale=d3.scale.linear();
+	    linearScale.range(PROJECTION);
+
+	    logScale=d3.scale.log();
+	    logScale.domain(PROJECTION);
+
+	    function scale(x) {
+	        return logScale(linearScale(x));
+	    }
+	    scale.domain = function(x) {
+	        if (!arguments.length) return linearScale.domain();
+	        linearScale.domain(x);
+	        return scale;
+	    };
+	    scale.range = function(x) {
+	        if (!arguments.length) return logScale.range();
+	        logScale.range(x);
+	        return scale;
+	    };
+	    scale.ticks = function(m) {
+	        return linearScale.ticks(m);
+	    };
+	    return scale;
+
+	}
+	
+    var mySVG = d3.select("body")
+      .append("svg")
+      .attr("width", 900) 
+      .attr("height", 700)
+      .style('position','absolute')
+      .style('top',20)
+      .style('left',50)
+      .attr('class','fig');
+
+	var text = mySVG.selectAll("text")
+		.data(data).enter()
+		.append("text");
+	
+	var heightScale = d3.scale.genericLog()
+      .domain([0, d3.max(data,function(d) { return d.factor;})])
+      .range([0, 300]);
+	
+	mySVG.selectAll(".xLabel")
+      .data(data)
+      .enter().append("svg:text")
+      .attr("x", function(d,i) {return 120 + (i * 32);})
+      .attr("y", 410)
+      .attr("text-anchor", "end") 
+      .text(function(d,i) {return d.name;})
+      .attr('transform',function(d,i) {return 'rotate(-60,' + (120 + (i * 32)) + ',410)';}); 
+
+    
+
+
+    var myBars = mySVG.selectAll('rect')
+      .data(data)
+      .enter()
+      .append('svg:rect')
+      .attr('width',30)
+      .attr('height',function(d,i) {return heightScale(d.factor);})
+      .attr('x',function(d,i) {return (i * 32) + 100;})
+      .attr('y',function(d,i) {return 400 - heightScale(d.factor);})
+      .style('fill',function(d, i) {return d.factor < 1.0 ? 'lightcoral' : 'lightblue';});
+
+	var textLabels = text
+	  .attr("font-size", "14px")
+	  .style("text-anchor", "middle")
+	  .text(function(d,i){return Number(d.factor).toPrecision(3);})
+	  .attr("transform", function(d,i) {return "translate("+(i * 32+119)+","+(400 - heightScale(d.factor)-20-((Number(d.factor).toPrecision(3)).toString().length))+") rotate(-90)" ;});
+	
+	mySVG.append("text")
+		.attr("y", 40)
+		.attr("x",-250)
+		.attr("transform", "rotate(-90)")
+		.attr("font-size", "20px")
+		.style("text-anchor", "middle")
+		.text("Speedup");
+	
+	var top=550
+	var left=30
+	mySVG.append("text")
+		.attr("y", top)
+		.attr("x",left)
+		.attr("font-size", "20px")
+		.style("text-anchor", "left")
+		.text("System Information:");
+	
+	mySVG.append("text")
+		.data(platform)
+		.attr("y", top+30)
+		.attr("x",left+20)
+		.attr("font-size", "16px")
+		.style("text-anchor", "left")
+		.text(function(d) {return 'Platform: '+d.os;});
+	
+	mySVG.append("text")
+		.data(platform)
+		.attr("y", top+50)
+		.attr("x",left+20)
+		.attr("font-size", "16px")
+		.style("text-anchor", "left")
+		.text(function(d) {return 'Num. CPUs: ' + (d.cpus).toString();});
+	
+	mySVG.append("text")
+		.data(platform)
+		.attr("y", top+70)
+		.attr("x",left+20)
+		.attr("font-size", "16px")
+		.style("text-anchor", "left")
+		.text(function(d) {return 'CPU Speed: ' + (d.cpu_freq).toString()+' GHz';});
+	
+	mySVG.append("text")
+		.data(platform)
+		.attr("y", top+90)
+		.attr("x",left+20)
+		.attr("font-size", "16px")
+		.style("text-anchor", "left")
+		.text(function(d) {return 'Memory: ' + (d.memsize).toString()+ ' MB';});
+	
+	mySVG.append("text")
+		.attr("y", top)
+		.attr("x",left+250)
+		.attr("font-size", "20px")
+		.style("text-anchor", "left")
+		.text("QuTiP Information:");
+	
+	mySVG.append("text")
+		.data(qutip_info)
+		.attr("y", top+30)
+		.attr("x",left+270)
+		.attr("font-size", "16px")
+		.style("text-anchor", "left")
+		.text(function(d) {return 'QuTiP Version: '+d.qutip;});
+
+	mySVG.append("text")
+		.data(qutip_info)
+		.attr("y", top+50)
+		.attr("x",left+270)
+		.attr("font-size", "16px")
+		.style("text-anchor", "left")
+		.text(function(d) {return 'Numpy Version: '+d.numpy;});
+
+	mySVG.append("text")
+		.data(qutip_info)
+		.attr("y", top+70)
+		.attr("x",left+270)
+		.attr("font-size", "16px")
+		.style("text-anchor", "left")
+		.text(function(d) {return 'SciPy Version: '+d.scipy;});
+	
+	mySVG.append("text")
+		.attr("y", top)
+		.attr("x",left+570)
+		.attr("font-size", "20px")
+		.style("text-anchor", "left")
+		.text("Matlab Information:");
+	
+	
+	mySVG.append("text")
+		.data(matlab_info)
+		.attr("y", top+30)
+		.attr("x",left+590)
+		.attr("font-size", "16px")
+		.style("text-anchor", "left")
+		.text(function(d) {return 'Version: '+d.version;});
+	
+	mySVG.append("text")
+		.data(matlab_info)
+		.attr("y", top+50)
+		.attr("x",left+590)
+		.attr("font-size", "16px")
+		.style("text-anchor", "left")
+		.text(function(d) {return 'Type: '+d.type;});
+	
+	mySVG.append("text")
+		.data(matlab_info)
+		.attr("y", top+70)
+		.attr("x",left+590)
+		.attr("font-size", "16px")
+		.style("text-anchor", "left")
+		.text('Qotoolbox Version: 0.15');
+	
+	</script>
+  </body>
+</html>
