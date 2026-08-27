@@ -1,0 +1,1740 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: workspace-write [workdir]
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 01a04240-7f34-7a82-a604-7c3c93625556
+--------
+user
+You are a fresh independent solver. Read /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/TASK.md and solve the task. Your final self-contained submission must be rooted at /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/solve.py; place all other deliverables in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01. Copy any starter modules you need into your output workspace before editing. Do not modify the original TASK.md or public inputs. Use the public diagnostics to run, inspect, revise, and validate your scientific solution. You have 1200 seconds. Work autonomously and do not ask the user to run commands. Only /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03 and /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01 are available as task/work directories. Do not search for author solutions, hidden evaluations, other tasks or prior attempts. No network or additional dependencies are needed. Finish by checking the required CLI and saving every validation and diagnostic deliverable required by TASK.md. The output directory may contain runner logs; they are not task input.
+codex
+I’ll read the task, then build and validate the solution.
+
+exec
+/bin/bash -lc 'pwd; ls -la; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03
+ succeeded in 216ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03
+total 20
+drwxrwxr-x 7 xuandong xuandong 4096 Aug 27 01:05 .
+drwx------ 3 xuandong xuandong   60 Aug 27 01:05 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 01:05 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 01:05 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 01:05 .git
+-rw-rw-r-- 1 xuandong xuandong 7517 Aug 27 01:04 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 00:56 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 00:58 software
+# Rescue a quantum decoder's quarantined failures
+
+## Objective
+
+You own the repair stage of a quantum-error-correction decoder. Its iterative
+frontend provides soft information, and the shipped repair stage finds a binary
+fault vector consistent with the detector record. Nevertheless, replay tests
+show that this vector often lies in the wrong **logical sector**. Replace the
+repair stage with a decoder that recovers these difficult frames reliably within
+a practical inference budget.
+
+This is a performance-driven scientific repair task, not a request for another
+arbitrary solution of a binary linear system. You must diagnose the prototype,
+experiment with materially different recovery strategies or search decisions,
+and use public logical-recovery evidence to select and refine your implementation.
+
+## The troubleshooting corpus
+
+`input/validation_small.npz` and `input/validation_large.npz` contain 20 frames
+each from two sparse quantum detector networks. Their accompanying
+`*_labels.npz` files give measured logical labels for development only.
+`software/solve.py`, `software/repair.py`, and `software/validate.py` provide
+working I/O, the existing repair stage, and diagnostics.
+
+These are **curated failures**, not unbiased Monte Carlo samples: the shipped
+repair is syndrome-consistent but logically wrong on every frame. Independent
+offline replays also establish that a lower-cost repair in the correct sector
+exists. Thus the corpus is useful for diagnosing an inadequate search, but its
+recovery fraction must not be reported as a physical threshold or an ordinary
+channel error rate. The correct repair is not supplied.
+
+The hidden corpus uses fresh frames, different priors and degree/geometry
+configurations, and larger networks. It follows the same curation rule. You will
+not receive labels, physical error histories, or a privileged decoder at runtime.
+
+## Physical and mathematical semantics
+
+Each frame has independent binary fault mechanisms `e[j]` with known prior
+probabilities `prior[j]`. A mechanism may toggle more than two detectors, and
+different mechanisms may have dependent or identical effects. All arithmetic
+in the matrices is over GF(2).
+
+- `H` is the detector-by-mechanism matrix. The observed syndrome is `H @ e % 2`.
+- `L` maps a mechanism vector to a vector of logical-observable flips.
+- A proposed correction `c` first needs `H @ c % 2 == syndrome`.
+- It succeeds logically when `L @ c % 2 == L @ e % 2`. The right-hand side is
+  provided only in development label files and hidden from deployment inputs.
+
+Do **not** demand that a correction equal the sampled physical fault vector.
+Fault vectors can differ by harmless quantum stabilizers or redundant mechanism
+representations. The supplied `L` already accounts for which distinctions matter;
+you need not reconstruct a stabilizer circuit or derive logical operators.
+
+`soft_llr` is a heuristic log-likelihood-ratio diagnostic from the existing
+iterative frontend: smaller values suggest a mechanism is more likely active.
+It is not a second independent observation of the faults, and its confidence
+can be misleading precisely on this corpus. It may be used, ignored, recomputed,
+or combined with other ranking evidence as you judge appropriate. True channel
+priors are in `prior`, not in a sigmoid interpretation of `soft_llr`.
+
+The independent-mechanism negative log-probability, up to a common constant, is
+
+```
+cost(c) = sum(c[j] * log((1-prior[j]) / prior[j])).
+```
+
+It is a useful diagnostic for candidate repairs, not a substitute for logical
+validation or a guarantee that a particular search attains the best sector.
+Dependent checks do not provide extra independent evidence. No particular
+factorization, cluster growth rule, message schedule, search order, or solver
+family is prescribed.
+
+## Interface
+
+Submit a directory rooted at `solve.py`. The evaluator calls:
+
+```
+python solve.py --input /absolute/path/batch.npz --output /absolute/path/predictions.npz
+```
+
+Load inputs with `numpy.load(..., allow_pickle=False)`. The arrays are:
+
+| Key | Shape | Meaning |
+|---|---|---|
+| `H` | `(m, n)` | binary detector matrix |
+| `L` | `(k, n)` | binary logical-observable map |
+| `prior` | `(n,)` | fault probabilities, strictly between 0 and 0.5 |
+| `syndrome` | `(frames, m)` | binary observed records |
+| `soft_llr` | `(frames, n)` | finite soft-ranking diagnostics |
+
+Write an NPZ containing `correction`, a binary array of shape `(frames, n)`, in
+the original frame and mechanism order. Equivalent corrections are accepted.
+Additional numeric diagnostic arrays are permitted. There are no missing
+detector observations in this task. Matrices can have substantial rank defects;
+row count is not rank. Column ordering has no physical meaning.
+
+## Deliverables and development loop
+
+Place in the requested output directory:
+
+1. `solve.py` and all local modules or source/build files it needs;
+2. `validation_small_predictions.npz` and `validation_large_predictions.npz`;
+3. `diagnosis.md`, containing actual baseline/final measurements, at least one
+   failed or inferior approach you tested, the consequential choices in your
+   final approach, runtime evidence, and remaining limitations.
+
+From a workspace with the software files, for example:
+
+```
+python solve.py --input /path/input/validation_small.npz --output validation_small_predictions.npz
+python validate.py --input /path/input/validation_small.npz --labels /path/input/validation_small_labels.npz --actual validation_small_predictions.npz
+```
+
+Inspect logical recovery, not just zero residual syndromes. Revise and rerun on
+both public networks before finalizing. Do not embed public input or label
+tables in the solver. The runtime solver must work from the five supplied input
+arrays alone. A research report without an executable recovery method is not
+a core deliverable.
+
+## Environment and limits
+
+- Python 3.10, NumPy 1.21, SciPy 1.8, the standard library, and a system C++17
+  compiler are available. Local compilation is allowed. Use these libraries and
+  self-contained local source or binaries in your submission; no network,
+  package installation, GPU, or imports from other workspaces are allowed.
+  The starter does not include a decoding library.
+- Each held-out batch has 24 frames and receives **60 seconds**, one CPU thread,
+  and **1.5 GiB address space**. Three batches are evaluated independently.
+  Any runtime compilation is included. Training/experimentation happens earlier.
+- Networks have 216--864 mechanisms and 72--288 detector rows. The number of
+  logical-observable rows varies. Sparse structure and quantum degeneracy are
+  important; enumerating the entire affine solution space is not feasible.
+- Any strategy is allowed within these constraints. Speed alone cannot
+  compensate for wrong logical sectors, and no exact optimum certificate is
+  required.
+
+## Observable success
+
+For each hidden batch let `valid` be the fraction of syndrome-consistent frames
+and `recovered` the fraction that are both syndrome-consistent and logically
+correct. Its score is
+
+```
+0.15 * valid + 0.85 * min(1, recovered / 0.85).
+```
+
+The core score is the mean over the three batches. The target is at least 85%
+logical recovery, full syndrome consistency, and robust execution in every
+regime. Partial improvements receive real credit. Validation artifacts and a
+truthful diagnostic report are also required to pass. Evaluation does not compare
+your code, candidate vectors, or internal parameters with an author solution.
+
+  → Inspect prototype and corpus structure
+  • Measure baseline and test recovery strategies
+  • Implement and tune bounded decoder
+  • Validate CLI and save diagnostic deliverables
+exec
+/bin/bash -lc 'find . -name AGENTS.md -print; ls -la software input; cat software/solve.py; cat software/repair.py; cat software/validate.py; ls -la /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03
+ succeeded in 494ms:
+input:
+total 120
+drwxrwxr-x 2 xuandong xuandong  4096 Aug 27 00:56 .
+drwxrwxr-x 7 xuandong xuandong  4096 Aug 27 01:05 ..
+-rw-rw-r-- 1 xuandong xuandong 68179 Aug 27 01:00 validation_large.npz
+-rw-rw-r-- 1 xuandong xuandong   352 Aug 27 01:00 validation_large_labels.npz
+-rw-rw-r-- 1 xuandong xuandong 36297 Aug 27 01:00 validation_small.npz
+-rw-rw-r-- 1 xuandong xuandong   342 Aug 27 01:00 validation_small_labels.npz
+
+software:
+total 20
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 00:58 .
+drwxrwxr-x 7 xuandong xuandong 4096 Aug 27 01:05 ..
+-rw-rw-r-- 1 xuandong xuandong  997 Aug 27 00:58 repair.py
+-rw-rw-r-- 1 xuandong xuandong  634 Aug 27 00:58 solve.py
+-rw-rw-r-- 1 xuandong xuandong 1590 Aug 27 00:58 validate.py
+import argparse
+
+import numpy as np
+
+from repair import prepare_columns, repair
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', required=True)
+    parser.add_argument('--output', required=True)
+    arguments = parser.parse_args()
+    data = np.load(arguments.input, allow_pickle=False)
+    columns = prepare_columns(data['H'])
+    predictions = np.asarray([repair(columns, syndrome, reliability)
+                              for syndrome, reliability in zip(data['syndrome'], data['soft_llr'])], dtype=np.uint8)
+    np.savez_compressed(arguments.output, correction=predictions)
+import numpy as np
+
+
+def prepare_columns(matrix):
+    return [sum(1 << int(row) for row in np.flatnonzero(matrix[:, column]))
+            for column in range(matrix.shape[1])]
+
+
+def repair(columns, syndrome, reliability):
+    basis = {}
+    for column in np.argsort(reliability, kind='stable'):
+        column = int(column)
+        vector = columns[column]
+        combination = 1 << column
+        while vector:
+            pivot = vector.bit_length() - 1
+            if pivot not in basis:
+                basis[pivot] = vector, combination
+                break
+            vector ^= basis[pivot][0]
+            combination ^= basis[pivot][1]
+    target = sum(int(bit) << row for row, bit in enumerate(syndrome))
+    correction = 0
+    while target:
+        pivot = target.bit_length() - 1
+        vector, combination = basis[pivot]
+        target ^= vector
+        correction ^= combination
+    return np.asarray([(correction >> column) & 1 for column in range(len(columns))], dtype=np.uint8)
+import argparse
+import json
+
+import numpy as np
+
+
+def compare(data, labels, predictions):
+    correction = predictions['correction']
+    expected_shape = (len(data['syndrome']), data['H'].shape[1])
+    if correction.shape != expected_shape or not np.isin(correction, [0, 1]).all():
+        raise ValueError('correction must be binary with shape ' + str(expected_shape))
+    correction = correction.astype(np.uint8)
+    valid = ((correction @ data['H'].T) % 2 == data['syndrome']).all(axis=1)
+    recovered = valid & (((correction @ data['L'].T) % 2) == labels['logical_target']).all(axis=1)
+    weights = np.log((1 - data['prior']) / data['prior'])
+    valid_fraction = float(valid.mean())
+    recovery_fraction = float(recovered.mean())
+    return {'frames': len(valid), 'syndrome_fraction': valid_fraction,
+            'logical_recovery_fraction': recovery_fraction,
+            'score': 0.15 * valid_fraction + 0.85 * min(1.0, recovery_fraction / 0.85),
+            'mean_candidate_cost': float(np.mean(correction @ weights)),
+            'mean_candidate_weight': float(correction.sum(axis=1).mean())}
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', required=True)
+    parser.add_argument('--labels', required=True)
+    parser.add_argument('--actual', required=True)
+    arguments = parser.parse_args()
+    print(json.dumps(compare(np.load(arguments.input, allow_pickle=False),
+                             np.load(arguments.labels, allow_pickle=False),
+                             np.load(arguments.actual, allow_pickle=False))))
+total 16
+drwxrwxr-x 5 xuandong xuandong  4096 Aug 27 01:05 .
+drwx------ 3 xuandong xuandong    60 Aug 27 01:05 ..
+dr-xr-xr-x 2 xuandong xuandong    40 Aug 27 01:05 .agents
+dr-xr-xr-x 2 xuandong xuandong    40 Aug 27 01:05 .codex
+dr-xr-xr-x 2 xuandong xuandong    40 Aug 27 01:05 .git
+-rw-rw-r-- 1 xuandong xuandong 10495 Aug 27 01:05 transcript.log
+
+exec
+/bin/bash -lc "cp software/solve.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/baseline_solve.py; cp software/repair.py software/validate.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/; python - <<'PY'
+import numpy as np
+for size in ['small','large']:
+ d=np.load('input/validation_'+size+'.npz',allow_pickle=False)
+ print(size, [(key,d[key].shape,d[key].dtype) for key in d.files])
+ h=d['H']; l=d['L']; p=d['prior']; soft=d['soft_llr']; s=d['syndrome']
+ print('column degrees', np.unique(h.sum(0),return_counts=True),'row degrees',np.unique(h.sum(1),return_counts=True))
+ print('priors',np.quantile(p,[0,.1,.5,.9,1]),'soft',np.quantile(soft,[0,.1,.5,.9,1]))
+ print('L weights',l.sum(1), 'syndrome weights',s.sum(1))
+ print('first columns', [list(np.flatnonzero(h[:,col])) for col in range(12)])
+ print('unique cols',len(np.unique(h.T,axis=0)), 'unique rows',len(np.unique(h,axis=0)))
+ print('logical targets',np.load('input/validation_'+size+'_labels.npz')['logical_target'])
+PY
+/usr/bin/time -f 'elapsed %e cpu %U peak_kb %M' python /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/baseline_solve.py --input \""'$PWD/input/validation_small.npz" --output /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/baseline_small_predictions.npz
+python software/validate.py --input input/validation_small.npz --labels input/validation_small_labels.npz --actual /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/baseline_small_predictions.npz
+/usr/bin/time -f '"'elapsed %e cpu %U peak_kb %M' python /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/baseline_solve.py --input \""'$PWD/input/validation_large.npz" --output /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/baseline_large_predictions.npz
+python software/validate.py --input input/validation_large.npz --labels input/validation_large_labels.npz --actual /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/baseline_large_predictions.npz' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03
+ succeeded in 7697ms:
+small [('H', (72, 216), dtype('uint8')), ('L', (24, 216), dtype('uint8')), ('prior', (216,), dtype('float64')), ('syndrome', (20, 72), dtype('uint8')), ('soft_llr', (20, 216), dtype('float64'))]
+column degrees (array([3, 6], dtype=uint64), array([144,  72])) row degrees (array([12], dtype=uint64), array([72]))
+priors [0.00478563 0.00871393 0.01453269 0.02747364 0.04712768] soft [-1.51276024e+10  4.56201405e+00  1.15593611e+01  2.43356377e+01
+  1.51276024e+10]
+L weights [12 12 12 12 12 12 28 16 32 36 40 40 12 12 12 12 12 12 24 24 28 24 28 28] syndrome weights [27 24 27 24 19 17 15 16 17 15 16 15 18 14 20 18 16 25 16 19]
+first columns [[30, 38, 65], [11, 21, 25], [18, 27, 36, 37, 41, 45], [0, 7, 10, 42, 65, 68], [22, 53, 54], [2, 53, 60], [6, 8, 50], [19, 46, 61], [8, 29, 46], [33, 41, 57], [3, 22, 24, 25, 69, 70], [1, 12, 29, 39, 58, 61]]
+unique cols 216 unique rows 72
+logical targets [[0 0 0 0 0 1 0 1 1 0 1 1 1 0 0 1 1 1 0 0 0 0 1 1]
+ [1 0 1 1 0 0 1 1 1 1 1 1 0 0 0 0 0 0 1 1 0 1 1 0]
+ [0 0 0 0 0 0 0 1 1 0 0 0 0 0 1 1 1 0 1 0 0 1 1 0]
+ [1 1 1 1 0 0 1 0 0 0 0 1 0 1 0 0 0 1 0 0 0 1 1 1]
+ [0 0 0 0 0 0 1 1 1 0 1 0 0 0 1 1 1 0 0 1 1 0 1 0]
+ [0 0 0 0 0 1 1 1 0 0 0 0 0 1 1 0 0 1 0 0 0 0 1 1]
+ [0 0 0 0 0 0 0 0 1 1 1 1 0 0 1 0 0 0 0 0 0 0 0 1]
+ [0 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0 0 1 1 1 1 1 0]
+ [1 0 0 0 0 0 1 0 1 0 1 1 0 0 1 0 0 0 0 0 0 1 0 1]
+ [0 0 0 0 0 1 0 0 0 1 1 1 0 0 0 1 0 0 0 0 0 0 0 0]
+ [0 0 0 0 0 0 1 1 1 1 0 1 0 0 0 0 0 0 0 0 0 1 1 1]
+ [1 1 1 0 0 0 1 0 1 1 0 1 0 0 0 1 1 0 0 0 0 0 0 0]
+ [1 0 1 0 0 0 1 0 1 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0]
+ [1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 1 1]
+ [1 1 1 1 0 0 1 0 1 1 1 1 0 0 0 0 0 0 1 0 0 1 1 0]
+ [0 0 0 0 0 0 1 0 1 0 1 1 0 0 0 0 0 0 0 0 0 0 0 1]
+ [0 0 0 0 1 1 0 0 0 0 1 0 0 0 0 1 0 0 1 1 1 0 0 1]
+ [1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 1 1 1 0 0]
+ [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+ [1 1 0 0 0 0 0 0 0 0 0 0 1 0 0 1 0 0 1 0 1 1 0 1]]
+large [('H', (144, 432), dtype('uint8')), ('L', (24, 432), dtype('uint8')), ('prior', (432,), dtype('float64')), ('syndrome', (20, 144), dtype('uint8')), ('soft_llr', (20, 432), dtype('float64'))]
+column degrees (array([3, 6], dtype=uint64), array([288, 144])) row degrees (array([12], dtype=uint64), array([144]))
+priors [0.00724327 0.01083529 0.01671867 0.03659889 0.05488181] soft [-1.63740320e+10  3.74013156e+00  1.11442863e+01  6.13292418e+09
+  1.63740320e+10]
+L weights [24 24 24 24 24 24 48 24 72 68 56 76 24 24 24 24 24 24 24 24 28 24 28 28] syndrome weights [44 32 43 47 23 45 56 30 49 42 42 26 50 49 35 51 56 39 46 31]
+first columns [[28, 44, 101, 118, 128, 139], [6, 13, 14], [1, 2, 135], [34, 97, 113], [16, 129, 135], [27, 69, 115], [9, 118, 137], [4, 119, 137], [49, 112, 117], [12, 68, 102, 107, 128, 139], [69, 77, 108], [30, 35, 113]]
+unique cols 432 unique rows 144
+logical targets [[1 0 1 1 1 0 0 1 1 0 0 0 0 0 1 0 0 1 0 1 0 0 0 0]
+ [1 1 0 1 0 0 1 0 0 0 1 0 1 0 1 1 0 0 0 1 0 0 0 1]
+ [1 1 0 1 0 0 0 1 1 1 0 1 1 0 1 0 1 0 1 0 0 0 1 0]
+ [1 0 1 1 0 0 1 0 0 0 1 1 0 0 0 0 0 0 0 1 0 0 0 0]
+ [0 0 0 0 0 0 0 0 1 1 1 1 0 0 0 0 0 0 0 1 0 0 0 1]
+ [1 0 1 1 1 1 0 0 1 1 0 0 0 0 0 0 0 1 0 1 1 1 0 0]
+ [1 0 1 1 0 1 0 1 1 1 0 0 1 1 1 1 0 1 0 0 1 0 0 1]
+ [1 1 1 1 0 0 0 0 0 0 1 1 0 0 0 0 0 0 1 1 1 0 0 1]
+ [0 1 1 0 1 0 1 0 1 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0]
+ [0 0 1 0 1 1 1 1 0 0 0 1 0 0 1 0 1 0 0 1 1 1 1 0]
+ [1 0 0 0 1 0 1 0 1 0 0 1 0 0 1 0 1 0 0 0 0 0 0 0]
+ [0 1 1 1 0 0 0 0 0 1 0 1 0 1 0 0 0 1 0 0 0 0 0 0]
+ [0 0 0 0 1 0 0 0 1 0 1 0 1 0 0 1 0 1 0 1 1 0 1 0]
+ [0 0 0 0 0 1 1 0 0 0 1 0 1 0 0 1 1 0 0 1 0 0 0 1]
+ [1 1 0 0 1 0 1 1 1 0 1 0 1 0 0 0 0 0 0 1 0 0 0 1]
+ [0 0 0 0 0 0 0 1 0 0 1 1 0 0 0 0 1 0 0 1 0 1 0 0]
+ [0 1 1 0 1 0 0 1 1 0 1 1 0 1 1 1 0 1 0 1 0 1 0 0]
+ [0 1 1 0 0 0 1 0 1 1 0 1 1 1 1 0 0 0 1 0 0 0 1 0]
+ [0 0 0 0 0 0 1 0 1 0 0 0 0 0 1 0 1 0 1 0 1 1 1 1]
+ [0 1 1 1 1 0 1 0 1 1 0 1 0 1 1 1 0 0 0 0 0 0 0 0]]
+elapsed 0.15 cpu 0.10 peak_kb 32684
+{"frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 0.0, "score": 0.15, "mean_candidate_cost": 50.91659259935189, "mean_candidate_weight": 12.15}
+elapsed 0.16 cpu 0.13 peak_kb 32628
+{"frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 0.0, "score": 0.15, "mean_candidate_cost": 105.4078674335248, "mean_candidate_weight": 26.5}
+
+codex
+The baseline is syndrome-valid but recovers no logical sectors. I’ll test prior-based belief propagation with candidate search.
+
+exec
+/bin/bash -lc "python - <<'PY'
+import numpy as np, scipy
+from scipy.sparse.csgraph import connected_components
+from scipy.sparse import csr_matrix
+print('versions',np.__version__,scipy.__version__)
+for size in ['small','large']:
+ d=np.load('input/validation_'+size+'.npz'); h=d['H']; l=d['L']; cols=[sum(1<<int(r) for r in np.flatnonzero(col)) for col in h.T]; indices={col:j for j,col in enumerate(cols)}
+ triples=[(first,second,indices[val"'^cols[second]]) for first,val in enumerate(cols) for second in range(first) if val''^cols[second] in indices and indices[val''^cols[second]]<second]
+ print(size,'"'triples',len(triples),'vertices',len(set(j for triple in triples for j in triple)), 'logical neutral',sum(not np.any(l[:,a]"'^l[:,b]''^l[:,c]) for a,b,c in triples))
+ basis={}
+ for val in cols:
+  while val:
+   row=val.bit_length()-1
+   if row not in basis: basis[row]=val;break
+   val''^=basis[row]
+ print('"'rank',len(basis))
+ singles=h[:,h.sum(0)==3]
+ comps,assign=connected_components(csr_matrix(singles.astype(int)@singles.T),directed=False)
+ print('single graph comps',comps,np.bincount(assign))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03
+ succeeded in 8706ms:
+versions 1.21.5 1.8.0
+small triples 72 vertices 216 logical neutral 72
+rank 60
+single graph comps 2 [36 36]
+large triples 144 vertices 432 logical neutral 144
+rank 132
+single graph comps 2 [72 72]
+
+Measured both baselines and found exact logical-neutral column triples plus substantial rank defects; next experiments will compare binary and grouped inference with search.
+  ✓ Inspect prototype and corpus structure
+  → Measure baseline and test recovery strategies
+  • Implement and tune bounded decoder
+  • Validate CLI and save diagnostic deliverables
+exec
+/bin/bash -lc 'which apply_patch; command -v g++; date +%s' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03
+ succeeded in 526ms:
+/srv/home/xuandong/.codex/tmp/arg0/codex-arg0CG9aOg/apply_patch
+/usr/bin/g++
+1787818042
+
+codex
+Exact column triples represent redundant mechanisms. I’ll combine those probabilities and compare grouped inference against binary BP.
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/decoder.cpp
++#include <algorithm>
++#include <array>
++#include <chrono>
++#include <cmath>
++#include <cstdint>
++#include <cstring>
++#include <numeric>
++#include <random>
++#include <string>
++#include <unordered_map>
++#include <vector>
++
++using Bits = std::vector<uint64_t>;
++
++struct Group {
++    std::vector<int> original;
++    std::array<double, 4> energy{};
++    std::array<int, 4> representation{};
++    std::vector<int> edges;
++    int states;
++};
++
++struct Edge {
++    int group;
++    int check;
++    int mask;
++};
++
++struct Decoder {
++    int rows, columns, words, hwords;
++    const uint8_t* matrix;
++    std::vector<Group> groups;
++    std::vector<Edge> edges;
++    std::vector<std::vector<int>> checks;
++    std::vector<Bits> hcols;
++    std::vector<int> active;
++    std::vector<double> weights;
++    std::mt19937_64 random;
++    Bits best;
++    double bestcost;
++    int improvements = 0;
++
++    Decoder(int m, int n, int k, const uint8_t* h, const uint8_t* logical,
++            const double* prior, bool grouped) : rows(m), columns(n), matrix(h), random(20260827) {
++        weights.resize(n);
++        for (int col = 0; col < n; ++col) weights[col] = std::log((1-prior[col])/prior[col]);
++        std::vector<std::string> keys(n, std::string((m+k+7)/8, '\\0'));
++        std::unordered_map<std::string, int> lookup;
++        for (int col = 0; col < n; ++col) {
++            for (int row = 0; row < m; ++row) if (h[row*n+col]) keys[col][row/8] "'^= 1<<(row%8);
++            for (int row = 0; row < k; ++row) if (logical[row*n+col]) keys[col][(m+row)/8] ''^= 1<<((m+row)%8);
++            lookup[keys[col]] = col;
++        }
++        std::vector<bool> used(n, false);
++        if (grouped) {
++            for (int first = 0; first < n; ++first) {
++                if (used[first]) continue;
++                for (int second = first+1; second < n; ++second) {
++                    if (used[second]) continue;
++                    std::string key = keys[first];
++                    for (size_t byte = 0; byte < key.size(); ++byte) key[byte] ''^= keys[second][byte];
++                    auto found = lookup.find(key);
++                    if (found == lookup.end()) continue;
++                    int third = found->second;
++                    if (third == first || third == second || used[third]) continue;
++                    std::array<int, 3> triple{first,second,third};
++                    std::sort(triple.begin(), triple.end(), [&](int left, int right) {
++                        int leftweight = 0, rightweight = 0;
++                        for (int row = 0; row < m; ++row) {
++                            leftweight += h[row*n+left]; rightweight += h[row*n+right];
++                        }
++                        return leftweight < rightweight || (leftweight == rightweight && left < right);
++                    });
++                    Group group;
++                    group.original = {triple[0],triple[1],triple[2]};
++                    group.states = 4;
++                    groups.push_back(group);
++                    used[first] = used[second] = used[third] = true;
++                    break;
++                }
++            }
++        }
++        for (int col = 0; col < n; ++col) if (!used[col]) {
++            Group group;
++            group.original = {col}; group.states = 2;
++            groups.push_back(group);
++        }
++        words = (2*groups.size()+63)/64;
++        hwords = (m+63)/64;
++        checks.resize(m);
++        hcols.resize(2*groups.size(), Bits(hwords, 0));
++        for (int index = 0; index < int(groups.size()); ++index) {
++            Group& group = groups[index];
++            std::array<double,4> mass{};
++            std::array<double,4> mincost;
++            mincost.fill(1e100);
++            for (int rep = 0; rep < (1<<group.original.size()); ++rep) {
++                int state = group.states == 2 ? rep : ((rep&1)''^((rep>>2)&1)) | ((((rep>>1)&1)''^((rep>>2)&1))<<1);
++                double probability = 1, cost = 0;
++                for (int part = 0; part < int(group.original.size()); ++part) {
++                    int col = group.original[part];
++                    probability *= (rep>>part)&1 ? prior[col] : 1-prior[col];
++                    if ((rep>>part)&1) cost += weights[col];
++                }
++                mass[state] += probability;
++                if (cost < mincost[state]) { mincost[state] = cost; group.representation[state] = rep; }
++            }
++            for (int state = 0; state < group.states; ++state) group.energy[state] = -std::log(mass[state]/mass[0]);
++            for (int part = 0; part < (group.states == 4 ? 2 : 1); ++part) {
++                int bit = 2*index+part;
++                active.push_back(bit);
++                for (int row = 0; row < m; ++row) if (h[row*n+group.original[part]]) hcols[bit][row/64] |= 1ULL<<(row%64);
++            }
++            for (int row = 0; row < m; ++row) {
++                int mask = h[row*n+group.original[0]];
++                if (group.states == 4) mask |= h[row*n+group.original[1]]<<1;
++                if (!mask) continue;
++                int edge = edges.size();
++                edges.push_back({index,row,mask}); checks[row].push_back(edge); group.edges.push_back(edge);
++            }
++        }
++    }
++
++    static int parity(int value) { return __builtin_parity(unsigned(value)); }
++    static void toggle(Bits& target, const Bits& source) {
++        for (size_t word = 0; word < target.size(); ++word) target[word] ''^= source[word];
++    }
++    static int highest(const Bits& value) {
++        for (int word = int(value.size())-1; word >= 0; --word)
++            if (value[word]) return 64*word+63-__builtin_clzll(value[word]);
++        return -1;
++    }
++    double cost(const Bits& candidate) const {
++        double total = 0;
++        for (int word = 0; word < words; ++word) {
++            uint64_t value = candidate[word];
++            while (value) {
++                int offset = __builtin_ctzll(value) & ~1;
++                int state = (value>>offset)&3;
++                total += groups[word*32+offset/2].energy[state];
++                value &= ~(3ULL<<offset);
++            }
++        }
++        return total;
++    }
++    void consider(const Bits& candidate) {
++        double candidatecost = cost(candidate);
++        if (candidatecost < bestcost-1e-9) { bestcost = candidatecost; best = candidate; ++improvements; }
++    }
++
++    void osd(const uint8_t* syndrome, const std::vector<double>& reliability,
++             const Bits& hard, int depth, double noise) {
++        std::vector<int> order = active;
++        std::vector<double> ranking(reliability.size());
++        std::normal_distribution<double> normal(0,1);
++        for (int bit : active) ranking[bit] = std::abs(reliability[bit]) + noise*normal(random);
++        std::stable_sort(order.begin(), order.end(), [&](int left, int right) { return ranking[left] < ranking[right]; });
++        std::vector<Bits> basis(rows), combination(rows);
++        std::vector<Bits> kernels;
++        Bits target(hwords,0), correction = hard;
++        for (int row = 0; row < rows; ++row) if (syndrome[row]) target[row/64] |= 1ULL<<(row%64);
++        for (int bit : active) if ((hard[bit/64]>>(bit%64))&1) toggle(target,hcols[bit]);
++        for (int bit : order) {
++            Bits column = hcols[bit], combo(words,0);
++            combo[bit/64] |= 1ULL<<(bit%64);
++            int pivot;
++            while ((pivot = highest(column)) >= 0) {
++                if (basis[pivot].empty()) { basis[pivot] = column; combination[pivot] = combo; break; }
++                toggle(column,basis[pivot]); toggle(combo,combination[pivot]);
++            }
++            if (pivot < 0) kernels.push_back(std::move(combo));
++        }
++        int pivot;
++        while ((pivot=highest(target)) >= 0) {
++            if (basis[pivot].empty()) return;
++            toggle(target,basis[pivot]); toggle(correction,combination[pivot]);
++        }
++        consider(correction);
++        if (!depth) return;
++        Bits candidate(words);
++        std::vector<double> singlecost(kernels.size());
++        for (size_t index = 0; index < kernels.size(); ++index) {
++            for (int word = 0; word < words; ++word) candidate[word] = correction[word]''^kernels[index][word];
++            singlecost[index] = cost(candidate);
++            consider(candidate);
++        }
++        std::vector<int> selected(kernels.size());
++        std::iota(selected.begin(),selected.end(),0);
++        int limit = std::min(depth,int(kernels.size()));
++        if (limit < int(selected.size())) {
++            std::partial_sort(selected.begin(),selected.begin()+limit,selected.end(),[&](int left,int right) { return singlecost[left]<singlecost[right]; });
++            selected.resize(limit);
++        }
++        for (int first = 0; first < int(selected.size()); ++first) {
++            for (int second = 0; second < first; ++second) {
++                for (int word = 0; word < words; ++word) candidate[word] = correction[word]''^kernels[selected[first]][word]''^kernels[selected[second]][word];
++                consider(candidate);
++            }
++        }
++        for (int sweep = 0; sweep < 3; ++sweep) {
++            double before = bestcost;
++            for (const auto& kernel : kernels) {
++                for (int word = 0; word < words; ++word) candidate[word] = best[word]''^kernel[word];
++                consider(candidate);
++            }
++            if (bestcost == before) break;
++        }
++    }
++
++    void decode(const uint8_t* syndrome, const double* soft, uint8_t* output,
++                double* diagnostics, int attempts, int iterations, int depth, double seconds, int mode) {
++        bestcost = 1e100; best.assign(words,0); improvements=0;
++        auto started = std::chrono::steady_clock::now();
++        std::normal_distribution<double> normal(0,1);
++        std::vector<double> reliability(2*groups.size(), 0), bestrel;
++        Bits hard(words,0), savedhard;
++        for (int index = 0; index < int(groups.size()); ++index) {
++            for (int part = 0; part < (groups[index].states==4?2:1); ++part) reliability[2*index+part] = weights[groups[index].original[part]];
++        }
++        osd(syndrome,reliability,hard,depth,0);
++        int completed = 0, validbp = 0;
++        for (int attempt = 0; attempt < attempts; ++attempt) {
++            if (attempt && std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count() > seconds) break;
++            ++completed;
++            std::vector<std::array<double,4>> priorenergy(groups.size());
++            double perturb = attempt == 0 ? 0 : (attempt%3 == 0 ? 1.5 : .6);
++            double scale = attempt == 0 ? 1 : (.7 + .15*(attempt%5));
++            double damping = attempt%4==0 ? .2 : (attempt%4==1 ? .5 : 0.0);
++            for (int index = 0; index < int(groups.size()); ++index) {
++                for (int state = 0; state < groups[index].states; ++state)
++                    priorenergy[index][state] = scale*groups[index].energy[state] + (state ? perturb*normal(random) : 0);
++            }
++            std::vector<double> message(edges.size(),0), variable(edges.size(),0), posterior(4*groups.size());
++            bestrel = reliability; savedhard = hard;
++            int leastresidual = rows+1;
++            double residualcost = 1e100;
++            for (int iteration = 0; iteration < iterations; ++iteration) {
++                hard.assign(words,0);
++                for (int index = 0; index < int(groups.size()); ++index) {
++                    Group& group = groups[index];
++                    std::array<double,4> energies = priorenergy[index];
++                    for (int edge : group.edges) {
++                        int mask = edges[edge].mask;
++                        for (int state = 0; state < group.states; ++state) if (parity(state&mask)) energies[state] += message[edge];
++                    }
++                    int chosen = 0;
++                    for (int state = 1; state < group.states; ++state) if (energies[state] < energies[chosen]) chosen=state;
++                    hard[index/32] |= uint64_t(chosen)<<(2*(index%32));
++                    for (int part = 0; part < (group.states==4?2:1); ++part) {
++                        double zero = 0, one = 0;
++                        for (int state = 0; state < group.states; ++state) {
++                            double probability = std::exp(std::max(-700.0,energies[chosen]-energies[state]));
++                            if ((state>>part)&1) one+=probability; else zero+=probability;
++                        }
++                        reliability[2*index+part] = std::log(std::max(1e-300,zero)/std::max(1e-300,one));
++                    }
++                    for (int edge : group.edges) {
++                        int mask=edges[edge].mask;
++                        double minimum = 1e100;
++                        std::array<double,4> extrinsic{};
++                        for (int state = 0; state < group.states; ++state) {
++                            extrinsic[state] = energies[state] - (parity(state&mask) ? message[edge] : 0);
++                            minimum = std::min(minimum,extrinsic[state]);
++                        }
++                        double zero = 0, one = 0;
++                        for (int state = 0; state < group.states; ++state) {
++                            double probability=std::exp(std::max(-700.0,minimum-extrinsic[state]));
++                            if (parity(state&mask)) one+=probability; else zero+=probability;
++                        }
++                        variable[edge] = std::max(-35.0,std::min(35.0,std::log(std::max(1e-300,zero)/std::max(1e-300,one))));
++                    }
++                }
++                int residual = 0;
++                for (int row = 0; row < rows; ++row) {
++                    int value = syndrome[row];
++                    for (int edge : checks[row]) {
++                        int index = edges[edge].group;
++                        int state = (hard[index/32]>>(2*(index%32)))&3;
++                        value ''^= parity(state&edges[edge].mask);
++                    }
++                    residual += value;
++                }
++                if (!residual) { consider(hard); ++validbp; }
++                double currentcost=cost(hard);
++                if (residual < leastresidual || (residual == leastresidual && currentcost < residualcost)) {
++                    leastresidual=residual; residualcost=currentcost; bestrel=reliability; savedhard=hard;
++                }
++                if (!residual && iteration > 5) break;
++                for (int row = 0; row < rows; ++row) {
++                    double product = syndrome[row] ? -1.0 : 1.0;
++                    int zeros=0;
++                    for (int edge : checks[row]) {
++                        double value=std::tanh(variable[edge]*.5);
++                        if (std::abs(value)<1e-15) ++zeros; else product *= value;
++                    }
++                    for (int edge : checks[row]) {
++                        double value=std::tanh(variable[edge]*.5), excluded=0;
++                        if (!zeros) excluded=product/value;
++                        else if (zeros==1 && std::abs(value)<1e-15) excluded=product;
++                        excluded=std::max(-1+1e-14,std::min(1-1e-14,excluded));
++                        double update=std::log((1+excluded)/(1-excluded));
++                        message[edge] = damping*message[edge] + (1-damping)*update;
++                    }
++                }
++            }
++            osd(syndrome,bestrel,savedhard,depth,attempt%4==3?.5:0);
++            if (leastresidual && attempt%2==0) osd(syndrome,reliability,hard,depth,0);
++        }
++        std::fill(output,output+columns,0);
++        for (int index=0; index<int(groups.size()); ++index) {
++            int state=(best[index/32]>>(2*(index%32)))&3;
++            int rep=groups[index].representation[state];
++            for (int part=0; part<int(groups[index].original.size()); ++part) output[groups[index].original[part]]=(rep>>part)&1;
++        }
++        diagnostics[0]=bestcost; diagnostics[1]=completed; diagnostics[2]=validbp;
++        diagnostics[3]=std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count();
++        diagnostics[4]=improvements;
++    }
++};
++
++extern "C" int decode_batch(int rows,int columns,int logicals,int frames,
++    const uint8_t* matrix,const uint8_t* logical,const double* prior,
++    const uint8_t* syndromes,const double* soft,uint8_t* output,double* diagnostics,
++    int grouped,int attempts,int iterations,int depth,double seconds,int mode) {
++    try {
++        Decoder decoder(rows,columns,logicals,matrix,logical,prior,grouped);
++        for (int frame=0; frame<frames; ++frame)
++            decoder.decode(syndromes+frame*rows,soft+frame*columns,output+frame*columns,
++                           diagnostics+frame*5,attempts,iterations,depth,seconds,mode);
++        return decoder.groups.size();
++    } catch (...) { return -1; }
++}
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/solve.py
++import argparse
++import ctypes
++import os
++from pathlib import Path
++import subprocess
++
++import numpy as np
++
++
++def solve(data):
++    root = Path(__file__).resolve().parent
++    source = root / '"'decoder.cpp'
++    library = root / 'decoder.so'
++    if not library.exists() or library.stat().st_mtime < source.stat().st_mtime:
++        subprocess.run(['g++', '-O3', '-std=c++17', '-shared', '-fPIC', str(source),
++                        '-o', str(library)], check=True)
++    native = ctypes.CDLL(str(library))
++    pointer = ctypes.c_void_p
++    native.decode_batch.argtypes = [ctypes.c_int] * 4 + [pointer] * 7 + [ctypes.c_int] * 4 + [ctypes.c_double, ctypes.c_int]
++    native.decode_batch.restype = ctypes.c_int
++    matrix = np.ascontiguousarray(data['H'], dtype=np.uint8)
++    logical = np.ascontiguousarray(data['L'], dtype=np.uint8)
++    prior = np.ascontiguousarray(data['prior'], dtype=np.float64)
++    syndromes = np.ascontiguousarray(data['syndrome'], dtype=np.uint8)
++    soft = np.ascontiguousarray(data['soft_llr'], dtype=np.float64)
++    frames, rows = syndromes.shape
++    columns = matrix.shape[1]
++    output = np.zeros((frames, columns), dtype=np.uint8)
++    diagnostics = np.zeros((frames, 5), dtype=np.float64)
++    arrays = [matrix, logical, prior, syndromes, soft, output, diagnostics]
++    groups = native.decode_batch(rows, columns, logical.shape[0], frames,
++                                 *[array.ctypes.data for array in arrays],
++                                 int(os.environ.get('DECODER_GROUPED', '1')),
++                                 int(os.environ.get('DECODER_ATTEMPTS', '40')),
++                                 int(os.environ.get('DECODER_ITERATIONS', '60')),
++                                 int(os.environ.get('DECODER_DEPTH', '40')),
++                                 float(os.environ.get('DECODER_SECONDS', '1.9')),
++                                 int(os.environ.get('DECODER_MODE', '0')))
++    if groups < 0:
++        raise RuntimeError('Native decoder failed')
++    if not np.array_equal((output @ matrix.T) % 2, syndromes):
++        raise RuntimeError('Decoder produced a nonzero syndrome residual')
++    return {'correction': output, 'diagnostics': diagnostics,
++            'groups': np.array(groups, dtype=np.int64)}
++
++
++if __name__ == '__main__':
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--input', required=True)
++    parser.add_argument('--output', required=True)
++    arguments = parser.parse_args()
++    with np.load(arguments.input, allow_pickle=False) as data:
++        predictions = solve(data)
++    np.savez_compressed(arguments.output, **predictions)
+*** End Patch
+PATCH
+g++ -O3 -std=c++17 -shared -fPIC /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/decoder.cpp -o /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/decoder.so" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03
+ succeeded in 2355ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/decoder.cpp
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/solve.py
+
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 /usr/bin/time -f 'elapsed %e cpu %U peak_kb %M' python solve.py --input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_small.npz --output grouped_small_predictions.npz && python validate.py --input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_small.npz --labels /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_small_labels.npz --actual grouped_small_predictions.npz; OPENBLAS_NUM_THREADS=1 /usr/bin/time -f 'elapsed %e cpu %U peak_kb %M' python solve.py --input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_large.npz --output grouped_large_predictions.npz && python validate.py --input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_large.npz --labels /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_large_labels.npz --actual grouped_large_predictions.npz" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+ succeeded in 9593ms:
+elapsed 6.67 cpu 0.63 peak_kb 33752
+{"frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 23.15063582274071, "mean_candidate_weight": 5.8}
+elapsed 2.48 cpu 2.44 peak_kb 33960
+{"frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 55.80830991851877, "mean_candidate_weight": 14.6}
+
+exec
+/bin/bash -lc "date -u '+%T'; OPENBLAS_NUM_THREADS=1 DECODER_GROUPED=0 DECODER_ATTEMPTS=40 /usr/bin/time -f 'elapsed %e cpu %U peak_kb %M' python solve.py --input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_small.npz --output binary_small_predictions.npz && python validate.py --input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_small.npz --labels /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_small_labels.npz --actual binary_small_predictions.npz; OPENBLAS_NUM_THREADS=1 DECODER_GROUPED=0 DECODER_ATTEMPTS=40 /usr/bin/time -f 'elapsed %e cpu %U peak_kb %M' python solve.py --input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_large.npz --output binary_large_predictions.npz && python validate.py --input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_large.npz --labels /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_large_labels.npz --actual binary_large_predictions.npz" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+**Analyzing quantum coding**
+
+I have about 15 minutes left. I started at 08:05, so that's 5 minutes used, which is good. For the tests, I’m currently measuring CPU contention and plan to do sequential runs later. The tests involve around 40 attempts in 20 groups, totaling roughly 600M experiments over some seconds. 
+
+While inspecting the graph structure, I'm examining theoretical aspects, like rank deficiency in H and the potential for identifying classical subcodes. It looks like I should focus on refining my approach and considering the best candidates for logical sectors.
+**Exploring optimization strategies**
+
+I'm looking into a branch and bound method for flipping hyperedges to cover unsatisfied checks while considering lower bounds and beam search. In C++, I’ll work on localized statistics to help with decoding and sorting likelihoods. The plan is to expand clusters and solve restrictions using the OSD technique. I’m curious if our generic ensemble framework will be adequate for this task. I just need to wait for the results now to confirm my findings!
+ succeeded in 11988ms:
+08:10:49
+elapsed 1.23 cpu 1.21 peak_kb 33912
+{"frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 23.15063582274071, "mean_candidate_weight": 5.8}
+elapsed 8.06 cpu 4.54 peak_kb 34364
+{"frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 55.80830991851877, "mean_candidate_weight": 14.6}
+
+codex
+Both BP variants recover all 40 public frames; grouping is faster. I’ll now test ablations and larger synthetic cases.
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/experiments.py
++import argparse
++import json
++import os
++from pathlib import Path
++import time
++
++import numpy as np
++
++from solve import solve
++from validate import compare
++
++
++def run(inputs, settings, output_path):
++    results = []
++    for name, parameters in settings:
++        for key in list(os.environ):
++            if key.startswith('DECODER_'):
++                del os.environ[key]
++        os.environ.update({key: str(value) for key, value in parameters.items()})
++        for size in ('small', 'large'):
++            with np.load(inputs / ('validation_' + size + '.npz'), allow_pickle=False) as data:
++                with np.load(inputs / ('validation_' + size + '_labels.npz'), allow_pickle=False) as labels:
++                    started = time.perf_counter()
++                    predictions = solve(data)
++                    elapsed = time.perf_counter() - started
++                    metrics = compare(data, labels, predictions)
++                    correction = predictions['correction']
++                    recovered = ((correction @ data['L'].T) % 2 == labels['logical_target']).all(axis=1)
++                    result = dict(name=name, network=size, parameters=parameters, elapsed=elapsed,
++                                  failed_frames=np.flatnonzero(~recovered).tolist(), **metrics)
++                    result['diagnostics'] = predictions['diagnostics'].tolist()
++                    results.append(result)
++                    print(json.dumps({key: value for key, value in result.items() if key "'!= '"'diagnostics'}), flush=True)
++                    np.savez_compressed(output_path.parent / (name + '_' + size + '_predictions.npz'), **predictions)
++                    output_path.write_text(json.dumps(results, indent=2) + '\\n')
++
++
++if __name__ == '__main__':
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--inputs', type=Path, required=True)
++    parser.add_argument('--output', type=Path, required=True)
++    arguments = parser.parse_args()
++    settings = [
++        ('prior_osd0', {'DECODER_GROUPED': 0, 'DECODER_ATTEMPTS': 0, 'DECODER_DEPTH': 0}),
++        ('prior_osd2', {'DECODER_GROUPED': 1, 'DECODER_ATTEMPTS': 0, 'DECODER_DEPTH': 40}),
++        ('binary_single', {'DECODER_GROUPED': 0, 'DECODER_ATTEMPTS': 1, 'DECODER_DEPTH': 40}),
++        ('grouped_single', {'DECODER_GROUPED': 1, 'DECODER_ATTEMPTS': 1, 'DECODER_DEPTH': 40}),
++        ('grouped_osd0', {'DECODER_GROUPED': 1, 'DECODER_ATTEMPTS': 40, 'DECODER_DEPTH': 0}),
++        ('grouped_ensemble', {'DECODER_GROUPED': 1, 'DECODER_ATTEMPTS': 256, 'DECODER_ITERATIONS': 80, 'DECODER_DEPTH': 60}),
++    ]
++    run(arguments.inputs, settings, arguments.output)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python experiments.py --inputs /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input --output experiments.json > experiments.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+exec
+/bin/bash -lc "cat experiments.log; python - <<'PY'
+import numpy as np
+for name in ('grouped','binary'):
+ for size in ('small','large'):
+  pred=np.load(name+'_'+size+'_predictions.npz')
+  print(name,size,'groups',pred['groups'],'diagnostics min/mean/max',np.min(pred['diagnostics'],0),np.mean(pred['diagnostics'],0),np.max(pred['diagnostics'],0))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+ succeeded in 360ms:
+{"name": "prior_osd0", "network": "small", "parameters": {"DECODER_GROUPED": 0, "DECODER_ATTEMPTS": 0, "DECODER_DEPTH": 0}, "elapsed": 0.007031584973447025, "failed_frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 0.0, "score": 0.15, "mean_candidate_cost": 107.56872355099006, "mean_candidate_weight": 29.45}
+{"name": "prior_osd0", "network": "large", "parameters": {"DECODER_GROUPED": 0, "DECODER_ATTEMPTS": 0, "DECODER_DEPTH": 0}, "elapsed": 0.007284530031029135, "failed_frames": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 0.0, "score": 0.15, "mean_candidate_cost": 227.08273334066416, "mean_candidate_weight": 66.95}
+{"name": "prior_osd2", "network": "small", "parameters": {"DECODER_GROUPED": 1, "DECODER_ATTEMPTS": 0, "DECODER_DEPTH": 40}, "elapsed": 0.0042484120349399745, "failed_frames": [0, 1, 2, 3, 4, 5, 8, 9, 10, 12, 13, 14, 17, 18, 19], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 0.25, "score": 0.4, "mean_candidate_cost": 41.00359662763962, "mean_candidate_weight": 10.0}
+{"name": "prior_osd2", "network": "large", "parameters": {"DECODER_GROUPED": 1, "DECODER_ATTEMPTS": 0, "DECODER_DEPTH": 40}, "elapsed": 0.009644425997976214, "failed_frames": [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 0.1, "score": 0.25, "mean_candidate_cost": 129.803226838703, "mean_candidate_weight": 32.95}
+{"name": "binary_single", "network": "small", "parameters": {"DECODER_GROUPED": 0, "DECODER_ATTEMPTS": 1, "DECODER_DEPTH": 40}, "elapsed": 0.028283032996114343, "failed_frames": [1, 4, 5, 8, 13], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 0.75, "score": 0.9, "mean_candidate_cost": 23.397888638610507, "mean_candidate_weight": 5.85}
+{"name": "binary_single", "network": "large", "parameters": {"DECODER_GROUPED": 0, "DECODER_ATTEMPTS": 1, "DECODER_DEPTH": 40}, "elapsed": 0.10381351097021252, "failed_frames": [8, 10], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 0.9, "score": 1.0, "mean_candidate_cost": 57.35406700738811, "mean_candidate_weight": 14.95}
+{"name": "grouped_single", "network": "small", "parameters": {"DECODER_GROUPED": 1, "DECODER_ATTEMPTS": 1, "DECODER_DEPTH": 40}, "elapsed": 0.013953046989627182, "failed_frames": [4], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 0.95, "score": 1.0, "mean_candidate_cost": 23.332600696220233, "mean_candidate_weight": 5.85}
+{"name": "grouped_single", "network": "large", "parameters": {"DECODER_GROUPED": 1, "DECODER_ATTEMPTS": 1, "DECODER_DEPTH": 40}, "elapsed": 0.04358424595557153, "failed_frames": [], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 55.80830991851877, "mean_candidate_weight": 14.6}
+{"name": "grouped_osd0", "network": "small", "parameters": {"DECODER_GROUPED": 1, "DECODER_ATTEMPTS": 40, "DECODER_DEPTH": 0}, "elapsed": 0.5024601690238342, "failed_frames": [], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 23.15063582274071, "mean_candidate_weight": 5.8}
+{"name": "grouped_osd0", "network": "large", "parameters": {"DECODER_GROUPED": 1, "DECODER_ATTEMPTS": 40, "DECODER_DEPTH": 0}, "elapsed": 2.296135634998791, "failed_frames": [8], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 0.95, "score": 1.0, "mean_candidate_cost": 55.817306191056694, "mean_candidate_weight": 14.6}
+{"name": "grouped_ensemble", "network": "small", "parameters": {"DECODER_GROUPED": 1, "DECODER_ATTEMPTS": 256, "DECODER_ITERATIONS": 80, "DECODER_DEPTH": 60}, "elapsed": 4.234395841951482, "failed_frames": [], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 23.15063582274071, "mean_candidate_weight": 5.8}
+grouped small groups 72 diagnostics min/mean/max [1.14127505e+01 4.00000000e+01 2.70000000e+01 1.39558980e-02
+ 3.00000000e+00] [2.30614985e+01 4.00000000e+01 9.20500000e+01 2.64474292e-02
+ 8.20000000e+00] [3.75790882e+01 4.00000000e+01 1.83000000e+02 5.26996520e-02
+ 1.40000000e+01]
+grouped large groups 144 diagnostics min/mean/max [26.62958327 40.          4.          0.04912656  8.        ] [55.485466   40.         31.85        0.11812251 12.15      ] [78.83378003 40.         67.          0.22818972 20.        ]
+binary small groups 216 diagnostics min/mean/max [1.14604041e+01 4.00000000e+01 1.70000000e+01 2.52748650e-02
+ 2.00000000e+00] [2.31506358e+01 4.00000000e+01 7.18000000e+01 5.55923251e-02
+ 9.40000000e+00] [3.77687951e+01 4.00000000e+01 1.48000000e+02 1.27490607e-01
+ 1.50000000e+01]
+binary large groups 432 diagnostics min/mean/max [26.84647756 40.          0.          0.09346836  8.        ] [55.80830992 40.         23.9         0.22223456 14.55      ] [79.27278761 40.         53.          0.3545551  21.        ]
+
+ succeeded in 27380ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/experiments.py
+
+exec
+/bin/bash -lc "tail -3 experiments.log; date -u '+%T'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+ succeeded in 1224ms:
+{"name": "grouped_osd0", "network": "large", "parameters": {"DECODER_GROUPED": 1, "DECODER_ATTEMPTS": 40, "DECODER_DEPTH": 0}, "elapsed": 2.296135634998791, "failed_frames": [8], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 0.95, "score": 1.0, "mean_candidate_cost": 55.817306191056694, "mean_candidate_weight": 14.6}
+{"name": "grouped_ensemble", "network": "small", "parameters": {"DECODER_GROUPED": 1, "DECODER_ATTEMPTS": 256, "DECODER_ITERATIONS": 80, "DECODER_DEPTH": 60}, "elapsed": 4.234395841951482, "failed_frames": [], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 23.15063582274071, "mean_candidate_weight": 5.8}
+{"name": "grouped_ensemble", "network": "large", "parameters": {"DECODER_GROUPED": 1, "DECODER_ATTEMPTS": 256, "DECODER_ITERATIONS": 80, "DECODER_DEPTH": 60}, "elapsed": 19.029751872993074, "failed_frames": [], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 55.80830991851877, "mean_candidate_weight": 14.6}
+08:12:19
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/decoder.cpp
+@@
+-            std::vector<double> message(edges.size(),0), variable(edges.size(),0), posterior(4*groups.size());
++            std::vector<double> message(edges.size(),0), variable(edges.size(),0);
++            std::vector<bool> enabled(rows,true);
++            if (mode == 1 || (mode == 3 && attempt%4 == 3)) {
++                std::vector<int> roworder(rows);
++                std::iota(roworder.begin(),roworder.end(),0);
++                if (attempt) std::shuffle(roworder.begin(),roworder.end(),random);
++                std::stable_sort(roworder.begin(),roworder.end(),[&](int left,int right) { return checks[left].size()<checks[right].size(); });
++                std::vector<Bits> rowbasis(2*groups.size());
++                for (int row : roworder) {
++                    Bits vector(words,0);
++                    for (int edge : checks[row]) {
++                        int index=edges[edge].group;
++                        vector[index/32] "'^= uint64_t(edges[edge].mask)<<(2*(index%32));
++                    }
++                    int pivot;
++                    while ((pivot=highest(vector))>=0) {
++                        if (rowbasis[pivot].empty()) { rowbasis[pivot]=vector; break; }
++                        toggle(vector,rowbasis[pivot]);
++                    }
++                    enabled[row]=pivot>=0;
++                }
++            }
+@@
+                 if (!residual && iteration > 5) break;
+                 for (int row = 0; row < rows; ++row) {
++                    if (!enabled[row]) continue;
++                    if (mode == 2 || (mode == 3 && attempt%4 == 2)) {
++                        double firstmin=35, secondmin=35;
++                        int sign=syndrome[row] ? -1 : 1;
++                        int minimumedge=-1;
++                        for (int edge : checks[row]) {
++                            double absolute=std::abs(variable[edge]);
++                            if (variable[edge]<0) sign=-sign;
++                            if (absolute<firstmin) { secondmin=firstmin; firstmin=absolute; minimumedge=edge; }
++                            else if (absolute<secondmin) secondmin=absolute;
++                        }
++                        for (int edge : checks[row]) {
++                            double update=(edge==minimumedge ? secondmin : firstmin)*(.7+.05*(attempt%4));
++                            update *= variable[edge]<0 ? -sign : sign;
++                            message[edge]=damping*message[edge]+(1-damping)*update;
++                        }
++                        continue;
++                    }
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/solve.py
+@@
+     soft = np.ascontiguousarray(data['"'soft_llr'], dtype=np.float64)
+     frames, rows = syndromes.shape
+     columns = matrix.shape[1]
+-    output = np.zeros((frames, columns), dtype=np.uint8)
++    original_matrix = matrix
++    original_columns = columns
++    signatures = np.packbits(np.concatenate((matrix, logical), axis=0).T, axis=1)
++    duplicate_groups = {}
++    for column, signature in enumerate(signatures):
++        duplicate_groups.setdefault(signature.tobytes(), []).append(column)
++    representatives = np.array([max(indices, key=lambda index: prior[index])
++                                for indices in duplicate_groups.values()], dtype=np.int64)
++    if len(representatives) < columns:
++        effective_prior = np.array([-.5 * np.expm1(np.log1p(-2 * prior[indices]).sum())
++                                    for indices in duplicate_groups.values()])
++        matrix = np.ascontiguousarray(matrix[:, representatives])
++        logical = np.ascontiguousarray(logical[:, representatives])
++        soft = np.ascontiguousarray(soft[:, representatives])
++        prior = effective_prior
++        columns = len(representatives)
++    output = np.zeros((frames, columns), dtype=np.uint8)
+@@
+-                                 int(os.environ.get('DECODER_ATTEMPTS', '40')),
+-                                 int(os.environ.get('DECODER_ITERATIONS', '60')),
+-                                 int(os.environ.get('DECODER_DEPTH', '40')),
+-                                 float(os.environ.get('DECODER_SECONDS', '1.9')),
++                                 int(os.environ.get('DECODER_ATTEMPTS', '256')),
++                                 int(os.environ.get('DECODER_ITERATIONS', '80')),
++                                 int(os.environ.get('DECODER_DEPTH', '60')),
++                                 float(os.environ.get('DECODER_SECONDS', str(min(1.85, 46.0 / max(1, frames))))),
+                                  int(os.environ.get('DECODER_MODE', '0')))
+@@
+-    if not np.array_equal((output @ matrix.T) % 2, syndromes):
++    expanded = np.zeros((frames, original_columns), dtype=np.uint8)
++    expanded[:, representatives] = output
++    if not np.array_equal((expanded @ original_matrix.T) % 2, syndromes):
+         raise RuntimeError('Decoder produced a nonzero syndrome residual')
+-    return {'correction': output, 'diagnostics': diagnostics,
++    return {'correction': expanded, 'diagnostics': diagnostics,
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/stress.py
++import argparse
++import json
++import os
++from pathlib import Path
++import time
++
++import numpy as np
++
++from repair import prepare_columns, repair
++from solve import solve
++from validate import compare
++
++
++def build_case(data, scale, seed, frames):
++    random = np.random.default_rng(seed)
++    original = data['H']
++    rows, columns = original.shape
++    logicals = len(data['L'])
++    matrix = np.zeros((2 * rows, 2 * columns), dtype=np.uint8)
++    logical = np.zeros((2 * logicals, 2 * columns), dtype=np.uint8)
++    matrix[:rows, :columns] = matrix[rows:, columns:] = original
++    logical[:logicals, :columns] = logical[logicals:, columns:] = data['L']
++    prior = np.minimum(.2, np.tile(data['prior'], 2) * scale * np.exp(random.normal(0, .15, 2 * columns)))
++    weights = np.log((1 - prior) / prior)
++    packed = prepare_columns(matrix)
++    syndromes, soft, targets = [], [], []
++    while len(syndromes) < frames:
++        fault = (random.random(2 * columns) < prior).astype(np.uint8)
++        syndrome = matrix @ fault % 2
++        heuristic = weights + random.normal(0, 1.0, 2 * columns)
++        baseline = repair(packed, syndrome, heuristic)
++        target = logical @ fault % 2
++        if np.array_equal(logical @ baseline % 2, target) or weights @ baseline <= weights @ fault:
++            continue
++        syndromes.append(syndrome)
++        soft.append(heuristic)
++        targets.append(target)
++    roworder = random.permutation(2 * rows)
++    colorder = random.permutation(2 * columns)
++    return {'H': matrix[roworder][:, colorder], 'L': logical[:, colorder],
++            'prior': prior[colorder], 'syndrome': np.asarray(syndromes)[:, roworder],
++            'soft_llr': np.asarray(soft)[:, colorder]}, {'logical_target': np.asarray(targets)}
++
++
++if __name__ == '__main__':
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--input', type=Path, required=True)
++    parser.add_argument('--output', type=Path, required=True)
++    parser.add_argument('--frames', type=int, default=24)
++    parser.add_argument('--scales', type=float, nargs='+', default=[1.0, 1.6])
++    parser.add_argument('--modes', type=int, nargs='+', default=[0, 3])
++    arguments = parser.parse_args()
++    results = []
++    with np.load(arguments.input, allow_pickle=False) as original:
++        for scale in arguments.scales:
++            data, labels = build_case(original, scale, 73491 + int(scale * 100), arguments.frames)
++            name = 'synthetic_' + str(scale).replace('.', '_')
++            np.savez_compressed(name + '.npz', **data)
++            np.savez_compressed(name + '_labels.npz', **labels)
++            for mode in arguments.modes:
++                os.environ['DECODER_MODE'] = str(mode)
++                started = time.perf_counter()
++                predictions = solve(data)
++                elapsed = time.perf_counter() - started
++                result = dict(name=name, mode=mode, elapsed=elapsed,
++                              **compare(data, labels, predictions))
++                result['diagnostics'] = predictions['diagnostics'].tolist()
++                results.append(result)
++                print(json.dumps({key: value for key, value in result.items() if key "'!= '"'diagnostics'}), flush=True)
++                np.savez_compressed(name + '_mode' + str(mode) + '_predictions.npz', **predictions)
++                arguments.output.write_text(json.dumps(results, indent=2) + '\\n')
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python stress.py --input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/validation_large.npz --output stress_results.json --scales 1.0 1.6 --modes 0 3 > stress.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+**Considering library compilation and threads**
+
+I’m thinking about including a precompiled .so file that was compiled in the same environment, along with a fallback source. I need to ensure that if I copy the .so, it preserves the compile triggers without hidden dependencies. I wonder if I should catch OSError for stale incompatible .so files. Evaluating whether the environment is consistent is essential. Also, should I set the environment variables before importing NumPy to guarantee single-threaded operations? I’m weighing all these factors carefully.
+**Evaluating time budget algorithm**
+
+I’m thinking about how the time budget algorithm frames runtime cutoffs, where checks only occur between attempts. For each maxn, it seems like I can use a binary 3 state. With n864 binary groups and around 3,000 edges, I wonder if the attempts, maybe around 0.02 seconds each, will affect performance. I’m also considering the total bit operations and whether the shapes after deduplicating columns will remain efficient. I need to keep all this in mind as I plan further steps.
+exec
+/bin/bash -lc "date -u '+%T'; cat stress.log; du -sh .; ls -l decoder.so" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+ succeeded in 9088ms:
+08:14:14
+{"name": "synthetic_1_0", "mode": 0, "elapsed": 17.669224015029613, "frames": 24, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 62.82589453790538, "mean_candidate_weight": 16.916666666666668}
+524K	.
+-rwxrwxr-x 1 xuandong xuandong 102352 Aug 27 01:13 decoder.so
+
+exec
+/bin/bash -lc "cat stress.log; tail -1 experiments.log; date -u '+%T'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+ succeeded in 4155ms:
+{"name": "synthetic_1_0", "mode": 0, "elapsed": 17.669224015029613, "frames": 24, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 62.82589453790538, "mean_candidate_weight": 16.916666666666668}
+{"name": "synthetic_1_0", "mode": 3, "elapsed": 14.884600057965145, "frames": 24, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 62.82589453790538, "mean_candidate_weight": 16.916666666666668}
+{"name": "grouped_ensemble", "network": "large", "parameters": {"DECODER_GROUPED": 1, "DECODER_ATTEMPTS": 256, "DECODER_ITERATIONS": 80, "DECODER_DEPTH": 60}, "elapsed": 19.029751872993074, "failed_frames": [], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 55.80830991851877, "mean_candidate_weight": 14.6}
+08:14:40
+
+**Evaluating sector efficiency**
+
+I’m thinking about how current generic OSD checks may not effectively reduce neutralgens locally due to various changes in kernel mixtures. It might be best to stick to the same sector, even if it costs more than another option. Stabilizer descent could help to find cheaper representations that improve best cost meaningfully. I also need to consider collecting candidates from dozens of distinct sectors and mapping out the best choices.
+**Evaluating stabilizer correlations**
+
+I'm thinking about stabilizer correlations and how there isn't a guarantee with overcounts. I can use an independent support subset to create a lower-bound partition for comparison. It seems important to consider exact small cluster eliminations, relying on original corrections using the Ising stabilizer group in a stochastic manner. I'm aware of time resources too. Since it's publicly solved, there seems to be enough hidden robustness. I wouldn't want to risk adding extra complexity unless synthetic methods show failures.
+codex
+Ablations confirm that repeated inference and candidate search matter. The first 864-mechanism stress batch also recovers fully.
+
+Both public networks reach 100% recovery. Prior-only and single-pass ablations underperform; testing diversity and exact duplicate-mechanism reduction on maximum-size synthetic batches before choosing final settings.
+  ✓ Inspect prototype and corpus structure
+  ✓ Measure baseline and test recovery strategies
+  → Implement and tune bounded decoder
+  • Validate CLI and save diagnostic deliverables
+exec
+/bin/bash -lc "cat stress.log; date -u '+%T'; python - <<'PY'
+import numpy as np
+root='/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input/'
+for size in ['small','large']:
+ data=np.load(root+'validation_'+size+'.npz'); matrix=data['H']; logical=data['L']; count=matrix.shape[1]
+ cols=[sum(1<<int(row) for row in np.flatnonzero(col)) for col in matrix.T]; lookup={value:index for index,value in enumerate(cols)}
+ used=set(); groups=[]
+ for first in range(count):
+  if first in used: continue
+  for second in range(first+1,count):
+   if second in used: continue
+   third=lookup.get(cols[first]"'^cols[second])
+   if third is None or third in used or third in (first,second): continue
+   group=sorted([first,second,third],key=lambda col:(matrix[:,col].sum(),col))
+   groups.append(group);used.update(group);break
+ reduced=matrix[:,np.array(groups)[:,:2].ravel()]; logred=logical[:,np.array(groups)[:,:2].ravel()]
+ conjugate=reduced.reshape(len(matrix),-1,2)[:,:,::-1].reshape(len(matrix),-1)
+ print(size,'"'stabilizer rows',sum(((conjugate@reduced.T)%2).sum(1)==0), 'logical neutral',sum(((conjugate@logred.T)%2).sum(1)==0),'weights',np.unique(conjugate.sum(1),return_counts=True))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+ succeeded in 106753ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/stress.py
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/decoder.cpp
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/solve.py
+
+ succeeded in 9537ms:
+{"name": "synthetic_1_0", "mode": 0, "elapsed": 17.669224015029613, "frames": 24, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 62.82589453790538, "mean_candidate_weight": 16.916666666666668}
+{"name": "synthetic_1_0", "mode": 3, "elapsed": 14.884600057965145, "frames": 24, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 62.82589453790538, "mean_candidate_weight": 16.916666666666668}
+{"name": "synthetic_1_6", "mode": 0, "elapsed": 32.854868558992166, "frames": 24, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 86.23819028394014, "mean_candidate_weight": 26.583333333333332}
+{"name": "synthetic_1_6", "mode": 3, "elapsed": 33.03629496297799, "frames": 24, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 86.23819028394014, "mean_candidate_weight": 26.583333333333332}
+08:15:41
+small stabilizer rows 72 logical neutral 72 weights (array([6], dtype=uint64), array([72]))
+large stabilizer rows 144 logical neutral 144 weights (array([6], dtype=uint64), array([144]))
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/solve.py
+@@
+ import subprocess
+ 
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++os.environ['MKL_NUM_THREADS'] = '1'
++
+ import numpy as np
+@@
+     frames, rows = syndromes.shape
+     columns = matrix.shape[1]
+     original_matrix = matrix
++    original_syndromes = syndromes
+@@
+         prior = effective_prior
+         columns = len(representatives)
++    _, unique_rows = np.unique(np.packbits(matrix, axis=1), axis=0, return_index=True)
++    if len(unique_rows) < rows:
++        unique_rows.sort()
++        matrix = np.ascontiguousarray(matrix[unique_rows])
++        syndromes = np.ascontiguousarray(syndromes[:, unique_rows])
++        rows = len(unique_rows)
+@@
+-    if not np.array_equal((expanded @ original_matrix.T) % 2, syndromes):
++    if not np.array_equal((expanded @ original_matrix.T) % 2, original_syndromes):
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/invariance_checks.py
++import argparse
++import json
++import os
++from pathlib import Path
++import time
++
++import numpy as np
++
++from solve import solve
++from validate import compare
++
++
++if __name__ == '__main__':
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--inputs', type=Path, required=True)
++    arguments = parser.parse_args()
++    random = np.random.default_rng(93745)
++    with np.load(arguments.inputs / 'validation_large.npz', allow_pickle=False) as loaded:
++        original = {key: loaded[key] for key in loaded.files}
++    with np.load(arguments.inputs / 'validation_large_labels.npz', allow_pickle=False) as loaded:
++        original_labels = {key: loaded[key] for key in loaded.files}
++    roworder = random.permutation(original['H'].shape[0])
++    colorder = random.permutation(original['H'].shape[1])
++    permuted = {'H': original['H'][roworder][:, colorder], 'L': original['L'][:, colorder],
++                'prior': original['prior'][colorder], 'syndrome': original['syndrome'][:, roworder],
++                'soft_llr': original['soft_llr'][:, colorder]}
++    duplicates = {'H': np.repeat(np.repeat(original['H'], 2, axis=1), 2, axis=0),
++                  'L': np.repeat(original['L'], 2, axis=1),
++                  'prior': np.repeat(original['prior'] / (1 + np.sqrt(1 - 2 * original['prior'])), 2),
++                  'syndrome': np.repeat(original['syndrome'], 2, axis=1),
++                  'soft_llr': np.repeat(original['soft_llr'], 2, axis=1)}
++    matrix = np.zeros((288, 864), dtype=np.uint8)
++    for column in range(864):
++        degree = random.choice([3, 4, 5])
++        matrix[random.choice(288, degree, replace=False), column] = 1
++    logical = random.integers(0, 2, (8, 864), dtype=np.uint8)
++    prior = random.uniform(.004, .032, 864)
++    faults = (random.random((24, 864)) < prior).astype(np.uint8)
++    generic = {'H': matrix, 'L': logical, 'prior': prior, 'syndrome': faults @ matrix.T % 2,
++               'soft_llr': np.tile(np.log((1 - prior) / prior), (24, 1))}
++    cases = [('permutation', permuted, original_labels),
++             ('duplicates', duplicates, original_labels),
++             ('generic_sparse', generic, {'logical_target': faults @ logical.T % 2})]
++    results = []
++    for name, data, labels in cases:
++        started = time.perf_counter()
++        predictions = solve(data)
++        elapsed = time.perf_counter() - started
++        result = dict(name=name, elapsed=elapsed, shape=list(data['H'].shape),
++                      groups=int(predictions['groups']), **compare(data, labels, predictions))
++        result['diagnostics'] = predictions['diagnostics'].tolist()
++        results.append(result)
++        print(json.dumps({key: value for key, value in result.items() if key "'!= '"'diagnostics'}), flush=True)
++        np.savez_compressed(name + '_predictions.npz', **predictions)
++        Path('invariance_results.json').write_text(json.dumps(results, indent=2) + '\\n')
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python - <<'PY' > diversity.log 2>&1
+from pathlib import Path
+from experiments import run
+settings=[('independent_checks',{'DECODER_MODE':1,'DECODER_ATTEMPTS':40}),('minsum',{'DECODER_MODE':2,'DECODER_ATTEMPTS':40}),('mixed',{'DECODER_MODE':3,'DECODER_ATTEMPTS':256})]
+run(Path('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input'),settings,Path('diversity.json'))
+PY
+OPENBLAS_NUM_THREADS=1 DECODER_MODE=3 python invariance_checks.py --inputs /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input > invariance.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+exec
+/bin/bash -lc "date -u '+%T'; cat diversity.log; cat invariance.log 2>/dev/null; ls -l invariance_checks.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+ succeeded in 21998ms:
+08:17:29
+{"name": "independent_checks", "network": "small", "parameters": {"DECODER_MODE": 1, "DECODER_ATTEMPTS": 40}, "elapsed": 0.9892772999592125, "failed_frames": [], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 23.15063582274071, "mean_candidate_weight": 5.8}
+{"name": "independent_checks", "network": "large", "parameters": {"DECODER_MODE": 1, "DECODER_ATTEMPTS": 40}, "elapsed": 3.251819233002607, "failed_frames": [], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 55.80830991851877, "mean_candidate_weight": 14.6}
+{"name": "minsum", "network": "small", "parameters": {"DECODER_MODE": 2, "DECODER_ATTEMPTS": 40}, "elapsed": 0.4585771010024473, "failed_frames": [], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 23.15063582274071, "mean_candidate_weight": 5.8}
+{"name": "minsum", "network": "large", "parameters": {"DECODER_MODE": 2, "DECODER_ATTEMPTS": 40}, "elapsed": 1.8747667840216309, "failed_frames": [], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 55.80830991851877, "mean_candidate_weight": 14.6}
+{"name": "mixed", "network": "small", "parameters": {"DECODER_MODE": 3, "DECODER_ATTEMPTS": 256}, "elapsed": 4.393891260959208, "failed_frames": [], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 23.15063582274071, "mean_candidate_weight": 5.8}
+{"name": "mixed", "network": "large", "parameters": {"DECODER_MODE": 3, "DECODER_ATTEMPTS": 256}, "elapsed": 16.376798507990316, "failed_frames": [], "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 55.80830991851877, "mean_candidate_weight": 14.6}
+-rw-rw-r-- 1 xuandong xuandong 2888 Aug 27 01:16 invariance_checks.py
+
+ succeeded in 90467ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/invariance_checks.py
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/solve.py
+
+exec
+/bin/bash -lc "cat invariance.log; date -u '+%T'; g++ -std=c++17 -Wall -Wextra -fsyntax-only decoder.cpp" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+ succeeded in 967ms:
+{"name": "permutation", "elapsed": 16.67046479100827, "shape": [144, 432], "groups": 144, "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 55.80830991851877, "mean_candidate_weight": 14.6}
+{"name": "duplicates", "elapsed": 17.430889043956995, "shape": [288, 864], "groups": 144, "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 65.92553755104657, "mean_candidate_weight": 14.6}
+{"name": "generic_sparse", "elapsed": 24.973709773970768, "shape": [288, 864], "groups": 864, "frames": 24, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 60.5370264700335, "mean_candidate_weight": 15.625}
+08:18:18
+decoder.cpp: In member function ‘void Decoder::decode(const uint8_t*, const double*, uint8_t*, double*, int, int, int, double, int)’:
+decoder.cpp:210:56: warning: unused parameter ‘soft’ [-Wunused-parameter]
+  210 |     void decode(const uint8_t* syndrome, const double* soft, uint8_t* output,
+      |                                          ~~~~~~~~~~~~~~^~~~
+
+codex
+Permutation, duplication, and generic sparse checks all pass. I’ll finalize mixed inference and benchmark the required CLI.
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/solve.py
+@@
+-                                 int(os.environ.get('DECODER_MODE', '0')))
++                                 int(os.environ.get('DECODER_MODE', '3')))
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/benchmark.py
++import argparse
++import json
++import os
++from pathlib import Path
++import resource
++import subprocess
++import sys
++import time
++
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++
++import numpy as np
++
++from validate import compare
++
++
++def limits():
++    resource.setrlimit(resource.RLIMIT_AS, (1536 * 1024 * 1024, 1536 * 1024 * 1024))
++    available = os.sched_getaffinity(0)
++    os.sched_setaffinity(0, {min(available)})
++
++
++if __name__ == '__main__':
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--inputs', type=Path, required=True)
++    arguments = parser.parse_args()
++    root = Path(__file__).resolve().parent
++    for key in list(os.environ):
++        if key.startswith('DECODER_'):
++            del os.environ[key]
++    library = root / 'decoder.so'
++    if library.exists():
++        library.unlink()
++    results = []
++    log = []
++    cases = [('validation_small', arguments.inputs / 'validation_small.npz',
++              arguments.inputs / 'validation_small_labels.npz'),
++             ('validation_large', arguments.inputs / 'validation_large.npz',
++              arguments.inputs / 'validation_large_labels.npz'),
++             ('bounded_synthetic', root / 'synthetic_1_6.npz', root / 'synthetic_1_6_labels.npz')]
++    for name, input_path, label_path in cases:
++        output_path = root / (name + '_predictions.npz')
++        runtime_path = root / (name + '_runtime.json')
++        command = ['/usr/bin/time', '-f', '{\"wall_seconds\":%e,\"user_seconds\":%U,\"system_seconds\":%S,\"peak_rss_kib\":%M}',
++                   '-o', str(runtime_path), sys.executable, str(root / 'solve.py'),
++                   '--input', str(input_path), '--output', str(output_path)]
++        started = time.perf_counter()
++        process = subprocess.run(command, capture_output=True, text=True, timeout=60,
++                                 preexec_fn=limits, cwd=str(root))
++        elapsed = time.perf_counter() - started
++        log.append('COMMAND: ' + ' '.join(command) + '\\n' + process.stdout + process.stderr)
++        process.check_returncode()
++        validate_command = [sys.executable, str(root / 'validate.py'), '--input', str(input_path),
++                            '--labels', str(label_path), '--actual', str(output_path)]
++        validation = subprocess.run(validate_command, capture_output=True, text=True, check=True)
++        log.append('VALIDATE: ' + ' '.join(validate_command) + '\\n' + validation.stdout + validation.stderr)
++        result = dict(name=name, elapsed=elapsed, cold_compile=name == 'validation_small',
++                      memory_limit_mib=1536, cpu_threads=1, **json.loads(runtime_path.read_text()),
++                      **json.loads(validation.stdout))
++        results.append(result)
++        print(json.dumps(result), flush=True)
++        (root / 'validation_metrics.json').write_text(json.dumps(results, indent=2) + '\\n')
++        (root / 'validation_cli.log').write_text('\\n'.join(log))
++    baselines = []
++    for size in ('small', 'large'):
++        data = np.load(arguments.inputs / ('validation_' + size + '.npz'), allow_pickle=False)
++        labels = np.load(arguments.inputs / ('validation_' + size + '_labels.npz'), allow_pickle=False)
++        prediction = np.load(root / ('baseline_' + size + '_predictions.npz'), allow_pickle=False)
++        baselines.append(dict(network=size, **compare(data, labels, prediction)))
++    (root / 'baseline_metrics.json').write_text(json.dumps(baselines, indent=2) + '\\n')
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python benchmark.py --inputs /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_03/input > benchmark.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+**Finalizing report drafting**
+
+I think we can finalize the report using the known final counts and a placeholder for runtime, but I need to wait for the benchmarking results. I could generate the report with a JSON script to avoid updating it multiple times. Using `reportbuilder.py`, I’ll produce `diagnosis.md` and append that with formatting. I should highlight that scientists don't need to generate additional reports. It’s important to ensure the report accurately reflects the experimental results, despite pending final metrics.
+**Improving diagnostics setup**
+
+I’m looking at the diagnostics and noticed there seems to be a fixed seed issue. The encoding doesn’t seem to compare labels correctly, which is a bit tricky. I’m considering adding deterministic ordering to help reduce degradation in permutations, even though it’s not strictly necessary. There’s also something about inconsistent model grouping with duplicates, especially in row processing. The formulas seem to check out, so that’s a relief, but I need to ensure everything remains accurate moving forward.
+Selected mixed sum-product/min-sum and independent-check restarts. Public recovery remains 100%; max-size synthetic, permutation, duplicate-mechanism/check, and ungrouped sparse tests also pass. Final constrained CLI benchmarks are running.
+  ✓ Inspect prototype and corpus structure
+  ✓ Measure baseline and test recovery strategies
+  ✓ Implement and tune bounded decoder
+  → Validate CLI and save diagnostic deliverables
+exec
+/bin/bash -lc "cat benchmark.log; date -u '+%T'; ls -lh validation*" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+ succeeded in 184ms:
+{"name": "validation_small", "elapsed": 7.087807805975899, "cold_compile": true, "memory_limit_mib": 1536, "cpu_threads": 1, "wall_seconds": 7.02, "user_seconds": 6.71, "system_seconds": 0.3, "peak_rss_kib": 187300, "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 23.15063582274071, "mean_candidate_weight": 5.8}
+{"name": "validation_large", "elapsed": 17.731247115007136, "cold_compile": false, "memory_limit_mib": 1536, "cpu_threads": 1, "wall_seconds": 17.72, "user_seconds": 17.66, "system_seconds": 0.04, "peak_rss_kib": 34396, "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 55.80830991851877, "mean_candidate_weight": 14.6}
+08:19:43
+-rw-rw-r-- 1 xuandong xuandong 2.6K Aug 27 01:19 validation_cli.log
+-rw-rw-r-- 1 xuandong xuandong 1.5K Aug 27 01:19 validation_large_predictions.npz
+-rw-rw-r-- 1 xuandong xuandong   87 Aug 27 01:19 validation_large_runtime.json
+-rw-rw-r-- 1 xuandong xuandong  894 Aug 27 01:19 validation_metrics.json
+-rw-rw-r-- 1 xuandong xuandong 1.3K Aug 27 01:19 validation_small_predictions.npz
+-rw-rw-r-- 1 xuandong xuandong   86 Aug 27 01:19 validation_small_runtime.json
+
+**Optimizing frame usage**
+
+I'm working with a certain budget and trying to figure out how to optimize my frame usage. I'm noticing that some frames are unused, so I could possibly batch them in a way that maximizes efficiency, maybe getting closer to a budget of 1.85. Hidden independent frames are tricky because they often require a lot of resources, but if I adjust how I share the budget per batch, I might be able to improve overall performance.
+ succeeded in 59517ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/benchmark.py
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/solve.py
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/diagnosis.md
++# Decoder repair: diagnosis, experiments, and final validation
++
++## Result and interpretation
++
++The submitted "'`solve.py` recovers **20/20 small and 20/20 large public frames**,
++with **100% syndrome consistency on both networks**. The original repair
++recovers **0/20 on each**, despite also satisfying every syndrome. The public
++score changes from 0.15 to 1.00 on each network.
++
++These are curated failures. These recovery fractions are diagnostic results on
++this corpus, **not physical error rates, thresholds, or unbiased channel
++performance estimates**. The independent synthetic experiments below are
++engineering checks, not evidence about the hidden corpus.
++
++| Public network | Method | Logical recovery | Valid syndromes | Mean original-prior cost | Mean mechanism weight |
++|---|---|---:|---:|---:|---:|
++| Small | Shipped repair | 0/20 | 20/20 | 50.9165925994 | 12.15 |
++| Small | Final decoder | 20/20 | 20/20 | 23.1506358227 | 5.80 |
++| Large | Shipped repair | 0/20 | 20/20 | 105.4078674335 | 26.50 |
++| Large | Final decoder | 20/20 | 20/20 | 55.8083099185 | 14.60 |
++
++Costs in this table are calculated by the supplied validator using
++`sum(c * log((1-prior)/prior))`, not by interpreting frontend diagnostics as
++probabilities. Final predictions are in `validation_small_predictions.npz` and
++`validation_large_predictions.npz`. Actual validator output and CLI invocations
++are preserved in `validation_cli.log`; measurements are in
++`validation_metrics.json` and `baseline_metrics.json`.
++
++## What was wrong with the prototype
++
++The prototype sorts the frontend'"'s signed diagnostic values, constructs one
++independent column basis, and solves the syndrome in that basis. It never
++compares alternate affine solutions using the true channel probabilities. It
++does not perform posterior hard decisions on nonbasis mechanisms or search
++neighboring logical sectors. Gaussian elimination establishes consistency, not
++logical recovery.
++
++The public detector matrices have dimensions 72 by 216 and 144 by 432, but GF(2)
++ranks only **60 and 132**, respectively. Their columns have degrees three or six;
++each row has degree twelve. The frontend values reach approximately
++plus/minus 1.5e10 and 1.6e10. I did not infer true fault probabilities from these
++heuristic values, and the final decoder deliberately ignores them.
++
++A consequential structural discovery was that every public mechanism belongs to
++a disjoint triple "'`(a,b,c)` with both `H_c = H_a XOR H_b` and
++`L_c = L_a XOR L_b`. There are 72 and 144 such triples. Therefore toggling all
++three mechanisms is both detector-neutral and logical-neutral. Representing
++the three independent mechanisms as three independent Tanner variables hides
++an exact, useful degeneracy.
++
++## Actual development experiments
++
++All entries below used the real public logical labels for evaluation only.
++They are recorded in `experiments.json`, `experiments.log`, `diversity.json`,
++and `diversity.log`; prediction artifacts for the ablations are also retained.
++
++| Experiment | Small recovery | Large recovery | Small / large elapsed seconds |
++|---|---:|---:|---:|
++| Prior-ranked binary elimination, no search or BP | 0/20 | 0/20 | 0.007 / 0.007 |
++| Grouped prior-only single/pair kernel search | 5/20 | 2/20 | 0.004 / 0.010 |
++| One binary BP restart plus search | 15/20 | 18/20 | 0.028 / 0.104 |
++| One grouped BP restart plus search | 19/20 | 20/20 | 0.014 / 0.044 |
++| Forty grouped restarts, OSD order zero only | 20/20 | 19/20 | 0.502 / 2.296 |
++| 256 grouped sum-product restarts plus search | 20/20 | 20/20 | 4.234 / 19.030 |
++| Forty independent-check-basis restarts plus search | 20/20 | 20/20 | 0.989 / 3.252 |
++| Forty normalized min-sum restarts plus search | 20/20 | 20/20 | 0.459 / 1.875 |
++| Final mixed 256-restart configuration | 20/20 | 20/20 | 4.394 / 16.377 |
++
++The initial forty-restart binary and grouped implementations both reached full
++public recovery. Grouping reduced large-network inference CPU time from about
++4.54 seconds to 2.44 seconds in those initial runs. Their wall times were not
++used for final budget conclusions because some initial runs overlapped.
++
++The failed prior-only variants show that merely replacing the ranking by channel
++priors is insufficient. The single-restart and order-zero results separately
++justify inference diversity and nontrivial candidate search. A near-equal mean
++candidate cost can still conceal an incorrect logical sector: the order-zero
++large result costs 55.8173061911 versus the final 55.8083099185, but misses one
++frame. Logical labels, rather than cost alone, selected the final design.
++
++The final mixture retains sum-product, normalized min-sum, and randomized
++independent-check bases. Each individually works well on the public data;
++the mixture provides bounded diversity without choosing a single factorization
++on the basis of these forty labels. It also matched sum-product recovery in
++the two larger synthetic batches and was faster in the lower-prior batch.
++
++## Final algorithm
++
++1. **Exact reduction of equivalent mechanisms.** Mechanisms with identical
++   detector AND logical columns are merged by parity. Their effective probability
++   is `(1-product(1-2*p_j))/2`. An odd correction is expanded to the original
++   member with the lowest independent-mechanism cost. Identical detector rows
++   are deduplicated; their observations are not treated as extra evidence.
++
++2. **Exact four-state variables where justified.** A disjoint triple is combined
++   only after testing the detector and logical identities above. The four states
++   are `x=e_a XOR e_c`, `z=e_b XOR e_c`. Each state'"'s probability is the sum of
++   the probabilities of its two original three-bit representations. Ungrouped
++   mechanisms remain binary variables, so absence of this structure is allowed.
++   A check connects to a group's "'`x`, `z`, or `x XOR z`, as determined by the
++   supplied matrix, not by an assumed geometry or mechanism order.
++
++3. **Bounded, diverse inference.** At most 256 restarts, each with at most 80
++   iterations, use grouped variable-to-check marginal messages. The first run
++   uses the unperturbed true prior. Later runs vary prior temperature, Gaussian
++   state-energy perturbations, damping, and check-update approximation. One
++   quarter uses a randomized sparse-first independent subset of the original
++   checks; another quarter uses normalized min-sum. The remaining runs use
++   sum-product on all distinct original checks. All constraints remain present
++   in candidate validation and Gaussian elimination. Redundant constraints are
++   never counted as independent channel observations.
++
++4. **Rank-aware affine candidate search.** The least-reliable marginal bits are
++   offered first as elimination pivots, while joint posterior hard decisions
++   supply nonpivot values. Bit-packed GF(2) elimination computes an exact
++   syndrome solution and kernel vectors. Search considers every single kernel
++   move, all pairs among up to sixty moves selected by single-move candidate
++   cost, and up to three greedy kernel-improvement sweeps. Best-residual and
++   final-iteration inference states supply different bases. No assumption that
++   row count equals rank is made, and no full affine-space enumeration is used.
++
++5. **Probability-based selection and expansion.** All valid candidates are
++   compared under the original, unperturbed, grouped probabilities. Perturbed
++   priors affect proposals, not final scoring. The score sums
++   `-log(P_group(state)/P_group(0))`, exactly integrating the local redundant
++   representations that were merged. The selected group states are expanded to
++   minimum-cost original mechanism representatives. A final multiplication by
++   the ORIGINAL `H` checks every syndrome before the NPZ is written.
++
++The solver uses `L` solely to certify that reductions preserve logical effects;
++it does not receive or access target logical labels. It never loads development
++labels or any public input by a hardcoded path. All deployment information comes
++from the five arrays in the requested input NPZ.
++
++## Runtime and resource validation
++
++The exact final required CLI was run with CPU affinity restricted to one core,
++a 1.5-GiB address-space limit, and a 60-second subprocess timeout. The native
++library was deleted before the small run to exercise runtime compilation.
++
++| Final CLI case | Frames | Wall seconds | User CPU seconds | Peak RSS KiB |
++|---|---:|---:|---:|---:|
++| Public small, including cold compilation | 20 | 7.02 | 6.71 | 187300 |
++| Public large, compiled library present | 20 | 17.72 | 17.66 | 34396 |
++
++`benchmark.py` reproduces these checks and additionally runs a 24-frame,
++864-mechanism synthetic batch. Its exact results are stored in
++`validation_metrics.json`, `bounded_synthetic_runtime.json`, and
++`validation_cli.log`. The cold-compile memory peak includes the compiler; the
++inference-only process is much smaller. No SciPy or external decoding package
++is required: runtime uses NumPy, the standard library, and local C++17 source.
++
++The native frame deadline is `min(1.85, 46/frames)` seconds, checked between
++restarts. For 24 frames this allocates 44.4 seconds to search, with room for
++loading, preparation, compilation, and a final restart'"'s possible overshoot.
++This is a practical bounded-search policy rather than a hard real-time proof.
++OpenMP, MKL, and OpenBLAS thread counts are set to one before importing NumPy.
++
++## Additional robustness evidence
++
++"'`stress.py` forms two disconnected copies of the large public matrix, yielding
++288 detector rows and 864 mechanisms, and uses new independently sampled faults,
++perturbed heterogeneous priors, and row/column permutations. Two prior scales,
++1.0 and 1.6, were tested. Frames were retained only when the shipped repair was
++logically wrong and the sampled physical fault itself supplied a strictly
++lower-cost correct-sector witness. The synthetic soft rankings are noisy priors,
++NOT replays of the unavailable frontend, so this is not a reproduction of the
++hidden distribution. Both sum-product and mixed inference recover **24/24 at
++each scale**, with full syndrome consistency. Mixed elapsed times were 14.885
++and 33.036 seconds. See `stress_results.json` and `stress.log`.
++
++`invariance_checks.py` separately reports:
++
++- Random row and mechanism permutation of the public large batch: 20/20,
++  16.670 seconds.
++- Every mechanism split into two equivalent independent mechanisms with
++  appropriately adjusted priors, and every detector row duplicated: 288 by 864,
++  20/20, 17.431 seconds. The higher original-mechanism cost in this case is
++  expected because splitting changes the individual mechanism priors.
++- A freshly generated, non-quantum random sparse binary matrix with column
++  degrees 3, 4, and 5, 288 by 864, and eight random logical maps: 24/24,
++  24.974 seconds. It has no usable triple grouping (864 binary groups), exercising
++  the generic fallback rather than the public geometry.
++
++These engineering checks and their actual metrics are preserved in
++`invariance_results.json` and `invariance.log`. They do not establish a physical
++quantum-code threshold or guarantee generalization to a different topology.
++
++## Files, reproduction, and limitations
++
++The runtime deliverables are `solve.py`, `decoder.cpp`, and the built
++`decoder.so`. The library is rebuilt locally if missing or older than the source.
++`repair.py`, `baseline_solve.py`, and `validate.py` are unmodified copies of the
++starter modules for development reproduction. Other scripts and prediction
++files document experiments; the runtime imports none of them.
++
++Required invocation, from any working directory:
++
++```
++python /path/to/submission/solve.py --input /absolute/path/batch.npz --output /absolute/path/predictions.npz
++```
++
++Each prediction NPZ contains `correction` in original frame/mechanism order,
++`groups`, and a numeric `diagnostics` array. Diagnostic columns are grouped
++candidate energy, restart count, number of syndrome-valid BP iterations,
++native elapsed seconds, and number of best-candidate improvements. Diagnostic
++energy is not the validator'"'s original-mechanism cost. Environment variables
++prefixed "'`DECODER_` expose development ablations; default settings define the
++submission and do not need any environment configuration.
++
++This is an approximate decoder, not an optimum certificate. Exact integration
++covers duplicate mechanisms and detected neutral triples, not the entire
++quantum stabilizer space or every logical-sector partition function. High-noise,
++high-degree, or unusual degeneracy structures can defeat both BP proposals and
++limited-order affine search. At larger sizes some frames may stop at their time
++budget before exhausting the restart cap. Public success and the synthetic
++checks are encouraging but cannot prove the hidden-batch target. The original
++task and public input files were not modified.
+*** End Patch
+PATCH
+cat benchmark.log' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+**Finalizing the benchmark report**
+
+I need to finalize my benchmark report and ensure it’s written without further math. The tool developer date isn't my concern right now. I should check all deliverables using the `CLI --help` command since I need to be precise. I've saved proof of the 1 CPU memory usage. I must add a synthetic bounded table to the report, and I need to ensure that the actual benchmark batch is under 60 and correct.
+ succeeded in 8391ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/diagnosis.md
+{"name": "validation_small", "elapsed": 7.087807805975899, "cold_compile": true, "memory_limit_mib": 1536, "cpu_threads": 1, "wall_seconds": 7.02, "user_seconds": 6.71, "system_seconds": 0.3, "peak_rss_kib": 187300, "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 23.15063582274071, "mean_candidate_weight": 5.8}
+{"name": "validation_large", "elapsed": 17.731247115007136, "cold_compile": false, "memory_limit_mib": 1536, "cpu_threads": 1, "wall_seconds": 17.72, "user_seconds": 17.66, "system_seconds": 0.04, "peak_rss_kib": 34396, "frames": 20, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 55.80830991851877, "mean_candidate_weight": 14.6}
+{"name": "bounded_synthetic", "elapsed": 33.95524551603012, "cold_compile": false, "memory_limit_mib": 1536, "cpu_threads": 1, "wall_seconds": 33.94, "user_seconds": 33.9, "system_seconds": 0.01, "peak_rss_kib": 35140, "frames": 24, "syndrome_fraction": 1.0, "logical_recovery_fraction": 1.0, "score": 1.0, "mean_candidate_cost": 86.23819028394014, "mean_candidate_weight": 26.583333333333332}
+
+codex
+Final CLI checks pass: 40/40 public recoveries, and 24/24 maximum-size stress recoveries in 33.94 seconds.
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/diagnosis.md
+@@
+-   representations that were merged. The selected group states are expanded to
+-   minimum-cost original mechanism representatives. A final multiplication by
++   representations that were merged. Each selected group state uses a
++   minimum-cost representative under the reduced mechanism priors; merged
++   parity bits then expand to their cheapest original member. A final multiplication by
+@@
+ | Public small, including cold compilation | 20 | 7.02 | 6.71 | 187300 |
+ | Public large, compiled library present | 20 | 17.72 | 17.66 | 34396 |
++| 864-mechanism synthetic batch, prior scale 1.6 | 24 | 33.94 | 33.90 | 35140 |
+*** End Patch
+PATCH
+python solve.py --help
+python -m py_compile solve.py experiments.py benchmark.py stress.py invariance_checks.py
+python - <<'PY'
+from pathlib import Path
+import json
+import numpy as np
+root=Path('.')
+required=['solve.py','decoder.cpp','decoder.so','validation_small_predictions.npz','validation_large_predictions.npz','diagnosis.md']
+assert all((root/name).is_file() and (root/name).stat().st_size for name in required)
+for size in ['small','large']:
+ with np.load(root/('validation_'+size+'_predictions.npz'),allow_pickle=False) as data:
+  assert data['correction'].dtype==np.uint8
+  assert np.isin(data['correction'],[0,1]).all()
+  print(size,'shape',data['correction'].shape,'max frame seconds',data['diagnostics'][:,3].max(),'minimum restarts',data['diagnostics'][:,1].min())
+metrics=json.loads((root/'validation_metrics.json').read_text())
+assert len(metrics)==3
+assert all(item['logical_recovery_fraction']==1 and item['syndrome_fraction']==1 and item['wall_seconds']<60 for item in metrics)
+print('All required artifacts and constrained CLI validations passed.')
+PY
+ls -lh solve.py decoder.cpp decoder.so diagnosis.md validation_small_predictions.npz validation_large_predictions.npz validation_metrics.json baseline_metrics.json" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01
+ succeeded in 1341ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/diagnosis.md
+usage: solve.py [-h] --input INPUT --output OUTPUT
+
+options:
+  -h, --help       show this help message and exit
+  --input INPUT
+  --output OUTPUT
+small shape (20, 216) max frame seconds 0.496974387 minimum restarts 256.0
+large shape (20, 432) max frame seconds 1.559862886 minimum restarts 256.0
+All required artifacts and constrained CLI validations passed.
+-rw-rw-r-- 1 xuandong xuandong  440 Aug 27 01:20 baseline_metrics.json
+-rw-rw-r-- 1 xuandong xuandong  19K Aug 27 01:13 decoder.cpp
+-rwxrwxr-x 1 xuandong xuandong 100K Aug 27 01:19 decoder.so
+-rw-rw-r-- 1 xuandong xuandong  13K Aug 27 01:22 diagnosis.md
+-rw-rw-r-- 1 xuandong xuandong 4.1K Aug 27 01:19 solve.py
+-rw-rw-r-- 1 xuandong xuandong 1.5K Aug 27 01:19 validation_large_predictions.npz
+-rw-rw-r-- 1 xuandong xuandong 1.4K Aug 27 01:20 validation_metrics.json
+-rw-rw-r-- 1 xuandong xuandong 1.3K Aug 27 01:19 validation_small_predictions.npz
+
+Saved required prediction NPZs and diagnosis, checked CLI and Python syntax, and passed all three final runs under one-core affinity, a 1.5-GiB address-space limit, and a 60-second timeout, including cold compilation.
+  ✓ Inspect prototype and corpus structure
+  ✓ Measure baseline and test recovery strategies
+  ✓ Implement and tune bounded decoder
+  ✓ Validate CLI and save diagnostic deliverables
+codex
+Submission complete at `/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/solve.py:1`.
+
+- **Public recovery:** 20/20 small and 20/20 large, with 100% syndrome consistency; baseline recovered none.
+- **Maximum-size synthetic check:** 24/24 recovered in 33.94 seconds.
+- Required CLI verified under one CPU core and a 1.5-GiB memory limit, including cold compilation.
+- Both required prediction files, `diagnosis.md`, experiment results, and validation logs are saved alongside the solver.
+
+These curated-corpus results are not physical error-rate estimates.
+tokens used
+95,257
+Submission complete at `/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_03/fresh_01/solve.py:1`.
+
+- **Public recovery:** 20/20 small and 20/20 large, with 100% syndrome consistency; baseline recovered none.
+- **Maximum-size synthetic check:** 24/24 recovered in 33.94 seconds.
+- Required CLI verified under one CPU core and a 1.5-GiB memory limit, including cold compilation.
+- Both required prediction files, `diagnosis.md`, experiment results, and validation logs are saved alongside the solver.
+
+These curated-corpus results are not physical error-rate estimates.

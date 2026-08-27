@@ -1,0 +1,2642 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: workspace-write [workdir]
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 01a04224-234e-7cf3-829a-d8b3f81432fc
+--------
+user
+You are a fresh independent solver. Read /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/TASK.md and solve the task. Your final self-contained submission must be rooted at /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01/solve.py; place all other deliverables in /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01. Copy any starter modules you need into your output workspace before editing. Do not modify the original TASK.md or public inputs. Use the public diagnostics to run, inspect, revise, and validate your scientific solution. You have 1200 seconds. Work autonomously and do not ask the user to run commands. Only /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02 and /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01 are available as task/work directories. Do not search for author solutions, hidden evaluations, other tasks or prior attempts. No network or additional dependencies are needed. Finish by checking the required CLI and saving validation_predictions.json and diagnosis.md. The output directory may contain runner logs; they are not task input.
+codex
+I’ll read the task, inspect public inputs, and build a validated solution in the output workspace.
+
+exec
+/bin/bash -lc "pwd; ls -la; cat TASK.md; printf '\\n--- instructions ---\\n'; rg --files -g 'AGENTS.md' -g '"'!**/.git/**'"' . /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01 2>/dev/null" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02
+ exited 1 in 153ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02
+total 24
+drwxrwxr-x 7 xuandong xuandong 4096 Aug 27 00:34 .
+drwx------ 3 xuandong xuandong   60 Aug 27 00:34 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 00:34 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 00:34 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 00:34 .git
+-rw-rw-r-- 1 xuandong xuandong 8973 Aug 27 00:30 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 00:27 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 00:30 software
+# Calibrate and deploy a burst-aware detector decoder
+
+## Mission
+
+An experiment's decoder was calibrated as if its fault rates were known and its
+shots were identically distributed. Its logical-risk estimates fail after the
+instrument starts drifting between noise regimes. You have **syndrome-only
+calibration logs**, a small prototype, and public deployment diagnostics. Infer
+a defensible noise model and deploy a soft-output decoder on new sparse detector
+networks and dose schedules.
+
+This is a system-identification and scientific-software repair task. The true
+fault histories, calibration regime labels, and fault probabilities are not
+provided. Choosing the model's complexity, fitting it from parity observations,
+and integrating it with a scalable decoder are your responsibility. A single
+hard fault hypothesis is not an adequate probability model.
+
+## Files and workflow
+
+- `input/calibration.json`: three small probe networks, rate-family membership,
+  known mechanism biases, and a list of experimental settings.
+- `input/calibration_records.npz`: arrays `setting` and `syndrome`, both shaped
+  `(12000, 5)`. A row is one independent five-shot calibration sequence. Entries
+  of `setting` index the metadata settings; each packed `syndrome` is the XOR
+  detector record, with detector zero in the least significant bit. All probe
+  detectors were observed. There are no fault or regime labels in this file.
+- `input/micro.json`, `input/micro_expected.json`: small deployment checks.
+- `input/validation.json`, `input/validation_expected.json`: larger public
+  deployment checks. Their probabilities describe the experiment, not a
+  prescribed fitted parameter vector.
+- `software/`: executable but scientifically inadequate `train.py`, `solve.py`,
+  binary algebra and diagnostic plumbing. You may repair or replace these.
+
+Run the prototype, inspect its failures, and compare at least two materially
+different calibration hypotheses or fitting choices using measured evidence.
+Use that evidence to revise your model or implementation, then rerun deployment
+validation. Splitting calibration sequences rather than individual shots avoids
+leaking temporal information. You may refit your selected model on all records.
+
+## Supported physical family
+
+The experiment has an unknown number `K` of latent regimes, between one and
+`max_modes=3`. Every sequence starts with a fresh draw from an unknown initial
+distribution. Between adjacent shots, the regime follows an unknown,
+time-homogeneous Markov transition matrix. The same parameters apply to
+calibration and deployment. Regime labels are not physically identifiable;
+do not infer meaning from an arbitrary label order. A single regime, an
+independent-shot mixture, and persistent regimes are plausible hypotheses.
+
+Conditional on the current regime, fault mechanisms in a shot are independent.
+Mechanism `j`, belonging to `rate_group=g`, has probability `p_j` determined by
+
+```
+log(p_j / (1-p_j)) = offset[regime, g] + slope[g] * dose + bias[j].
+```
+
+`bias[j]` and `dose` are known. The offsets, slopes, initial distribution and
+transition matrix must be inferred. Slopes are shared across regimes. The
+physical parameters are constant across networks; the networks and grouping of
+mechanisms vary. There is no extra temporal dependence once regimes are known.
+Settings are independently randomized controls, not regime observations. A dose
+does not itself modify the transition matrix. Rates are strictly between zero
+and one. Single-mode and independent-shot models are subfamilies, not assertions
+that they fit the data.
+
+## Detector and logical semantics
+
+All detector algebra is over GF(2). Each mechanism independently toggles every
+detector in its `detectors` list. The complete detector record is `H e mod 2`,
+where column `j` is that list and `e` is the binary fault vector. Duplicate
+supports are separate independent mechanisms, not exclusive alternatives.
+Dependent rows and columns are allowed.
+
+In deployment, a shot's `syndrome` lists bits or `null`. Only actual bits are
+conditioned on; `null` is an unobserved detector, not zero. Its logical label is
+the bitwise XOR of `logical_mask` over active mechanisms. Label bit `b` is
+observable `b`. A mechanism with no detector support can still affect the
+logical label. Fault vectors compatible with the same record and label
+contribute their **summed** probability, not just their maximum probability.
+
+A query gives distinct fault indices and asks for the probability that their
+XOR is one. Every requested shot posterior is conditioned on **all observed
+shots of its deployment sequence**, including future records. You must report
+the joint logical-label distribution, not a product of observable marginals.
+`switch_probability[t]` is the posterior probability that the latent regime
+changes between shots `t` and `t+1`, given the complete observed sequence.
+`log_evidence` is the natural logarithm of its full observed-record probability,
+integrating regimes and all unobserved fault and detector variables.
+
+`detector_regions` is a detector-to-hardware-region map. It is not a declaration
+of independence: faults can cross region boundaries. IDs, column order, row
+order and region numbering are opaque. No particular factorization or decoding
+algorithm is required.
+
+## Interfaces and required output
+
+Create a self-contained submission directory with these entry points:
+
+```
+python train.py --calibration /path/calibration.json --records /path/calibration_records.npz --output /path/model.json
+python solve.py --input /path/cases.json --output /path/predictions.json
+```
+
+Train during development and save your fitted `model.json` beside `solve.py`.
+The evaluator does not retrain it. The model file's internal schema is up to you;
+the prototype schema is merely a starting point. Retain a reproducible training
+entry point and any modules it needs. Do not embed reference prediction tables.
+
+Deployment input is `{"cases": [...]}`. A case contains `id`, `num_detectors`,
+`num_observables`, `detector_regions`, `faults`, and `shots`. A fault gives
+`detectors`, `logical_mask`, `rate_group`, and `bias`. A shot gives `id`, `dose`,
+`syndrome`, and `queries`. JSON examples are supplied in full.
+
+Write `{"cases": [...]}` with matching case/shot IDs. Each case contains finite
+`log_evidence`, `switch_probability` of length `number_of_shots - 1`, and `shots`.
+Each output shot contains:
+
+- `id`;
+- `logical_posterior`: normalized probabilities indexed by integer label, length
+  `2**num_observables`;
+- `logical_decision`: any maximum-posterior label;
+- `query_probability`: query-ID to posterior-probability mapping.
+
+Also deliver `validation_predictions.json` and `diagnosis.md`. The latter should
+record real baseline and final measurements, the alternatives you compared,
+your selected calibration/inference approach, actual commands, and remaining
+limitations. A short technical report is sufficient.
+
+## Environment and resource envelope
+
+- Python 3.10, NumPy 1.21 and SciPy 1.8; no network, installations, external
+  decoder, or GPU is needed. You may use standard-library modules.
+- Deployment: one sequence per invocation, one CPU thread, **60 seconds** and
+  **1.5 GiB address space**. Training happens beforehand within your authoring
+  time; a fitted artifact is required.
+- Up to 320 mechanisms, 220 detectors, 8 shots and 4 logical observables.
+  Networks have 3--10 regions. Each region has at most 30 wholly internal
+  mechanisms and at most 8 crossing mechanisms. Full-network enumeration is
+  not viable. Probe networks are much smaller than deployment networks.
+- Held-out cases use new detector networks, longer sequences, masks, and dose
+  schedules. Calibration uses doses -0.8, 0 and 0.8; deployment may reach ±1.4.
+  The specified log-odds law remains valid there. This is transfer under a known
+  physical family, not permission to assume constant rates outside calibration.
+
+## Observable success
+
+The score measures final predictive behavior on three withheld sequences, not
+whether your coefficients match a secret parameter vector: joint logical
+probabilities (40%), fault-parity query probabilities (20%), normalized
+log-evidence accuracy (20%), and regime-switch posteriors (20%).
+
+Full-accuracy bands are logical total-variation error ≤0.03, query absolute error
+≤0.03, switch-probability absolute error ≤0.04, and log-evidence absolute error
+divided by the number of observed detector bits ≤0.01. The evidence normalization
+allows finite-calibration uncertainty; these are not floating-point tolerances.
+Larger errors receive partial credit. Finite normalized probabilities, robust
+execution, and truthful diagnostic artifacts are also required for a pass.
+
+You can run `validate.py --expected ... --actual ... --input ...` from your
+workspace to see the same kinds of discrepancies on public cases. Passing small
+probes does not demonstrate scalable deployment or correct temporal inference.
+
+--- instructions ---
+
+**Managing time effectively**
+
+I have about 1200 seconds, roughly 20 minutes, and I really need to manage my time well. It seems like I need to check files right away; however, I don’t have explicit permission for subagents. Since there’s no network needed for this task, which involves solving scientific problems rather than seeking facts, I won't access the web. I should also figure out the path differences between /home and /srv, likely checking symlinks. Let's make a solid plan!
+  → Inspect prototype and measure baseline
+  • Compare and fit calibration hypotheses
+  • Implement scalable smoothed probabilistic decoding
+  • Validate outputs and document measurements
+exec
+/bin/bash -lc 'ls -la software input; for f in software/*.py; do echo "--- $f"; sed -n '"'1,240p' \""'$f"; done; printf '"'\\n--- calibration ---\\n'; cat input/calibration.json; printf '\\n--- path ---\\n'; readlink -f /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01; ls -la /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02
+ succeeded in 149ms:
+input:
+total 208
+drwxrwxr-x 2 xuandong xuandong  4096 Aug 27 00:27 .
+drwxrwxr-x 7 xuandong xuandong  4096 Aug 27 00:34 ..
+-rw-rw-r-- 1 xuandong xuandong  6582 Aug 27 00:32 calibration.json
+-rw-rw-r-- 1 xuandong xuandong 90102 Aug 27 00:32 calibration_records.npz
+-rw-rw-r-- 1 xuandong xuandong 16267 Aug 27 00:32 micro.json
+-rw-rw-r-- 1 xuandong xuandong  6971 Aug 27 00:32 micro_expected.json
+-rw-rw-r-- 1 xuandong xuandong 71181 Aug 27 00:32 validation.json
+-rw-rw-r-- 1 xuandong xuandong  6907 Aug 27 00:32 validation_expected.json
+
+software:
+total 28
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 00:30 .
+drwxrwxr-x 7 xuandong xuandong 4096 Aug 27 00:34 ..
+-rw-rw-r-- 1 xuandong xuandong 1042 Aug 27 00:32 binary.py
+-rw-rw-r-- 1 xuandong xuandong  233 Aug 27 00:30 model.json
+-rw-rw-r-- 1 xuandong xuandong 2196 Aug 27 00:30 solve.py
+-rw-rw-r-- 1 xuandong xuandong  884 Aug 27 00:30 train.py
+-rw-rw-r-- 1 xuandong xuandong 2070 Aug 27 00:30 validate.py
+--- software/binary.py
+import numpy as np
+
+
+def solve_binary(matrix, syndrome, order):
+    matrix = matrix[:, order].astype(np.uint8).copy()
+    right = np.asarray(syndrome, dtype=np.uint8).copy()
+    row = 0
+    pivots = []
+    for column in range(matrix.shape[1]):
+        candidates = np.flatnonzero(matrix[row:, column])
+        if not len(candidates):
+            continue
+        pivot = row + int(candidates[0])
+        matrix[[row, pivot]] = matrix[[pivot, row]]
+        right[[row, pivot]] = right[[pivot, row]]
+        for target in range(matrix.shape[0]):
+            if target != row and matrix[target, column]:
+                matrix[target] ^= matrix[row]
+                right[target] ^= right[row]
+        pivots.append(column)
+        row += 1
+        if row == matrix.shape[0]:
+            break
+    solution = np.zeros(matrix.shape[1], dtype=np.uint8)
+    for pivot_row, pivot_column in enumerate(pivots):
+        solution[pivot_column] = right[pivot_row]
+    restored = np.zeros_like(solution)
+    restored[order] = solution
+    return restored
+--- software/solve.py
+import argparse
+import json
+import math
+from pathlib import Path
+
+import numpy as np
+from scipy.special import expit
+
+from binary import solve_binary
+
+
+def decode_case(case, model):
+    initial = np.asarray(model['initial'])
+    offsets = np.asarray(model['offsets'])
+    slopes = np.asarray(model['slopes'])
+    output = []
+    log_evidence = 0.0
+    for shot in case['shots']:
+        rates = [float(initial @ expit(offsets[:, fault['rate_group']] + slopes[fault['rate_group']] * shot['dose'] + fault['bias']))
+                 for fault in case['faults']]
+        matrix = np.asarray([[int(row in fault['detectors']) for fault in case['faults']]
+                             for row in range(case['num_detectors'])], dtype=np.uint8)
+        syndrome = [0 if value is None else value for value in shot['syndrome']]
+        correction = solve_binary(matrix, syndrome, np.argsort(-np.asarray(rates)))
+        label = 0
+        log_probability = 0.0
+        for index, fault in enumerate(case['faults']):
+            if correction[index]:
+                label ^= fault['logical_mask']
+            log_probability += math.log(rates[index] if correction[index] else 1 - rates[index])
+        posterior = [float(index == label) for index in range(1 << case['num_observables'])]
+        log_evidence += log_probability
+        output.append({'id': shot['id'], 'logical_posterior': posterior, 'logical_decision': label,
+                       'query_probability': {query['id']: float(correction[query['faults']].sum() % 2)
+                                             for query in shot['queries']}})
+    return {'id': case['id'], 'log_evidence': log_evidence, 'switch_probability': [0.0] * (len(output) - 1), 'shots': output}
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', required=True)
+    parser.add_argument('--output', required=True)
+    arguments = parser.parse_args()
+    model = json.loads(Path(__file__).with_name('model.json').read_text())
+    dataset = json.loads(Path(arguments.input).read_text())
+    Path(arguments.output).write_text(json.dumps({'cases': [decode_case(case, model) for case in dataset['cases']]}, indent=2) + '\n')
+--- software/train.py
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--calibration', required=True)
+    parser.add_argument('--records', required=True)
+    parser.add_argument('--output', required=True)
+    arguments = parser.parse_args()
+    metadata = json.loads(Path(arguments.calibration).read_text())
+    records = np.load(arguments.records)
+    mean_occupancy = np.mean([int(value).bit_count() / 8 for value in records['syndrome'].ravel()])
+    rate = float(np.clip(mean_occupancy / 3, 0.01, 0.35))
+    model = {'offsets': [[float(np.log(rate / (1-rate)))] * metadata['rate_groups']],
+             'slopes': [0.0] * metadata['rate_groups'], 'initial': [1.0], 'transition': [[1.0]]}
+    Path(arguments.output).write_text(json.dumps(model, indent=2) + '\n')
+
+
+if __name__ == '__main__':
+    main()
+--- software/validate.py
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+
+
+def compare(expected, actual, inputs):
+    candidates = {case['id']: case for case in actual['cases']}
+    cases = {case['id']: case for case in inputs['cases']}
+    output = []
+    for truth in expected['cases']:
+        predicted = candidates[truth['id']]
+        shots = {shot['id']: shot for shot in predicted['shots']}
+        logical_errors = []
+        query_errors = []
+        for shot in truth['shots']:
+            candidate = shots[shot['id']]
+            logical_errors.append(np.abs(np.asarray(candidate['logical_posterior']) - shot['logical_posterior']).sum() / 2)
+            query_errors.extend(abs(candidate['query_probability'][query] - value)
+                                for query, value in shot['query_probability'].items())
+        switches = np.abs(np.asarray(predicted['switch_probability']) - truth['switch_probability'])
+        observed = sum(value is not None for shot in cases[truth['id']]['shots'] for value in shot['syndrome'])
+        output.append({'id': truth['id'], 'logical_tv_mean': float(np.mean(logical_errors)),
+                       'logical_tv_max': float(max(logical_errors)), 'query_abs_mean': float(np.mean(query_errors)),
+                       'query_abs_max': float(max(query_errors)), 'switch_abs_mean': float(np.mean(switches)),
+                       'switch_abs_max': float(max(switches)),
+                       'log_evidence_per_observed_bit_abs': abs(predicted['log_evidence'] - truth['log_evidence']) / observed})
+    return output
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--expected', required=True)
+    parser.add_argument('--actual', required=True)
+    parser.add_argument('--input', required=True)
+    arguments = parser.parse_args()
+    print(json.dumps(compare(json.loads(Path(arguments.expected).read_text()),
+                             json.loads(Path(arguments.actual).read_text()),
+                             json.loads(Path(arguments.input).read_text())), indent=2))
+
+--- calibration ---
+{
+  "rate_groups": 3,
+  "max_modes": 3,
+  "probes": [
+    {
+      "id": "probe_0",
+      "num_detectors": 6,
+      "faults": [
+        {
+          "detectors": [
+            1,
+            2,
+            5
+          ],
+          "rate_group": 0,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            1,
+            4,
+            5
+          ],
+          "rate_group": 1,
+          "bias": 0.0
+        },
+        {
+          "detectors": [
+            3,
+            4
+          ],
+          "rate_group": 2,
+          "bias": 0.0
+        },
+        {
+          "detectors": [
+            0,
+            4,
+            5
+          ],
+          "rate_group": 0,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            2,
+            4,
+            5
+          ],
+          "rate_group": 1,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            1,
+            4
+          ],
+          "rate_group": 2,
+          "bias": -0.25
+        },
+        {
+          "detectors": [
+            0,
+            4,
+            5
+          ],
+          "rate_group": 0,
+          "bias": 0.0
+        },
+        {
+          "detectors": [
+            2,
+            3
+          ],
+          "rate_group": 1,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            1,
+            2,
+            4,
+            5
+          ],
+          "rate_group": 2,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            0,
+            1,
+            2
+          ],
+          "rate_group": 0,
+          "bias": 0.0
+        },
+        {
+          "detectors": [
+            2,
+            3,
+            5
+          ],
+          "rate_group": 1,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            1,
+            4
+          ],
+          "rate_group": 2,
+          "bias": -0.25
+        }
+      ]
+    },
+    {
+      "id": "probe_1",
+      "num_detectors": 7,
+      "faults": [
+        {
+          "detectors": [
+            1,
+            3,
+            4
+          ],
+          "rate_group": 0,
+          "bias": -0.25
+        },
+        {
+          "detectors": [
+            0,
+            2,
+            4,
+            5
+          ],
+          "rate_group": 1,
+          "bias": -0.25
+        },
+        {
+          "detectors": [
+            0,
+            4,
+            5,
+            6
+          ],
+          "rate_group": 2,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            0,
+            1,
+            3,
+            6
+          ],
+          "rate_group": 0,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            0,
+            2,
+            4,
+            6
+          ],
+          "rate_group": 1,
+          "bias": 0.0
+        },
+        {
+          "detectors": [
+            0,
+            1
+          ],
+          "rate_group": 2,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            1,
+            3,
+            6
+          ],
+          "rate_group": 0,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            5,
+            6
+          ],
+          "rate_group": 1,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            0,
+            2,
+            6
+          ],
+          "rate_group": 2,
+          "bias": -0.25
+        },
+        {
+          "detectors": [
+            3,
+            5
+          ],
+          "rate_group": 0,
+          "bias": 0.0
+        },
+        {
+          "detectors": [
+            5,
+            6
+          ],
+          "rate_group": 1,
+          "bias": -0.25
+        },
+        {
+          "detectors": [
+            2,
+            3,
+            4
+          ],
+          "rate_group": 2,
+          "bias": -0.25
+        }
+      ]
+    },
+    {
+      "id": "probe_2",
+      "num_detectors": 8,
+      "faults": [
+        {
+          "detectors": [
+            2,
+            4,
+            5,
+            7
+          ],
+          "rate_group": 0,
+          "bias": -0.25
+        },
+        {
+          "detectors": [
+            2,
+            5,
+            7
+          ],
+          "rate_group": 1,
+          "bias": 0.0
+        },
+        {
+          "detectors": [
+            2,
+            5,
+            6,
+            7
+          ],
+          "rate_group": 2,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            1,
+            4,
+            6
+          ],
+          "rate_group": 0,
+          "bias": 0.0
+        },
+        {
+          "detectors": [
+            2,
+            4,
+            5
+          ],
+          "rate_group": 1,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            0,
+            4,
+            6
+          ],
+          "rate_group": 2,
+          "bias": 0.0
+        },
+        {
+          "detectors": [
+            2,
+            3,
+            4,
+            6
+          ],
+          "rate_group": 0,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            0,
+            2,
+            5,
+            6
+          ],
+          "rate_group": 1,
+          "bias": 0.25
+        },
+        {
+          "detectors": [
+            3,
+            7
+          ],
+          "rate_group": 2,
+          "bias": 0.0
+        },
+        {
+          "detectors": [
+            1,
+            3,
+            4
+          ],
+          "rate_group": 0,
+          "bias": -0.25
+        },
+        {
+          "detectors": [
+            1,
+            4,
+            7
+          ],
+          "rate_group": 1,
+          "bias": -0.25
+        },
+        {
+          "detectors": [
+            1,
+            2,
+            6,
+            7
+          ],
+          "rate_group": 2,
+          "bias": 0.25
+        }
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "probe": "probe_0",
+      "dose": -0.8
+    },
+    {
+      "probe": "probe_0",
+      "dose": 0.0
+    },
+    {
+      "probe": "probe_0",
+      "dose": 0.8
+    },
+    {
+      "probe": "probe_1",
+      "dose": -0.8
+    },
+    {
+      "probe": "probe_1",
+      "dose": 0.0
+    },
+    {
+      "probe": "probe_1",
+      "dose": 0.8
+    },
+    {
+      "probe": "probe_2",
+      "dose": -0.8
+    },
+    {
+      "probe": "probe_2",
+      "dose": 0.0
+    },
+    {
+      "probe": "probe_2",
+      "dose": 0.8
+    }
+  ],
+  "records": {
+    "arrays": [
+      "setting",
+      "syndrome"
+    ],
+    "shape": [
+      12000,
+      5
+    ],
+    "encoding": "syndrome integers use detector zero as the least significant bit"
+  }
+}
+
+--- path ---
+total 20
+drwxrwxr-x 5 xuandong xuandong  4096 Aug 27 00:34 .
+drwx------ 3 xuandong xuandong    60 Aug 27 00:34 ..
+dr-xr-xr-x 2 xuandong xuandong    40 Aug 27 00:34 .agents
+dr-xr-xr-x 2 xuandong xuandong    40 Aug 27 00:34 .codex
+dr-xr-xr-x 2 xuandong xuandong    40 Aug 27 00:34 .git
+-rw-rw-r-- 1 xuandong xuandong 12837 Aug 27 00:34 transcript.log
+
+exec
+/bin/bash -lc "cat software/train.py software/validate.py software/model.json; printf '\\n--- metadata summaries ---\\n'; python - <<'PY'
+import json
+from collections import Counter
+for name in ['calibration','micro','validation']:
+ data=json.load(open('input/'+name+'.json'))
+ if name=='calibration':
+  print(name,{k:v for k,v in data.items() if k not in ['probes','settings','records']})
+  for p in data['probes']: print(p['id'],p['num_detectors'],len(p['faults']))
+ else:
+  for case in data['cases']:
+   regions=case['detector_regions']; counts=Counter(); boundary=[]
+   for i,f in enumerate(case['faults']):
+    reg=set(regions[d] for d in f['detectors'])
+    if len(reg)>1: boundary.append((i,sorted(reg),f['detectors']))
+    else: counts[tuple(reg)]+=1
+   print(name,case['id'],'det',case['num_detectors'],'obs',case['num_observables'],'faults',len(case['faults']),'regions',Counter(regions),'internal',counts,'cross',len(boundary),'shots',len(case['shots']))
+   print('boundary',boundary)
+   for s in case['shots']: print(s['id'],'dose',s['dose'],'observed',sum(x is not None for x in s['syndrome']),'queries',s['queries'])
+PY
+cp software/{train.py,solve.py,binary.py,validate.py,model.json} /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01/" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02
+ succeeded in 147ms:
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--calibration', required=True)
+    parser.add_argument('--records', required=True)
+    parser.add_argument('--output', required=True)
+    arguments = parser.parse_args()
+    metadata = json.loads(Path(arguments.calibration).read_text())
+    records = np.load(arguments.records)
+    mean_occupancy = np.mean([int(value).bit_count() / 8 for value in records['syndrome'].ravel()])
+    rate = float(np.clip(mean_occupancy / 3, 0.01, 0.35))
+    model = {'offsets': [[float(np.log(rate / (1-rate)))] * metadata['rate_groups']],
+             'slopes': [0.0] * metadata['rate_groups'], 'initial': [1.0], 'transition': [[1.0]]}
+    Path(arguments.output).write_text(json.dumps(model, indent=2) + '\n')
+
+
+if __name__ == '__main__':
+    main()
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+
+
+def compare(expected, actual, inputs):
+    candidates = {case['id']: case for case in actual['cases']}
+    cases = {case['id']: case for case in inputs['cases']}
+    output = []
+    for truth in expected['cases']:
+        predicted = candidates[truth['id']]
+        shots = {shot['id']: shot for shot in predicted['shots']}
+        logical_errors = []
+        query_errors = []
+        for shot in truth['shots']:
+            candidate = shots[shot['id']]
+            logical_errors.append(np.abs(np.asarray(candidate['logical_posterior']) - shot['logical_posterior']).sum() / 2)
+            query_errors.extend(abs(candidate['query_probability'][query] - value)
+                                for query, value in shot['query_probability'].items())
+        switches = np.abs(np.asarray(predicted['switch_probability']) - truth['switch_probability'])
+        observed = sum(value is not None for shot in cases[truth['id']]['shots'] for value in shot['syndrome'])
+        output.append({'id': truth['id'], 'logical_tv_mean': float(np.mean(logical_errors)),
+                       'logical_tv_max': float(max(logical_errors)), 'query_abs_mean': float(np.mean(query_errors)),
+                       'query_abs_max': float(max(query_errors)), 'switch_abs_mean': float(np.mean(switches)),
+                       'switch_abs_max': float(max(switches)),
+                       'log_evidence_per_observed_bit_abs': abs(predicted['log_evidence'] - truth['log_evidence']) / observed})
+    return output
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--expected', required=True)
+    parser.add_argument('--actual', required=True)
+    parser.add_argument('--input', required=True)
+    arguments = parser.parse_args()
+    print(json.dumps(compare(json.loads(Path(arguments.expected).read_text()),
+                             json.loads(Path(arguments.actual).read_text()),
+                             json.loads(Path(arguments.input).read_text())), indent=2))
+{
+  "offsets": [
+    [
+      -2.2379523358574747,
+      -2.2379523358574747,
+      -2.2379523358574747
+    ]
+  ],
+  "slopes": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "initial": [
+    1.0
+  ],
+  "transition": [
+    [
+      1.0
+    ]
+  ]
+}
+
+--- metadata summaries ---
+calibration {'rate_groups': 3, 'max_modes': 3}
+probe_0 6 12
+probe_1 7 12
+probe_2 8 12
+micro micro_0 det 6 obs 3 faults 13 regions Counter({1: 2, 0: 2, 2: 2}) internal Counter({(2,): 3, (1,): 3, (0,): 3, (): 1}) cross 3 shots 3
+boundary [(1, [0, 2], [2, 3, 4, 5]), (6, [0, 1], [0, 1, 2, 3]), (9, [1, 2], [0, 1, 4, 5])]
+shot_0 dose -0.8 observed 6 queries [{'id': 'local', 'faults': [10]}, {'id': 'alternate', 'faults': [11]}, {'id': 'boundary', 'faults': [6]}, {'id': 'cross_region', 'faults': [10, 12]}, {'id': 'silent', 'faults': [4]}, {'id': 'mixed', 'faults': [4, 6, 11]}]
+shot_1 dose 0.8 observed 5 queries [{'id': 'local', 'faults': [10]}, {'id': 'alternate', 'faults': [11]}, {'id': 'boundary', 'faults': [9]}, {'id': 'cross_region', 'faults': [10, 12]}, {'id': 'silent', 'faults': [4]}, {'id': 'mixed', 'faults': [4, 6, 11]}]
+shot_2 dose 0.0 observed 6 queries [{'id': 'local', 'faults': [10]}, {'id': 'alternate', 'faults': [11]}, {'id': 'boundary', 'faults': [1]}, {'id': 'cross_region', 'faults': [10, 12]}, {'id': 'silent', 'faults': [4]}, {'id': 'mixed', 'faults': [4, 6, 11]}]
+micro micro_1 det 6 obs 3 faults 13 regions Counter({0: 2, 2: 2, 1: 2}) internal Counter({(2,): 3, (1,): 3, (0,): 3, (): 1}) cross 3 shots 3
+boundary [(4, [0, 2], [0, 1, 3, 4]), (11, [0, 1], [0, 2, 3, 5]), (12, [1, 2], [1, 2, 4, 5])]
+shot_0 dose -0.8 observed 6 queries [{'id': 'local', 'faults': [6]}, {'id': 'alternate', 'faults': [8]}, {'id': 'boundary', 'faults': [11]}, {'id': 'cross_region', 'faults': [5, 6]}, {'id': 'silent', 'faults': [0]}, {'id': 'mixed', 'faults': [0, 8, 11]}]
+shot_1 dose 0.8 observed 5 queries [{'id': 'local', 'faults': [6]}, {'id': 'alternate', 'faults': [8]}, {'id': 'boundary', 'faults': [12]}, {'id': 'cross_region', 'faults': [5, 6]}, {'id': 'silent', 'faults': [0]}, {'id': 'mixed', 'faults': [0, 8, 11]}]
+shot_2 dose 0.0 observed 4 queries [{'id': 'local', 'faults': [6]}, {'id': 'alternate', 'faults': [8]}, {'id': 'boundary', 'faults': [4]}, {'id': 'cross_region', 'faults': [5, 6]}, {'id': 'silent', 'faults': [0]}, {'id': 'mixed', 'faults': [0, 8, 11]}]
+micro micro_2 det 6 obs 3 faults 13 regions Counter({0: 2, 1: 2, 2: 2}) internal Counter({(1,): 3, (2,): 3, (0,): 3, (): 1}) cross 3 shots 3
+boundary [(3, [1, 2], [2, 3, 4, 5]), (5, [0, 2], [0, 1, 3, 5]), (9, [0, 1], [0, 1, 2, 4])]
+shot_0 dose -0.8 observed 6 queries [{'id': 'local', 'faults': [4]}, {'id': 'alternate', 'faults': [8]}, {'id': 'boundary', 'faults': [9]}, {'id': 'cross_region', 'faults': [4, 7]}, {'id': 'silent', 'faults': [6]}, {'id': 'mixed', 'faults': [6, 8, 9]}]
+shot_1 dose 0.8 observed 6 queries [{'id': 'local', 'faults': [4]}, {'id': 'alternate', 'faults': [8]}, {'id': 'boundary', 'faults': [3]}, {'id': 'cross_region', 'faults': [4, 7]}, {'id': 'silent', 'faults': [6]}, {'id': 'mixed', 'faults': [6, 8, 9]}]
+shot_2 dose 0.0 observed 4 queries [{'id': 'local', 'faults': [4]}, {'id': 'alternate', 'faults': [8]}, {'id': 'boundary', 'faults': [5]}, {'id': 'cross_region', 'faults': [4, 7]}, {'id': 'silent', 'faults': [6]}, {'id': 'mixed', 'faults': [6, 8, 9]}]
+validation dose_ring det 56 obs 3 faults 81 regions Counter({1: 14, 3: 14, 0: 14, 2: 14}) internal Counter({(3,): 18, (1,): 18, (2,): 18, (0,): 18, (): 1}) cross 8 shots 4
+boundary [(0, [0, 1], [3, 8, 19, 22, 23, 24, 44, 50]), (6, [1, 2], [22, 32, 34, 37, 38, 44]), (14, [2, 3], [6, 11, 12, 18, 26, 35, 47, 54]), (16, [2, 3], [6, 11, 34, 35, 48]), (22, [1, 2], [7, 9, 22, 32, 35, 44, 49, 51]), (24, [0, 1], [1, 5, 40, 44, 50]), (25, [0, 3], [15, 18, 26, 50, 54]), (48, [0, 3], [14, 20, 25, 28, 29, 33, 50, 55])]
+shot_0 dose -0.8 observed 56 queries [{'id': 'local', 'faults': [28]}, {'id': 'alternate', 'faults': [34]}, {'id': 'boundary', 'faults': [24]}, {'id': 'cross_region', 'faults': [28, 45]}, {'id': 'silent', 'faults': [77]}, {'id': 'mixed', 'faults': [24, 34, 77]}]
+shot_1 dose 0.0 observed 54 queries [{'id': 'local', 'faults': [28]}, {'id': 'alternate', 'faults': [34]}, {'id': 'boundary', 'faults': [0]}, {'id': 'cross_region', 'faults': [28, 45]}, {'id': 'silent', 'faults': [77]}, {'id': 'mixed', 'faults': [24, 34, 77]}]
+shot_2 dose 0.8 observed 54 queries [{'id': 'local', 'faults': [28]}, {'id': 'alternate', 'faults': [34]}, {'id': 'boundary', 'faults': [6]}, {'id': 'cross_region', 'faults': [28, 45]}, {'id': 'silent', 'faults': [77]}, {'id': 'mixed', 'faults': [24, 34, 77]}]
+shot_3 dose -0.8 observed 54 queries [{'id': 'local', 'faults': [28]}, {'id': 'alternate', 'faults': [34]}, {'id': 'boundary', 'faults': [22]}, {'id': 'cross_region', 'faults': [28, 45]}, {'id': 'silent', 'faults': [77]}, {'id': 'mixed', 'faults': [24, 34, 77]}]
+validation drift_ladder det 108 obs 3 faults 153 regions Counter({0: 18, 2: 18, 5: 18, 4: 18, 3: 18, 1: 18}) internal Counter({(4,): 23, (2,): 23, (1,): 23, (3,): 23, (5,): 23, (0,): 23, (): 1}) cross 14 shots 5
+boundary [(0, [2, 5], [1, 18, 20, 33, 54, 77, 86, 89, 103]), (26, [0, 3], [6, 10, 50, 67, 72, 102]), (27, [1, 2], [22, 43, 48, 92, 98, 104, 105]), (35, [3, 4], [25, 49, 53, 75, 85, 101]), (43, [0, 1], [6, 37, 43, 60, 82]), (58, [0, 3], [0, 52, 61, 65, 72, 78]), (89, [0, 1], [15, 19, 26, 87, 95, 106]), (94, [1, 4], [4, 31, 39, 44, 48, 62, 75, 81]), (97, [4, 5], [4, 21, 56, 73, 80]), (110, [1, 4], [11, 41, 57, 58, 83]), (127, [1, 2], [17, 35, 57, 58, 83]), (134, [3, 4], [4, 5, 27, 53, 79, 81, 85, 101]), (138, [4, 5], [42, 44, 47, 71, 75, 93, 94]), (143, [2, 5], [30, 33, 35, 38, 89, 91])]
+shot_0 dose 0.8 observed 108 queries [{'id': 'local', 'faults': [111]}, {'id': 'alternate', 'faults': [146]}, {'id': 'boundary', 'faults': [43]}, {'id': 'cross_region', 'faults': [19, 111]}, {'id': 'silent', 'faults': [147]}, {'id': 'mixed', 'faults': [43, 146, 147]}]
+shot_1 dose 0.0 observed 104 queries [{'id': 'local', 'faults': [111]}, {'id': 'alternate', 'faults': [146]}, {'id': 'boundary', 'faults': [89]}, {'id': 'cross_region', 'faults': [19, 111]}, {'id': 'silent', 'faults': [147]}, {'id': 'mixed', 'faults': [43, 146, 147]}]
+shot_2 dose -0.8 observed 106 queries [{'id': 'local', 'faults': [111]}, {'id': 'alternate', 'faults': [146]}, {'id': 'boundary', 'faults': [127]}, {'id': 'cross_region', 'faults': [19, 111]}, {'id': 'silent', 'faults': [147]}, {'id': 'mixed', 'faults': [43, 146, 147]}]
+shot_3 dose 0.8 observed 106 queries [{'id': 'local', 'faults': [111]}, {'id': 'alternate', 'faults': [146]}, {'id': 'boundary', 'faults': [27]}, {'id': 'cross_region', 'faults': [19, 111]}, {'id': 'silent', 'faults': [147]}, {'id': 'mixed', 'faults': [43, 146, 147]}]
+shot_4 dose 0.0 observed 106 queries [{'id': 'local', 'faults': [111]}, {'id': 'alternate', 'faults': [146]}, {'id': 'boundary', 'faults': [35]}, {'id': 'cross_region', 'faults': [19, 111]}, {'id': 'silent', 'faults': [147]}, {'id': 'mixed', 'faults': [43, 146, 147]}]
+
+exec
+/bin/bash -lc 'export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1; python train.py --calibration ../../../../participant/v_02/input/calibration.json --records ../../../../participant/v_02/input/calibration_records.npz --output model.json' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ exited 1 in 303ms:
+Traceback (most recent call last):
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01/train.py", line 24, in <module>
+    main()
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01/train.py", line 14, in main
+    metadata = json.loads(Path(arguments.calibration).read_text())
+  File "/usr/lib/python3.10/pathlib.py", line 1134, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+  File "/usr/lib/python3.10/pathlib.py", line 1119, in open
+    return self._accessor.open(self, mode, buffering, encoding, errors,
+FileNotFoundError: [Errno 2] No such file or directory: '../../../../participant/v_02/input/calibration.json'
+
+exec
+/bin/bash -lc 'export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1; INPUT=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/input; cp train.py baseline_train.py; cp solve.py baseline_solve.py; python baseline_train.py --calibration "$INPUT/calibration.json" --records "$INPUT/calibration_records.npz" --output model.json; cp model.json baseline_model.json; python baseline_solve.py --input "$INPUT/micro.json" --output baseline_micro_predictions.json; python validate.py --expected "$INPUT/micro_expected.json" --actual baseline_micro_predictions.json --input "$INPUT/micro.json" | tee baseline_micro_metrics.json; python baseline_solve.py --input "$INPUT/validation.json" --output baseline_validation_predictions.json; python validate.py --expected "$INPUT/validation_expected.json" --actual baseline_validation_predictions.json --input "$INPUT/validation.json" | tee baseline_validation_metrics.json; ls /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/TASK.md; date +%s' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 849ms:
+[
+  {
+    "id": "micro_0",
+    "logical_tv_mean": 0.334639087515503,
+    "logical_tv_max": 0.5154435447636374,
+    "query_abs_mean": 0.22692493609702982,
+    "query_abs_max": 0.9582760746294989,
+    "switch_abs_mean": 0.11494600830803392,
+    "switch_abs_max": 0.129747977310265,
+    "log_evidence_per_observed_bit_abs": 0.34360144561108885
+  },
+  {
+    "id": "micro_1",
+    "logical_tv_mean": 0.34708175271362496,
+    "logical_tv_max": 0.7257525750370732,
+    "query_abs_mean": 0.13349938513048487,
+    "query_abs_max": 0.5238679321448625,
+    "switch_abs_mean": 0.10292119668585831,
+    "switch_abs_max": 0.11066244181740326,
+    "log_evidence_per_observed_bit_abs": 0.27824743525833806
+  },
+  {
+    "id": "micro_2",
+    "logical_tv_mean": 0.19249797368784707,
+    "logical_tv_max": 0.25185341753412815,
+    "query_abs_mean": 0.04103076623401578,
+    "query_abs_max": 0.14191795733927756,
+    "switch_abs_mean": 0.09868039092015862,
+    "switch_abs_max": 0.12325828652387927,
+    "log_evidence_per_observed_bit_abs": 0.06842216037106474
+  }
+]
+[
+  {
+    "id": "dose_ring",
+    "logical_tv_mean": 0.6647618166537705,
+    "logical_tv_max": 0.9932638994691324,
+    "query_abs_mean": 0.13648180698769705,
+    "query_abs_max": 0.9999999998803153,
+    "switch_abs_mean": 0.3531918379007039,
+    "switch_abs_max": 0.9224053753643346,
+    "log_evidence_per_observed_bit_abs": 0.5421489005596137
+  },
+  {
+    "id": "drift_ladder",
+    "logical_tv_mean": 0.4237728685332257,
+    "logical_tv_max": 0.9612420256206704,
+    "query_abs_mean": 0.2165875288944959,
+    "query_abs_max": 0.9999999800388532,
+    "switch_abs_mean": 0.2769049079871125,
+    "switch_abs_max": 0.9923349139598338,
+    "log_evidence_per_observed_bit_abs": 0.38379870360042173
+  }
+]
+ls: cannot access '/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/TASK.md': No such file or directory
+1787816123
+
+codex
+The baseline loses probability mass and ignores temporal dependence. I’ll compare exact-likelihood calibration models.
+
+Copied and ran the prototype; public diagnostics show large errors in probabilities, evidence, and switches.
+  ✓ Inspect prototype and measure baseline
+  → Compare and fit calibration hypotheses
+  • Implement scalable smoothed probabilistic decoding
+  • Validate outputs and document measurements
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Delete File: train.py
+*** Add File: train.py
++import os
++
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++
++import argparse
++import json
++from pathlib import Path
++import time
++
++import numpy as np
++from scipy.optimize import minimize
++from scipy.special import expit, softmax
++
++
++class Calibration:
++    def __init__(self, metadata, setting, syndrome):
++        self.groups = metadata['rate_groups']
++        self.setting = setting
++        self.syndrome = syndrome
++        self.samples, self.length = setting.shape
++        self.tables = []
++        self.width = 1 << max(probe['num_detectors'] for probe in metadata['probes'])
++        probes = {probe['id']: probe for probe in metadata['probes']}
++        for control in metadata['settings']:
++            probe = probes[control['probe']]
++            faults = probe['faults']
++            patterns = ((np.arange(1 << len(faults))[:, None] >> np.arange(len(faults))) & 1).astype(float)
++            counts = np.stack([patterns[:, [index for index, fault in enumerate(faults) if fault['rate_group'] == group]].sum(axis=1)
++                               for group in range(self.groups)], axis=1)
++            packed = np.zeros(len(patterns), dtype=np.int64)
++            for index, fault in enumerate(faults):
++                support = sum(1 << detector for detector in fault['detectors'])
++                packed "'^= patterns[:, index].astype(np.int64) * support
++            groups = np.array([fault['"'rate_group'] for fault in faults])
++            bias = np.array([fault['bias'] for fault in faults])
++            self.tables.append((control['dose'], counts, patterns @ bias, packed, groups, bias))
++        self.observation = setting * self.width + syndrome
++
++    def unpack(self, parameters, modes, kind):
++        offset_end = modes * self.groups
++        offsets = parameters[:offset_end].reshape(modes, self.groups)
++        slopes = parameters[offset_end:offset_end + self.groups]
++        initial = softmax(parameters[offset_end + self.groups:offset_end + self.groups + modes])
++        if kind == 'hmm':
++            transition = softmax(parameters[offset_end + self.groups + modes:].reshape(modes, modes), axis=1)
++        else:
++            transition = np.tile(initial, (modes, 1))
++        return offsets, slopes, initial, transition
++
++    def evaluate(self, parameters, modes, kind, gradient=True):
++        offsets, slopes, initial, transition = self.unpack(parameters, modes, kind)
++        emissions = np.empty((len(self.tables), self.width, modes))
++        derivatives = np.empty((len(self.tables), self.width, modes, self.groups)) if gradient else None
++        for setting_index, (dose, counts, bias_energy, packed, groups, bias) in enumerate(self.tables):
++            for mode in range(modes):
++                group_logits = offsets[mode] + dose * slopes
++                logits = group_logits[groups] + bias
++                weights = np.exp(counts @ group_logits + bias_energy - np.logaddexp(0, logits).sum())
++                probability = np.bincount(packed, weights=weights, minlength=self.width)
++                emissions[setting_index, :, mode] = probability
++                if gradient:
++                    average = np.bincount(groups, weights=expit(logits), minlength=self.groups)
++                    for group in range(self.groups):
++                        derivatives[setting_index, :, mode, group] = np.bincount(
++                            packed, weights=weights * (counts[:, group] - average[group]), minlength=self.width)
++        selected = emissions.reshape(-1, modes)[self.observation]
++        forward = np.empty_like(selected)
++        scales = np.empty((self.samples, self.length))
++        forward[:, 0] = selected[:, 0] * initial
++        scales[:, 0] = forward[:, 0].sum(axis=1)
++        forward[:, 0] /= scales[:, 0, None]
++        for shot in range(1, self.length):
++            forward[:, shot] = (forward[:, shot - 1] @ transition) * selected[:, shot]
++            scales[:, shot] = forward[:, shot].sum(axis=1)
++            forward[:, shot] /= scales[:, shot, None]
++        likelihood = np.log(scales).sum()
++        if not gradient:
++            return likelihood
++        backward = np.ones_like(selected)
++        transition_counts = np.zeros((modes, modes))
++        for shot in range(self.length - 2, -1, -1):
++            suffix = selected[:, shot + 1] * backward[:, shot + 1] / scales[:, shot + 1, None]
++            backward[:, shot] = suffix @ transition.T
++            transition_counts += transition * (forward[:, shot].T @ suffix)
++        posterior = forward * backward
++        offset_gradient = np.zeros_like(offsets)
++        slope_gradient = np.zeros_like(slopes)
++        for mode in range(modes):
++            weighted_counts = np.bincount(self.observation.ravel(), weights=posterior[:, :, mode].ravel(),
++                                          minlength=len(self.tables) * self.width).reshape(len(self.tables), self.width)
++            weighted_counts /= np.maximum(emissions[:, :, mode], 1e-300)
++            for setting_index, table in enumerate(self.tables):
++                score = weighted_counts[setting_index] @ derivatives[setting_index, :, mode]
++                offset_gradient[mode] += score
++                slope_gradient += table[0] * score
++        if kind == 'hmm':
++            initial_gradient = posterior[:, 0].sum(axis=0) - self.samples * initial
++            transition_gradient = transition_counts - transition_counts.sum(axis=1, keepdims=True) * transition
++            result = np.concatenate([offset_gradient.ravel(), slope_gradient, initial_gradient, transition_gradient.ravel()])
++        else:
++            initial_gradient = posterior.sum(axis=(0, 1)) - self.samples * self.length * initial
++            result = np.concatenate([offset_gradient.ravel(), slope_gradient, initial_gradient])
++        return -likelihood / self.samples, -result / self.samples
++
++    def starting_point(self, modes, kind, seed):
++        generator = np.random.default_rng(seed)
++        offsets = np.linspace(-3.7, -1.3, modes)[:, None] + generator.normal(0, 0.4, (modes, self.groups))
++        if modes == 1:
++            offsets[:] = -2.5
++        slopes = np.full(self.groups, 0.5) + generator.normal(0, 0.15, self.groups)
++        initial = np.zeros(modes)
++        parts = [offsets.ravel(), slopes, initial]
++        if kind == 'hmm':
++            parts.append((np.eye(modes) * 2.5).ravel())
++        return np.concatenate(parts)
++
++    def fit(self, modes, kind, seed, start=None, iterations=250):
++        if start is None:
++            start = self.starting_point(modes, kind, seed)
++        bounds = [(-10, 5)] * (modes * self.groups) + [(-5, 5)] * self.groups
++        bounds += [(-12, 12)] * (len(start) - len(bounds))
++        started = time.monotonic()
++        result = minimize(self.evaluate, start, args=(modes, kind), jac=True, method='L-BFGS-B', bounds=bounds,
++                          options={'maxiter': iterations, 'ftol': 1e-11, 'gtol': 1e-6, 'maxls': 30})
++        print(json.dumps({'modes': modes, 'kind': kind, 'seed': seed, 'nll_per_sequence': result.fun,
++                          'iterations': result.nit, 'success': bool(result.success), 'seconds': time.monotonic() - started}), flush=True)
++        return result
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--calibration', required=True)
++    parser.add_argument('--records', required=True)
++    parser.add_argument('--output', required=True)
++    parser.add_argument('--quick', action='store_true')
++    arguments = parser.parse_args()
++    metadata = json.loads(Path(arguments.calibration).read_text())
++    records = np.load(arguments.records)
++    setting, syndrome = records['setting'].astype(int), records['syndrome'].astype(int)
++    permutation = np.random.default_rng(7143).permutation(len(setting))
++    split = int(0.8 * len(setting))
++    training_indices, holdout_indices = permutation[:split], permutation[split:]
++    training = Calibration(metadata, setting[training_indices], syndrome[training_indices])
++    holdout = Calibration(metadata, setting[holdout_indices], syndrome[holdout_indices])
++    fits = []
++    hypotheses = [(1, 'iid'), (2, 'iid'), (2, 'hmm'), (3, 'hmm')]
++    for modes, kind in hypotheses:
++        candidates = [training.fit(modes, kind, seed=seed) for seed in (range(1) if arguments.quick or modes == 1 else range(3))]
++        best = min(candidates, key=lambda result: result.fun)
++        test_likelihood = holdout.evaluate(best.x, modes, kind, gradient=False)
++        summary = {'modes': modes, 'kind': kind, 'training_nll_per_sequence': float(best.fun),
++                   'holdout_nll_per_sequence': float(-test_likelihood / len(holdout_indices)),
++                   'parameters': best.x.tolist()}
++        print(json.dumps(summary), flush=True)
++        fits.append(summary)
++        Path(arguments.output).with_name('calibration_comparison.json').write_text(json.dumps(fits, indent=2) + '\\n')
++    chosen = min(fits, key=lambda result: result['holdout_nll_per_sequence'])
++    modes, kind = chosen['modes'], chosen['kind']
++    complete = Calibration(metadata, setting, syndrome)
++    final = complete.fit(modes, kind, seed=0, start=np.array(chosen['parameters']), iterations=350)
++    offsets, slopes, initial, transition = complete.unpack(final.x, modes, kind)
++    order = np.argsort(offsets.mean(axis=1))
++    model = {'offsets': offsets[order].tolist(), 'slopes': slopes.tolist(), 'initial': initial[order].tolist(),
++             'transition': transition[order][:, order].tolist(), 'kind': kind,
++             'training_nll_per_sequence': float(final.fun), 'sequence_split_seed': 7143}
++    Path(arguments.output).write_text(json.dumps(model, indent=2) + '\\n')
++    print(json.dumps(model), flush=True)
++
++
++if __name__ == '__main__':
++    main()
+*** End Patch
+PATCH
+export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1; INPUT=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/input; python train.py --calibration \""'$INPUT/calibration.json" --records "$INPUT/calibration_records.npz" --output model.json > training.log 2>&1' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 7733ms:
+Success. Updated the following files:
+A train.py
+D train.py
+
+exec
+/bin/bash -lc "tail -n 6 training.log; python - <<'PY'
+import json
+import numpy as np
+path='/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/input/'
+def rank(matrix):
+ matrix=matrix.copy(); rr=0
+ for column in range(matrix.shape[1]):
+  idx=np.flatnonzero(matrix[rr:,column])
+  if len(idx)==0: continue
+  pivot=rr+int(idx[0]); matrix[[rr,pivot]]=matrix[[pivot,rr]]
+  for row in range(rr+1,len(matrix)):
+   if matrix[row,column]: matrix[row]"'^=matrix[rr]
+  rr+=1
+ return rr
+for filename in ['"'micro','validation']:
+ for case in json.load(open(path+filename+'.json'))['cases']:
+  print(case['id'])
+  for region in sorted(set(case['detector_regions'])):
+   internal=[f for f in case['faults'] if f['detectors'] and set(case['detector_regions'][d] for d in f['detectors'])=={region}]
+   ranks=[]
+   for shot in case['shots']:
+    det=[d for d,r in enumerate(case['detector_regions']) if r==region and shot['syndrome'][d] is not None]
+    mat=np.array([[int(d in f['detectors']) for f in internal] for d in det],dtype=np.uint8)
+    ranks.append(rank(mat))
+   print(region,len(internal),ranks,'nullities',[len(internal)-r for r in ranks])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 400ms:
+{"modes": 3, "kind": "hmm", "seed": 0, "nll_per_sequence": 16.09658710901233, "iterations": 89, "success": true, "seconds": 1.3023609830415808}
+{"modes": 3, "kind": "hmm", "seed": 1, "nll_per_sequence": 16.096587107955756, "iterations": 75, "success": true, "seconds": 1.1061929750139825}
+{"modes": 3, "kind": "hmm", "seed": 2, "nll_per_sequence": 16.096587108959252, "iterations": 76, "success": true, "seconds": 1.1237883070134558}
+{"modes": 3, "kind": "hmm", "training_nll_per_sequence": 16.096587107955756, "holdout_nll_per_sequence": 15.948269432341936, "parameters": [-1.688783582976722, -3.6709891391501825, -2.260307728375579, -3.6886744906902664, -1.5906478280961875, -2.9330629672606174, -3.088864405525014, -2.833559402664007, -1.1922148825350458, 0.9134933798573981, -0.6031973191927203, 0.38573069850311925, 0.1642607267707138, 0.3206277390636046, -0.4848884658340144, 2.9077764192088478, -0.07463189164610924, -0.33314452756281376, 0.13608339202870554, 2.785121110706588, -0.42120450273549165, -0.30454997845612775, 0.2764931641413601, 2.528056814314708]}
+{"modes": 3, "kind": "hmm", "seed": 0, "nll_per_sequence": 16.066632997602774, "iterations": 57, "success": true, "seconds": 0.9782334430492483}
+{"offsets": [[-3.714862083319102, -1.587976504298936, -2.9431070234850405], [-1.6770347506160475, -3.6289551950217214, -2.284551545396783], [-3.1116855742910254, -2.8762258994777374, -1.1897426648860892]], "slopes": [0.8966604333919502, -0.606784563906079, 0.39077974193058307], "initial": [0.43494990600926176, 0.36717372861054337, 0.19787636538019476], "transition": [[0.8964799940060703, 0.06564547938925852, 0.037874526604671124], [0.044677068166987396, 0.9135469905455087, 0.04177594128750416], [0.0941714265805084, 0.0588743772216312, 0.8469541961978606]], "kind": "hmm", "training_nll_per_sequence": 16.066632997602774, "sequence_split_seed": 7143}
+micro_0
+0 3 [2, 2, 2] nullities [1, 1, 1]
+1 3 [2, 2, 2] nullities [1, 1, 1]
+2 3 [2, 1, 2] nullities [1, 2, 1]
+micro_1
+0 3 [2, 2, 1] nullities [1, 1, 2]
+1 3 [2, 1, 2] nullities [1, 2, 1]
+2 3 [2, 2, 1] nullities [1, 1, 2]
+micro_2
+0 3 [2, 2, 2] nullities [1, 1, 1]
+1 3 [2, 2, 1] nullities [1, 1, 2]
+2 3 [2, 2, 1] nullities [1, 1, 2]
+dose_ring
+0 18 [12, 12, 12, 12] nullities [6, 6, 6, 6]
+1 18 [12, 11, 12, 11] nullities [6, 7, 6, 7]
+2 18 [12, 12, 11, 12] nullities [6, 6, 7, 6]
+3 18 [12, 12, 12, 12] nullities [6, 6, 6, 6]
+drift_ladder
+0 23 [16, 15, 16, 16, 15] nullities [7, 8, 7, 7, 8]
+1 23 [16, 15, 16, 16, 16] nullities [7, 8, 7, 7, 7]
+2 23 [16, 15, 15, 16, 16] nullities [7, 8, 8, 7, 7]
+3 23 [16, 16, 16, 15, 16] nullities [7, 7, 7, 8, 7]
+4 23 [16, 16, 16, 16, 16] nullities [7, 7, 7, 7, 7]
+5 23 [16, 16, 16, 15, 16] nullities [7, 7, 7, 8, 7]
+
+exec
+/bin/bash -lc "python - <<'PY'
+import json,numpy as np
+p='/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/input/'
+def rank(a):
+ a=a.copy(); rr=0
+ for col in range(a.shape[1]):
+  ids=np.flatnonzero(a[rr:,col])
+  if len(ids)==0: continue
+  piv=rr+int(ids[0]); a[[rr,piv]]=a[[piv,rr]]
+  for row in range(rr+1,len(a)):
+   if a[row,col]: a[row]"'^=a[rr]
+  rr+=1
+ return rr
+for c in json.load(open(p+'"'validation.json'))['cases']:
+ regions=c['detector_regions']; faults=c['faults']; internal=[];cross=[]
+ for ind,f in enumerate(faults):
+  rs={regions[d] for d in f['detectors']}
+  if len(rs)==1:internal.append(ind)
+  elif rs:cross.append(ind)
+ for shot in c['shots']:
+  det=[d for d in range(c['num_detectors']) if shot['syndrome'][d] is not None]
+  mi=np.array([[int(d in faults[ind]['detectors']) for ind in internal] for d in det],np.uint8)
+  mc=np.array([[int(d in faults[ind]['detectors']) for ind in cross] for d in det],np.uint8)
+  ri=rank(mi); rall=rank(np.c_[mi,mc]);print(c['id'],shot['id'],'internal rank',ri,'full rank',rall,'boundary nullity',len(cross)-(rall-ri))
+PY
+cat calibration_comparison.json; date +%s" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 308ms:
+dose_ring shot_0 internal rank 48 full rank 48 boundary nullity 8
+dose_ring shot_1 internal rank 47 full rank 47 boundary nullity 8
+dose_ring shot_2 internal rank 47 full rank 47 boundary nullity 8
+dose_ring shot_3 internal rank 47 full rank 47 boundary nullity 8
+drift_ladder shot_0 internal rank 96 full rank 96 boundary nullity 14
+drift_ladder shot_1 internal rank 93 full rank 93 boundary nullity 14
+drift_ladder shot_2 internal rank 95 full rank 95 boundary nullity 14
+drift_ladder shot_3 internal rank 94 full rank 94 boundary nullity 14
+drift_ladder shot_4 internal rank 95 full rank 95 boundary nullity 14
+[
+  {
+    "modes": 1,
+    "kind": "iid",
+    "training_nll_per_sequence": 16.404204995116263,
+    "holdout_nll_per_sequence": 16.27519562727685,
+    "parameters": [
+      -2.5052032144208556,
+      -2.2890662484384436,
+      -2.1664254424153455,
+      0.8201565218393418,
+      -0.45399771295891794,
+      0.3272132929081385,
+      0.0
+    ]
+  },
+  {
+    "modes": 2,
+    "kind": "iid",
+    "training_nll_per_sequence": 16.317423795535134,
+    "holdout_nll_per_sequence": 16.180558875624822,
+    "parameters": [
+      -1.9296415887414253,
+      -3.463082698645089,
+      -1.8946318898791745,
+      -3.8887968797937402,
+      -1.5967837940494114,
+      -2.6350860530069506,
+      0.8974332406605845,
+      -0.6195565134655365,
+      0.37943100848542016,
+      0.11643330788618961,
+      -0.11643330787841202
+    ]
+  },
+  {
+    "modes": 2,
+    "kind": "hmm",
+    "training_nll_per_sequence": 16.157410365555627,
+    "holdout_nll_per_sequence": 16.020511879439077,
+    "parameters": [
+      -3.7706982248980756,
+      -1.6138007657859461,
+      -2.683028738125207,
+      -1.9309626685531953,
+      -3.471499885348191,
+      -1.8726578244876186,
+      0.8945187566799384,
+      -0.613105356497365,
+      0.3749501577791539,
+      -0.07716017048324246,
+      0.0771601704831548,
+      2.411823064470616,
+      0.08817693552938924,
+      -0.0980593946842178,
+      2.598059394684229
+    ]
+  },
+  {
+    "modes": 3,
+    "kind": "hmm",
+    "training_nll_per_sequence": 16.096587107955756,
+    "holdout_nll_per_sequence": 15.948269432341936,
+    "parameters": [
+      -1.688783582976722,
+      -3.6709891391501825,
+      -2.260307728375579,
+      -3.6886744906902664,
+      -1.5906478280961875,
+      -2.9330629672606174,
+      -3.088864405525014,
+      -2.833559402664007,
+      -1.1922148825350458,
+      0.9134933798573981,
+      -0.6031973191927203,
+      0.38573069850311925,
+      0.1642607267707138,
+      0.3206277390636046,
+      -0.4848884658340144,
+      2.9077764192088478,
+      -0.07463189164610924,
+      -0.33314452756281376,
+      0.13608339202870554,
+      2.785121110706588,
+      -0.42120450273549165,
+      -0.30454997845612775,
+      0.2764931641413601,
+      2.528056814314708
+    ]
+  }
+]
+1787816277
+
+**Optimizing weighted counts**
+
+I’m thinking about how to compute weighted counts more efficiently. Maybe I can optimize the analytic grouping and characters involved. Could I use direct region enumeration with totals and label/query bin counts? If I avoid full channel arrays, I might keep memory usage around 40MB, which would help with efficiency during operations. It feels like there's a way to streamline this, so I'll keep exploring the options available!
+codex
+Three persistent regimes fit best on held-out sequences. I’ll implement exact regional sums and temporal smoothing.
+
+Compared single-mode, two-mode independent, and two-/three-mode Markov models using exact parity likelihoods and whole-sequence holdout; three-mode HMM wins and is refitted on all records.
+  ✓ Inspect prototype and measure baseline
+  ✓ Compare and fit calibration hypotheses
+  → Implement scalable smoothed probabilistic decoding
+  • Validate outputs and document measurements
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: inference.py
++import numpy as np
++from scipy.special import expit
++
++
++def hadamard(size):
++    result = np.ones((1, 1))
++    while len(result) < size:
++        result = np.block([[result, result], [result, -result]])
++    return result
++
++
++def reduce_internal(matrix, right):
++    matrix = matrix.copy()
++    right = right.copy()
++    pivots = []
++    for column in range(matrix.shape[1]):
++        candidates = np.flatnonzero(matrix[len(pivots):, column])
++        if not len(candidates):
++            continue
++        pivot = len(pivots) + int(candidates[0])
++        target = len(pivots)
++        matrix[[target, pivot]] = matrix[[pivot, target]]
++        right[[target, pivot]] = right[[pivot, target]]
++        rows = np.flatnonzero(matrix[:, column])
++        rows = rows[rows "'!= target]
++        matrix[rows] ''^= matrix[target]
++        right[rows] ''^= right[target]
++        pivots.append(column)
++    return matrix, right, pivots
++
++
++def xor_span(basis):
++    result = np.zeros(1 << len(basis), dtype=np.uint32)
++    filled = 1
++    for vector in basis:
++        result[filled:2 * filled] = result[:filled] ''^ np.uint32(vector)
++        filled *= 2
++    return result
++
++
++def enumeration_table(matrix, right, pivots, boundary_bits, probabilities, labels, query_membership, transform):
++    internal_count = matrix.shape[1]
++    rank = len(pivots)
++    free = [column for column in range(internal_count) if column not in pivots]
++    basis = []
++    for column in free:
++        vector = 1 << column
++        for row, pivot in enumerate(pivots):
++            if matrix[row, column]:
++                vector |= 1 << pivot
++        basis.append(vector)
++    targets = (boundary_bits @ right[:, :-1].T + right[:, -1]) % 2
++    valid = np.all(targets[:, rank:] == 0, axis=1)
++    particular = np.zeros(len(boundary_bits), dtype=np.uint32)
++    for row, pivot in enumerate(pivots):
++        particular |= targets[:, row].astype(np.uint32) << pivot
++    patterns = (particular[:, None] ''^ xor_span(basis)[None, :]).ravel()
++    modes = probabilities.shape[0]
++    label_count = len(transform)
++    channels = label_count + query_membership.shape[0]
++    table = np.empty((len(boundary_bits), modes, channels))
++    log_weights = np.log1p(-probabilities).sum(axis=1)[:, None] + np.zeros((modes, len(patterns)))
++    logical = np.zeros(len(patterns), dtype=np.int64)
++    logits = np.log(probabilities) - np.log1p(-probabilities)
++    for index in range(internal_count):
++        active = (patterns >> index) & 1
++        log_weights += logits[:, index, None] * active
++        logical ''^= active.astype(np.int64) * labels[index]
++    boundary_index = np.repeat(np.arange(len(boundary_bits)), 1 << len(free))
++    label_index = boundary_index * label_count + logical
++    parities = []
++    for membership in query_membership:
++        parity = np.zeros(len(patterns), dtype=np.uint8)
++        for index in np.flatnonzero(membership):
++            parity ''^= ((patterns >> index) & 1).astype(np.uint8)
++        parities.append(1.0 - 2.0 * parity)
++    for mode in range(modes):
++        weights = np.exp(log_weights[mode])
++        distribution = np.bincount(label_index, weights=weights, minlength=len(boundary_bits) * label_count)
++        table[:, mode, :label_count] = distribution.reshape(-1, label_count) @ transform
++        for query_index, parity_sign in enumerate(parities):
++            table[:, mode, label_count + query_index] = (weights * parity_sign).reshape(len(boundary_bits), -1).sum(axis=1)
++    table[~valid] = 0
++    return table
++
++
++def dynamic_table(matrix, right, pivots, boundary_bits, probabilities, labels, query_membership, transform):
++    rank = len(pivots)
++    modes, internal_count = probabilities.shape
++    label_count = len(transform)
++    channels = label_count + query_membership.shape[0]
++    states = np.arange(1 << rank)
++    distribution = np.zeros((1 << rank, modes, channels))
++    distribution[0] = 1.0
++    for index in range(internal_count):
++        support = sum(int(matrix[row, index]) << row for row in range(rank))
++        signs = np.concatenate([transform[:, labels[index]], 1.0 - 2.0 * query_membership[:, index]])
++        probability = probabilities[:, index]
++        distribution = distribution * (1.0 - probability)[None, :, None] + distribution[states ''^ support] * probability[None, :, None] * signs
++    targets = (boundary_bits @ right[:, :-1].T + right[:, -1]) % 2
++    indices = np.zeros(len(boundary_bits), dtype=np.int64)
++    for row in range(rank):
++        indices |= targets[:, row].astype(np.int64) << row
++    table = distribution[indices].copy()
++    table[np.any(targets[:, rank:] != 0, axis=1)] = 0.0
++    return table
++
++
++def elimination_order(scopes):
++    remaining = [set(scope) for scope in scopes]
++    variables = set().union(*remaining)
++    order = []
++    maximum = 0
++    while variables:
++        options = []
++        for variable in variables:
++            gathered = [scope for scope in remaining if variable in scope]
++            union = set().union(*gathered)
++            options.append((len(union), sum(len(scope) for scope in gathered), variable, union))
++        _, _, variable, union = min(options, key=lambda item: item[:3])
++        maximum = max(maximum, len(union))
++        order.append(variable)
++        remaining = [scope for scope in remaining if variable not in scope]
++        remaining.append(union - {variable})
++        variables.remove(variable)
++    return order, maximum
++
++
++def contract_factors(factors, order):
++    factors = list(factors)
++    for variable in order:
++        selected = [(scope, values) for scope, values in factors if variable in scope]
++        factors = [(scope, values) for scope, values in factors if variable not in scope]
++        union = sorted(set().union(*(set(scope) for scope, _ in selected)))
++        output_scope = tuple(item for item in union if item != variable)
++        index = {item: position for position, item in enumerate(union)}
++        mode_index, channel_index = len(union), len(union) + 1
++        arguments = []
++        for scope, values in selected:
++            arguments.extend([values, [index[item] for item in scope] + [mode_index, channel_index]])
++        arguments.append([index[item] for item in output_scope] + [mode_index, channel_index])
++        result = np.einsum(*arguments, optimize=False)
++        factors.append((output_scope, result))
++    result = factors[0][1].copy()
++    for _, values in factors[1:]:
++        result *= values
++    return result
++
++
++class Network:
++    def __init__(self, case):
++        self.case = case
++        self.faults = case['"'faults']
++        regions = list(dict.fromkeys(case['detector_regions']))
++        region_index = {region: index for index, region in enumerate(regions)}
++        self.detector_region = [region_index[region] for region in case['detector_regions']]
++        self.internal = [[] for _ in regions]
++        self.boundary = [[] for _ in regions]
++        self.owner = {}
++        self.silent = []
++        self.cross = []
++        for index, fault in enumerate(self.faults):
++            touched = {self.detector_region[detector] for detector in fault['detectors']}
++            if not touched:
++                self.silent.append(index)
++            elif len(touched) == 1:
++                self.internal[next(iter(touched))].append(index)
++            else:
++                variable = len(self.cross)
++                self.cross.append(index)
++                self.owner[variable] = min(touched)
++                for region in touched:
++                    self.boundary[region].append(variable)
++        self.groups = np.array([fault['rate_group'] for fault in self.faults], dtype=int)
++        self.biases = np.array([fault['bias'] for fault in self.faults])
++        self.labels = np.array([fault['logical_mask'] for fault in self.faults], dtype=np.int64)
++        self.transform = hadamard(1 << case['num_observables'])
++        self.order, self.width = elimination_order(self.boundary)
++
++    def emission(self, shot, model):
++        offsets = np.asarray(model['offsets'])
++        slopes = np.asarray(model['slopes'])
++        probabilities = expit(offsets[:, self.groups] + slopes[self.groups] * shot['dose'] + self.biases)
++        probabilities = np.clip(probabilities, 1e-14, 1.0 - 1e-14)
++        modes = len(offsets)
++        label_count = len(self.transform)
++        channels = label_count + len(shot['queries'])
++        membership = np.zeros((len(shot['queries']), len(self.faults)), dtype=np.uint8)
++        for query_index, query in enumerate(shot['queries']):
++            membership[query_index, query['faults']] = 1
++        factors = []
++        log_scale = np.zeros(modes)
++        for region, internal in enumerate(self.internal):
++            scope = self.boundary[region]
++            boundary_faults = [self.cross[variable] for variable in scope]
++            observed = [detector for detector, owner in enumerate(self.detector_region)
++                        if owner == region and shot['syndrome'][detector] is not None]
++            matrix = np.zeros((len(observed), len(internal)), dtype=np.uint8)
++            right = np.zeros((len(observed), len(scope) + 1), dtype=np.uint8)
++            for row, detector in enumerate(observed):
++                matrix[row] = [int(detector in self.faults[index]['detectors']) for index in internal]
++                right[row, :-1] = [int(detector in self.faults[index]['detectors']) for index in boundary_faults]
++                right[row, -1] = shot['syndrome'][detector]
++            matrix, right, pivots = reduce_internal(matrix, right)
++            boundary_bits = ((np.arange(1 << len(scope))[:, None] >> np.arange(len(scope) - 1, -1, -1)) & 1).astype(np.uint8)
++            argument = (matrix, right, pivots, boundary_bits, probabilities[:, internal], self.labels[internal],
++                        membership[:, internal], self.transform)
++            if len(internal) - len(pivots) + len(scope) <= 20:
++                table = enumeration_table(*argument)
++            else:
++                table = dynamic_table(*argument)
++            maximum = table[:, :, 0].max(axis=0)
++            if np.any(maximum <= 0):
++                raise ValueError('Observed syndrome is incompatible with the detector model')
++            table /= maximum[None, :, None]
++            log_scale += np.log(maximum)
++            for boundary_index, variable in enumerate(scope):
++                if self.owner[variable] "'!= region:
++                    continue
++                fault_index = self.cross[variable]
++                active = boundary_bits[:, boundary_index]
++                probability = probabilities[:, fault_index]
++                table *= np.where(active[:, None], probability, 1.0 - probability)[:, :, None]
++                signs = np.concatenate([self.transform[:, self.labels[fault_index]], 1.0 - 2.0 * membership[:, fault_index]])
++                table *= np.where(active[:, None], signs, 1.0)[:, None, :]
++            factors.append((tuple(scope), table.reshape((2,) * len(scope) + (modes, channels))))
++        silent = np.ones((modes, channels))
++        for fault_index in self.silent:
++            signs = np.concatenate([self.transform[:, self.labels[fault_index]], 1.0 - 2.0 * membership[:, fault_index]])
++            silent *= 1.0 - probabilities[:, fault_index, None] * (1.0 - signs)
++        factors.append(((), silent))
++        batch_size = max(1, min(channels, (64 * 1024 * 1024) // (8 * modes * (1 << self.width))))
++        moments = np.empty((modes, channels))
++        for start in range(0, channels, batch_size):
++            stop = min(start + batch_size, channels)
++            sliced = [(scope, values[..., start:stop]) for scope, values in factors]
++            moments[:, start:stop] = contract_factors(sliced, self.order)
++        emission = moments[:, 0]
++        if np.any(emission <= 0):
++            raise ValueError('"'The complete observed syndrome has zero probability')
++        log_emission = np.log(emission) + log_scale
++        conditional = moments / emission[:, None]
++        logical = (conditional[:, :label_count] @ self.transform) / label_count
++        logical = np.maximum(logical, 0.0)
++        logical /= logical.sum(axis=1, keepdims=True)
++        queries = np.clip((1.0 - conditional[:, label_count:]) / 2.0, 0.0, 1.0)
++        return log_emission, logical, queries
++
++
++def smooth(log_emission, initial, transition):
++    shifts = log_emission.max(axis=1)
++    emission = np.exp(log_emission - shifts[:, None])
++    forward = np.empty_like(emission)
++    scales = np.empty(len(emission))
++    forward[0] = initial * emission[0]
++    scales[0] = forward[0].sum()
++    forward[0] /= scales[0]
++    for shot in range(1, len(emission)):
++        forward[shot] = (forward[shot - 1] @ transition) * emission[shot]
++        scales[shot] = forward[shot].sum()
++        forward[shot] /= scales[shot]
++    backward = np.ones_like(emission)
++    switches = np.empty(len(emission) - 1)
++    for shot in range(len(emission) - 2, -1, -1):
++        suffix = emission[shot + 1] * backward[shot + 1] / scales[shot + 1]
++        backward[shot] = transition @ suffix
++        pair = forward[shot, :, None] * transition * suffix[None, :]
++        switches[shot] = (pair.sum() - np.trace(pair)) / pair.sum()
++    posterior = forward * backward
++    posterior /= posterior.sum(axis=1, keepdims=True)
++    return float(np.sum(shifts + np.log(scales))), posterior, np.clip(switches, 0.0, 1.0)
++
++
++def decode_case(case, model):
++    network = Network(case)
++    emissions, logical, queries = zip(*(network.emission(shot, model) for shot in case['shots']))
++    log_evidence, regimes, switches = smooth(np.asarray(emissions), np.asarray(model['initial']), np.asarray(model['transition']))
++    output = []
++    for index, shot in enumerate(case['shots']):
++        posterior = regimes[index] @ logical[index]
++        posterior = np.maximum(posterior, 0.0)
++        posterior /= posterior.sum()
++        query_probability = regimes[index] @ queries[index]
++        output.append({'id': shot['id'], 'logical_posterior': posterior.tolist(),
++                       'logical_decision': int(np.argmax(posterior)),
++                       'query_probability': {query['id']: float(query_probability[query_index])
++                                             for query_index, query in enumerate(shot['queries'])}})
++    return {'id': case['id'], 'log_evidence': log_evidence, 'switch_probability': switches.tolist(), 'shots': output}
+*** Delete File: solve.py
+*** Add File: solve.py
++import os
++
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++os.environ['MKL_NUM_THREADS'] = '1'
++
++import argparse
++import json
++from pathlib import Path
++
++from inference import decode_case
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--input', required=True)
++    parser.add_argument('--output', required=True)
++    arguments = parser.parse_args()
++    model = json.loads(Path(__file__).with_name('model.json').read_text())
++    dataset = json.loads(Path(arguments.input).read_text())
++    predictions = {'cases': [decode_case(case, model) for case in dataset['cases']]}
++    Path(arguments.output).write_text(json.dumps(predictions, indent=2, allow_nan=False) + '\\n')
++
++
++if __name__ == '__main__':
++    main()
+*** End Patch
+PATCH
+export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1; INPUT=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/input; /usr/bin/time -v python solve.py --input \""'$INPUT/micro.json" --output micro_predictions.json 2>micro_runtime.log; python validate.py --expected "$INPUT/micro_expected.json" --actual micro_predictions.json --input "$INPUT/micro.json" | tee micro_metrics.json; /usr/bin/time -v python solve.py --input "$INPUT/validation.json" --output validation_predictions.json 2>validation_runtime.log; python validate.py --expected "$INPUT/validation_expected.json" --actual validation_predictions.json --input "$INPUT/validation.json" | tee validation_metrics.json' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 5826ms:
+Success. Updated the following files:
+A inference.py
+A solve.py
+D solve.py
+[
+  {
+    "id": "micro_0",
+    "logical_tv_mean": 0.0018733099971201012,
+    "logical_tv_max": 0.0028766982806826746,
+    "query_abs_mean": 0.0007319319867037429,
+    "query_abs_max": 0.002876698280682821,
+    "switch_abs_mean": 0.0025075179219155586,
+    "switch_abs_max": 0.0036539010057135,
+    "log_evidence_per_observed_bit_abs": 0.0023702262316249462
+  },
+  {
+    "id": "micro_1",
+    "logical_tv_mean": 0.00309510717046328,
+    "logical_tv_max": 0.004704364806786717,
+    "query_abs_mean": 0.0010859715310640183,
+    "query_abs_max": 0.003445394527011425,
+    "switch_abs_mean": 0.0027213393599890834,
+    "switch_abs_max": 0.0027479103802178217,
+    "log_evidence_per_observed_bit_abs": 0.002797590494159981
+  },
+  {
+    "id": "micro_2",
+    "logical_tv_mean": 0.004233830771137778,
+    "logical_tv_max": 0.0063544412236345325,
+    "query_abs_mean": 0.0015882938547329352,
+    "query_abs_max": 0.006249340679038123,
+    "switch_abs_mean": 0.003911217783657092,
+    "switch_abs_max": 0.0076114245174421225,
+    "log_evidence_per_observed_bit_abs": 0.002450126982262657
+  }
+]
+[
+  {
+    "id": "dose_ring",
+    "logical_tv_mean": 0.0037289797860132613,
+    "logical_tv_max": 0.005149048962681507,
+    "query_abs_mean": 0.0006245976195197385,
+    "query_abs_max": 0.0036202089231982537,
+    "switch_abs_mean": 0.012967050694376321,
+    "switch_abs_max": 0.02019814523499886,
+    "log_evidence_per_observed_bit_abs": 0.00020531684602056882
+  },
+  {
+    "id": "drift_ladder",
+    "logical_tv_mean": 0.007233080456381391,
+    "logical_tv_max": 0.01635962860921682,
+    "query_abs_mean": 0.0015899212890173012,
+    "query_abs_max": 0.009735704540468126,
+    "switch_abs_mean": 0.009414795719971829,
+    "switch_abs_max": 0.034801206067589824,
+    "log_evidence_per_observed_bit_abs": 0.00015141453564073996
+  }
+]
+
+exec
+/bin/bash -lc 'cat micro_runtime.log; cat validation_runtime.log 2>/dev/null; cat micro_metrics.json 2>/dev/null; cat validation_metrics.json 2>/dev/null; date +%s' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 226ms:
+	Command being timed: "python solve.py --input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/input/micro.json --output micro_predictions.json"
+	User time (seconds): 0.14
+	System time (seconds): 0.03
+	Percent of CPU this job got: 100%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.18
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 45224
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 5910
+	Voluntary context switches: 1
+	Involuntary context switches: 6
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 16
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+	Command being timed: "python solve.py --input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/input/validation.json --output validation_predictions.json"
+	User time (seconds): 0.20
+	System time (seconds): 0.02
+	Percent of CPU this job got: 97%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.23
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 46332
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 8592
+	Voluntary context switches: 2
+	Involuntary context switches: 1
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 16
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+[
+  {
+    "id": "micro_0",
+    "logical_tv_mean": 0.0018733099971201012,
+    "logical_tv_max": 0.0028766982806826746,
+    "query_abs_mean": 0.0007319319867037429,
+    "query_abs_max": 0.002876698280682821,
+    "switch_abs_mean": 0.0025075179219155586,
+    "switch_abs_max": 0.0036539010057135,
+    "log_evidence_per_observed_bit_abs": 0.0023702262316249462
+  },
+  {
+    "id": "micro_1",
+    "logical_tv_mean": 0.00309510717046328,
+    "logical_tv_max": 0.004704364806786717,
+    "query_abs_mean": 0.0010859715310640183,
+    "query_abs_max": 0.003445394527011425,
+    "switch_abs_mean": 0.0027213393599890834,
+    "switch_abs_max": 0.0027479103802178217,
+    "log_evidence_per_observed_bit_abs": 0.002797590494159981
+  },
+  {
+    "id": "micro_2",
+    "logical_tv_mean": 0.004233830771137778,
+    "logical_tv_max": 0.0063544412236345325,
+    "query_abs_mean": 0.0015882938547329352,
+    "query_abs_max": 0.006249340679038123,
+    "switch_abs_mean": 0.003911217783657092,
+    "switch_abs_max": 0.0076114245174421225,
+    "log_evidence_per_observed_bit_abs": 0.002450126982262657
+  }
+]
+[
+  {
+    "id": "dose_ring",
+    "logical_tv_mean": 0.0037289797860132613,
+    "logical_tv_max": 0.005149048962681507,
+    "query_abs_mean": 0.0006245976195197385,
+    "query_abs_max": 0.0036202089231982537,
+    "switch_abs_mean": 0.012967050694376321,
+    "switch_abs_max": 0.02019814523499886,
+    "log_evidence_per_observed_bit_abs": 0.00020531684602056882
+  },
+  {
+    "id": "drift_ladder",
+    "logical_tv_mean": 0.007233080456381391,
+    "logical_tv_max": 0.01635962860921682,
+    "query_abs_mean": 0.0015899212890173012,
+    "query_abs_max": 0.009735704540468126,
+    "switch_abs_mean": 0.009414795719971829,
+    "switch_abs_max": 0.034801206067589824,
+    "log_evidence_per_observed_bit_abs": 0.00015141453564073996
+  }
+]
+1787816472
+
+**Evaluating fitting parameters**
+
+I'm considering fitting maxes, including an arbitrary offset of [-10,5], which may lead to a fit less than 0.993. It’s not physically forbidden, but it's a numerical optimization. I can note that there's an interior solution. The training process is running quickly despite possibly having a gradients code bug. Each iteration takes about 1.3 seconds for 75 iterations, and I need to check the NLL values, likely totaling around 60,000. I'm checking all gradients too.
+**Considering robust fallback strategies**
+
+I'm working on a fallback plan for high-width models that needs a scientifically defensible approach. I think about using a low-width tensor network if certain conditions are met. There’s a focus on ensuring the network is scalable and robust enough without relying on overly dense exact methods. I’ll need to explore conditioning on crossing high-probability patterns and consider other robust approximation techniques to enhance accuracy. It looks like I’ll have to manage sample sizes carefully to achieve good boundary predictions.
+**Improving likelihood estimation**
+
+I'm considering using importance sampling with a belief propagation (BP) proposal for exact likelihood calculations. I might need around ten million samples to keep it under 60. I can compute weights and product signed moments to get evidence efficiently with a factor graph of 40 binary variables and local table constraints. While estimating importance BP can be heavy, there’s also the risk of adding untested fallback methods. I should have enough time—about 13 minutes—to develop this and ensure it's robust.
+codex
+Public validation is within every accuracy band. I’ll check exactness, model selection, and larger-network runtime.
+
+Implemented exact local affine-fault summation, boundary-variable elimination, logical/query Fourier moments, and forward-backward smoothing. All public error maxima are within the requested bands.
+  ✓ Inspect prototype and measure baseline
+  ✓ Compare and fit calibration hypotheses
+  ✓ Implement scalable smoothed probabilistic decoding
+  → Validate outputs and document measurements
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: train.py
+@@
+-    hypotheses = [(1, 'iid'), (2, 'iid'), (2, 'hmm'), (3, 'hmm')]
++    hypotheses = [(1, 'iid'), (2, 'iid'), (3, 'iid'), (2, 'hmm'), (3, 'hmm')]
+*** End Patch
+PATCH
+export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1; INPUT=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/input; python train.py --calibration \""'$INPUT/calibration.json" --records "$INPUT/calibration_records.npz" --output model.json > training.log 2>&1' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 11991ms:
+Success. Updated the following files:
+M train.py
+
+**Figuring out complex topology design**
+
+I’m considering how to create a design with a maximum width that’s robust enough for scenarios involving the largest cross edges. I could explore using coarse grouping variable elimination along with region cutset dynamic programming and logical signs. I’m also pondering a line graph treewidth related to ring8 with the degree and around ten regions. Finally, I need to make sure to print out the results when I’ve got everything structured!
+exec
+/bin/bash -lc "export OPENBLAS_NUM_THREADS=1; python - <<'PY'
+from inference import elimination_order
+import json
+for kind in ['ring2','ladder2','circulant2','complete_minus_matching']:
+ n=10; edges=[]
+ if kind=='ring2': edges=[(r,(r+1)%n) for r in range(n)]*2
+ if kind=='ladder2': edges=[(r,r+1) for r in range(4)]+[(r,r+1) for r in range(5,9)]+[(r,r+5) for r in range(5)];edges*=2
+ if kind=='circulant2': edges=[(r,(r+d)%n) for r in range(n) for d in (1,2)]*2
+ if kind=='complete_minus_matching':edges=[(left,right) for left in range(n) for right in range(left+1,n) if not (left%2==0 and right==left+1)]
+ scopes=[[i for i,edge in enumerate(edges) if r in edge] for r in range(n)]
+ print(kind,len(edges),[len(s) for s in scopes],elimination_order(scopes)[1])
+for name in ['micro','validation']:
+ for case in json.load(open('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/input/'+name+'.json'))['cases']:
+  from inference import Network
+  network=Network(case);print(case['id'],'width',network.width)
+PY
+tail -n 3 training.log; date +%s" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 280ms:
+ring2 20 [4, 4, 4, 4, 4, 4, 4, 4, 4, 4] 6
+ladder2 26 [4, 6, 6, 6, 4, 4, 6, 6, 6, 4] 8
+circulant2 40 [8, 8, 8, 8, 8, 8, 8, 8, 8, 8] 18
+complete_minus_matching 40 [8, 8, 8, 8, 8, 8, 8, 8, 8, 8] 30
+micro_0 width 3
+micro_1 width 3
+micro_2 width 3
+dose_ring width 6
+drift_ladder width 8
+{"modes": 3, "kind": "hmm", "training_nll_per_sequence": 16.096587107955756, "holdout_nll_per_sequence": 15.948269432341936, "parameters": [-1.688783582976722, -3.6709891391501825, -2.260307728375579, -3.6886744906902664, -1.5906478280961875, -2.9330629672606174, -3.088864405525014, -2.833559402664007, -1.1922148825350458, 0.9134933798573981, -0.6031973191927203, 0.38573069850311925, 0.1642607267707138, 0.3206277390636046, -0.4848884658340144, 2.9077764192088478, -0.07463189164610924, -0.33314452756281376, 0.13608339202870554, 2.785121110706588, -0.42120450273549165, -0.30454997845612775, 0.2764931641413601, 2.528056814314708]}
+{"modes": 3, "kind": "hmm", "seed": 0, "nll_per_sequence": 16.066632997602774, "iterations": 57, "success": true, "seconds": 0.943456647975836}
+{"offsets": [[-3.714862083319102, -1.587976504298936, -2.9431070234850405], [-1.6770347506160475, -3.6289551950217214, -2.284551545396783], [-3.1116855742910254, -2.8762258994777374, -1.1897426648860892]], "slopes": [0.8966604333919502, -0.606784563906079, 0.39077974193058307], "initial": [0.43494990600926176, 0.36717372861054337, 0.19787636538019476], "transition": [[0.8964799940060703, 0.06564547938925852, 0.037874526604671124], [0.044677068166987396, 0.9135469905455087, 0.04177594128750416], [0.0941714265805084, 0.0588743772216312, 0.8469541961978606]], "kind": "hmm", "training_nll_per_sequence": 16.066632997602774, "sequence_split_seed": 7143}
+1787816565
+
+exec
+/bin/bash -lc "python - <<'PY'
+import json
+for item in json.load(open('calibration_comparison.json')):
+ print(item['modes'],item['kind'],item['training_nll_per_sequence'],item['holdout_nll_per_sequence'])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 150ms:
+1 iid 16.404204995116263 16.27519562727685
+2 iid 16.317423795535134 16.180558875624822
+3 iid 16.298112802855538 16.149543723355826
+2 hmm 16.157410365555627 16.020511879439077
+3 hmm 16.096587107955756 15.948269432341936
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: train.py
+@@
+-    def evaluate(self, parameters, modes, kind, gradient=True):
++    def evaluate(self, parameters, modes, kind, gradient=True, per_sequence=False):
+@@
+         likelihood = np.log(scales).sum()
+         if not gradient:
+-            return likelihood
++            return np.log(scales).sum(axis=1) if per_sequence else likelihood
+*** Add File: audit.py
++import os
++
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++
++import argparse
++import itertools
++import json
++from pathlib import Path
++
++import numpy as np
++from scipy.special import expit
++
++from inference import Network, decode_case, dynamic_table, enumeration_table, hadamard, reduce_internal
++from train import Calibration
++from validate import compare
++
++
++def brute_case(case, model):
++    fault_count = len(case['faults'])
++    patterns = ((np.arange(1 << fault_count)[:, None] >> np.arange(fault_count)) & 1).astype(np.uint8)
++    detector_matrix = np.array([[int(detector in fault['detectors']) for fault in case['faults']]
++                                for detector in range(case['num_detectors'])], dtype=np.uint8)
++    syndromes = (patterns @ detector_matrix.T) % 2
++    labels = np.zeros(len(patterns), dtype=np.int64)
++    for index, fault in enumerate(case['faults']):
++        labels "'^= patterns[:, index].astype(np.int64) * fault['"'logical_mask']
++    emissions, logical, queries = [], [], []
++    modes = len(model['initial'])
++    for shot in case['shots']:
++        selected = np.ones(len(patterns), dtype=bool)
++        for detector, bit in enumerate(shot['syndrome']):
++            if bit is not None:
++                selected &= syndromes[:, detector] == bit
++        probabilities = np.array([[expit(model['offsets'][mode][fault['rate_group']] + model['slopes'][fault['rate_group']] * shot['dose'] + fault['bias'])
++                                   for fault in case['faults']] for mode in range(modes)])
++        weights = np.exp(patterns[selected] @ (np.log(probabilities) - np.log1p(-probabilities)).T + np.log1p(-probabilities).sum(axis=1))
++        emission = weights.sum(axis=0)
++        emissions.append(emission)
++        logical.append(np.stack([np.bincount(labels[selected], weights=weights[:, mode], minlength=1 << case['num_observables']) / emission[mode]
++                                 for mode in range(modes)]))
++        queries.append(np.stack([((patterns[selected][:, query['faults']].sum(axis=1) % 2) @ weights) / emission
++                                 for query in shot['queries']], axis=1))
++    posterior = np.zeros((len(case['shots']), modes))
++    switches = np.zeros(len(case['shots']) - 1)
++    evidence = 0.0
++    for path in itertools.product(range(modes), repeat=len(case['shots'])):
++        weight = model['initial'][path[0]] * emissions[0][path[0]]
++        for shot in range(1, len(path)):
++            weight *= model['transition'][path[shot - 1]][path[shot]] * emissions[shot][path[shot]]
++        evidence += weight
++        for shot, mode in enumerate(path):
++            posterior[shot, mode] += weight
++        for shot in range(len(path) - 1):
++            switches[shot] += weight * (path[shot] "'!= path[shot + 1])
++    posterior /= evidence
++    outputs = []
++    for index, shot in enumerate(case['"'shots']):
++        distribution = posterior[index] @ logical[index]
++        probability = posterior[index] @ queries[index]
++        outputs.append({'id': shot['id'], 'logical_posterior': distribution.tolist(),
++                        'logical_decision': int(distribution.argmax()),
++                        'query_probability': {query['id']: float(probability[query_index]) for query_index, query in enumerate(shot['queries'])}})
++    return {'id': case['id'], 'log_evidence': float(np.log(evidence)), 'switch_probability': (switches / evidence).tolist(), 'shots': outputs}
++
++
++def stress_case(model, dense=False):
++    generator = np.random.default_rng(82719)
++    region_count = 10
++    detectors_per_region = 22
++    faults = []
++    supports = []
++    for region in range(region_count):
++        core = np.concatenate([np.eye(20, dtype=np.uint8), generator.integers(0, 2, size=(20, 7), dtype=np.uint8)], axis=1)
++        dependent = (generator.integers(0, 2, size=(2, 20), dtype=np.uint8) @ core) % 2
++        matrix = np.concatenate([core, dependent], axis=0)
++        supports.append(matrix)
++        for column in range(27):
++            faults.append({'detectors': (region * detectors_per_region + np.flatnonzero(matrix[:, column])).tolist(),
++                           'logical_mask': int(generator.integers(0, 16)), 'rate_group': int(generator.integers(0, 3)),
++                           'bias': float(generator.choice([-0.25, 0.0, 0.25]))})
++    if dense:
++        edges = [(left, right) for left in range(region_count) for right in range(left + 1, region_count)
++                 if not (left % 2 == 0 and right == left + 1)]
++    else:
++        edges = [(region, (region + distance) % region_count) for region in range(region_count) for distance in (1, 2)] * 2
++    for edge in edges:
++        detectors = []
++        for region in edge:
++            support = np.bitwise_xor.reduce(supports[region][:, generator.choice(27, size=3, replace=False)], axis=1)
++            detectors.extend((region * detectors_per_region + np.flatnonzero(support)).tolist())
++        faults.append({'detectors': detectors, 'logical_mask': int(generator.integers(0, 16)),
++                       'rate_group': int(generator.integers(0, 3)), 'bias': float(generator.choice([-0.25, 0.0, 0.25]))})
++    faults.append({'detectors': [], 'logical_mask': 9, 'rate_group': 0, 'bias': 0.1})
++    shots = []
++    mode = int(generator.choice(len(model['initial']), p=model['initial']))
++    for shot_index, dose in enumerate([-1.4, 1.4, 0.3, -0.6, 1.1, -1.2, 0.0, 1.4]):
++        probability = np.array([expit(model['offsets'][mode][fault['rate_group']] + model['slopes'][fault['rate_group']] * dose + fault['bias'])
++                                for fault in faults])
++        errors = generator.random(len(faults)) < probability
++        syndrome = np.zeros(region_count * detectors_per_region, dtype=np.uint8)
++        for index in np.flatnonzero(errors):
++            syndrome[faults[index]['detectors']] "'^= 1
++        syndrome = syndrome.tolist()
++        if shot_index:
++            for detector in generator.choice(len(syndrome), size=15, replace=False):
++                syndrome[detector] = None
++        queries = [{'"'id': 'local', 'faults': [0]}, {'id': 'alias', 'faults': [1, 3]},
++                   {'id': 'boundary', 'faults': [271]}, {'id': 'mixed', 'faults': [23, 88, 200, 287, 310]},
++                   {'id': 'silent', 'faults': [310]}, {'id': 'nonlocal', 'faults': [54, 136, 212, 309]}]
++        shots.append({'id': 'shot_' + str(shot_index), 'dose': dose, 'syndrome': syndrome, 'queries': queries})
++        mode = int(generator.choice(len(model['initial']), p=model['transition'][mode]))
++    return {'id': 'synthetic_dense' if dense else 'synthetic_circulant', 'num_detectors': 220, 'num_observables': 4,
++            'detector_regions': np.repeat(np.arange(10), 22).tolist(), 'faults': faults, 'shots': shots}
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--input-dir', required=True)
++    parser.add_argument('--output-dir', default=str(Path(__file__).parent))
++    arguments = parser.parse_args()
++    source, destination = Path(arguments.input_dir), Path(arguments.output_dir)
++    model = json.loads((destination / 'model.json').read_text())
++    micro = json.loads((source / 'micro.json').read_text())
++    brute = {'cases': [brute_case(case, model) for case in micro['cases']]}
++    actual = {'cases': [decode_case(case, model) for case in micro['cases']]}
++    report = {'brute_force_checks': compare(brute, actual, micro)}
++    generator = np.random.default_rng(62104)
++    maximum_error = 0.0
++    for _ in range(40):
++        internal_count = int(generator.integers(1, 14))
++        rows = int(generator.integers(0, 9))
++        boundary_count = int(generator.integers(0, 5))
++        matrix = generator.integers(0, 2, (rows, internal_count), dtype=np.uint8)
++        right = generator.integers(0, 2, (rows, boundary_count + 1), dtype=np.uint8)
++        matrix, right, pivots = reduce_internal(matrix, right)
++        bits = ((np.arange(1 << boundary_count)[:, None] >> np.arange(boundary_count - 1, -1, -1)) & 1).astype(np.uint8)
++        probabilities = generator.uniform(0.01, 0.8, (3, internal_count))
++        labels = generator.integers(0, 16, internal_count)
++        membership = generator.integers(0, 2, (6, internal_count), dtype=np.uint8)
++        table_arguments = (matrix, right, pivots, bits, probabilities, labels, membership, hadamard(16))
++        maximum_error = max(maximum_error, float(np.max(np.abs(enumeration_table(*table_arguments) - dynamic_table(*table_arguments)))))
++    report['local_enumeration_vs_dynamic_max_abs'] = maximum_error
++    records = np.load(source / 'calibration_records.npz')
++    metadata = json.loads((source / 'calibration.json').read_text())
++    small = Calibration(metadata, records['setting'][:64].astype(int), records['syndrome'][:64].astype(int))
++    chosen = next(item for item in json.loads((destination / 'calibration_comparison.json').read_text()) if item['modes'] == 3 and item['kind'] == 'hmm')
++    parameters = np.array(chosen['parameters'])
++    value, gradient = small.evaluate(parameters, 3, 'hmm')
++    numeric = np.empty_like(gradient)
++    for index in range(len(parameters)):
++        shift = np.zeros_like(parameters)
++        shift[index] = 1e-5
++        numeric[index] = (small.evaluate(parameters + shift, 3, 'hmm')[0] - small.evaluate(parameters - shift, 3, 'hmm')[0]) / 2e-5
++    report['calibration_gradient_max_abs'] = float(np.max(np.abs(numeric - gradient)))
++    permutation = np.random.default_rng(7143).permutation(len(records['setting']))
++    holdout_indices = permutation[int(0.8 * len(permutation)):]
++    holdout = Calibration(metadata, records['setting'][holdout_indices].astype(int), records['syndrome'][holdout_indices].astype(int))
++    selected_likelihood = holdout.evaluate(parameters, 3, 'hmm', gradient=False, per_sequence=True)
++    comparisons = []
++    complete = Calibration(metadata, records['setting'].astype(int), records['syndrome'].astype(int))
++    validation = json.loads((source / 'validation.json').read_text())
++    expected = json.loads((source / 'validation_expected.json').read_text())
++    for candidate in json.loads((destination / 'calibration_comparison.json').read_text()):
++        modes, kind = candidate['modes'], candidate['kind']
++        likelihood = holdout.evaluate(np.array(candidate['parameters']), modes, kind, gradient=False, per_sequence=True)
++        difference = selected_likelihood - likelihood
++        comparisons.append({'modes': modes, 'kind': kind, 'selected_log_likelihood_gain_per_sequence': float(difference.mean()),
++                            'paired_standard_error': float(difference.std(ddof=1) / np.sqrt(len(difference)))})
++        if (modes, kind) in [(1, 'iid'), (3, 'iid'), (2, 'hmm')]:
++            fit = complete.fit(modes, kind, 0, np.array(candidate['parameters']), iterations=300)
++            offsets, slopes, initial, transition = complete.unpack(fit.x, modes, kind)
++            alternative = {'offsets': offsets.tolist(), 'slopes': slopes.tolist(), 'initial': initial.tolist(), 'transition': transition.tolist()}
++            name = str(modes) + '_' + kind
++            (destination / ('alternative_model_' + name + '.json')).write_text(json.dumps(alternative, indent=2) + '\\n')
++            prediction = {'cases': [decode_case(case, alternative) for case in validation['cases']]}
++            (destination / ('alternative_predictions_' + name + '.json')).write_text(json.dumps(prediction, indent=2) + '\\n')
++            report['deployment_' + name] = compare(expected, prediction, validation)
++    report['paired_holdout_comparisons'] = comparisons
++    stress = stress_case(model)
++    (destination / 'synthetic_stress.json').write_text(json.dumps({'cases': [stress]}) + '\\n')
++    report['stress_network'] = {'faults': len(stress['faults']), 'detectors': stress['num_detectors'],
++                               'observables': stress['num_observables'], 'shots': len(stress['shots']),
++                               'boundary_elimination_width': Network(stress).width}
++    (destination / 'audit_results.json').write_text(json.dumps(report, indent=2) + '\\n')
++    print(json.dumps(report, indent=2))
++
++
++if __name__ == '__main__':
++    main()
+*** End Patch
+PATCH
+export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1; python audit.py --input-dir /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/input > audit.log 2>&1; /usr/bin/time -v timeout 60s python solve.py --input synthetic_stress.json --output synthetic_predictions.json > synthetic_run.log 2>synthetic_runtime.log" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 4698ms:
+Success. Updated the following files:
+A audit.py
+M train.py
+
+exec
+/bin/bash -lc 'tail -n 16 audit.log; cat synthetic_runtime.log 2>/dev/null; date +%s; ls -lh' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 7655ms:
+    },
+    {
+      "modes": 3,
+      "kind": "hmm",
+      "selected_log_likelihood_gain_per_sequence": 0.0,
+      "paired_standard_error": 0.0
+    }
+  ],
+  "stress_network": {
+    "faults": 311,
+    "detectors": 220,
+    "observables": 4,
+    "shots": 8,
+    "boundary_elimination_width": 18
+  }
+}
+	Command being timed: "timeout 60s python solve.py --input synthetic_stress.json --output synthetic_predictions.json"
+	User time (seconds): 2.49
+	System time (seconds): 0.10
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:02.60
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 100348
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 33031
+	Voluntary context switches: 3
+	Involuntary context switches: 11
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 24
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+1787816707
+total 352K
+-rw-rw-r-- 1 xuandong xuandong  279 Aug 27 00:44 alternative_model_1_iid.json
+-rw-rw-r-- 1 xuandong xuandong  519 Aug 27 00:44 alternative_model_2_hmm.json
+-rw-rw-r-- 1 xuandong xuandong  776 Aug 27 00:44 alternative_model_3_iid.json
+-rw-rw-r-- 1 xuandong xuandong 6.7K Aug 27 00:44 alternative_predictions_1_iid.json
+-rw-rw-r-- 1 xuandong xuandong 6.8K Aug 27 00:44 alternative_predictions_2_hmm.json
+-rw-rw-r-- 1 xuandong xuandong 6.8K Aug 27 00:44 alternative_predictions_3_iid.json
+-rw-rw-r-- 1 xuandong xuandong 5.0K Aug 27 00:44 audit.log
+-rw-rw-r-- 1 xuandong xuandong  12K Aug 27 00:44 audit.py
+-rw-rw-r-- 1 xuandong xuandong 4.6K Aug 27 00:44 audit_results.json
+-rw-rw-r-- 1 xuandong xuandong 1.1K Aug 27 00:35 baseline_micro_metrics.json
+-rw-rw-r-- 1 xuandong xuandong 4.7K Aug 27 00:35 baseline_micro_predictions.json
+-rw-rw-r-- 1 xuandong xuandong  233 Aug 27 00:35 baseline_model.json
+-rw-rw-r-- 1 xuandong xuandong 2.2K Aug 27 00:35 baseline_solve.py
+-rw-rw-r-- 1 xuandong xuandong  884 Aug 27 00:35 baseline_train.py
+-rw-rw-r-- 1 xuandong xuandong  698 Aug 27 00:35 baseline_validation_metrics.json
+-rw-rw-r-- 1 xuandong xuandong 4.6K Aug 27 00:35 baseline_validation_predictions.json
+-rw-rw-r-- 1 xuandong xuandong 1.1K Aug 27 00:34 binary.py
+-rw-rw-r-- 1 xuandong xuandong 2.8K Aug 27 00:42 calibration_comparison.json
+-rw-rw-r-- 1 xuandong xuandong  14K Aug 27 00:41 inference.py
+-rw-rw-r-- 1 xuandong xuandong 1.1K Aug 27 00:41 micro_metrics.json
+-rw-rw-r-- 1 xuandong xuandong 6.9K Aug 27 00:41 micro_predictions.json
+-rw-rw-r-- 1 xuandong xuandong  879 Aug 27 00:41 micro_runtime.log
+-rw-rw-r-- 1 xuandong xuandong  880 Aug 27 00:42 model.json
+-rw-rw-r-- 1 xuandong xuandong  760 Aug 27 00:41 solve.py
+-rw-rw-r-- 1 xuandong xuandong 8.1K Aug 27 00:44 synthetic_predictions.json
+-rw-rw-r-- 1 xuandong xuandong    0 Aug 27 00:44 synthetic_run.log
+-rw-rw-r-- 1 xuandong xuandong  812 Aug 27 00:44 synthetic_runtime.log
+-rw-rw-r-- 1 xuandong xuandong  38K Aug 27 00:44 synthetic_stress.json
+-rw-rw-r-- 1 xuandong xuandong 9.6K Aug 27 00:44 train.py
+-rw-rw-r-- 1 xuandong xuandong 4.8K Aug 27 00:42 training.log
+-rw-rw-r-- 1 xuandong xuandong 103K Aug 27 00:45 transcript.log
+-rw-rw-r-- 1 xuandong xuandong 2.1K Aug 27 00:34 validate.py
+-rw-rw-r-- 1 xuandong xuandong  730 Aug 27 00:41 validation_metrics.json
+-rw-rw-r-- 1 xuandong xuandong 6.8K Aug 27 00:41 validation_predictions.json
+-rw-rw-r-- 1 xuandong xuandong  888 Aug 27 00:41 validation_runtime.log
+
+**Evaluating particle initialization**
+
+I'm initializing particle N8192, and I want to temper the likelihood product based on a local evidence table of 256 or less. I need to use evidence annealed Sequential Monte Carlo adaptive temperature set to an effective sample size of 0.8. It seems like I’ll need around 20 stages, with 2 sweeps and 40 variables per N operations. This could result in approximately 13 million operations per stage.
+exec
+/bin/bash -lc "cat audit_results.json; printf '\\n--- thread/memory checks ---\\n'; (ulimit -v 1572864; /usr/bin/time -f 'wall_seconds=%e max_rss_kib=%M' timeout 60s python solve.py --input synthetic_stress.json --output synthetic_limited_predictions.json) 2>synthetic_limited_runtime.log; cat synthetic_limited_runtime.log; printf '\\n--- generated probability checks ---\\n'; python - <<'PY'
+import json,math
+for path in ['micro_predictions.json','validation_predictions.json','synthetic_predictions.json','synthetic_limited_predictions.json']:
+ data=json.load(open(path));n=0
+ for case in data['cases']:
+  assert math.isfinite(case['log_evidence'])
+  assert len(case['switch_probability'])==len(case['shots'])-1
+  assert all(math.isfinite(x) and 0<=x<=1 for x in case['switch_probability'])
+  for shot in case['shots']:
+   probs=shot['logical_posterior'];assert abs(sum(probs)-1)<1e-12
+   assert all(math.isfinite(x) and 0<=x<=1 for x in probs)
+   assert probs[shot['logical_decision']]==max(probs)
+   assert all(math.isfinite(x) and 0<=x<=1 for x in shot['query_probability'].values())
+   n+=1
+ print(path,n,'valid shots')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 8131ms:
+{
+  "brute_force_checks": [
+    {
+      "id": "micro_0",
+      "logical_tv_mean": 3.3038237763338235e-16,
+      "logical_tv_max": 4.508112633194727e-16,
+      "query_abs_mean": 1.1690108757554816e-16,
+      "query_abs_max": 2.7755575615628914e-16,
+      "switch_abs_mean": 8.326672684688674e-17,
+      "switch_abs_max": 1.1102230246251565e-16,
+      "log_evidence_per_observed_bit_abs": 1.0449157878825003e-16
+    },
+    {
+      "id": "micro_1",
+      "logical_tv_mean": 5.157459384332504e-16,
+      "logical_tv_max": 1.030751005381969e-15,
+      "query_abs_mean": 1.4191001768754714e-16,
+      "query_abs_max": 9.43689570931383e-16,
+      "switch_abs_mean": 1.1796119636642288e-16,
+      "switch_abs_max": 2.0816681711721685e-16,
+      "log_evidence_per_observed_bit_abs": 1.1842378929335003e-16
+    },
+    {
+      "id": "micro_2",
+      "logical_tv_mean": 2.6735747947134736e-16,
+      "logical_tv_max": 3.642106147921931e-16,
+      "query_abs_mean": 4.5319650809894085e-17,
+      "query_abs_max": 1.7867651802561113e-16,
+      "switch_abs_mean": 1.8041124150158794e-16,
+      "switch_abs_max": 3.3306690738754696e-16,
+      "log_evidence_per_observed_bit_abs": 0.0
+    }
+  ],
+  "local_enumeration_vs_dynamic_max_abs": 1.1102230246251565e-15,
+  "calibration_gradient_max_abs": 2.2294677042011823e-10,
+  "deployment_1_iid": [
+    {
+      "id": "dose_ring",
+      "logical_tv_mean": 0.13142003432328225,
+      "logical_tv_max": 0.4158313523553975,
+      "query_abs_mean": 0.009468756294659632,
+      "query_abs_max": 0.04648872225131987,
+      "switch_abs_mean": 0.3531918379007039,
+      "switch_abs_max": 0.9224053753643346,
+      "log_evidence_per_observed_bit_abs": 0.011026015210435332
+    },
+    {
+      "id": "drift_ladder",
+      "logical_tv_mean": 0.10764608301135989,
+      "logical_tv_max": 0.30492874054846486,
+      "query_abs_mean": 0.02370915617525147,
+      "query_abs_max": 0.23097411302537746,
+      "switch_abs_mean": 0.2769049079871125,
+      "switch_abs_max": 0.9923349139598338,
+      "log_evidence_per_observed_bit_abs": 0.016471005311354973
+    }
+  ],
+  "deployment_3_iid": [
+    {
+      "id": "dose_ring",
+      "logical_tv_mean": 0.04650492610113359,
+      "logical_tv_max": 0.17243832197121683,
+      "query_abs_mean": 0.004175370436774132,
+      "query_abs_max": 0.04008486512184099,
+      "switch_abs_mean": 0.1448246214774044,
+      "switch_abs_max": 0.37889188270309776,
+      "log_evidence_per_observed_bit_abs": 0.0036486503547652686
+    },
+    {
+      "id": "drift_ladder",
+      "logical_tv_mean": 0.02174562107292697,
+      "logical_tv_max": 0.09950698912735877,
+      "query_abs_mean": 0.005238521646754402,
+      "query_abs_max": 0.06367848620441866,
+      "switch_abs_mean": 0.07361361766792426,
+      "switch_abs_max": 0.2898245933475295,
+      "log_evidence_per_observed_bit_abs": 0.0005564454790431845
+    }
+  ],
+  "deployment_2_hmm": [
+    {
+      "id": "dose_ring",
+      "logical_tv_mean": 0.07115591454248521,
+      "logical_tv_max": 0.10289754462410196,
+      "query_abs_mean": 0.01294893168875279,
+      "query_abs_max": 0.06726236202829883,
+      "switch_abs_mean": 0.02877941931125409,
+      "switch_abs_max": 0.05628965762396687,
+      "log_evidence_per_observed_bit_abs": 0.001258201788843785
+    },
+    {
+      "id": "drift_ladder",
+      "logical_tv_mean": 0.06376055123106388,
+      "logical_tv_max": 0.1709669892673968,
+      "query_abs_mean": 0.018335270635237877,
+      "query_abs_max": 0.16130727319346405,
+      "switch_abs_mean": 0.026945128794820083,
+      "switch_abs_max": 0.06135389329549234,
+      "log_evidence_per_observed_bit_abs": 0.00406261471526755
+    }
+  ],
+  "paired_holdout_comparisons": [
+    {
+      "modes": 1,
+      "kind": "iid",
+      "selected_log_likelihood_gain_per_sequence": 0.32692619493491293,
+      "paired_standard_error": 0.01832346920391157
+    },
+    {
+      "modes": 2,
+      "kind": "iid",
+      "selected_log_likelihood_gain_per_sequence": 0.2322894432828889,
+      "paired_standard_error": 0.014910637637337364
+    },
+    {
+      "modes": 3,
+      "kind": "iid",
+      "selected_log_likelihood_gain_per_sequence": 0.20127429101389027,
+      "paired_standard_error": 0.013994944520210587
+    },
+    {
+      "modes": 2,
+      "kind": "hmm",
+      "selected_log_likelihood_gain_per_sequence": 0.0722424470971388,
+      "paired_standard_error": 0.008157582660883475
+    },
+    {
+      "modes": 3,
+      "kind": "hmm",
+      "selected_log_likelihood_gain_per_sequence": 0.0,
+      "paired_standard_error": 0.0
+    }
+  ],
+  "stress_network": {
+    "faults": 311,
+    "detectors": 220,
+    "observables": 4,
+    "shots": 8,
+    "boundary_elimination_width": 18
+  }
+}
+
+--- thread/memory checks ---
+wall_seconds=4.96 max_rss_kib=100688
+
+--- generated probability checks ---
+micro_predictions.json 9 valid shots
+validation_predictions.json 9 valid shots
+synthetic_predictions.json 8 valid shots
+synthetic_limited_predictions.json 8 valid shots
+
+codex
+Exact checks agree to numerical precision; the 311-fault stress case finishes in seconds. I’ll save the report and rerun the CLI.
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: baseline_solve.py
+@@
+-    model = json.loads(Path(__file__).with_name('model.json').read_text())
++    model = json.loads(Path(__file__).with_name('baseline_model.json').read_text())
+*** Add File: diagnosis.md
++# Burst-aware decoder: diagnosis and validation
++
++## Baseline and scientific repair
++
++I copied the supplied software into this submission directory, ran its training
++entry point, and measured its predictions against both public diagnostics before
++replacing the implementation. The retained "'`baseline_*` files reproduce that
++measurement; the baseline solver now reads `baseline_model.json` so that rerunning
++it cannot accidentally use the fitted final model.
++
++The prototype substitutes detector occupancy for fault rates, sets every dose
++slope to zero, and collapses all regime uncertainty. It turns missing detectors
++into zeros and reports a delta distribution at an arbitrary binary-elimination
++solution. Its evidence is the probability of that one fault vector rather than
++the sum over compatible vectors. It neither smooths across shots nor estimates
++regime changes. These are scientific errors, not merely numerical problems.
++
++## Calibration hypotheses and selection
++
++Only `calibration.json` and `calibration_records.npz` enter training. Public
++expected predictions never enter the likelihood, optimizer, or model artifact.
++I split the 12,000 entire five-shot sequences into 9,600 training and 2,400
++holdout sequences using NumPy seed 7143. No shots from a sequence cross the split.
++
++For every setting and candidate regime, I sum the independent Bernoulli weights
++of all 4,096 fault patterns in the corresponding 12-mechanism probe, grouping by
++the packed parity syndrome. This produces exact emission probabilities and
++analytic derivatives. Forward-backward inference gives the sequence likelihood
++and its gradients. L-BFGS-B fits regime offsets, shared dose slopes, initial
++probabilities, and (for Markov models) transitions. Multimode hypotheses use three
++deterministic starts. Optimizer bounds are numerical safeguards; the selected
++physical coefficients are interior. Regime order is arbitrary and is only
++canonicalized for a readable artifact.
++
++Measured negative log likelihood, in nats per five-shot sequence (lower is better):
++
++| Hypothesis | Training | Holdout |
++|---|---:|---:|
++| One regime, dose-dependent rates | 16.404205 | 16.275196 |
++| Two independent-shot regimes | 16.317424 | 16.180559 |
++| Three independent-shot regimes | 16.298113 | 16.149544 |
++| Two Markov regimes | 16.157410 | 16.020512 |
++| Three Markov regimes | **16.096587** | **15.948269** |
++
++The three-mode Markov model gains 0.201274 nats/sequence over the three-mode
++independent mixture, with paired holdout standard error 0.013995. Its gain over
++the two-mode Markov model is 0.072242, standard error 0.008158. Thus persistence
++and the third regime have separate measured support; I did not select complexity
++from public prediction errors. The selected model is refitted on all sequences,
++achieving NLL 16.066633 per sequence. Its shared slopes are approximately
++`[0.896660, -0.606785, 0.390780]`; the full fit is in `model.json`.
++
++After selection, I also refitted the single-regime, three-mode independent, and
++two-mode Markov alternatives on all records and ran the same exact deployment
++decoder. Their worst public-validation logical TV errors were respectively
++0.415831, 0.172438, and 0.170967, versus 0.016360 for the selected model.
++The independent three-mode model'"'s worst switch error was 0.378892, versus
++0.034801 for the selected model. See "'`audit_results.json` for all measurements.
++
++## Deployment inference
++
++`solve.py` loads its neighboring fitted artifact and delegates to `inference.py`.
++Only observed detector rows are conditioned on. Within a region, GF(2) row
++reduction produces affine internal-fault solutions for each assignment of its
++crossing mechanisms. I sum all compatible independent-fault probabilities,
++including duplicate columns and detector dependencies. When the local nullspace
++would be large, an alternative XOR-state dynamic program uses the internal
++detector rank instead. No full-network fault enumeration is performed.
++
++Regional factors retain shared crossing variables, which are eliminated jointly;
++the hardware regions are not assumed independent. The shared fault prior and
++logical/query sign of a crossing mechanism appear exactly once. Detector-silent
++mechanisms have separate exact factors. Walsh characters carry every joint
++logical-label probability and each requested fault-parity expectation through
++the contraction. The inverse transform recovers the joint label distribution,
++not a product of marginal observables. Feature batching limits tensor memory.
++
++Per-regime shot evidence feeds scaled forward-backward smoothing over the entire
++sequence. Smoothed regime probabilities mix conditional shot outputs, and
++two-slice posteriors give switch probabilities. Local scaling and log-domain
++sequence evidence avoid multiplying many tiny shot probabilities directly.
++
++## Public measurements
++
++These are maximum errors across shots/queries/transitions within each case;
++evidence error is divided by the total number of observed detector bits.
++
++| Case / implementation | Logical TV | Query absolute | Switch absolute | Evidence/bit |
++|---|---:|---:|---:|---:|
++| dose_ring / prototype | 0.993264 | 1.000000 | 0.922405 | 0.542149 |
++| dose_ring / final | **0.005149** | **0.003620** | **0.020198** | **0.000205** |
++| drift_ladder / prototype | 0.961242 | 1.000000 | 0.992335 | 0.383799 |
++| drift_ladder / final | **0.016360** | **0.009736** | **0.034801** | **0.000151** |
++
++Across all three micro cases, final maxima are logical TV 0.006355, query error
++0.006250, switch error 0.007612, and evidence/bit error 0.002798. Every public
++case is inside all four stated full-accuracy bands. Exact numerical results are
++saved in `micro_metrics.json`, `validation_metrics.json`, and the baseline metric
++files. Required final predictions are in `validation_predictions.json`.
++
++## Independent checks and resources
++
++- Exhaustive enumeration of every fault pattern and every regime path on the
++  micro sequences agrees with the regional decoder to about 1e-15. This checks
++  masked detectors, duplicate supports, silent mechanisms, joint logical labels,
++  parity queries, future conditioning, switches, and evidence together.
++- Forty randomized local algebra problems compare affine enumeration and the
++  independent XOR dynamic program; maximum absolute discrepancy is 1.11e-15.
++- Central finite differences check every three-mode HMM likelihood-gradient
++  coordinate; maximum discrepancy is 2.23e-10.
++- The public validation invocation took 0.23 seconds and about 45 MiB peak RSS
++  in the initial final-decoder run; public micro took 0.18 seconds.
++- A seeded synthetic stress case has 311 mechanisms, 220 detectors, ten regions,
++  eight shots, four observables, 40 crossing mechanisms, and eight crossings per
++  region. Doses include both -1.4 and +1.4; later shots have missing detectors.
++  Its boundary elimination width is 18. It ran in 2.60 seconds at about 98 MiB
++  peak RSS. A second run under a 1.5 GiB address-space cap and 60-second timeout
++  completed in 4.96 seconds at about 98 MiB. All emitted probabilities were
++  finite, normalized, in range, and had valid MAP decisions.
++
++The synthetic case is a resource/consistency check generated from the fitted
++model, not independent evidence of predictive accuracy. `audit.py` reproduces
++the numerical checks, alternative-model comparisons, and synthetic input.
++
++## Reproduction commands
++
++All paths below refer to the actual mounted workspace available in this run.
++The requested `/home/xuandong/...` spelling was not present; the available
++submission root is `/srv/home/xuandong/.../attempts/v_02/fresh_01`.
++
++```bash
++BASE=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding
++INPUT=$BASE/participant/v_02/input
++cd "$BASE/attempts/v_02/fresh_01"
++export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
++
++python baseline_train.py --calibration "$INPUT/calibration.json" --records "$INPUT/calibration_records.npz" --output baseline_model.json
++python baseline_solve.py --input "$INPUT/validation.json" --output baseline_validation_predictions.json
++python validate.py --expected "$INPUT/validation_expected.json" --actual baseline_validation_predictions.json --input "$INPUT/validation.json"
++
++python train.py --calibration "$INPUT/calibration.json" --records "$INPUT/calibration_records.npz" --output model.json > training.log
++python solve.py --input "$INPUT/micro.json" --output micro_predictions.json
++python validate.py --expected "$INPUT/micro_expected.json" --actual micro_predictions.json --input "$INPUT/micro.json"
++python solve.py --input "$INPUT/validation.json" --output validation_predictions.json
++python validate.py --expected "$INPUT/validation_expected.json" --actual validation_predictions.json --input "$INPUT/validation.json"
++python audit.py --input-dir "$INPUT" > audit.log
++(ulimit -v 1572864; /usr/bin/time -f '"'wall_seconds=%e max_rss_kib=%M' timeout 60s python solve.py --input synthetic_stress.json --output synthetic_limited_predictions.json)
++"'```
++
++## Remaining limitations
++
++Predictions use fitted parameters rather than integrating parameter uncertainty;
++finite-calibration uncertainty remains, especially when extrapolating dose.
++The scientific model is restricted to the specified stationary Markov/logit
++family. Exact boundary contraction is exponential in elimination width, not in
++total mechanisms; arbitrary high-treewidth region graphs can exceed the resource
++envelope even though the public cases and the larger width-18 stress case do not.
++The implementation rejects algebraically impossible syndromes instead of
++silently treating them as possible observations. No hidden cases or external
++data were inspected, and no reference prediction table is used by the solver.
+*** End Patch
+PATCH
+export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1; INPUT=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_02/input; python baseline_train.py --calibration "$INPUT/calibration.json" --records "$INPUT/calibration_records.npz" --output baseline_model.json; python baseline_solve.py --input "$INPUT/validation.json" --output baseline_validation_predictions.json; python validate.py --expected "$INPUT/validation_expected.json" --actual baseline_validation_predictions.json --input "$INPUT/validation.json" > baseline_validation_metrics.json; python solve.py --help > solve_cli_help.txt; python train.py --help > train_cli_help.txt; /usr/bin/time -v python solve.py --input "$INPUT/micro.json" --output micro_predictions.json 2>micro_runtime.log; python validate.py --expected "$INPUT/micro_expected.json" --actual micro_predictions.json --input "$INPUT/micro.json" > micro_metrics.json; /usr/bin/time -v python solve.py --input "$INPUT/validation.json" --output validation_predictions.json 2>validation_runtime.log; python validate.py --expected "$INPUT/validation_expected.json" --actual validation_predictions.json --input "$INPUT/validation.json" | tee validation_metrics.json; python -m py_compile solve.py train.py inference.py audit.py; date +%s' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_02/fresh_01
+ succeeded in 2399ms:
+Success. Updated the following files:
+A diagnosis.md
+M baseline_solve.py
+[
+  {
+    "id": "dose_ring",
+    "logical_tv_mean": 0.0037289797860132613,
+    "logical_tv_max": 0.005149048962681507,
+    "query_abs_mean": 0.0006245976195197385,
+    "query_abs_max": 0.0036202089231982537,
+    "switch_abs_mean": 0.012967050694376321,
+    "switch_abs_max": 0.02019814523499886,
+    "log_evidence_per_observed_bit_abs": 0.00020531684602056882
+  },
+  {
+    "id": "drift_ladder",
+    "logical_tv_mean": 0.007233080456381391,
+    "logical_tv_max": 0.01635962860921682,
+    "query_abs_mean": 0.0015899212890173012,
+    "query_abs_max": 0.009735704540468126,
+    "switch_abs_mean": 0.009414795719971829,
+    "switch_abs_max": 0.034801206067589824,
+    "log_evidence_per_observed_bit_abs": 0.00015141453564073996
+  }
+]
+1787816897
+
+Verified both required CLIs, reran final public predictions, checked exactness against independent enumeration and likelihood finite differences, tested a 311-mechanism case under the deployment limits, and saved diagnosis.md plus all required artifacts.
+  ✓ Inspect prototype and measure baseline
+  ✓ Compare and fit calibration hypotheses
+  ✓ Implement scalable smoothed probabilistic decoding
+  ✓ Validate outputs and document measurements
+codex
+Completed in the available `/srv/home` workspace.
+
+- Entry point: `../../attempts/v_02/fresh_01/solve.py:1`
+- Saved reproducible training, fitted model, `validation_predictions.json`, and `diagnosis.md` alongside it.
+- Both required CLIs verified; all public cases meet every accuracy band.
+- Worst validation errors: logical TV **0.01636**, query **0.00974**, switch **0.03480**, evidence/bit **0.000205**.
+- A 311-mechanism stress case passes the 60-second/1.5-GiB limits.
+tokens used
+94,463
+Completed in the available `/srv/home` workspace.
+
+- Entry point: `../../attempts/v_02/fresh_01/solve.py:1`
+- Saved reproducible training, fitted model, `validation_predictions.json`, and `diagnosis.md` alongside it.
+- Both required CLIs verified; all public cases meet every accuracy band.
+- Worst validation errors: logical TV **0.01636**, query **0.00974**, switch **0.03480**, evidence/bit **0.000205**.
+- A 311-mechanism stress case passes the 60-second/1.5-GiB limits.

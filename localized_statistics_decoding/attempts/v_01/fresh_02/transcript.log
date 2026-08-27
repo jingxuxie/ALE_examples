@@ -1,0 +1,1999 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: workspace-write [workdir]
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 01a04207-377b-7692-8fdc-b2d92ce0f925
+--------
+user
+You are a fresh independent solver. Read /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01/TASK.md and solve the task. Your final self-contained submission must be rooted at /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/solve.py; place all other deliverables in /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02. Copy any starter modules you need into your output workspace before editing. Do not modify the original TASK.md or public inputs. Use the public diagnostics to run, inspect, revise, and validate your scientific solution. You have 1200 seconds. Work autonomously and do not ask the user to run commands. Only /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01 and /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02 are available as task/work directories. Do not search for author solutions, hidden evaluations, other tasks or prior attempts. No network or additional dependencies are needed. Finish by checking the required CLI and saving validation_predictions.json and diagnosis.md. The output directory may contain runner logs; they are not task input.
+codex
+I’ll read the task, inspect inputs, and run diagnostics.
+
+exec
+/bin/bash -lc 'pwd; ls -la; cat TASK.md; for parent in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2 /srv/home/xuandong/mnt/jingxu/ALE /srv/home/xuandong/mnt/jingxu /srv/home/xuandong/mnt /srv/home/xuandong /srv/home /srv /; do if [ -f "$parent/AGENTS.md" ]; then printf '"'\\n--- %s ---\\n' \""'$parent/AGENTS.md"; cat "$parent/AGENTS.md"; fi; done' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01
+ succeeded in 14251ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01
+total 20
+drwxrwxr-x 7 xuandong xuandong 4096 Aug 27 00:04 .
+drwx------ 3 xuandong xuandong   60 Aug 27 00:04 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 00:04 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 00:04 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 00:04 .git
+-rw-rw-r-- 1 xuandong xuandong 7981 Aug 26 23:57 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 00:00 input
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 27 00:00 software
+# Repair a regional decoder's logical-risk estimates
+
+## Professional objective
+
+You are taking over a prototype soft-output decoder for a quantum-error-
+correction experiment. Its hard fault hypotheses sometimes reproduce the
+detector record, but its reported logical risks are not trustworthy. The
+experiment now needs **joint logical posterior probabilities**, not just a
+low-weight fault vector. A calibration mode is shared by all shots in a batch,
+and some detector observations are missing.
+
+Repair or replace the scientific implementation in `software/`. Deliver an
+executable decoder that remains accurate when hardware regions are coupled,
+checks are redundant or erased, and calibration support changes. The prototype
+is intentionally not a validated algorithm; retaining its architecture is not
+required. Use the supplied diagnostic evidence to identify and test substantive
+failures before choosing your final approach.
+
+## Provided files
+
+- `software/solve.py`: working JSON command-line plumbing.
+- `software/binary.py`, `software/regional.py`, `software/inference.py`: an
+  incomplete regional hard-decision implementation and its probability adapter.
+- `software/validate.py`: behavioral comparison tool, not a hidden evaluator.
+- `input/micro.json`, `input/micro_expected.json`: tiny networks with independent
+  exhaustive-enumeration truth, including degeneracy and missing observations.
+- `input/validation.json`, `input/validation_expected.json`: larger development
+  networks and their reference probabilities. These are useful for both accuracy
+  diagnosis and runtime experiments. They are not the held-out test set.
+
+## Scientific model
+
+Each input case is one batch. Draw a single latent mode `z` from `mode_prior`.
+Conditional on that same mode, faults are independent Bernoulli variables within
+each shot, and shots are independent. Fault `j` has mode-conditional probability
+`faults[j].probabilities[z]`. Different entries describe independent **mechanisms**:
+identical detector supports do not make two mechanisms mutually exclusive.
+
+All detector and logical algebra is over GF(2). A mechanism toggles every detector
+in its `detectors` list. For fault vector `e`, the complete detector record is
+`H e mod 2`, where column `j` of `H` is that list. Only observed rows are
+conditioned on: `null` in a shot's `syndrome` means the detector was not observed,
+not that it measured zero. Dependencies among rows are allowed.
+
+The shot's logical label is the bitwise XOR of `logical_mask` for every active
+fault. Bit `b` of this nonnegative integer corresponds to logical observable `b`.
+Faults with no detector support can still change the logical label. Faults with
+zero logical mask still contribute probability mass. Multiple fault vectors
+can have the same detector record and logical label, and their probabilities
+must be **summed**, not maximized. `logical_mask` is supplied by the experiment;
+you do not need to derive logical operators or a stabilizer code.
+
+A shot query lists distinct fault indices. Its event is that the XOR of those
+faults is one. All requested posteriors, including each shot's logical and query
+posteriors, are conditioned on **all observed detector records in the case**.
+Consequently, another shot can change a shot's answer through the shared mode.
+`log_evidence` is the natural log of the probability of the complete observed
+batch, marginalized over the mode and every unobserved fault/detector value.
+
+`detector_regions` maps detector indices to hardware-region identifiers. It is
+metadata, not a declaration of probabilistic independence. Some mechanisms touch
+multiple regions. Region numbers, detector order, and mechanism order carry no
+likelihood or elimination-order meaning.
+
+## Interface
+
+Submit a directory containing `solve.py` and all its local modules. The evaluator
+runs this command from that directory:
+
+```
+python solve.py --input /absolute/path/cases.json --output /absolute/path/predictions.json
+```
+
+Input is `{"cases": [case, ...]}`. Each case supplies `id`, `num_detectors`,
+`num_observables`, `detector_regions`, `faults`, `mode_prior`, and `shots`.
+Each shot supplies `id`, `syndrome`, and `queries`, each with `id` and `faults`.
+The provided JSON files are complete executable schema examples. Indices are
+zero-based; IDs are opaque. All hidden batches have positive total evidence.
+An individual mode may have zero likelihood for a batch.
+
+Write `{"cases": [...]}`, preserving case and shot IDs. Each output case contains:
+
+- `id`, `log_evidence` (a finite real number), and `mode_posterior` (normalized
+  vector in the supplied mode order);
+- `shots`, each containing `id`, `logical_posterior` (a normalized vector of
+  length `2**num_observables`, indexed by the integer logical label),
+  `logical_decision` (a maximum-posterior label; ties may be broken freely), and
+  `query_probability` (mapping query IDs to their posterior probabilities).
+
+Do not report independent per-observable marginals in place of the joint
+distribution. No fault-vector recovery, canonical basis, or particular internal
+representation is required. Extra diagnostic fields are allowed.
+
+## Environment and resources
+
+- Python 3.10 with NumPy 1.21 and SciPy 1.8 is available. Use the standard library
+  and these packages; no network, installation, GPU, or external decoder is needed.
+- Each evaluation invocation handles one batch and has **60 seconds**, one CPU
+  thread, and **1.5 GiB address space**. Model authoring time is separate.
+- Workloads have up to 320 mechanisms, 220 detectors, 3 modes, 4 shots and 4
+  logical observables. There are 3--10 hardware regions. Each region touches at
+  most 30 mechanisms wholly within it and at most 8 mechanisms crossing its
+  boundary. A missing observation may change local rank.
+- The networks are sparse and regionally structured, but not necessarily trees
+  or graph-edge-only detector models. Full-batch fault enumeration is not a
+  viable strategy. There is no requirement to use a specific local method.
+- The supplied input and reference JSON must not be embedded in the submitted
+  solver. Evaluation uses new probabilities, syndromes, row/column permutations,
+  boundary topologies, and configurations with exact zero/one probabilities.
+
+## Required deliverables and validation
+
+Place everything in the requested output directory:
+
+1. A self-contained executable submission rooted at `solve.py`.
+2. `validation_predictions.json`, your final output on `input/validation.json`.
+3. `diagnosis.md`, a concise explanation of the scientific defects you found,
+   a measured before/after diagnostic, your main algorithmic choices, and the
+   limitations you checked. Include actual commands and measurements; no long
+   literature review is wanted.
+
+For example, from a workspace containing your solver and `validate.py`:
+
+```
+python solve.py --input ../input/micro.json --output micro_predictions.json
+python validate.py --expected ../input/micro_expected.json --actual micro_predictions.json
+```
+
+Adjust paths when working in the output directory. Run, inspect the discrepancy,
+revise, and rerun on the larger public validation set before finalizing.
+
+## Observable success
+
+The principal score is scientific behavior on three held-out batches: joint
+logical distribution (40%), parity-query probabilities (25%), batch log evidence
+(20%), mode inference (10%), and logical decisions (5%). Full-accuracy bands are
+total-variation error at most 0.02 for normalized distributions, absolute query
+error at most 0.025, and absolute log-evidence error at most 0.08. These are
+deliberately non-machine-precision tolerances. Larger errors receive graded
+partial credit; a hard-output-only decoder is not a successful soft decoder.
+
+Success also means completing the diagnostic loop, producing finite normalized
+probabilities and executable artifacts, and staying within the resource envelope.
+No source-code similarity, exact elimination order, or exact bytes are scored.
+
+**Planning for regional parity distribution**
+
+I need to manage a 20-minute timeframe, starting with a 20-second overhead. The task is to efficiently solve the exact regional parity distribution by eliminating variables with boundaries for eight regions, ensuring mechanisms are within thirty. I should read all the instruction files to understand the requirements clearly. The user wants an independent solution without delegating and no network access, so I need to derive the necessary algorithms solely from the available files. Let's plan!
+  → Inspect implementation and public diagnostics
+  • Implement coupled exact posterior inference
+  • Validate accuracy and resource limits
+  • Save predictions and scientific diagnosis
+exec
+/bin/bash -c "rg --files -g 'AGENTS.md' -g '"'!input/*.json'"' -g '"'!*lock*'"' .; find software -maxdepth 3 -type f; printf '\\n--- solve ---\\n'; cat software/solve.py; printf '\\n--- inference ---\\n'; cat software/inference.py; printf '\\n--- regional ---\\n'; cat software/regional.py; printf '\\n--- binary ---\\n'; cat software/binary.py; printf '\\n--- validate ---\\n'; cat software/validate.py; printf '\\n--- paths ---\\n'; ls -ld /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01 /home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02 /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01
+ exited 2 in 4964ms:
+software/inference.py
+software/solve.py
+software/regional.py
+software/__pycache__/inference.cpython-310.pyc
+software/__pycache__/regional.cpython-310.pyc
+software/__pycache__/binary.cpython-310.pyc
+software/binary.py
+software/validate.py
+
+--- solve ---
+import argparse
+import json
+from pathlib import Path
+
+from inference import decode_case
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', required=True)
+    parser.add_argument('--output', required=True)
+    arguments = parser.parse_args()
+    dataset = json.loads(Path(arguments.input).read_text())
+    result = {'cases': [decode_case(case) for case in dataset['cases']]}
+    Path(arguments.output).write_text(json.dumps(result, indent=2, allow_nan=False) + '\n')
+
+
+if __name__ == '__main__':
+    main()
+
+--- inference ---
+import math
+
+import numpy as np
+
+from regional import hypothesis
+
+
+def decode_case(case):
+    modes = len(case['mode_prior'])
+    mode_weights = np.asarray(case['mode_prior'], dtype=float)
+    output_shots = []
+    log_evidence = 0.0
+    for shot in case['shots']:
+        logical = np.zeros(1 << case['num_observables'])
+        queries = {query['id']: 0.0 for query in shot['queries']}
+        shot_evidence = 0.0
+        for mode in range(modes):
+            correction = hypothesis(case, shot, mode)
+            label = 0
+            probability = 1.0
+            for index, fault in enumerate(case['faults']):
+                rate = fault['probabilities'][mode]
+                probability *= rate if correction[index] else 1.0 - rate
+                if correction[index]:
+                    label ^= fault['logical_mask']
+            logical[label] += mode_weights[mode]
+            shot_evidence += mode_weights[mode] * probability
+            for query in shot['queries']:
+                queries[query['id']] += mode_weights[mode] * int(correction[query['faults']].sum() % 2)
+        log_evidence += math.log(max(shot_evidence, 1e-300))
+        output_shots.append({'id': shot['id'], 'logical_posterior': logical.tolist(),
+                             'logical_decision': int(np.argmax(logical)), 'query_probability': queries})
+    return {'id': case['id'], 'log_evidence': log_evidence,
+            'mode_posterior': mode_weights.tolist(), 'shots': output_shots}
+
+--- regional ---
+import numpy as np
+
+from binary import solve_binary
+
+
+def hypothesis(case, shot, mode):
+    faults = case['faults']
+    regions = case['detector_regions']
+    correction = np.zeros(len(faults), dtype=np.uint8)
+    syndrome = [0 if value is None else value for value in shot['syndrome']]
+    for region in sorted(set(regions)):
+        rows = [index for index, owner in enumerate(regions) if owner == region]
+        columns = [index for index, fault in enumerate(faults)
+                   if fault['detectors'] and regions[fault['detectors'][0]] == region]
+        matrix = np.asarray([[int(row in faults[column]['detectors']) for column in columns]
+                             for row in rows], dtype=np.uint8)
+        probabilities = np.asarray([faults[column]['probabilities'][mode] for column in columns])
+        order = np.argsort(-probabilities)
+        local = solve_binary(matrix, [syndrome[row] for row in rows], order)
+        correction[columns] = local
+    return correction
+
+--- binary ---
+import numpy as np
+
+
+def solve_binary(matrix, syndrome, order):
+    matrix = matrix[:, order].astype(np.uint8).copy()
+    right = np.asarray(syndrome, dtype=np.uint8).copy()
+    row = 0
+    pivots = []
+    for column in range(matrix.shape[1]):
+        candidates = np.flatnonzero(matrix[row:, column])
+        if not len(candidates):
+            continue
+        pivot = row + int(candidates[0])
+        matrix[[row, pivot]] = matrix[[pivot, row]]
+        right[[row, pivot]] = right[[pivot, row]]
+        for target in range(matrix.shape[0]):
+            if target != row and matrix[target, column]:
+                matrix[target] ^= matrix[row]
+                right[target] ^= right[row]
+        pivots.append(column)
+        row += 1
+        if row == matrix.shape[0]:
+            break
+    solution = np.zeros(matrix.shape[1], dtype=np.uint8)
+    for pivot_row, pivot_column in enumerate(pivots):
+        solution[pivot_column] = right[pivot_row]
+    restored = np.zeros_like(solution)
+    restored[order] = solution
+    return restored
+
+--- validate ---
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+
+
+def compare(expected, actual):
+    actual_cases = {case['id']: case for case in actual['cases']}
+    results = []
+    for truth in expected['cases']:
+        candidate = actual_cases[truth['id']]
+        candidate_shots = {shot['id']: shot for shot in candidate['shots']}
+        logical_errors = []
+        query_errors = []
+        for shot in truth['shots']:
+            predicted = candidate_shots[shot['id']]
+            logical_errors.append(float(np.abs(np.asarray(shot['logical_posterior'])
+                                                - np.asarray(predicted['logical_posterior'])).sum() / 2))
+            query_errors.extend(abs(probability - predicted['query_probability'][query])
+                                for query, probability in shot['query_probability'].items())
+        results.append({'id': truth['id'], 'logical_tv_mean': float(np.mean(logical_errors)),
+                        'logical_tv_max': float(max(logical_errors)),
+                        'query_abs_mean': float(np.mean(query_errors)),
+                        'query_abs_max': float(max(query_errors)),
+                        'log_evidence_abs': abs(truth['log_evidence'] - candidate['log_evidence']),
+                        'mode_tv': float(np.abs(np.asarray(truth['mode_posterior'])
+                                               - np.asarray(candidate['mode_posterior'])).sum() / 2)})
+    return results
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--expected', required=True)
+    parser.add_argument('--actual', required=True)
+    arguments = parser.parse_args()
+    expected = json.loads(Path(arguments.expected).read_text())
+    actual = json.loads(Path(arguments.actual).read_text())
+    print(json.dumps(compare(expected, actual), indent=2))
+
+--- paths ---
+ls: cannot access '/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01': No such file or directory
+ls: cannot access '/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02': No such file or directory
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 27 00:04 /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02
+
+exec
+/bin/bash -c 'output=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02; cp software/solve.py software/binary.py software/regional.py software/inference.py software/validate.py "$output/"; printf '"'\\n--- instructions ---\\n'; find software input \""'$output" -name AGENTS.md -print; printf '"'\\n--- micro baseline ---\\n'; /usr/bin/time -f 'elapsed=%e peak_kib=%M' python \""'$output/solve.py" --input "$PWD/input/micro.json" --output "$output/baseline_micro_predictions.json"; python "$output/validate.py" --expected input/micro_expected.json --actual "$output/baseline_micro_predictions.json"; printf '"'\\n--- validation baseline ---\\n'; /usr/bin/time -f 'elapsed=%e peak_kib=%M' python \""'$output/solve.py" --input "$PWD/input/validation.json" --output "$output/baseline_validation_predictions.json"; python "$output/validate.py" --expected input/validation_expected.json --actual "$output/baseline_validation_predictions.json"; printf '"'\\n--- input structure ---\\n'; python - <<'PY'
+import json
+from collections import Counter
+import numpy as np
+
+def rank(rows):
+    basis = {}
+    for mask in rows:
+        while mask:
+            bit = mask.bit_length()-1
+            if bit in basis: mask "'^= basis[bit]
+            else:
+                basis[bit] = mask
+                break
+    return len(basis)
+for path in ['"'input/micro.json','input/validation.json']:
+    data=json.load(open(path))
+    print(path, len(data['cases']))
+    for case in data['cases']:
+        regions=case['detector_regions']
+        print('\\nCASE',case['id'], 'detectors',case['num_detectors'],'faults',len(case['faults']),'observables',case['num_observables'],'prior',case['mode_prior'])
+        internal={region:[] for region in set(regions)}
+        boundary=[]
+        for index,fault in enumerate(case['faults']):
+            owners=set(regions[detector] for detector in fault['detectors'])
+            if len(owners)==1: internal[next(iter(owners))].append(index)
+            else: boundary.append((index,sorted(owners)))
+        print('internal', {region:len(values) for region,values in internal.items()},'boundary',boundary)
+        for shot in case['shots']:
+            print('shot',shot['id'],'erased',sum(value is None for value in shot['syndrome']),'queries',shot['queries'])
+            ranks={region:rank([sum((int(detector in case['faults'][column]['detectors']) << position) for position,column in enumerate(columns)) for detector,owner in enumerate(regions) if owner==region and shot['syndrome'][detector] is not None]) for region,columns in internal.items()}
+            print('local ranks',ranks,'nullity',{region:len(internal[region])-value for region,value in ranks.items()})
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01
+ succeeded in 9702ms:
+
+--- instructions ---
+
+--- micro baseline ---
+elapsed=0.13 peak_kib=31752
+[
+  {
+    "id": "micro_0",
+    "logical_tv_mean": 0.33579941871228514,
+    "logical_tv_max": 0.4974557941276819,
+    "query_abs_mean": 0.13688997950926,
+    "query_abs_max": 0.6189767436503714,
+    "log_evidence_abs": 0.8199938348444507,
+    "mode_tv": 0.07400396205733673
+  },
+  {
+    "id": "micro_1",
+    "logical_tv_mean": 0.5414223055453773,
+    "logical_tv_max": 0.6207722657447226,
+    "query_abs_mean": 0.21278289789393803,
+    "query_abs_max": 0.4384808841938985,
+    "log_evidence_abs": 3.1554914385809756,
+    "mode_tv": 0.33434547234613426
+  },
+  {
+    "id": "micro_2",
+    "logical_tv_mean": 0.4380444676459534,
+    "logical_tv_max": 0.4396171572666231,
+    "query_abs_mean": 0.1792925271625897,
+    "query_abs_max": 0.523341471254625,
+    "log_evidence_abs": 4.037927123223902,
+    "mode_tv": 0.5825442053313756
+  }
+]
+
+--- validation baseline ---
+elapsed=0.19 peak_kib=32076
+[
+  {
+    "id": "regional_ring",
+    "logical_tv_mean": 0.5655853252134275,
+    "logical_tv_max": 0.7660897107680238,
+    "query_abs_mean": 0.14982751795234375,
+    "query_abs_max": 0.6022564129407596,
+    "log_evidence_abs": 26.510523099533387,
+    "mode_tv": 0.5466347407186247
+  },
+  {
+    "id": "masked_ladder",
+    "logical_tv_mean": 0.6721597282181588,
+    "logical_tv_max": 0.747520974084041,
+    "query_abs_mean": 0.1741797026123036,
+    "query_abs_max": 0.49864754368796416,
+    "log_evidence_abs": 73.11525166333948,
+    "mode_tv": 0.7493702993516025
+  }
+]
+
+--- input structure ---
+input/micro.json 3
+
+CASE micro_0 detectors 6 faults 13 observables 3 prior [0.6, 0.4]
+internal {0: 3, 1: 3, 2: 3} boundary [(4, [0, 2]), (8, [0, 1]), (9, []), (10, [1, 2])]
+shot shot_0 erased 0 queries [{'id': 'local', 'faults': [11]}, {'id': 'alternate', 'faults': [0]}, {'id': 'boundary', 'faults': [8]}, {'id': 'cross_region', 'faults': [7, 11]}, {'id': 'silent', 'faults': [9]}, {'id': 'mixed', 'faults': [0, 8, 9]}]
+local ranks {0: 2, 1: 2, 2: 2} nullity {0: 1, 1: 1, 2: 1}
+shot shot_1 erased 1 queries [{'id': 'local', 'faults': [11]}, {'id': 'alternate', 'faults': [0]}, {'id': 'boundary', 'faults': [10]}, {'id': 'cross_region', 'faults': [7, 11]}, {'id': 'silent', 'faults': [9]}, {'id': 'mixed', 'faults': [0, 8, 9]}]
+local ranks {0: 2, 1: 1, 2: 2} nullity {0: 1, 1: 2, 2: 1}
+
+CASE micro_1 detectors 6 faults 13 observables 3 prior [0.6, 0.4]
+internal {0: 3, 1: 3, 2: 3} boundary [(5, [0, 2]), (7, [0, 1]), (10, [1, 2]), (11, [])]
+shot shot_0 erased 0 queries [{'id': 'local', 'faults': [6]}, {'id': 'alternate', 'faults': [9]}, {'id': 'boundary', 'faults': [7]}, {'id': 'cross_region', 'faults': [6, 12]}, {'id': 'silent', 'faults': [11]}, {'id': 'mixed', 'faults': [7, 9, 11]}]
+local ranks {0: 2, 1: 2, 2: 2} nullity {0: 1, 1: 1, 2: 1}
+shot shot_1 erased 0 queries [{'id': 'local', 'faults': [6]}, {'id': 'alternate', 'faults': [9]}, {'id': 'boundary', 'faults': [10]}, {'id': 'cross_region', 'faults': [6, 12]}, {'id': 'silent', 'faults': [11]}, {'id': 'mixed', 'faults': [7, 9, 11]}]
+local ranks {0: 2, 1: 2, 2: 2} nullity {0: 1, 1: 1, 2: 1}
+
+CASE micro_2 detectors 6 faults 14 observables 3 prior [0.6, 0.4]
+internal {0: 3, 1: 3, 2: 3} boundary [(1, [1, 2]), (4, []), (5, [0, 1]), (10, [0, 2]), (13, [])]
+shot shot_0 erased 0 queries [{'id': 'local', 'faults': [0]}, {'id': 'alternate', 'faults': [8]}, {'id': 'boundary', 'faults': [5]}, {'id': 'cross_region', 'faults': [0, 3]}, {'id': 'silent', 'faults': [13]}, {'id': 'mixed', 'faults': [5, 8, 13]}]
+local ranks {0: 2, 1: 2, 2: 2} nullity {0: 1, 1: 1, 2: 1}
+shot shot_1 erased 2 queries [{'id': 'local', 'faults': [0]}, {'id': 'alternate', 'faults': [8]}, {'id': 'boundary', 'faults': [1]}, {'id': 'cross_region', 'faults': [0, 3]}, {'id': 'silent', 'faults': [13]}, {'id': 'mixed', 'faults': [5, 8, 13]}]
+local ranks {0: 1, 1: 2, 2: 1} nullity {0: 2, 1: 1, 2: 2}
+input/validation.json 2
+
+CASE regional_ring detectors 56 faults 81 observables 3 prior [0.55, 0.45]
+internal {0: 18, 1: 18, 2: 18, 3: 18} boundary [(1, [0, 1]), (2, [0, 3]), (46, [0, 1]), (49, [2, 3]), (53, [2, 3]), (56, [1, 2]), (64, [1, 2]), (70, [0, 3]), (74, [])]
+shot shot_0 erased 0 queries [{'id': 'local', 'faults': [12]}, {'id': 'alternate', 'faults': [30]}, {'id': 'boundary', 'faults': [46]}, {'id': 'cross_region', 'faults': [12, 37]}, {'id': 'silent', 'faults': [74]}, {'id': 'mixed', 'faults': [30, 46, 74]}]
+local ranks {0: 12, 1: 12, 2: 12, 3: 12} nullity {0: 6, 1: 6, 2: 6, 3: 6}
+shot shot_1 erased 0 queries [{'id': 'local', 'faults': [12]}, {'id': 'alternate', 'faults': [30]}, {'id': 'boundary', 'faults': [1]}, {'id': 'cross_region', 'faults': [12, 37]}, {'id': 'silent', 'faults': [74]}, {'id': 'mixed', 'faults': [30, 46, 74]}]
+local ranks {0: 12, 1: 12, 2: 12, 3: 12} nullity {0: 6, 1: 6, 2: 6, 3: 6}
+shot shot_2 erased 1 queries [{'id': 'local', 'faults': [12]}, {'id': 'alternate', 'faults': [30]}, {'id': 'boundary', 'faults': [64]}, {'id': 'cross_region', 'faults': [12, 37]}, {'id': 'silent', 'faults': [74]}, {'id': 'mixed', 'faults': [30, 46, 74]}]
+local ranks {0: 12, 1: 12, 2: 12, 3: 12} nullity {0: 6, 1: 6, 2: 6, 3: 6}
+
+CASE masked_ladder detectors 108 faults 153 observables 3 prior [0.42, 0.33, 0.25]
+internal {0: 23, 1: 23, 2: 23, 3: 23, 4: 23, 5: 23} boundary [(8, [0, 1]), (33, [1, 4]), (36, [0, 1]), (40, [3, 4]), (73, []), (76, [1, 2]), (78, [4, 5]), (85, [1, 4]), (100, [0, 3]), (102, [3, 4]), (103, [1, 2]), (120, [2, 5]), (146, [0, 3]), (147, [2, 5]), (151, [4, 5])]
+shot shot_0 erased 0 queries [{'id': 'local', 'faults': [3]}, {'id': 'alternate', 'faults': [119]}, {'id': 'boundary', 'faults': [36]}, {'id': 'cross_region', 'faults': [3, 114]}, {'id': 'silent', 'faults': [73]}, {'id': 'mixed', 'faults': [36, 73, 119]}]
+local ranks {0: 16, 1: 16, 2: 16, 3: 16, 4: 16, 5: 16} nullity {0: 7, 1: 7, 2: 7, 3: 7, 4: 7, 5: 7}
+shot shot_1 erased 1 queries [{'id': 'local', 'faults': [3]}, {'id': 'alternate', 'faults': [119]}, {'id': 'boundary', 'faults': [8]}, {'id': 'cross_region', 'faults': [3, 114]}, {'id': 'silent', 'faults': [73]}, {'id': 'mixed', 'faults': [36, 73, 119]}]
+local ranks {0: 16, 1: 16, 2: 16, 3: 15, 4: 16, 5: 16} nullity {0: 7, 1: 7, 2: 7, 3: 8, 4: 7, 5: 7}
+shot shot_2 erased 2 queries [{'id': 'local', 'faults': [3]}, {'id': 'alternate', 'faults': [119]}, {'id': 'boundary', 'faults': [103]}, {'id': 'cross_region', 'faults': [3, 114]}, {'id': 'silent', 'faults': [73]}, {'id': 'mixed', 'faults': [36, 73, 119]}]
+local ranks {0: 16, 1: 16, 2: 16, 3: 16, 4: 16, 5: 15} nullity {0: 7, 1: 7, 2: 7, 3: 7, 4: 7, 5: 8}
+
+codex
+Baseline errors are large: degeneracy, erasures, and shared-mode inference fail.
+
+exec
+/bin/bash -c "python - <<'PY'
+import json
+
+def rank(masks):
+    pivots={}
+    for mask in masks:
+        while mask:
+            bit=mask.bit_length()-1
+            if bit in pivots: mask "'^= pivots[bit]
+            else: pivots[bit]=mask; break
+    return len(pivots)
+for file in ['"'micro','validation']:
+    for case in json.load(open('input/'+file+'.json'))['cases']:
+        owners=case['detector_regions']; faults=case['faults']; cross=[]; local={region:[] for region in set(owners)}
+        for index,fault in enumerate(faults):
+            regions=set(owners[detector] for detector in fault['detectors'])
+            if len(regions)>1: cross.append(index)
+            elif regions: local[next(iter(regions))].append(index)
+        for shot in case['shots']:
+            masks=[sum(1<<index for index,fault in enumerate(faults) if detector in fault['detectors']) for detector,value in enumerate(shot['syndrome']) if value is not None]
+            local_rank=sum(rank([mask & sum(1<<index for index in indices) for mask in masks]) for indices in local.values())
+            print(case['id'],shot['id'],'cross',len(cross),'cross_constraint_rank',rank(masks)-local_rank,'boundary_nullity',len(cross)-rank(masks)+local_rank)
+PY
+command -v apply_patch; date -u '+%Y-%m-%dT%H:%M:%SZ'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01
+ succeeded in 486ms:
+micro_0 shot_0 cross 3 cross_constraint_rank 0 boundary_nullity 3
+micro_0 shot_1 cross 3 cross_constraint_rank 0 boundary_nullity 3
+micro_1 shot_0 cross 3 cross_constraint_rank 0 boundary_nullity 3
+micro_1 shot_1 cross 3 cross_constraint_rank 0 boundary_nullity 3
+micro_2 shot_0 cross 3 cross_constraint_rank 0 boundary_nullity 3
+micro_2 shot_1 cross 3 cross_constraint_rank 0 boundary_nullity 3
+regional_ring shot_0 cross 8 cross_constraint_rank 0 boundary_nullity 8
+regional_ring shot_1 cross 8 cross_constraint_rank 0 boundary_nullity 8
+regional_ring shot_2 cross 8 cross_constraint_rank 0 boundary_nullity 8
+masked_ladder shot_0 cross 14 cross_constraint_rank 0 boundary_nullity 14
+masked_ladder shot_1 cross 14 cross_constraint_rank 0 boundary_nullity 14
+masked_ladder shot_2 cross 14 cross_constraint_rank 0 boundary_nullity 14
+/srv/home/xuandong/.codex/tmp/arg0/codex-arg0Oqeo0I/apply_patch
+2026-08-27T07:06:04Z
+
+Measured large baseline errors on both public suites and identified independent-region hard decisions, missing-row handling, and unupdated mode priors as root causes.
+  ✓ Inspect implementation and public diagnostics
+  → Implement coupled exact posterior inference
+  • Validate accuracy and resource limits
+  • Save predictions and scientific diagnosis
+codex
+I’ll replace hard decisions with exact regional probability sums.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/solve.py
+@@
+ import argparse
+ import json
++import os
+ from pathlib import Path
+ 
++for variable in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'NUMEXPR_NUM_THREADS'):
++    os.environ[variable] = '1'
++
+ from inference import decode_case
+*** Delete File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/inference.py
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/inference.py
++import math
++
++import numpy as np
++
++from posterior import LocalModel, contraction_plan, contract
++
++
++def decode_case(case):
++    faults = case['faults']
++    region_labels = list(dict.fromkeys(case['detector_regions']))
++    region_lookup = {label: index for index, label in enumerate(region_labels)}
++    detector_regions = [region_lookup[label] for label in case['detector_regions']]
++    region_count = len(region_labels)
++    internal = [[] for _ in region_labels]
++    boundary = [[] for _ in region_labels]
++    boundary_faults = []
++    boundary_owners = []
++    silent = []
++    for index, fault in enumerate(faults):
++        owners = sorted({detector_regions[detector] for detector in fault['detectors']})
++        if not owners:
++            silent.append(index)
++        elif len(owners) == 1:
++            internal[owners[0]].append(index)
++        else:
++            variable = len(boundary_faults)
++            boundary_faults.append(index)
++            boundary_owners.append(owners[0])
++            for owner in owners:
++                boundary[owner].append(variable)
++    logical_count = 1 << case['num_observables']
++    query_keys = list(dict.fromkeys(tuple(sorted(query['faults']))
++                                  for shot in case['shots'] for query in shot['queries']))
++    query_indices = {key: logical_count + index for index, key in enumerate(query_keys)}
++    channel_count = logical_count + len(query_keys)
++    signs = np.ones((channel_count, len(faults)), dtype=np.float64)
++    for character in range(logical_count):
++        for index, fault in enumerate(faults):
++            if (character & fault['logical_mask']).bit_count() & 1:
++                signs[character, index] = -1.0
++    for key, channel in query_indices.items():
++        signs[channel, list(key)] = -1.0
++    probabilities = np.array([fault['probabilities'] for fault in faults], dtype=float)
++    modes = len(case['mode_prior'])
++    probabilities = probabilities.reshape(len(faults), modes)
++    plan, width = contraction_plan(boundary)
++    models = {}
++    shot_logs = np.full((len(case['shots']), modes), -np.inf)
++    shot_moments = np.zeros((len(case['shots']), modes, channel_count))
++    for shot_index, shot in enumerate(case['shots']):
++        local_models = []
++        local_syndromes = []
++        for region in range(region_count):
++            observed = tuple(detector for detector, owner in enumerate(detector_regions)
++                             if owner == region and shot['syndrome'][detector] is not None)
++            key = (region, observed)
++            if key not in models:
++                models[key] = LocalModel(faults, internal[region], boundary[region],
++                                         boundary_faults, observed, signs)
++            local_models.append(models[key])
++            local_syndromes.append(sum(int(shot['syndrome'][detector]) << index
++                                       for index, detector in enumerate(observed)))
++        for mode in range(modes):
++            if case['mode_prior'][mode] == 0:
++                continue
++            factors = []
++            impossible = False
++            for region, model in enumerate(local_models):
++                table, log_scale = model.evaluate(local_syndromes[region], probabilities[:, mode])
++                for position, variable in enumerate(boundary[region]):
++                    if boundary_owners[variable] "'!= region:
++                        continue
++                    fault_index = boundary_faults[variable]
++                    rate = probabilities[fault_index, mode]
++                    assignments = (np.arange(table.shape[1]) >> position) & 1
++                    table *= np.where(assignments[None, :],
++                                      rate * signs[:, fault_index, None], 1.0 - rate)
++                maximum = float(np.max(table[0]))
++                if maximum == 0.0:
++                    impossible = True
++                    break
++                table /= maximum
++                log_scale += math.log(maximum)
++                scope = tuple(reversed(boundary[region]))
++                factors.append((scope, table.reshape((channel_count,) + (2,) * len(scope)), log_scale))
++            if impossible:
++                continue
++            independent = np.ones(channel_count)
++            for fault_index in silent:
++                rate = probabilities[fault_index, mode]
++                independent *= 1.0 - rate + rate * signs[:, fault_index]
++            if factors:
++                log_evidence, moments = contract(factors, plan, width, channel_count)
++            else:
++                log_evidence, moments = 0.0, np.ones(channel_count)
++            if not math.isfinite(log_evidence):
++                continue
++            shot_logs[shot_index, mode] = log_evidence
++            shot_moments[shot_index, mode] = moments * independent
++    log_weights = np.full(modes, -np.inf)
++    for mode, prior in enumerate(case['"'mode_prior']):
++        if prior > 0:
++            log_weights[mode] = math.log(prior) + float(shot_logs[:, mode].sum())
++    largest = float(log_weights.max())
++    if not math.isfinite(largest):
++        raise ValueError('All modes have zero evidence for case ' + str(case['id']))
++    mode_posterior = np.exp(log_weights - largest)
++    normalizer = float(mode_posterior.sum())
++    mode_posterior /= normalizer
++    log_evidence = largest + math.log(normalizer)
++    inverse = np.array([[(-1.0 if (label & character).bit_count() & 1 else 1.0)
++                         for character in range(logical_count)] for label in range(logical_count)])
++    output_shots = []
++    for shot_index, shot in enumerate(case['shots']):
++        moments = mode_posterior @ shot_moments[shot_index]
++        logical = inverse @ moments[:logical_count] / logical_count
++        logical = np.clip(logical, 0.0, 1.0)
++        logical /= logical.sum()
++        queries = {query['id']: float(np.clip((1.0 - moments[query_indices[tuple(sorted(query['faults']))]]) / 2,
++                                             0.0, 1.0)) for query in shot['queries']}
++        output_shots.append({'id': shot['id'], 'logical_posterior': logical.tolist(),
++                             'logical_decision': int(np.argmax(logical)), 'query_probability': queries})
++    return {'id': case['id'], 'log_evidence': log_evidence,
++            'mode_posterior': mode_posterior.tolist(), 'shots': output_shots}
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/posterior.py
++import math
++
++import numpy as np
++
++
++def parity(values):
++    values = np.array(values, dtype=np.uint64, copy=True)
++    for shift in (32, 16, 8, 4, 2, 1):
++        values "'^= values >> np.uint64(shift)
++    return (values & np.uint64(1)).astype(np.int8)
++
++
++def combinations(generators):
++    result = np.empty(1 << len(generators), dtype=np.uint64)
++    result[0] = 0
++    for index, generator in enumerate(generators):
++        extent = 1 << index
++        result[extent:2 * extent] = result[:extent] ''^ np.uint64(generator)
++    return result
++
++
++class LocalModel:
++    def __init__(self, faults, internal, boundary, boundary_faults, observed, signs):
++        observed_set = set(observed)
++        self.active = [index for index in internal if observed_set.intersection(faults[index]['"'detectors'])]
++        self.inactive = [index for index in internal if index not in self.active]
++        self.signs = signs
++        self.count = len(self.active)
++        self.boundary_count = len(boundary)
++        self.channel_count = signs.shape[0]
++        self.active_signs = signs[:, self.active]
++        self.character_masks = np.array([sum(1 << position for position, sign in enumerate(row) if sign < 0)
++                                         for row in self.active_signs], dtype=np.uint64)
++        rows = []
++        for position, detector in enumerate(observed):
++            row = sum(1 << column for column, index in enumerate(self.active)
++                      if detector in faults[index]['detectors'])
++            row |= sum(1 << (self.count + column) for column, variable in enumerate(boundary)
++                       if detector in faults[boundary_faults[variable]]['detectors'])
++            row |= 1 << (self.count + self.boundary_count + position)
++            rows.append(row)
++        self.pivots = []
++        pivot_row = 0
++        for column in range(self.count):
++            candidate = next((index for index in range(pivot_row, len(rows))
++                              if (rows[index] >> column) & 1), None)
++            if candidate is None:
++                continue
++            rows[pivot_row], rows[candidate] = rows[candidate], rows[pivot_row]
++            for target in range(len(rows)):
++                if target "'!= pivot_row and ((rows[target] >> column) & 1):
++                    rows[target] ''^= rows[pivot_row]
++            self.pivots.append(column)
++            pivot_row += 1
++        self.rank = pivot_row
++        self.rows = rows[:pivot_row]
++        self.constraints = rows[pivot_row:]
++        self.free = [column for column in range(self.count) if column not in self.pivots]
++        self.generators = [((1 << column) | sum(1 << pivot for pivot, row in zip(self.pivots, self.rows)
++                                               if (row >> column) & 1)) for column in self.free]
++        self.coordinates = [sum(1 << position for position, row in enumerate(self.rows)
++                                if (row >> column) & 1) for column in range(self.count)]
++        self.boundary_values = np.arange(1 << self.boundary_count, dtype=np.uint64)
++        self.boundary_mask = (1 << self.boundary_count) - 1
++        self.source_shift = self.count + self.boundary_count
++
++    def evaluate(self, syndrome, probabilities):
++        valid = np.ones(len(self.boundary_values), dtype=bool)
++        offsets = np.zeros(len(self.boundary_values), dtype=np.uint64)
++        targets = np.zeros(len(self.boundary_values), dtype=np.uint64)
++        for position, (pivot, row) in enumerate(zip(self.pivots, self.rows)):
++            constant = ((row >> self.source_shift) & syndrome).bit_count() & 1
++            values = parity(self.boundary_values & np.uint64((row >> self.count) & self.boundary_mask)) ''^ constant
++            offsets |= values.astype(np.uint64) << np.uint64(pivot)
++            targets |= values.astype(np.uint64) << np.uint64(position)
++        for row in self.constraints:
++            constant = ((row >> self.source_shift) & syndrome).bit_count() & 1
++            valid &= parity(self.boundary_values & np.uint64((row >> self.count) & self.boundary_mask)) == constant
++        result = np.zeros((self.channel_count, len(valid)))
++        if not valid.any():
++            return result, 0.0
++        unique, inverse = np.unique(offsets[valid], return_inverse=True)
++        nullity = len(self.free)
++        primal_work = len(unique) * (1 << nullity) * (self.count + self.channel_count)
++        dual_work = (1 << self.rank) * (self.rank + self.channel_count * (nullity + 1))
++        if self.rank <= 19 and dual_work < primal_work:
++            distribution, log_scale = self.dynamic(probabilities)
++            result[:, valid] = distribution[:, targets[valid].astype(np.intp)]
++        else:
++            values, log_scale = self.enumerate(unique, probabilities)
++            result[:, valid] = values[:, inverse]
++        for fault_index in self.inactive:
++            rate = probabilities[fault_index]
++            result *= (1.0 - rate + rate * self.signs[:, fault_index, None])
++        return result, log_scale
++
++    def enumerate(self, offsets, probabilities):
++        vectors = combinations(self.generators)
++        character_signs = 1.0 - 2.0 * parity(self.character_masks[:, None] & vectors[None, :])
++        result = np.zeros((self.channel_count, len(offsets)))
++        log_scale = -np.inf
++        block_size = max(1, (1 << 19) // len(vectors))
++        with np.errstate(divide='"'ignore'):
++            log_rates = np.log(probabilities[self.active])
++            log_complements = np.log1p(-probabilities[self.active])
++        for start in range(0, len(offsets), block_size):
++            selected = offsets[start:start + block_size]
++            assignments = selected[:, None] "'^ vectors[None, :]
++            log_weights = np.zeros(assignments.shape)
++            for column in range(self.count):
++                log_weights += np.where((assignments >> np.uint64(column)) & np.uint64(1),
++                                        log_rates[column], log_complements[column])
++            maximum = float(log_weights.max())
++            if not math.isfinite(maximum):
++                continue
++            weights = np.exp(log_weights - maximum)
++            values = character_signs @ weights.T
++            values *= 1.0 - 2.0 * parity(self.character_masks[:, None] & selected[None, :])
++            if maximum > log_scale:
++                if math.isfinite(log_scale):
++                    result *= math.exp(log_scale - maximum)
++                log_scale = maximum
++            result[:, start:start + len(selected)] = values * math.exp(maximum - log_scale)
++        return result, log_scale if math.isfinite(log_scale) else 0.0
++
++    def dynamic(self, probabilities):
++        states = np.arange(1 << self.rank, dtype=np.uint64)
++        log_weights = np.zeros(len(states))
++        with np.errstate(divide='"'ignore'):
++            for position, pivot in enumerate(self.pivots):
++                rate = probabilities[self.active[pivot]]
++                log_weights += np.where((states >> np.uint64(position)) & np.uint64(1),
++                                        np.log(rate), np.log1p(-rate))
++        log_scale = float(log_weights.max())
++        weights = np.exp(log_weights - log_scale)
++        pivot_masks = np.array([sum(1 << position for position, pivot in enumerate(self.pivots)
++                                    if row[pivot] < 0) for row in self.active_signs], dtype=np.uint64)
++        distribution = weights[None, :] * (1.0 - 2.0 * parity(pivot_masks[:, None] & states[None, :]))
++        for column in self.free:
++            rate = probabilities[self.active[column]]
++            if rate == 0.0:
++                continue
++            permutation = (states "'^ np.uint64(self.coordinates[column])).astype(np.intp)
++            distribution = ((1.0 - rate) * distribution
++                            + rate * self.active_signs[:, column, None] * distribution[:, permutation])
++        return distribution, log_scale
++
++
++def contraction_plan(boundaries):
++    region_count = len(boundaries)
++    if region_count == 0:
++        return None, 0
++    full = (1 << region_count) - 1
++    scopes = [sum(1 << variable for variable in scope) for scope in boundaries]
++    owners = {}
++    for region, scope in enumerate(boundaries):
++        for variable in scope:
++            owners[variable] = owners.get(variable, 0) | (1 << region)
++    cuts = [0] * (full + 1)
++    costs = [math.inf] * (full + 1)
++    trees = [None] * (full + 1)
++    widths = [0] * (full + 1)
++    for subset in range(1, full + 1):
++        cuts[subset] = sum(1 << variable for variable, support in owners.items()
++                           if support & subset and support & (full ''^ subset))
++        if subset & (subset - 1) == 0:
++            region = subset.bit_length() - 1
++            costs[subset] = 0
++            trees[subset] = region
++            widths[subset] = scopes[region].bit_count()
++            continue
++        smallest = subset & -subset
++        left = (subset - 1) & subset
++        while left:
++            right = subset ''^ left
++            if right and left & smallest:
++                width = max(widths[left], widths[right], cuts[subset].bit_count())
++                cost = costs[left] + costs[right] + (1 << (cuts[left] | cuts[right]).bit_count())
++                if (cost, width) < (costs[subset], widths[subset]):
++                    costs[subset] = cost
++                    widths[subset] = width
++                    trees[subset] = (trees[left], trees[right], cuts[subset])
++            left = (left - 1) & subset
++    return trees[full], widths[full]
++
++
++def merge(left, right, retained):
++    left_scope, left_values, left_scale = left
++    right_scope, right_values, right_scale = right
++    common = set(left_scope).intersection(right_scope)
++    kept = [variable for variable in left_scope if variable in common and (retained >> variable) & 1]
++    summed = [variable for variable in left_scope if variable in common and variable not in kept]
++    left_only = [variable for variable in left_scope if variable not in common]
++    right_only = [variable for variable in right_scope if variable not in common]
++    left_order = kept + left_only + summed
++    right_order = kept + summed + right_only
++    left_values = left_values.transpose([0] + [1 + left_scope.index(variable) for variable in left_order])
++    right_values = right_values.transpose([0] + [1 + right_scope.index(variable) for variable in right_order])
++    channels = left_values.shape[0]
++    left_values = left_values.reshape(channels, 1 << len(kept), 1 << len(left_only), 1 << len(summed))
++    right_values = right_values.reshape(channels, 1 << len(kept), 1 << len(summed), 1 << len(right_only))
++    values = np.matmul(left_values, right_values)
++    scope = tuple(kept + left_only + right_only)
++    values = values.reshape((channels,) + (2,) * len(scope))
++    maximum = float(np.max(np.abs(values)))
++    log_scale = left_scale + right_scale
++    if maximum > 0.0:
++        values /= maximum
++        log_scale += math.log(maximum)
++    return scope, values, log_scale
++
++
++def contract(factors, plan, width, channel_count):
++    chunk_size = max(1, min(channel_count, (1 << 22) // (1 << width)))
++    chunks = []
++
++    def evaluate(tree, start, end):
++        if isinstance(tree, int):
++            scope, values, scale = factors[tree]
++            return scope, values[start:end], scale
++        left_tree, right_tree, retained = tree
++        left = evaluate(left_tree, start, end)
++        right = evaluate(right_tree, start, end)
++        return merge(left, right, retained)
++
++    for start in range(0, channel_count, chunk_size):
++        scope, values, scale = evaluate(plan, start, min(start + chunk_size, channel_count))
++        chunks.append((values.reshape(-1), scale))
++    evidence = float(chunks[0][0][0])
++    if evidence <= 0.0:
++        return -np.inf, np.zeros(channel_count)
++    log_evidence = math.log(evidence) + chunks[0][1]
++    moments = []
++    for values, scale in chunks:
++        nonzero = values != 0
++        normalized = np.zeros_like(values)
++        normalized[nonzero] = np.sign(values[nonzero]) * np.exp(np.minimum(0.0,
++                                            np.log(np.abs(values[nonzero])) + scale - log_evidence))
++        moments.extend(normalized.tolist())
++    return log_evidence, np.asarray(moments)
+*** End Patch
+PATCH
+output=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02
+/usr/bin/time -f '"'elapsed=%e peak_kib=%M' python \""'$output/solve.py" --input "$PWD/input/micro.json" --output "$output/micro_predictions.json"
+python "$output/validate.py" --expected input/micro_expected.json --actual "$output/micro_predictions.json"
+/usr/bin/time -f '"'elapsed=%e peak_kib=%M' python \""'$output/solve.py" --input "$PWD/input/validation.json" --output "$output/validation_predictions.json"
+python "$output/validate.py" --expected input/validation_expected.json --actual "$output/validation_predictions.json"
+date -u '"'+%Y-%m-%dT%H:%M:%SZ'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01
+ succeeded in 1046ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/inference.py
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/posterior.py
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/solve.py
+D /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/inference.py
+elapsed=0.18 peak_kib=33632
+[
+  {
+    "id": "micro_0",
+    "logical_tv_mean": 2.461952083171459e-16,
+    "logical_tv_max": 2.816215143031098e-16,
+    "query_abs_mean": 7.37257477290143e-17,
+    "query_abs_max": 1.8041124150158794e-16,
+    "log_evidence_abs": 0.0,
+    "mode_tv": 1.942890293094024e-16
+  },
+  {
+    "id": "micro_1",
+    "logical_tv_mean": 1.8431436932253575e-16,
+    "logical_tv_max": 2.975050761300224e-16,
+    "query_abs_mean": 7.228014483236696e-17,
+    "query_abs_max": 2.220446049250313e-16,
+    "log_evidence_abs": 1.7763568394002505e-15,
+    "mode_tv": 2.220446049250313e-16
+  },
+  {
+    "id": "micro_2",
+    "logical_tv_mean": 2.8536201179818477e-16,
+    "logical_tv_max": 3.885780586188048e-16,
+    "query_abs_mean": 6.3028286293824e-17,
+    "query_abs_max": 2.220446049250313e-16,
+    "log_evidence_abs": 0.0,
+    "mode_tv": 1.1102230246251565e-16
+  }
+]
+elapsed=0.25 peak_kib=33784
+[
+  {
+    "id": "regional_ring",
+    "logical_tv_mean": 6.804543184700066e-16,
+    "logical_tv_max": 9.935899759200284e-16,
+    "query_abs_mean": 4.153513113025485e-16,
+    "query_abs_max": 1.2212453270876722e-15,
+    "log_evidence_abs": 1.4210854715202004e-14,
+    "mode_tv": 1.8236280541206185e-16
+  },
+  {
+    "id": "masked_ladder",
+    "logical_tv_mean": 1.0969776880846254e-15,
+    "logical_tv_max": 1.5632569023982246e-15,
+    "query_abs_mean": 4.494727480291299e-16,
+    "query_abs_max": 1.4923011058487355e-15,
+    "log_evidence_abs": 0.0,
+    "mode_tv": 0.0
+  }
+]
+2026-08-27T07:10:31Z
+
+codex
+Both public suites match reference probabilities to floating-point precision.
+
+  ✓ Inspect implementation and public diagnostics
+  ✓ Implement coupled exact posterior inference
+  → Validate accuracy and resource limits
+  • Save predictions and scientific diagnosis
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
++import argparse
++import copy
++import json
++import math
++import os
++import time
++from pathlib import Path
++
++for variable in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS'):
++    os.environ[variable] = '1'
++
++import numpy as np
++
++from inference import decode_case
++from posterior import LocalModel
++from validate import compare
++
++
++def exhaustive(case):
++    fault_count = len(case['faults'])
++    configurations = np.arange(1 << fault_count, dtype=np.uint64)
++    bits = ((configurations[:, None] >> np.arange(fault_count, dtype=np.uint64)) & 1).astype(np.uint8)
++    records = np.zeros((len(bits), case['num_detectors']), dtype=np.uint8)
++    labels = np.zeros(len(bits), dtype=np.int64)
++    for index, fault in enumerate(case['faults']):
++        records[:, fault['detectors']] "'^= bits[:, index, None]
++        labels ''^= bits[:, index].astype(np.int64) * fault['"'logical_mask']
++    rates = np.array([fault['probabilities'] for fault in case['faults']]).reshape(fault_count, -1)
++    modes = len(case['mode_prior'])
++    weights = np.prod(np.where(bits[:, :, None], rates[None, :, :], 1 - rates[None, :, :]), axis=1)
++    evidence = np.empty((len(case['shots']), modes))
++    logicals = []
++    queries = []
++    for shot_index, shot in enumerate(case['shots']):
++        observed = [index for index, value in enumerate(shot['syndrome']) if value is not None]
++        target = [shot['syndrome'][index] for index in observed]
++        compatible = np.all(records[:, observed] == target, axis=1)
++        conditional = weights * compatible[:, None]
++        evidence[shot_index] = conditional.sum(axis=0)
++        normalizer = np.where(evidence[shot_index] > 0, evidence[shot_index], 1)
++        logicals.append(np.array([np.bincount(labels, weights=conditional[:, mode],
++                                             minlength=1 << case['num_observables']) / normalizer[mode]
++                                  for mode in range(modes)]))
++        queries.append({query['id']: (((bits[:, query['faults']].sum(axis=1) % 2) @ conditional)
++                                     / normalizer) for query in shot['queries']})
++    mode_weights = np.asarray(case['mode_prior']) * evidence.prod(axis=0)
++    total = mode_weights.sum()
++    if total == 0:
++        return None
++    mode_weights /= total
++    shots = []
++    for index, shot in enumerate(case['shots']):
++        logical = mode_weights @ logicals[index]
++        shots.append({'id': shot['id'], 'logical_posterior': logical.tolist(),
++                      'logical_decision': int(logical.argmax()),
++                      'query_probability': {key: float(value @ mode_weights) for key, value in queries[index].items()}})
++    return {'id': case['id'], 'log_evidence': math.log(total), 'mode_posterior': mode_weights.tolist(), 'shots': shots}
++
++
++def random_case(random, index):
++    detector_count = int(random.integers(1, 10))
++    fault_count = int(random.integers(1, 16))
++    region_count = int(random.integers(1, min(detector_count, 4) + 1))
++    modes = int(random.integers(1, 4))
++    observable_count = int(random.integers(0, 5))
++    regions = (np.arange(detector_count) % region_count).tolist()
++    random.shuffle(regions)
++    prior = random.dirichlet(np.ones(modes))
++    if modes > 1 and index % 7 == 0:
++        prior[0] = 0
++        prior /= prior.sum()
++    faults = []
++    for fault_index in range(fault_count):
++        support_size = int(random.integers(0, min(detector_count, 4) + 1))
++        detectors = random.choice(detector_count, support_size, replace=False).tolist()
++        rates = random.uniform(0.005, 0.995, modes)
++        if index % 3 == 0:
++            rates[random.random(modes) < 0.3] = 0
++            rates[random.random(modes) < 0.3] = 1
++        if fault_index and index % 4 == 0:
++            detectors = faults[0]['detectors'][:]
++        faults.append({'detectors': detectors, 'logical_mask': int(random.integers(1 << observable_count)),
++                       'probabilities': rates.tolist()})
++    mode = int(random.choice(modes, p=prior))
++    shots = []
++    for shot_index in range(int(random.integers(1, 5))):
++        record = [0] * detector_count
++        for fault in faults:
++            if random.random() < fault['probabilities'][mode]:
++                for detector in fault['detectors']:
++                    record[detector] "'^= 1
++        erased = random.random(detector_count) < (1.0 if index % 13 == 0 else 0.3)
++        record = [None if erased[detector] else value for detector, value in enumerate(record)]
++        queries = [{'"'id': 'query_' + str(query),
++                    'faults': random.choice(fault_count, int(random.integers(0, fault_count + 1)), replace=False).tolist()}
++                   for query in range(7)]
++        shots.append({'id': 'shot_' + str(shot_index), 'syndrome': record, 'queries': queries})
++    return {'id': 'random_' + str(index), 'num_detectors': detector_count, 'num_observables': observable_count,
++            'detector_regions': regions, 'faults': faults, 'mode_prior': prior.tolist(), 'shots': shots}
++
++
++def permute_case(case, random):
++    permuted = copy.deepcopy(case)
++    detector_order = random.permutation(case['num_detectors'])
++    fault_order = random.permutation(len(case['faults']))
++    inverse_detectors = np.argsort(detector_order)
++    inverse_faults = np.argsort(fault_order)
++    labels = list(set(case['detector_regions']))
++    relabel = dict(zip(labels, random.choice(10000, len(labels), replace=False).tolist()))
++    permuted['detector_regions'] = [relabel[case['detector_regions'][index]] for index in detector_order]
++    permuted['faults'] = [copy.deepcopy(case['faults'][index]) for index in fault_order]
++    for fault in permuted['faults']:
++        fault['detectors'] = [int(inverse_detectors[index]) for index in fault['detectors']]
++    for shot in permuted['shots']:
++        shot['syndrome'] = [shot['syndrome'][index] for index in detector_order]
++        for query in shot['queries']:
++            query['faults'] = [int(inverse_faults[index]) for index in query['faults']]
++    return permuted
++
++
++def local_method_checks(random):
++    maximum = 0.0
++    for trial in range(20):
++        fault_count = 14
++        detector_count = 6
++        faults = [{'detectors': np.flatnonzero(random.random(detector_count) < 0.45).tolist(),
++                   'logical_mask': 0, 'probabilities': [float(random.random())]} for _ in range(fault_count)]
++        signs = random.choice([-1.0, 1.0], (12, fault_count))
++        signs[0] = 1
++        model = LocalModel(faults, list(range(fault_count)), [], [], tuple(range(detector_count)), signs)
++        rates = np.array([fault['probabilities'][0] for fault in faults])
++        if trial % 2 == 0:
++            rates[:3] = [0, 1, 0]
++        offsets = np.array([sum(((target >> position) & 1) << pivot
++                                for position, pivot in enumerate(model.pivots))
++                            for target in range(1 << model.rank)], dtype=np.uint64)
++        primal, primal_scale = model.enumerate(offsets, rates)
++        dual, dual_scale = model.dynamic(rates)
++        error = np.max(np.abs(primal * math.exp(primal_scale) - dual * math.exp(dual_scale)))
++        maximum = max(maximum, float(error))
++    return maximum
++
++
++def stress_case(seed, topology='dense', local_rank=22):
++    random = np.random.default_rng(seed)
++    region_count = 10
++    detector_count = region_count * local_rank
++    internal_count = 28
++    edges = []
++    if topology == 'dense':
++        edges = [(left, right) for left in range(region_count) for right in range(left + 1, region_count)
++                 if (left "'^ 1) != right]
++    elif topology == '"'hyper':
++        edges = [tuple(sorted({region, (region + 1) % region_count, (region + 3) % region_count}))
++                 for region in range(region_count)]
++        edges += edges.copy()
++    else:
++        edges = [(region, (region + 1) % region_count) for region in range(region_count) for _ in range(4)]
++    faults = []
++    for region in range(region_count):
++        for column in range(internal_count):
++            support = [column] if column < local_rank else random.choice(local_rank, min(local_rank, 4), replace=False).tolist()
++            faults.append({'detectors': [region * local_rank + detector for detector in support],
++                           'logical_mask': int(random.integers(16)),
++                           'probabilities': random.uniform(0.01, 0.19, 3).tolist()})
++    for edge in edges:
++        faults.append({'detectors': [region * local_rank + int(random.integers(local_rank)) for region in edge],
++                       'logical_mask': int(random.integers(16)),
++                       'probabilities': random.uniform(0.01, 0.2, 3).tolist()})
++    shots = []
++    for shot_index in range(4):
++        record = [0] * detector_count
++        for fault in faults:
++            if random.random() < fault['probabilities'][1]:
++                for detector in fault['detectors']:
++                    record[detector] "'^= 1
++        for detector in random.choice(detector_count, shot_index * 3, replace=False):
++            record[detector] = None
++        shots.append({'"'id': 'shot_' + str(shot_index), 'syndrome': record,
++                      'queries': [{'id': 'query_' + str(query), 'faults': random.choice(len(faults), 3, replace=False).tolist()}
++                                  for query in range(6)]})
++    return {'id': 'stress_' + topology + '_' + str(local_rank), 'num_detectors': detector_count,
++            'num_observables': 4, 'detector_regions': [region for region in range(region_count) for _ in range(local_rank)],
++            'faults': faults, 'mode_prior': [0.4, 0.35, 0.25], 'shots': shots}
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--random-cases', type=int, default=80)
++    parser.add_argument('--public-input')
++    parser.add_argument('--report', required=True)
++    parser.add_argument('--stress-output')
++    arguments = parser.parse_args()
++    random = np.random.default_rng(812721)
++    started = time.perf_counter()
++    measurements = []
++    for index in range(arguments.random_cases):
++        case = random_case(random, index)
++        expected = exhaustive(case)
++        actual = decode_case(case)
++        measurements.extend(compare({'cases': [expected]}, {'cases': [actual]}))
++    report = {'random_cases': arguments.random_cases,
++              'max_errors': {key: max((result[key] for result in measurements), default=0.0)
++                             for key in ['logical_tv_max', 'query_abs_max', 'log_evidence_abs', 'mode_tv']},
++              'local_primal_dynamic_max_abs': local_method_checks(random)}
++    if arguments.public_input:
++        public = json.loads(Path(arguments.public_input).read_text())
++        expected = {'cases': [decode_case(case) for case in public['cases']]}
++        actual = {'cases': [decode_case(permute_case(case, random)) for case in public['cases']]}
++        report['permutation_checks'] = compare(expected, actual)
++    report['elapsed_seconds'] = time.perf_counter() - started
++    if arguments.stress_output:
++        Path(arguments.stress_output).write_text(json.dumps({'cases': [stress_case(129)]}))
++    Path(arguments.report).write_text(json.dumps(report, indent=2) + '\\n')
++    print(json.dumps(report, indent=2))
++    assert max(report['max_errors'].values()) < 1e-9
++    assert report['local_primal_dynamic_max_abs'] < 1e-10
++
++
++if __name__ == '__main__':
++    main()
+*** End Patch
+PATCH
+output=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02
+/usr/bin/time -f 'elapsed=%e peak_kib=%M' python \""'$output/diagnostic_tests.py" --random-cases 100 --public-input "$PWD/input/validation.json" --report "$output/diagnostic_report.json" --stress-output "$output/stress_input.json"' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01
+**Clarifying command efficiency**
+
+I'm thinking about whether we need to repeat the poll or if there's a better way to handle it. It feels unnecessary to have quick commands that introduce weird shell overhead, which can sometimes add up to 20 seconds. I wonder if there’s a more efficient approach to optimize the timing, especially since it’s currently 7:14. Let's figure this out to streamline the process!
+ succeeded in 23032ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+{
+  "random_cases": 100,
+  "max_errors": {
+    "logical_tv_max": 9.159339953157541e-16,
+    "query_abs_max": 1.4432899320127035e-15,
+    "log_evidence_abs": 2.6645352591003757e-15,
+    "mode_tv": 9.922618282587337e-16
+  },
+  "local_primal_dynamic_max_abs": 6.938893903907228e-17,
+  "permutation_checks": [
+    {
+      "id": "regional_ring",
+      "logical_tv_mean": 6.106768736524604e-16,
+      "logical_tv_max": 9.213007960695574e-16,
+      "query_abs_mean": 6.167905692361981e-17,
+      "query_abs_max": 2.220446049250313e-16,
+      "log_evidence_abs": 1.4210854715202004e-14,
+      "mode_tv": 4.7704895589362195e-17
+    },
+    {
+      "id": "masked_ladder",
+      "logical_tv_mean": 2.4683669460253316e-16,
+      "logical_tv_max": 4.440892098500626e-16,
+      "query_abs_mean": 6.167905692361981e-17,
+      "query_abs_max": 5.551115123125783e-16,
+      "log_evidence_abs": 0.0,
+      "mode_tv": 9.41900637346782e-19
+    }
+  ],
+  "elapsed_seconds": 0.8842856249539182
+}
+elapsed=6.34 peak_kib=122384
+
+exec
+/bin/bash -c "ulimit -v 1572864; /usr/bin/time -f 'elapsed=%e peak_kib=%M' timeout 60s python solve.py --input \""'$PWD/stress_input.json" --output "$PWD/stress_predictions.json"; date -u '"'+%Y-%m-%dT%H:%M:%SZ'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02
+ succeeded in 27071ms:
+elapsed=23.80 peak_kib=173564
+2026-08-27T07:13:35Z
+
+codex
+Randomized exact checks pass; I’m testing maximum-size resource use.
+
+exec
+/bin/bash -c "date -u '+%Y-%m-%dT%H:%M:%SZ'; ls -l stress_predictions.json 2>/dev/null || true; python - <<'PY'
+import json
+from posterior import contraction_plan
+case=json.load(open('stress_input.json'))['cases'][0]
+regions=case['detector_regions']; boundary=[[] for _ in range(10)]; count=0
+for fault in case['faults']:
+    owners=set(regions[index] for index in fault['detectors'])
+    if len(owners)>1:
+        for owner in owners: boundary[owner].append(count)
+        count+=1
+plan,width=contraction_plan(boundary)
+print('stress mechanisms:',len(case['faults']),'detectors:',case['num_detectors'],'boundaries:',count,'contraction_width:',width)
+print('contraction_tree:',plan)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02
+ succeeded in 10241ms:
+2026-08-27T07:13:57Z
+-rw-rw-r-- 1 xuandong xuandong 4103 Aug 27 00:13 stress_predictions.json
+stress mechanisms: 320 detectors: 220 boundaries: 40 contraction_width: 20
+contraction_tree: (((((((((0, 9, 723838337151), 7, 458121322591), 5, 436655007831), 3, 436566927957), 8, 214236326421), 6, 4034853381), 4, 4193793), 2, 65280), 1, 0)
+
+**Evaluating resources and accuracy**
+
+I'm thinking about normalizing moments individually, ensuring the adjustments stay within acceptable ranges. I'm considering accuracy for logical decision-making and how to add resource reporting based on time measures, possibly set at 60. I’ll look into using system files to append reports, which may help include observed data. I also need to keep an eye on previous records and ensure I can integrate actual observed values effectively.
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/inference.py
+@@
+     shot_moments = np.zeros((len(case['shots']), modes, channel_count))
+     for shot_index, shot in enumerate(case['shots']):
++        selected_channels = list(range(logical_count)) + sorted({query_indices[tuple(sorted(query['faults']))]
++                                                                for query in shot['queries']})
++        active_channels = len(selected_channels)
+         local_models = []
+@@
+             impossible = False
+             for region, model in enumerate(local_models):
+                 table, log_scale = model.evaluate(local_syndromes[region], probabilities[:, mode])
++                table = table[selected_channels]
+@@
+                     assignments = (np.arange(table.shape[1]) >> position) & 1
+                     table *= np.where(assignments[None, :],
+-                                      rate * signs[:, fault_index, None], 1.0 - rate)
++                                      rate * signs[selected_channels, fault_index, None], 1.0 - rate)
+@@
+                 log_scale += math.log(maximum)
+                 scope = tuple(reversed(boundary[region]))
+-                factors.append((scope, table.reshape((channel_count,) + (2,) * len(scope)), log_scale))
++                factors.append((scope, table.reshape((active_channels,) + (2,) * len(scope)), log_scale))
+@@
+             if factors:
+-                log_evidence, moments = contract(factors, plan, width, channel_count)
++                log_evidence, moments = contract(factors, plan, width, active_channels)
+             else:
+-                log_evidence, moments = 0.0, np.ones(channel_count)
++                log_evidence, moments = 0.0, np.ones(active_channels)
+@@
+             shot_logs[shot_index, mode] = log_evidence
+-            shot_moments[shot_index, mode] = moments * independent
++            shot_moments[shot_index, mode, selected_channels] = moments * independent[selected_channels]
+*** End Patch
+PATCH
+/usr/bin/time -o regression_timing.txt -f 'elapsed=%e peak_kib=%M' python diagnostic_tests.py --random-cases 250 --public-input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01/input/validation.json --report diagnostic_report.json
+ulimit -v 1572864
+/usr/bin/time -o stress_timing.txt -f 'elapsed=%e peak_kib=%M' timeout 60s python solve.py --input \""'$PWD/stress_input.json" --output "$PWD/stress_predictions.json"
+cat regression_timing.txt stress_timing.txt
+date -u '"'+%Y-%m-%dT%H:%M:%SZ'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02
+ succeeded in 23528ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/inference.py
+{
+  "random_cases": 250,
+  "max_errors": {
+    "logical_tv_max": 1.887379141862766e-15,
+    "query_abs_max": 3.885780586188048e-15,
+    "log_evidence_abs": 5.634381849972653e-15,
+    "mode_tv": 2.2898349882893854e-15
+  },
+  "local_primal_dynamic_max_abs": 5.551115123125783e-17,
+  "permutation_checks": [
+    {
+      "id": "regional_ring",
+      "logical_tv_mean": 4.1931519020876884e-16,
+      "logical_tv_max": 6.626643678231403e-16,
+      "query_abs_mean": 1.3877787807814457e-16,
+      "query_abs_max": 1.1102230246251565e-15,
+      "log_evidence_abs": 1.4210854715202004e-14,
+      "mode_tv": 4.7704895589362195e-17
+    },
+    {
+      "id": "masked_ladder",
+      "logical_tv_mean": 2.32814346505054e-16,
+      "logical_tv_max": 3.922643460052555e-16,
+      "query_abs_mean": 3.700743415417188e-17,
+      "query_abs_max": 3.3306690738754696e-16,
+      "log_evidence_abs": 0.0,
+      "mode_tv": 0.0
+    }
+  ],
+  "elapsed_seconds": 2.177126906986814
+}
+elapsed=3.20 peak_kib=96132
+elapsed=9.65 peak_kib=185824
+2026-08-27T07:15:21Z
+
+codex
+The 320-mechanism dense test finishes in 9.65 seconds.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+@@
+-    rates = np.array([fault['probabilities'] for fault in case['faults']]).reshape(fault_count, -1)
+     modes = len(case['mode_prior'])
++    rates = np.array([fault['probabilities'] for fault in case['faults']]).reshape(fault_count, modes)
+@@
+ def local_method_checks(random):
+@@
+     return maximum
+ 
+ 
++def edge_checks():
++    cases = [
++        {'id': 'empty_network', 'num_detectors': 0, 'num_observables': 3,
++         'detector_regions': [], 'faults': [], 'mode_prior': [0.6, 0.4],
++         'shots': [{'id': 'empty_shot', 'syndrome': [], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
++        {'id': 'no_faults', 'num_detectors': 3, 'num_observables': 0,
++         'detector_regions': [100, 201, 900], 'faults': [], 'mode_prior': [0, 1],
++         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': []}]},
++        {'id': 'shared_support', 'num_detectors': 1, 'num_observables': 1,
++         'detector_regions': [12], 'mode_prior': [0.2, 0.3, 0.5],
++         'faults': [{'detectors': [0], 'logical_mask': 1, 'probabilities': [0, 1, 0.3]}],
++         'shots': [{'id': str(index), 'syndrome': [value], 'queries': [{'id': 'fault', 'faults': [0]}]}
++                   for index, value in enumerate([0, 1, None])]},
++        {'id': 'silent_network', 'num_detectors': 0, 'num_observables': 3,
++         'detector_regions': [], 'mode_prior': [0.2, 0.8],
++         'faults': [{'detectors': [], 'logical_mask': mask, 'probabilities': rates}
++                    for mask, rates in [(1, [0, 0.2]), (3, [1, 0.7]), (7, [0.5, 0.1])]],
++         'shots': [{'id': 'silent_shot', 'syndrome': [], 'queries': [{'id': 'parity', 'faults': [0, 2]}]}]}
++    ]
++    errors = compare({'cases': [exhaustive(case) for case in cases]},
++                     {'cases': [decode_case(case) for case in cases]})
++    rate = 1e-30
++    rare = {'id': 'underflow', 'num_detectors': 60, 'num_observables': 1,
++            'detector_regions': [index // 20 for index in range(60)], 'mode_prior': [0.5, 0.5],
++            'faults': [{'detectors': [index], 'logical_mask': 1, 'probabilities': [0, rate]}
++                       for index in range(60)],
++            'shots': [{'id': str(index), 'syndrome': [1] * 60,
++                       'queries': [{'id': 'fault', 'faults': [0]}]} for index in range(4)]}
++    actual = decode_case(rare)
++    expected_log = math.log(0.5) + 240 * math.log(rate)
++    assert abs(actual['log_evidence'] - expected_log) < 1e-9
++    assert actual['mode_posterior'] == [0.0, 1.0]
++    assert all(shot['logical_decision'] == 0 and shot['query_probability']['fault'] == 1
++               for shot in actual['shots'])
++    return {'exhaustive': errors, 'rare_log_evidence': actual['log_evidence'],
++            'rare_log_evidence_abs_error': abs(actual['log_evidence'] - expected_log)}
++
++
+ def stress_case(seed, topology='dense', local_rank=22):
+@@
+     report = {'random_cases': arguments.random_cases,
+@@
+-              'local_primal_dynamic_max_abs': local_method_checks(random)}
++              'local_primal_dynamic_max_abs': local_method_checks(random),
++              'edge_cases': edge_checks()}
+*** End Patch
+PATCH
+python - <<'PY'
+import json
+from diagnostic_tests import stress_case
+for topology, rank in [('dense',16), ('hyper',16), ('ring',1)]:
+    with open('stress_'+topology+'_'+str(rank)+'_input.json','w') as output:
+        json.dump({'cases':[stress_case(142,topology,rank)]},output)
+PY
+/usr/bin/time -o regression_timing.txt -f 'elapsed=%e peak_kib=%M' python diagnostic_tests.py --random-cases 250 --public-input /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01/input/validation.json --report diagnostic_report.json
+ulimit -v 1572864
+for variant in dense_16 hyper_16 ring_1; do
+  /usr/bin/time -o \"stress_"'${variant}_timing.txt" -f '"'elapsed=%e peak_kib=%M' timeout 60s python solve.py --input \""'$PWD/stress_${variant}_input.json" --output "$PWD/stress_${variant}_predictions.json"
+  printf '"'%s ' \""'$variant"; cat "stress_${variant}_timing.txt"
+done
+date -u '"'+%Y-%m-%dT%H:%M:%SZ'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02
+**Looking into performance issues**
+
+I need to fix the harness and add an empty query as described. However, I notice I’m still running into performance stress. It's not ideal since the process seems to continue without any set limits. I think I can patch the harness while the testing and decoding remain unaffected, but I need to ensure that it’s implemented immediately and properly allowed to avoid further complications. It’s essential to keep everything running smoothly!
+ succeeded in 39720ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+/usr/lib/python3/dist-packages/numpy/core/fromnumeric.py:3440: RuntimeWarning: Mean of empty slice.
+  return _methods._mean(a, axis=axis, dtype=dtype,
+/usr/lib/python3/dist-packages/numpy/core/_methods.py:189: RuntimeWarning: invalid value encountered in double_scalars
+  ret = ret.dtype.type(ret / rcount)
+Traceback (most recent call last):
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py", line 260, in <module>
+    main()
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py", line 244, in main
+    'edge_cases': edge_checks()}
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py", line 163, in edge_checks
+    errors = compare({'cases': [exhaustive(case) for case in cases]},
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/validate.py", line 25, in compare
+    'query_abs_max': float(max(query_errors)),
+ValueError: max() arg is an empty sequence
+dense_16 elapsed=27.03 peak_kib=190208
+hyper_16 elapsed=5.13 peak_kib=77492
+ring_1 elapsed=0.24 peak_kib=37460
+2026-08-27T07:17:15Z
+
+apply patch
+patch: completed
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+diff --git a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+index 6627acf79e9761c5890fa1a85fb51d0892db50b1..8ee9c297343628133476cb53142d1be4fa497d62
+--- a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
++++ b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+@@ -148,7 +148,7 @@
+          'shots': [{'id': 'empty_shot', 'syndrome': [], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'no_faults', 'num_detectors': 3, 'num_observables': 0,
+          'detector_regions': [100, 201, 900], 'faults': [], 'mode_prior': [0, 1],
+-         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': []}]},
++         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'shared_support', 'num_detectors': 1, 'num_observables': 1,
+          'detector_regions': [12], 'mode_prior': [0.2, 0.3, 0.5],
+          'faults': [{'detectors': [0], 'logical_mask': 1, 'probabilities': [0, 1, 0.3]}],
+
+diff --git a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+index 6627acf79e9761c5890fa1a85fb51d0892db50b1..8ee9c297343628133476cb53142d1be4fa497d62
+--- a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
++++ b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+@@ -148,7 +148,7 @@
+          'shots': [{'id': 'empty_shot', 'syndrome': [], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'no_faults', 'num_detectors': 3, 'num_observables': 0,
+          'detector_regions': [100, 201, 900], 'faults': [], 'mode_prior': [0, 1],
+-         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': []}]},
++         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'shared_support', 'num_detectors': 1, 'num_observables': 1,
+          'detector_regions': [12], 'mode_prior': [0.2, 0.3, 0.5],
+          'faults': [{'detectors': [0], 'logical_mask': 1, 'probabilities': [0, 1, 0.3]}],
+
+diff --git a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+index 6627acf79e9761c5890fa1a85fb51d0892db50b1..8ee9c297343628133476cb53142d1be4fa497d62
+--- a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
++++ b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+@@ -148,7 +148,7 @@
+          'shots': [{'id': 'empty_shot', 'syndrome': [], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'no_faults', 'num_detectors': 3, 'num_observables': 0,
+          'detector_regions': [100, 201, 900], 'faults': [], 'mode_prior': [0, 1],
+-         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': []}]},
++         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'shared_support', 'num_detectors': 1, 'num_observables': 1,
+          'detector_regions': [12], 'mode_prior': [0.2, 0.3, 0.5],
+          'faults': [{'detectors': [0], 'logical_mask': 1, 'probabilities': [0, 1, 0.3]}],
+
+**Evaluating final testing protocols**
+
+I’m approaching the final robustness checks focused on measuring time and testing for underflow. We don’t need any external web access since that’s not an issue for the user. We can optimize our local factors to reduce the time significantly. I actually need to determine the worth of our scope complexity. Currently, our resource metrics look good. Stress-testing cross syndrome zero modes will be important, but we should ensure we analyze the existing data extensively. I need to run final diagnostics and ensure reproducibility through original commands.
+**Finalizing command execution**
+
+I’m working on the root execution for the CLI arguments to run the final commands. It’s structured like this: `python solve.py --input "$P/input/validation.json" --output "$OUT/validation_predictions.json"`, ensuring everything is compliant in the current working directory. I need to make sure to test in zero mode and achieve a robust probability of 100 first. This will ensure we’re on the right track before moving forward.
+codex
+Dense, hyperedge, and low-rank stress tests stay within limits.
+
+exec
+/bin/bash -c 'set -e
+public=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01
+output=$PWD
+/usr/bin/time -o regression_timing.txt -f '"'elapsed=%e peak_kib=%M' python diagnostic_tests.py --random-cases 250 --public-input \""'$public/input/validation.json" --report diagnostic_report.json
+/usr/bin/time -o baseline_micro_timing.txt -f '"'elapsed=%e peak_kib=%M' python \""'$public/software/solve.py" --input "$public/input/micro.json" --output "$output/baseline_micro_predictions.json"
+python validate.py --expected "$public/input/micro_expected.json" --actual "$output/baseline_micro_predictions.json" > baseline_micro_report.json
+/usr/bin/time -o baseline_validation_timing.txt -f '"'elapsed=%e peak_kib=%M' python \""'$public/software/solve.py" --input "$public/input/validation.json" --output "$output/baseline_validation_predictions.json"
+python validate.py --expected "$public/input/validation_expected.json" --actual "$output/baseline_validation_predictions.json" > baseline_validation_report.json
+ulimit -v 1572864
+/usr/bin/time -o micro_timing.txt -f '"'elapsed=%e peak_kib=%M' timeout 60s python solve.py --input \""'$public/input/micro.json" --output "$output/micro_predictions.json"
+python validate.py --expected "$public/input/micro_expected.json" --actual "$output/micro_predictions.json" > micro_report.json
+/usr/bin/time -o validation_timing.txt -f '"'elapsed=%e peak_kib=%M' timeout 60s python solve.py --input \""'$public/input/validation.json" --output "$output/validation_predictions.json"
+python validate.py --expected "$public/input/validation_expected.json" --actual "$output/validation_predictions.json" > validation_report.json
+printf '"'\\n--- final public comparison ---\\n'; cat validation_report.json
+printf '\\n--- timing ---\\n'; for file in baseline_micro_timing.txt baseline_validation_timing.txt micro_timing.txt validation_timing.txt regression_timing.txt; do printf '%s ' \""'$file"; cat "$file"; done
+date -u '"'+%Y-%m-%dT%H:%M:%SZ'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02
+diff --git a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+index 6627acf79e9761c5890fa1a85fb51d0892db50b1..8ee9c297343628133476cb53142d1be4fa497d62
+--- a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
++++ b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+@@ -148,7 +148,7 @@
+          'shots': [{'id': 'empty_shot', 'syndrome': [], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'no_faults', 'num_detectors': 3, 'num_observables': 0,
+          'detector_regions': [100, 201, 900], 'faults': [], 'mode_prior': [0, 1],
+-         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': []}]},
++         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'shared_support', 'num_detectors': 1, 'num_observables': 1,
+          'detector_regions': [12], 'mode_prior': [0.2, 0.3, 0.5],
+          'faults': [{'detectors': [0], 'logical_mask': 1, 'probabilities': [0, 1, 0.3]}],
+
+ succeeded in 20319ms:
+{
+  "random_cases": 250,
+  "max_errors": {
+    "logical_tv_max": 1.887379141862766e-15,
+    "query_abs_max": 3.885780586188048e-15,
+    "log_evidence_abs": 5.634381849972653e-15,
+    "mode_tv": 2.2898349882893854e-15
+  },
+  "local_primal_dynamic_max_abs": 5.551115123125783e-17,
+  "edge_cases": {
+    "exhaustive": [
+      {
+        "id": "empty_network",
+        "logical_tv_mean": 0.0,
+        "logical_tv_max": 0.0,
+        "query_abs_mean": 0.0,
+        "query_abs_max": 0.0,
+        "log_evidence_abs": 0.0,
+        "mode_tv": 0.0
+      },
+      {
+        "id": "no_faults",
+        "logical_tv_mean": 0.0,
+        "logical_tv_max": 0.0,
+        "query_abs_mean": 0.0,
+        "query_abs_max": 0.0,
+        "log_evidence_abs": 0.0,
+        "mode_tv": 0.0
+      },
+      {
+        "id": "shared_support",
+        "logical_tv_mean": 9.25185853854297e-18,
+        "logical_tv_max": 2.7755575615628914e-17,
+        "query_abs_mean": 1.850371707708594e-17,
+        "query_abs_max": 5.551115123125783e-17,
+        "log_evidence_abs": 0.0,
+        "mode_tv": 0.0
+      },
+      {
+        "id": "silent_network",
+        "logical_tv_mean": 1.3270634591222574e-16,
+        "logical_tv_max": 1.3270634591222574e-16,
+        "query_abs_mean": 1.1102230246251565e-16,
+        "query_abs_max": 1.1102230246251565e-16,
+        "log_evidence_abs": 5.551115123125783e-17,
+        "mode_tv": 0.0
+      }
+    ],
+    "rare_log_evidence": -16579.30581673768,
+    "rare_log_evidence_abs_error": 7.275957614183426e-12
+  },
+  "permutation_checks": [
+    {
+      "id": "regional_ring",
+      "logical_tv_mean": 4.1931519020876884e-16,
+      "logical_tv_max": 6.626643678231403e-16,
+      "query_abs_mean": 1.3877787807814457e-16,
+      "query_abs_max": 1.1102230246251565e-15,
+      "log_evidence_abs": 1.4210854715202004e-14,
+      "mode_tv": 4.7704895589362195e-17
+    },
+    {
+      "id": "masked_ladder",
+      "logical_tv_mean": 2.32814346505054e-16,
+      "logical_tv_max": 3.922643460052555e-16,
+      "query_abs_mean": 3.700743415417188e-17,
+      "query_abs_max": 3.3306690738754696e-16,
+      "log_evidence_abs": 0.0,
+      "mode_tv": 0.0
+    }
+  ],
+  "elapsed_seconds": 2.310866710031405
+}
+
+--- final public comparison ---
+[
+  {
+    "id": "regional_ring",
+    "logical_tv_mean": 6.804543184700066e-16,
+    "logical_tv_max": 9.935899759200284e-16,
+    "query_abs_mean": 4.153513113025485e-16,
+    "query_abs_max": 1.2212453270876722e-15,
+    "log_evidence_abs": 1.4210854715202004e-14,
+    "mode_tv": 1.8236280541206185e-16
+  },
+  {
+    "id": "masked_ladder",
+    "logical_tv_mean": 1.0969776880846254e-15,
+    "logical_tv_max": 1.5632569023982246e-15,
+    "query_abs_mean": 4.494727480291299e-16,
+    "query_abs_max": 1.4923011058487355e-15,
+    "log_evidence_abs": 0.0,
+    "mode_tv": 0.0
+  }
+]
+
+--- timing ---
+baseline_micro_timing.txt elapsed=0.20 peak_kib=31968
+baseline_validation_timing.txt elapsed=0.20 peak_kib=32168
+micro_timing.txt elapsed=0.18 peak_kib=33680
+validation_timing.txt elapsed=0.23 peak_kib=33480
+regression_timing.txt elapsed=2.44 peak_kib=95924
+2026-08-27T07:18:28Z
+
+diff --git a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+index 6627acf79e9761c5890fa1a85fb51d0892db50b1..8ee9c297343628133476cb53142d1be4fa497d62
+--- a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
++++ b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+@@ -148,7 +148,7 @@
+          'shots': [{'id': 'empty_shot', 'syndrome': [], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'no_faults', 'num_detectors': 3, 'num_observables': 0,
+          'detector_regions': [100, 201, 900], 'faults': [], 'mode_prior': [0, 1],
+-         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': []}]},
++         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'shared_support', 'num_detectors': 1, 'num_observables': 1,
+          'detector_regions': [12], 'mode_prior': [0.2, 0.3, 0.5],
+          'faults': [{'detectors': [0], 'logical_mask': 1, 'probabilities': [0, 1, 0.3]}],
+
+Public references, 250 independent exhaustive random cases, support/erasure edge cases, permutation checks, and four resource-limited synthetic topologies pass. Final validation predictions have been regenerated.
+  ✓ Inspect implementation and public diagnostics
+  ✓ Implement coupled exact posterior inference
+  ✓ Validate accuracy and resource limits
+  → Save predictions and scientific diagnosis
+diff --git a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+index 6627acf79e9761c5890fa1a85fb51d0892db50b1..8ee9c297343628133476cb53142d1be4fa497d62
+--- a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
++++ b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+@@ -148,7 +148,7 @@
+          'shots': [{'id': 'empty_shot', 'syndrome': [], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'no_faults', 'num_detectors': 3, 'num_observables': 0,
+          'detector_regions': [100, 201, 900], 'faults': [], 'mode_prior': [0, 1],
+-         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': []}]},
++         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'shared_support', 'num_detectors': 1, 'num_observables': 1,
+          'detector_regions': [12], 'mode_prior': [0.2, 0.3, 0.5],
+          'faults': [{'detectors': [0], 'logical_mask': 1, 'probabilities': [0, 1, 0.3]}],
+
+codex
+Validation is complete; I’ll save the diagnosis and check artifacts.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Delete File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/binary.py
+*** Delete File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/regional.py
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnosis.md
++# Scientific diagnosis and validation
++
++## Defects established before replacement
++
++The original probability adapter assigns a point logical label to one fault
++hypothesis per mode. It neither sums degenerate fault configurations nor computes
++their conditional probabilities. The regional solver assigns a crossing mechanism
++to its first detector's region, omitting its effects elsewhere; region ownership
++is not an independence assumption. Silent mechanisms are never activated. The
++binary solver also ignores contradictory dependent rows, and erasures are
++incorrectly converted into observed zeros. Sorting pivot columns by probability
++and setting all free variables to zero is not a posterior calculation.
++
++The adapter keeps the prior mode weights for every shot and multiplies
++separately mode-marginalized shot likelihoods. This resamples the mode between
++shots instead of conditioning one shared mode on the whole batch. Its evidence
++uses only selected configurations, with an artificial positive floor even for
++impossible support.
++
++These are measured failures, not just architectural objections. The original
++solver was copied into this workspace and run before replacement. Its unchanged
++public version was also rerun to save reproducible baseline reports.
++
++| Validation case / implementation | Maximum logical TV | Maximum query error | Absolute log-evidence error | Mode TV |
++|---|---:|---:|---:|---:|
++| regional_ring / starter | 0.766090 | 0.602256 | 26.510523 | 0.546635 |
++| regional_ring / replacement | 9.94e-16 | 1.22e-15 | 1.42e-14 | 1.82e-16 |
++| masked_ladder / starter | 0.747521 | 0.498648 | 73.115252 | 0.749370 |
++| masked_ladder / replacement | 1.56e-15 | 1.49e-15 | 0 | 0 |
++
++Across the three micro cases, the starter's worst logical TV was 0.620772 and
++worst query error 0.618977. Replacement errors are below 4e-16 for logical TV
++and 3e-16 for queries. Full per-case results are saved in "'`micro_report.json`,
++`validation_report.json`, and the corresponding `baseline_*_report.json` files.
++
++## Replacement algorithm
++
++`solve.py` provides the required CLI and forces single-threaded numerical
++libraries. `inference.py` handles modes and joint outputs; `posterior.py` performs
++exact regional sums and boundary tensor contraction. The runtime uses only the
++standard library and NumPy; no reference data are loaded by the decoder.
++
++For each region and observed-row pattern, GF(2) elimination keeps both the
++independent equations and the dependent-row consistency constraints on crossing
++faults. Erased rows are absent. Conditional on each boundary assignment, the
++local calculation sums all compatible independent mechanisms. It chooses between
++affine-nullspace enumeration and a dynamic program on independent syndrome
++coordinates, so low local rank does not force large nullspace enumeration.
++Locally unobserved and detector-free mechanisms contribute exact independent
++parity factors, including their logical effects.
++
++Each local tensor contains the evidence channel, all logical Walsh characters,
++and the requested query characters. A character is the expectation of
++`(-1)**parity`, not a hard prediction. Boundary Bernoulli weights and characters
++are included exactly once. An optimized binary contraction tree sums shared
++boundary variables, retaining hyperedges until their last participating region.
++This supports loops, arbitrary hardware labels, and mechanisms touching more
++than two regions. Channels are chunked to limit intermediate memory; only queries
++needed by the current shot are contracted.
++
++If `Z[t,z]` is shot evidence at a mode, the mode log weight is
++`log(prior[z]) + sum_t log(Z[t,z])`. Normalizing these weights gives the shared
++batch posterior. Each shot'"'s conditional characters are mixed with those same
++weights. An inverse Walsh transform gives the **joint** logical distribution;
++each query probability is "'`(1 - character)/2`. Local and contraction scales are
++tracked logarithmically. Unsupported modes have zero weight, without likelihood
++floors. Only roundoff-scale output negatives are clipped and normalized.
++
++## Commands and additional checks
++
++Commands were run from this output directory; the available filesystem uses the
++`/srv/home` prefix:
++
++```bash
++P=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01
++python "$P/software/solve.py" --input "$P/input/validation.json" --output "$PWD/baseline_validation_predictions.json"
++python validate.py --expected "$P/input/validation_expected.json" --actual baseline_validation_predictions.json
++python solve.py --input "$P/input/micro.json" --output "$PWD/micro_predictions.json"
++python validate.py --expected "$P/input/micro_expected.json" --actual micro_predictions.json
++python solve.py --input "$P/input/validation.json" --output "$PWD/validation_predictions.json"
++python validate.py --expected "$P/input/validation_expected.json" --actual validation_predictions.json
++python diagnostic_tests.py --random-cases 250 --public-input "$P/input/validation.json" --report diagnostic_report.json
++```
++
++The independent exhaustive checker covers 250 seeded small networks with
++duplicate supports, arbitrary logical masks, multiregion hyperedges, missing
++checks, zero/one fault rates, zero prior weights, and shot-specific parity
++queries. Worst errors: logical TV 1.89e-15, query 3.89e-15, log evidence
++5.64e-15, mode TV 2.29e-15. Twenty direct comparisons of the two local summation
++methods have maximum absolute error 5.56e-17. Permuting detectors and mechanisms
++and relabeling hardware regions preserves public answers to floating-point
++precision. Directed tests cover empty networks, empty queries, no faults, silent
++faults, and modes excluded by different shots. A batch with log evidence
++-16579.30581673768 remains finite, with 7.28e-12 absolute error; its ordinary
++probability would underflow. Results are saved in `diagnostic_report.json`.
++
++Resource checks use generated inputs, not accuracy references:
++
++```bash
++ulimit -v 1572864
++/usr/bin/time -f '"'elapsed=%e peak_kib=%M' timeout 60s python solve.py --input \""'$PWD/stress_input.json" --output "$PWD/stress_predictions.json"
++for variant in dense_16 hyper_16 ring_1; do
++  /usr/bin/time -f '"'elapsed=%e peak_kib=%M' timeout 60s python solve.py --input \""'$PWD/stress_${variant}_input.json" --output "$PWD/stress_${variant}_predictions.json"
++done
++```
++
++The generator is `stress_case` in `diagnostic_tests.py`: `stress_input.json` uses
++seed 129, dense topology, local rank 22; the other variants use seed 142 and the
++indicated topology/rank. Every stress case has ten regions, three modes, four
++shots, and four logical observables. Dense cases have 320 mechanisms and 40
++crossing mechanisms, eight touching each region.
++
++| Workload | Seconds | Peak RSS (KiB) |
++|---|---:|---:|
++| Public micro, replacement | 0.18 | 33680 |
++| Public validation, starter | 0.20 | 32168 |
++| Public validation, replacement | 0.23 | 33480 |
++| Dense, 220 detectors, rank 22 | 9.65 | 185824 |
++| Dense, 160 detectors, rank 16 | 27.03 | 190208 |
++| Three-region hyperedges, rank 16 | 5.13 | 77492 |
++| Ring, rank 1 / large nullity | 0.24 | 37460 |
++
++The dense rank-22 test initially took 23.80 seconds while contracting every
++shot'"'s query channels for every shot. Restricting contraction to the current
++shot's queries reduced this to 9.65 seconds; exhaustive and public comparisons
++were rerun after that revision.
++
++The method is exact in real arithmetic, not Monte Carlo or a regional
++independence approximation. Runtime remains exponential in contraction width
++and the chosen local state dimension; the measurements are not a universal
++runtime guarantee for all conceivable topologies or unbounded query counts.
++It uses double precision, so extremely disparate conditional weights can still
++underflow within a tensor despite logarithmic overall scaling. No hidden test
++data or external dependencies were used.
+*** End Patch
+PATCH
+python -m py_compile solve.py inference.py posterior.py diagnostic_tests.py validate.py
+python solve.py --help
+python - <<'PY'
+import json
+import math
+from pathlib import Path
+public = Path('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/participant/v_01/input')
+checked_shots = 0
+matched_decisions = 0
+for name in ('micro', 'validation'):
+    inputs = json.loads((public / (name + '.json')).read_text())
+    expected = json.loads((public / (name + '_expected.json')).read_text())
+    predictions = json.loads(Path(name + '_predictions.json').read_text())
+    assert [case['id'] for case in inputs['cases']] == [case['id'] for case in predictions['cases']]
+    for source, truth, result in zip(inputs['cases'], expected['cases'], predictions['cases']):
+        assert math.isfinite(result['log_evidence'])
+        assert abs(sum(result['mode_posterior']) - 1) < 1e-12
+        assert all(math.isfinite(value) and 0 <= value <= 1 for value in result['mode_posterior'])
+        assert [shot['id'] for shot in source['shots']] == [shot['id'] for shot in result['shots']]
+        for source_shot, truth_shot, shot in zip(source['shots'], truth['shots'], result['shots']):
+            probabilities = shot['logical_posterior']
+            assert len(probabilities) == 1 << source['num_observables']
+            assert abs(sum(probabilities) - 1) < 1e-12
+            assert all(math.isfinite(value) and 0 <= value <= 1 for value in probabilities)
+            assert probabilities[shot['logical_decision']] == max(probabilities)
+            assert set(shot['query_probability']) == {query['id'] for query in source_shot['queries']}
+            assert all(math.isfinite(value) and 0 <= value <= 1 for value in shot['query_probability'].values())
+            checked_shots += 1
+            matched_decisions += int(shot['logical_decision'] == truth_shot['logical_decision'])
+for name in ('stress', 'stress_dense_16', 'stress_hyper_16', 'stress_ring_1'):
+    predictions = json.loads(Path(name + '_predictions.json').read_text())
+    for case in predictions['cases']:
+        assert math.isfinite(case['log_evidence'])
+        assert abs(sum(case['mode_posterior']) - 1) < 1e-12
+        for shot in case['shots']:
+            assert all(math.isfinite(value) and 0 <= value <= 1 for value in shot['logical_posterior'])
+            assert abs(sum(shot['logical_posterior']) - 1) < 1e-12
+            assert all(math.isfinite(value) and 0 <= value <= 1 for value in shot['query_probability'].values())
+report = {'public_shots_checked': checked_shots, 'public_decisions_matching_reference': matched_decisions,
+          'stress_cases_finite_normalized': 4, 'required_artifacts_exist': all(Path(name).is_file()
+          for name in ('solve.py', 'validation_predictions.json', 'diagnosis.md'))}
+Path('artifact_check.json').write_text(json.dumps(report, indent=2) + '\\n')
+print(json.dumps(report, indent=2))
+PY
+printf '\\n--- required artifacts ---\\n'
+ls -l solve.py inference.py posterior.py validation_predictions.json diagnosis.md
+date -u '+%Y-%m-%dT%H:%M:%SZ'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02
+diff --git a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+index 6627acf79e9761c5890fa1a85fb51d0892db50b1..8ee9c297343628133476cb53142d1be4fa497d62
+--- a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
++++ b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+@@ -148,7 +148,7 @@
+          'shots': [{'id': 'empty_shot', 'syndrome': [], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'no_faults', 'num_detectors': 3, 'num_observables': 0,
+          'detector_regions': [100, 201, 900], 'faults': [], 'mode_prior': [0, 1],
+-         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': []}]},
++         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'shared_support', 'num_detectors': 1, 'num_observables': 1,
+          'detector_regions': [12], 'mode_prior': [0.2, 0.3, 0.5],
+          'faults': [{'detectors': [0], 'logical_mask': 1, 'probabilities': [0, 1, 0.3]}],
+
+ succeeded in 7775ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnosis.md
+D /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/binary.py
+D /srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/regional.py
+usage: solve.py [-h] --input INPUT --output OUTPUT
+
+options:
+  -h, --help       show this help message and exit
+  --input INPUT
+  --output OUTPUT
+{
+  "public_shots_checked": 12,
+  "public_decisions_matching_reference": 12,
+  "stress_cases_finite_normalized": 4,
+  "required_artifacts_exist": true
+}
+
+--- required artifacts ---
+-rw-rw-r-- 1 xuandong xuandong  7849 Aug 27 00:20 diagnosis.md
+-rw-rw-r-- 1 xuandong xuandong  6693 Aug 27 00:15 inference.py
+-rw-rw-r-- 1 xuandong xuandong 12207 Aug 27 00:10 posterior.py
+-rw-rw-r-- 1 xuandong xuandong   688 Aug 27 00:10 solve.py
+-rw-rw-r-- 1 xuandong xuandong  4677 Aug 27 00:18 validation_predictions.json
+2026-08-27T07:20:45Z
+
+diff --git a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+index 6627acf79e9761c5890fa1a85fb51d0892db50b1..8ee9c297343628133476cb53142d1be4fa497d62
+--- a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
++++ b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+@@ -148,7 +148,7 @@
+          'shots': [{'id': 'empty_shot', 'syndrome': [], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'no_faults', 'num_detectors': 3, 'num_observables': 0,
+          'detector_regions': [100, 201, 900], 'faults': [], 'mode_prior': [0, 1],
+-         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': []}]},
++         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'shared_support', 'num_detectors': 1, 'num_observables': 1,
+          'detector_regions': [12], 'mode_prior': [0.2, 0.3, 0.5],
+          'faults': [{'detectors': [0], 'logical_mask': 1, 'probabilities': [0, 1, 0.3]}],
+
+Saved diagnosis.md, final validation_predictions.json, reproducible diagnostic reports and resource measurements. Required CLI, compilation, all output normalization, and all 12 public logical decisions checked successfully.
+  ✓ Inspect implementation and public diagnostics
+  ✓ Implement coupled exact posterior inference
+  ✓ Validate accuracy and resource limits
+  ✓ Save predictions and scientific diagnosis
+diff --git a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+index 6627acf79e9761c5890fa1a85fb51d0892db50b1..8ee9c297343628133476cb53142d1be4fa497d62
+--- a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
++++ b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+@@ -148,7 +148,7 @@
+          'shots': [{'id': 'empty_shot', 'syndrome': [], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'no_faults', 'num_detectors': 3, 'num_observables': 0,
+          'detector_regions': [100, 201, 900], 'faults': [], 'mode_prior': [0, 1],
+-         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': []}]},
++         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'shared_support', 'num_detectors': 1, 'num_observables': 1,
+          'detector_regions': [12], 'mode_prior': [0.2, 0.3, 0.5],
+          'faults': [{'detectors': [0], 'logical_mask': 1, 'probabilities': [0, 1, 0.3]}],
+
+codex
+Completed at `/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/solve.py`.
+
+- Saved `validation_predictions.json` and `diagnosis.md` alongside the solver.
+- Public validation matches references within `1.6e-15` logical TV; all 12 public logical decisions match.
+- Passed 250 independent exhaustive randomized checks.
+- Slowest stress test: **27.03 seconds**, **186 MiB peak RSS**, within resource limits.
+- Required CLI and finite, normalized outputs verified.
+diff --git a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+index 6627acf79e9761c5890fa1a85fb51d0892db50b1..8ee9c297343628133476cb53142d1be4fa497d62
+--- a/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
++++ b/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/diagnostic_tests.py
+@@ -148,7 +148,7 @@
+          'shots': [{'id': 'empty_shot', 'syndrome': [], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'no_faults', 'num_detectors': 3, 'num_observables': 0,
+          'detector_regions': [100, 201, 900], 'faults': [], 'mode_prior': [0, 1],
+-         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': []}]},
++         'shots': [{'id': 'empty_shot', 'syndrome': [0, None, 0], 'queries': [{'id': 'empty_query', 'faults': []}]}]},
+         {'id': 'shared_support', 'num_detectors': 1, 'num_observables': 1,
+          'detector_regions': [12], 'mode_prior': [0.2, 0.3, 0.5],
+          'faults': [{'detectors': [0], 'logical_mask': 1, 'probabilities': [0, 1, 0.3]}],
+
+tokens used
+96,045
+Completed at `/srv/home/xuandong/mnt/jingxu/ALE/tasks_v2/localized_statistics_decoding/attempts/v_01/fresh_02/solve.py`.
+
+- Saved `validation_predictions.json` and `diagnosis.md` alongside the solver.
+- Public validation matches references within `1.6e-15` logical TV; all 12 public logical decisions match.
+- Passed 250 independent exhaustive randomized checks.
+- Slowest stress test: **27.03 seconds**, **186 MiB peak RSS**, within resource limits.
+- Required CLI and finite, normalized outputs verified.
