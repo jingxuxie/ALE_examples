@@ -1,8 +1,9 @@
 # task_v3
 
 This folder groups the ten review snapshots exported from the author's
-`tasks_v3` directory. The earlier `tasks_v2` tasks remain in the
-[repository root](../README.md).
+`tasks_v3` directory. The earlier `tasks_v2` tasks are grouped separately in
+[task_v2](../task_v2/README.md); see the [repository index](../README.md) for
+both collections.
 
 ## Task reports
 

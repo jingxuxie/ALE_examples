@@ -1,11 +1,13 @@
-# Review export notes
+# task_v2 review export notes
 
 ## Scope
 
-Ten additional folders were exported from the author's `tasks_v2` directory
-alongside the existing `localized_statistics_decoding` bundle. Original folder
-names and concept/version subdirectories are preserved. The source folders on
-the author's machine were not modified.
+Eleven task folders from the author's `tasks_v2` directory are grouped under
+the repository's `task_v2/` folder. This combines the original
+`localized_statistics_decoding` bundle with the ten subsequently exported
+folders. Original folder names and concept/version subdirectories are
+preserved. The source folders on the author's machine were not modified.
+Start with the [collection index](README.md) to browse the task records.
 
 This is a review archive, **not a claim that the tasks passed hardness screening**.
 The original status files, task specifications, scientific inputs, solutions,
@@ -75,8 +77,10 @@ No scientific evaluations were rerun or rescored for publication.
 folders with its size and SHA-256, the original screening status, dependency
 pins, and the explicit large-artifact omission. New publication documentation
 and generated pin files are distinguished from the preserved task artifacts.
-The existing localized-statistics-decoding folder is outside this new manifest
-and is unchanged by this addition.
+The localized-statistics-decoding folder is outside this manifest. All manifest
+paths are relative to `task_v2/`, the directory containing the manifest. The
+folder reorganization preserves all eleven task directories byte-for-byte and
+does not rewrite their published history.
 
 Copied files are checked against their local originals. Credential-pattern
 checks are performed before staging, but are not a general security audit of
@@ -86,3 +90,18 @@ review it before running it, and use an appropriately isolated environment.
 Only the selected `participant` version should be exposed in any future blind
 attempt, after restoring its declared dependencies. Authoring, solution,
 evaluator, screening, and attempt directories are privileged review material.
+
+## Publishing the folder reorganization
+
+On the author's prepared local clone, run from the repository root:
+
+```bash
+bash task_v2/push_tasks_v2.sh --dry-run
+bash task_v2/push_tasks_v2.sh
+```
+
+The helper uses ordinary fast-forward pushes, verifies the destination, and
+refuses divergent remote work. If authentication is needed, enter a `jingxuxie`
+GitHub token at the terminal password prompt. Credentials are cached only in
+memory for this upload and cleared afterward; the global credential helper is
+unchanged. Never put a token in a command line, committed file, or chat message.

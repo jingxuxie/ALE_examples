@@ -5,7 +5,7 @@
 Ten additional folders from the author's `tasks_v3` directory are included under
 their original names inside the repository's `task_v3/` folder. Their source
 folders are not modified. The earlier task folders and their original
-publication manifest remain unchanged at the repository root. Start with the
+publication manifest are grouped separately in `task_v2/`. Start with the
 [collection index](README.md) to browse the newer reports.
 
 This is a **review snapshot**, not a finalized benchmark release. Some reports
