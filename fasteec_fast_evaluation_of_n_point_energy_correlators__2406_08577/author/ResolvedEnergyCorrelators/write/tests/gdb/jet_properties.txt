@@ -1,0 +1,33 @@
+# Testing Pythia
+source write/tests/gdb/skip_var.py
+source write/tests/gdb/show_jet.py
+source write/tests/gdb/show_event.py
+source write/tests/gdb/sum_pts.py
+
+define hook-stop
+  # Show backtrace and local variables when a breakpoint is hit
+  bt
+  # sum_pseudojets_pt particles
+  print iev
+end
+
+# set args --use_opendata true \
+#     --m_max 150 --E_max 2000 \
+#     --n_events 10000 --nbins 50 \
+#     --file_prefix GDB
+
+set args --use_opendata false \
+    --pid_1 2212 --pid_2 2212 --outstate w \
+    --energy 14000 --isr on --fsr on --mpi on \
+    --jet_rad 1.0 --pt_min 500 --pt_max 550 \
+    --m_max 500 --E_max 4000 \
+    --n_events 10000 --nbins 50 \
+    --file_prefix GDB
+
+# Set breakpoints
+break write/src/jet_properties.cc:170
+break write/src/jet_properties.cc:459
+break write/src/jet_properties.cc:590
+
+# Run
+r
