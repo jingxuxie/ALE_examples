@@ -1,0 +1,24 @@
+set(SOURCE_SPIRIT
+	${SOURCE_SPIRIT}
+    ${CMAKE_CURRENT_SOURCE_DIR}/Log.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/State.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Simulation.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Configurations.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Hamiltonian.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/HTST.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Parameters_MC.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Parameters_LLG.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Parameters_GNEB.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Parameters_MMF.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Parameters_EMA.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Geometry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Transitions.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/System.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Chain.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/IO.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Quantities.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Constants.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/Version.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
+	PARENT_SCOPE
+)

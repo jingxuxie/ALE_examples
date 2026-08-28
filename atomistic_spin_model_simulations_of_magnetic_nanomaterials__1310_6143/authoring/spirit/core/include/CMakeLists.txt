@@ -1,0 +1,37 @@
+add_subdirectory(${PROJECT_SOURCE_DIR}/include/Spirit)
+add_subdirectory(${PROJECT_SOURCE_DIR}/include/data)
+add_subdirectory(${PROJECT_SOURCE_DIR}/include/engine)
+add_subdirectory(${PROJECT_SOURCE_DIR}/include/io)
+add_subdirectory(${PROJECT_SOURCE_DIR}/include/utility)
+
+set(HEADER_SPIRIT_ROOT
+	${HEADER_SPIRIT_ROOT}
+    ${CMAKE_CURRENT_SOURCE_DIR}/Spirit_Defines.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
+	PARENT_SCOPE
+)
+
+set(HEADER_SPIRIT
+    ${HEADER_SPIRIT}
+    PARENT_SCOPE
+)
+
+set(HEADER_SPIRIT_DATA
+    ${HEADER_SPIRIT_DATA}
+    PARENT_SCOPE
+)
+
+set(HEADER_SPIRIT_ENGINE
+    ${HEADER_SPIRIT_ENGINE}
+    PARENT_SCOPE
+)
+
+set(HEADER_SPIRIT_IO
+    ${HEADER_SPIRIT_IO}
+    PARENT_SCOPE
+)
+
+set(HEADER_SPIRIT_UTILITY
+    ${HEADER_SPIRIT_UTILITY}
+    PARENT_SCOPE
+)

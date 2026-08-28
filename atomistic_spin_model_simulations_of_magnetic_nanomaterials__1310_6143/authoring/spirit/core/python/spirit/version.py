@@ -1,0 +1,16 @@
+version_major    = 2
+version_minor    = 2
+version_patch    = 0
+version          = "2.2.0"
+revision         = "e82250d3b1441"
+version_full     = "2.2.0 (e82250d3b1441)"
+compiler         = "GNU"
+compiler_version = "11.4.0"
+compiler_full    = "GNU (11.4.0)"
+scalartype       = "double"
+pinning          = "ON"
+defects          = "OFF"
+cuda             = "OFF"
+openmp           = "OFF"
+threads          = "OFF"
+fftw             = "OFF"

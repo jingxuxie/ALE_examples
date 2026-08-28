@@ -1,0 +1,78 @@
+//------------------------------------------------------------------------------
+//
+//   This file is part of the VAMPIRE open source package under the
+//   Free BSD licence (see licence file for details).
+//
+//   (c) Richard F L Evans 2019. All rights reserved.
+//
+//   Email: richard.evans@york.ac.uk
+//
+//------------------------------------------------------------------------------
+//
+
+// C++ standard library headers
+
+// Vampire headers
+#include "spintransport.hpp"
+
+// spintransport module headers
+#include "internal.hpp"
+
+namespace spin_transport{
+
+   //---------------------------------------------------------------------------
+   // Function to calculate spin transfer torque field for each atom
+   //---------------------------------------------------------------------------
+   void calculate_field(const unsigned int start_index,              // first atom
+                        const unsigned int end_index,                // last atom
+                        std::vector<double>& atoms_x_field_array,    // x-field of atoms
+                        std::vector<double>& atoms_y_field_array,    // y-field of atoms
+                        std::vector<double>& atoms_z_field_array,    // z-field of atoms
+                        const std::vector<int>& atoms_material_array // material ID of atom
+      ){
+
+         //-------------------------------------------------------------------------
+         // check that module is needed - if not do nothing
+         //-------------------------------------------------------------------------
+         if( st::internal::enabled == false ) return;
+
+         //---------------------------------------------------------------------------
+         // loop over all atoms and apply cell spin torque field
+         //---------------------------------------------------------------------------
+         if(!st::internal::sublattice){
+            for(unsigned int atom = start_index; atom < end_index; atom++){
+
+               // get cell id
+               const uint64_t cell = st::internal::atom_in_cell[atom];
+
+               atoms_x_field_array[atom] += st::internal::cell_spin_torque_fields[3*cell+0];
+               atoms_y_field_array[atom] += st::internal::cell_spin_torque_fields[3*cell+1];
+               atoms_z_field_array[atom] += st::internal::cell_spin_torque_fields[3*cell+2];
+
+            }
+         }
+         else{
+            const int num_sublattices = st::internal::num_sublattices;
+            for(unsigned int atom = start_index; atom < end_index; atom++){
+
+               // get cell id
+               const uint64_t cell = st::internal::atom_in_cell[atom];
+
+               // get sublattice of atom
+               const int sl = st::internal::atom_sublattice[atom];
+
+               // flat index: sl is the fastest-varying index
+               const int idx = (int)cell * num_sublattices + sl;
+
+               atoms_x_field_array[atom] += st::internal::cell_sl_spin_torque_fields_x[idx];
+               atoms_y_field_array[atom] += st::internal::cell_sl_spin_torque_fields_y[idx];
+               atoms_z_field_array[atom] += st::internal::cell_sl_spin_torque_fields_z[idx];
+
+            }
+         }
+
+      return;
+
+   }
+
+} // end of spin_transport namespace

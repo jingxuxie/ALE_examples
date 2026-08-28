@@ -1,0 +1,2654 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a045f2-8697-7290-ae14-5e92cab70ffb
+--------
+user
+Complete the mission in TASK.md. Read the input contract and supplied workspace. Write your self-contained submission and all scratch/build files only into /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt. The participant directory is read-only. There are no private references or prior attempts available to you. Do not seek external files or use network access. Numerical dependencies are installed in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor; set PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor when running Python if needed. These dependencies remain available during evaluation; do not copy vendor into your submission. You may copy the public baseline into your output directory and improve it. Implement and test a real solution rather than just describing one. Finish with a short summary of the implementation and any remaining scientific limitations. You have up to one hour; the evaluator execution limit is separately specified by the task.
+codex
+I’ll read the task and workspace, then implement and test in the writable attempt directory.
+
+exec
+/bin/bash -lc "pwd; rg --files -g 'TASK.md' -g 'AGENTS.md' -g '"'!vendor/**'"' -g '"'!workspace/vendor/**'"' -g '*contract*' -g '*baseline*' -g '*README*'; ls -la" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant
+ succeeded in 8908ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant
+TASK.md
+workspace/baseline.py
+total 16
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:34 .
+drwx------ 4 xuandong xuandong   80 Aug 27 18:20 ..
+-rw-rw-r-- 1 xuandong xuandong 1141 Aug 27 17:34 TASK.md
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 27 17:34 input
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 27 17:41 workspace
+
+exec
+/bin/bash -lc "cat TASK.md; rg --files input workspace -g '"'!vendor/**'"' -g '"'!workspace/vendor/**'"'; ls -la /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt; cat workspace/baseline.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant
+ succeeded in 5522ms:
+# Constrained thermal free energy
+
+Predict the angular Helmholtz free-energy landscape of interacting classical magnets at finite temperature. Each case contains thousands of unit spins with competing bulk, surface, cubic, or interface anisotropies.
+
+For every requested angle, return the equilibrium total y-torque per spin and the free-energy difference per spin relative to angle zero. The direction of the total magnetization is constrained; its magnitude must remain free to fluctuate. Mean internal energy is not a substitute for free energy.
+
+Implement `solve.py CASE.json OUTPUT.json` in your submission directory. NumPy archives are also accepted as specified in `input/FORMAT.md`. You may compile native helpers. The supplied local-energy and unconstrained-Monte-Carlo utilities are starting points, not a constrained sampler. The baseline is an uncontrolled coherent-rotation approximation.
+
+Evaluation combines torque and free-energy accuracy continuously relative to that baseline, reports mean and worst-family performance, and records runtime. Read `input/FORMAT.md` for the complete physical, execution, and output contract.
+workspace/baseline.py
+workspace/model.py
+input/FORMAT.md
+input/cases/initial_interface_spring_00.json
+input/cases/initial_surface_reorientation_01.json
+input/cases/initial_cubic_particle_00.json
+input/cases/initial_surface_reorientation_00.json
+input/cases/initial_cubic_particle_01.json
+input/cases/initial_interface_spring_01.json
+total 4
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 27 18:20 .
+drwx------ 4 xuandong xuandong   80 Aug 27 18:20 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 18:20 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 18:20 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 18:20 .git
+import json
+import math
+import sys
+
+
+def predict(case):
+    count=case["n_spins"]
+    coordination=2*sum(bond[2] for bond in case["bonds"])/count
+    magnetization=max(0.05,1-case["temperature"]/coordination)
+    quadratic=[sum(tensor[axis] for tensor in case["onsite"])*magnetization**2 for axis in range(6)]
+    cubic=sum(tensor[6] for tensor in case["onsite"])*magnetization**4
+    quadratic[2] += sum(bond[3] for bond in case["bonds"])*magnetization**2
+    origin=-quadratic[2]-cubic
+    torque=[]
+    free=[]
+    for theta in case["angles"]:
+        horizontal=math.sin(theta)
+        vertical=math.cos(theta)
+        energy=-quadratic[0]*horizontal**2-quadratic[2]*vertical**2-2*quadratic[4]*horizontal*vertical-cubic*(horizontal**4+vertical**4)
+        field_x=2*quadratic[0]*horizontal+2*quadratic[4]*vertical+4*cubic*horizontal**3
+        field_z=2*quadratic[2]*vertical+2*quadratic[4]*horizontal+4*cubic*vertical**3
+        torque.append((vertical*field_x-horizontal*field_z)/count)
+        free.append((energy-origin)/count)
+    return {"version":1,"case_id":case["case_id"],"torque":torque,"free_energy":free}
+
+
+if __name__ == "__main__":
+    with open(sys.argv[1]) as stream:
+        case=json.load(stream)
+    with open(sys.argv[2],"w") as stream:
+        json.dump(predict(case),stream)
+
+exec
+/bin/bash -lc "cat input/FORMAT.md; cat workspace/model.py; head -c 3500 input/cases/initial_interface_spring_00.json; printf '\\n'; find input workspace -name AGENTS.md -print; ls workspace/vendor | head" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant
+ succeeded in 4028ms:
+# Physical and I/O contract
+
+## Input
+
+A UTF-8 JSON object has `version: 1`, `case_id`, `family`, `n_spins`,
+`temperature`, `seed`, `shape`, `periodic`, `angles`, `onsite`, and `bonds`.
+`n_spins` is 2,048 for slabs or 2,744 for particles in the frozen pilot.
+Future reserved cases can be larger; do not special-case identifiers or sizes.
+All indices are zero-based. The graph and coefficients, not the family label,
+are authoritative. `shape` and `periodic` describe the simple-cubic geometry.
+Site index is `x + nx*(y + ny*z)`. The lattice spacing is one.
+
+Each spin is a three-component real unit vector with identical fixed atomic
+moment one. All energies are in units of the bulk exchange; k_B=1, so temperature
+has the same units as energy. These are classical model magnets, not calibrated
+predictions for named materials. There is no applied field or dipolar term.
+
+`onsite[i]` is `[Qxx,Qyy,Qzz,Qxy,Qxz,Qyz,c]`. Q is a real symmetric tensor.
+`bonds` consists of `[i,j,J,b]`, each undirected bond listed exactly once.
+
+    H = -sum_bonds [J*(s_i dot s_j) + b*s_iz*s_jz]
+        -sum_i [s_i^T Q_i s_i + c_i*(s_ix^4+s_iy^4+s_iz^4)]
+
+Thus off-diagonal Q entries enter twice. Positive J is ferromagnetic, positive
+Qzz favors z, positive b favors axial alignment, and positive c favors cubic axes.
+Do not insert a one-half factor into the supplied bond list.
+
+The three families are: a periodic film with easy-z bulk and easy-plane surfaces;
+an exchange-spring bilayer with orthogonal local easy axes, reduced interlayer
+exchange and axial two-ion interface anisotropy; and an open cubic particle with
+bulk cubic anisotropy and competing facet-normal surface anisotropies.
+
+## Statistical ensemble and observables
+
+For angle theta (radians), n=(sin(theta),0,cos(theta)). Constrain the direction
+of M=sum_i s_i to n with M dot n > 0, but do not constrain |M| or individual spins.
+The partition function is the **directional probability density per unit solid
+angle** of M, using product uniform solid-angle measure for microscopic spins:
+
+    Z(n) = integral product_i dOmega_i exp(-H/T) delta_on_sphere(M/|M| - n).
+
+This is not the ensemble defined by a flat Cartesian delta(Mx) delta(My).
+Configurations with zero M have measure zero. Let f(theta)=-T*log(Z(n))/N.
+With B_i=-partial H/partial s_i, the requested torque is
+
+    torque(theta) = <sum_i (s_i cross B_i)_y>/N = -df/dtheta.
+    free_energy(theta) = f(theta)-f(0) = -integral_0^theta torque(u) du.
+
+No single-harmonic angular form is assumed. All cases have reflection symmetry:
+torque(-theta)=-torque(theta), torque(0)=torque(pi/2)=0, and f(theta+pi)=f(theta).
+Symmetry applies to equilibrium averages, not individual noisy configurations.
+Finite system size is part of the target. The only physical approximation is
+the stated classical Hamiltonian; statistical and angular quadrature errors
+remain the solver's responsibility. Error bars are informative, not a way to
+reduce the accuracy penalty.
+
+## Output
+
+Write a UTF-8 JSON object with `version:1`, the exact `case_id`, and finite numeric
+arrays `torque` and `free_energy`, each in the order and length of `angles`.
+Set `free_energy[0]=0`. Optional same-length `torque_sem` and `free_energy_sem`
+must be nonnegative. Unknown keys are ignored. Alternatively write an NPZ file
+with numeric float64 arrays `torque` and `free_energy` and optional uncertainty
+arrays. Pickled/object arrays, infinities, and NaNs are forbidden. The evaluator
+passes an output filename ending in `.json`; if writing NPZ, write `OUTPUT.npz`
+instead, where OUTPUT is that exact filename (for example `result.json.npz`).
+Output size and uncompressed archive size must each be below 2 MiB.
+
+## Execution
+
+Place the entry point at `SUBMISSION/solve.py`. It is run, never imported:
+
+    python solve.py CASE.json OUTPUT.json
+
+The submission and provided `workspace/` are read-only. `/tmp` and the output
+directory are writable. Use `/tmp` for native compilation or scratch files.
+The supplied workspace and, when present, `workspace/vendor` are on PYTHONPATH.
+Only Python's standard library and the supplied runtime are guaranteed;
+g++ is available for native helpers. No network or other pilots/private files
+are available. Each case has 600 wall seconds, 602 CPU seconds, 4 GiB address
+space, and a 2 MiB output limit. Runtime includes compilation and startup.
+Use at most one computational thread. Seed selection is under solver control;
+`seed` provides a reproducible suggestion, not a hidden-reference noise stream.
+
+## Score
+
+For each observable the evaluator uses RMS error relative to the stored
+coherent-rotation baseline's RMS error, with a reference-uncertainty resolution
+floor (20 times reference RMS standard error, at least 1e-5 energy units).
+If e is normalized RMS error, quality is `1/(1+e)`; it has no perfect-score
+threshold or tolerance plateau. Case quality is 0.65 torque + 0.35 free energy.
+Family means, mean of family means, worst-family mean, and wall runtime are
+reported separately. A baseline at the normalization scale scores 0.5, not zero.
+Errors, missing outputs, sandbox failures, and timeouts score zero.
+import math
+import numpy as np
+
+
+def adjacency(case):
+    neighbors = [[] for _ in range(case["n_spins"])]
+    for first, second, exchange, axial in case["bonds"]:
+        neighbors[first].append((second, exchange, axial))
+        neighbors[second].append((first, exchange, axial))
+    return neighbors
+
+
+def local_energy(case, spins, index, neighbors):
+    spin = spins[index]
+    tensor = case["onsite"][index]
+    energy = -sum(tensor[axis]*spin[axis]**2 for axis in range(3))
+    energy -= 2*(tensor[3]*spin[0]*spin[1]+tensor[4]*spin[0]*spin[2]+tensor[5]*spin[1]*spin[2])
+    energy -= tensor[6]*sum(value**4 for value in spin)
+    for other, exchange, axial in neighbors[index]:
+        energy -= exchange*np.dot(spin,spins[other])+axial*spin[2]*spins[other,2]
+    return float(energy)
+
+
+def energy_and_torque(case, spins):
+    tensors = np.asarray(case["onsite"],dtype=float)
+    onsite_energy = -(tensors[:,:3]*spins**2).sum()
+    onsite_energy -= 2*np.sum(tensors[:,3]*spins[:,0]*spins[:,1]+tensors[:,4]*spins[:,0]*spins[:,2]+tensors[:,5]*spins[:,1]*spins[:,2])
+    onsite_energy -= np.sum(tensors[:,6,None]*spins**4)
+    fields = 2*tensors[:,:3]*spins + 4*tensors[:,6,None]*spins**3
+    fields[:,0] += 2*(tensors[:,3]*spins[:,1]+tensors[:,4]*spins[:,2])
+    fields[:,1] += 2*(tensors[:,3]*spins[:,0]+tensors[:,5]*spins[:,2])
+    fields[:,2] += 2*(tensors[:,4]*spins[:,0]+tensors[:,5]*spins[:,1])
+    energy = onsite_energy
+    for first, second, exchange, axial in case["bonds"]:
+        energy -= exchange*np.dot(spins[first],spins[second])+axial*spins[first,2]*spins[second,2]
+        fields[first] += exchange*spins[second]
+        fields[second] += exchange*spins[first]
+        fields[first,2] += axial*spins[second,2]
+        fields[second,2] += axial*spins[first,2]
+    return float(energy),float(np.cross(spins,fields)[:,1].sum())
+
+
+def unconstrained_metropolis(case, sweeps=20, seed=None):
+    random = np.random.default_rng(case["seed"] if seed is None else seed)
+    spins = np.zeros((case["n_spins"],3))
+    spins[:,2] = 1.0
+    neighbors = adjacency(case)
+    for _ in range(sweeps*case["n_spins"]):
+        index = int(random.integers(case["n_spins"]))
+        previous = spins[index].copy()
+        previous_energy = local_energy(case,spins,index,neighbors)
+        proposed = previous+0.3*random.normal(size=3)
+        spins[index] = proposed/np.linalg.norm(proposed)
+        change = local_energy(case,spins,index,neighbors)-previous_energy
+        if change > 0 and random.random() >= math.exp(-change/case["temperature"]):
+            spins[index] = previous
+    return spins
+{"version":1,"case_id":"initial_interface_spring_00","family":"interface_spring","n_spins":2048,"temperature":0.55,"seed":771031,"shape":[16,16,8],"periodic":[true,true,false],"onsite":[[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.0],[0.0,0.0,0.04,0.0,0.0,0.0,0.
+bin
+llvmlite
+llvmlite-0.44.0.dist-info
+numba
+numba-0.61.2.dist-info
+numpy
+numpy-1.24.4.dist-info
+numpy.libs
+python_runtime
+scipy
+
+**Evaluating spin updates**
+
+I'm looking into the native spin updates, around 500 million in total, with about 2,000 angles and an average of 9. Each set of 40 million updates gives approximately 20,000 sweeps, maintaining an accuracy of 0.00001. It seems like I need to establish a benchmark to compare against. Also, I should read and summarize all the relevant formats and cases to ensure I cover everything in detail.
+  → Inspect cases and derive constrained sampler
+  • Implement native sampling and thermodynamic integration
+  • Validate equilibrium, accuracy, and runtime
+  • Finalize self-contained submission and scientific notes
+exec
+/bin/bash -lc 'cat input/FORMAT.md; cat workspace/model.py; PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/workspace/vendor" python - <<'"'PY'
+import json, glob, collections
+for path in sorted(glob.glob('input/cases/*.json')):
+ case=json.load(open(path)); print('\\n',path)
+ print({key:value for key,value in case.items() if key not in ('onsite','bonds')})
+ print('onsite',collections.Counter(map(tuple,case['onsite'])))
+ print('bonds',collections.Counter((row[2],row[3]) for row in case['bonds']))
+PY
+which g++; which apply_patch; date" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant
+ succeeded in 1412ms:
+# Physical and I/O contract
+
+## Input
+
+A UTF-8 JSON object has `version: 1`, `case_id`, `family`, `n_spins`,
+`temperature`, `seed`, `shape`, `periodic`, `angles`, `onsite`, and `bonds`.
+`n_spins` is 2,048 for slabs or 2,744 for particles in the frozen pilot.
+Future reserved cases can be larger; do not special-case identifiers or sizes.
+All indices are zero-based. The graph and coefficients, not the family label,
+are authoritative. `shape` and `periodic` describe the simple-cubic geometry.
+Site index is `x + nx*(y + ny*z)`. The lattice spacing is one.
+
+Each spin is a three-component real unit vector with identical fixed atomic
+moment one. All energies are in units of the bulk exchange; k_B=1, so temperature
+has the same units as energy. These are classical model magnets, not calibrated
+predictions for named materials. There is no applied field or dipolar term.
+
+`onsite[i]` is `[Qxx,Qyy,Qzz,Qxy,Qxz,Qyz,c]`. Q is a real symmetric tensor.
+`bonds` consists of `[i,j,J,b]`, each undirected bond listed exactly once.
+
+    H = -sum_bonds [J*(s_i dot s_j) + b*s_iz*s_jz]
+        -sum_i [s_i^T Q_i s_i + c_i*(s_ix^4+s_iy^4+s_iz^4)]
+
+Thus off-diagonal Q entries enter twice. Positive J is ferromagnetic, positive
+Qzz favors z, positive b favors axial alignment, and positive c favors cubic axes.
+Do not insert a one-half factor into the supplied bond list.
+
+The three families are: a periodic film with easy-z bulk and easy-plane surfaces;
+an exchange-spring bilayer with orthogonal local easy axes, reduced interlayer
+exchange and axial two-ion interface anisotropy; and an open cubic particle with
+bulk cubic anisotropy and competing facet-normal surface anisotropies.
+
+## Statistical ensemble and observables
+
+For angle theta (radians), n=(sin(theta),0,cos(theta)). Constrain the direction
+of M=sum_i s_i to n with M dot n > 0, but do not constrain |M| or individual spins.
+The partition function is the **directional probability density per unit solid
+angle** of M, using product uniform solid-angle measure for microscopic spins:
+
+    Z(n) = integral product_i dOmega_i exp(-H/T) delta_on_sphere(M/|M| - n).
+
+This is not the ensemble defined by a flat Cartesian delta(Mx) delta(My).
+Configurations with zero M have measure zero. Let f(theta)=-T*log(Z(n))/N.
+With B_i=-partial H/partial s_i, the requested torque is
+
+    torque(theta) = <sum_i (s_i cross B_i)_y>/N = -df/dtheta.
+    free_energy(theta) = f(theta)-f(0) = -integral_0^theta torque(u) du.
+
+No single-harmonic angular form is assumed. All cases have reflection symmetry:
+torque(-theta)=-torque(theta), torque(0)=torque(pi/2)=0, and f(theta+pi)=f(theta).
+Symmetry applies to equilibrium averages, not individual noisy configurations.
+Finite system size is part of the target. The only physical approximation is
+the stated classical Hamiltonian; statistical and angular quadrature errors
+remain the solver's responsibility. Error bars are informative, not a way to
+reduce the accuracy penalty.
+
+## Output
+
+Write a UTF-8 JSON object with `version:1`, the exact `case_id`, and finite numeric
+arrays `torque` and `free_energy`, each in the order and length of `angles`.
+Set `free_energy[0]=0`. Optional same-length `torque_sem` and `free_energy_sem`
+must be nonnegative. Unknown keys are ignored. Alternatively write an NPZ file
+with numeric float64 arrays `torque` and `free_energy` and optional uncertainty
+arrays. Pickled/object arrays, infinities, and NaNs are forbidden. The evaluator
+passes an output filename ending in `.json`; if writing NPZ, write `OUTPUT.npz`
+instead, where OUTPUT is that exact filename (for example `result.json.npz`).
+Output size and uncompressed archive size must each be below 2 MiB.
+
+## Execution
+
+Place the entry point at `SUBMISSION/solve.py`. It is run, never imported:
+
+    python solve.py CASE.json OUTPUT.json
+
+The submission and provided `workspace/` are read-only. `/tmp` and the output
+directory are writable. Use `/tmp` for native compilation or scratch files.
+The supplied workspace and, when present, `workspace/vendor` are on PYTHONPATH.
+Only Python's standard library and the supplied runtime are guaranteed;
+g++ is available for native helpers. No network or other pilots/private files
+are available. Each case has 600 wall seconds, 602 CPU seconds, 4 GiB address
+space, and a 2 MiB output limit. Runtime includes compilation and startup.
+Use at most one computational thread. Seed selection is under solver control;
+`seed` provides a reproducible suggestion, not a hidden-reference noise stream.
+
+## Score
+
+For each observable the evaluator uses RMS error relative to the stored
+coherent-rotation baseline's RMS error, with a reference-uncertainty resolution
+floor (20 times reference RMS standard error, at least 1e-5 energy units).
+If e is normalized RMS error, quality is `1/(1+e)`; it has no perfect-score
+threshold or tolerance plateau. Case quality is 0.65 torque + 0.35 free energy.
+Family means, mean of family means, worst-family mean, and wall runtime are
+reported separately. A baseline at the normalization scale scores 0.5, not zero.
+Errors, missing outputs, sandbox failures, and timeouts score zero.
+import math
+import numpy as np
+
+
+def adjacency(case):
+    neighbors = [[] for _ in range(case["n_spins"])]
+    for first, second, exchange, axial in case["bonds"]:
+        neighbors[first].append((second, exchange, axial))
+        neighbors[second].append((first, exchange, axial))
+    return neighbors
+
+
+def local_energy(case, spins, index, neighbors):
+    spin = spins[index]
+    tensor = case["onsite"][index]
+    energy = -sum(tensor[axis]*spin[axis]**2 for axis in range(3))
+    energy -= 2*(tensor[3]*spin[0]*spin[1]+tensor[4]*spin[0]*spin[2]+tensor[5]*spin[1]*spin[2])
+    energy -= tensor[6]*sum(value**4 for value in spin)
+    for other, exchange, axial in neighbors[index]:
+        energy -= exchange*np.dot(spin,spins[other])+axial*spin[2]*spins[other,2]
+    return float(energy)
+
+
+def energy_and_torque(case, spins):
+    tensors = np.asarray(case["onsite"],dtype=float)
+    onsite_energy = -(tensors[:,:3]*spins**2).sum()
+    onsite_energy -= 2*np.sum(tensors[:,3]*spins[:,0]*spins[:,1]+tensors[:,4]*spins[:,0]*spins[:,2]+tensors[:,5]*spins[:,1]*spins[:,2])
+    onsite_energy -= np.sum(tensors[:,6,None]*spins**4)
+    fields = 2*tensors[:,:3]*spins + 4*tensors[:,6,None]*spins**3
+    fields[:,0] += 2*(tensors[:,3]*spins[:,1]+tensors[:,4]*spins[:,2])
+    fields[:,1] += 2*(tensors[:,3]*spins[:,0]+tensors[:,5]*spins[:,2])
+    fields[:,2] += 2*(tensors[:,4]*spins[:,0]+tensors[:,5]*spins[:,1])
+    energy = onsite_energy
+    for first, second, exchange, axial in case["bonds"]:
+        energy -= exchange*np.dot(spins[first],spins[second])+axial*spins[first,2]*spins[second,2]
+        fields[first] += exchange*spins[second]
+        fields[second] += exchange*spins[first]
+        fields[first,2] += axial*spins[second,2]
+        fields[second,2] += axial*spins[first,2]
+    return float(energy),float(np.cross(spins,fields)[:,1].sum())
+
+
+def unconstrained_metropolis(case, sweeps=20, seed=None):
+    random = np.random.default_rng(case["seed"] if seed is None else seed)
+    spins = np.zeros((case["n_spins"],3))
+    spins[:,2] = 1.0
+    neighbors = adjacency(case)
+    for _ in range(sweeps*case["n_spins"]):
+        index = int(random.integers(case["n_spins"]))
+        previous = spins[index].copy()
+        previous_energy = local_energy(case,spins,index,neighbors)
+        proposed = previous+0.3*random.normal(size=3)
+        spins[index] = proposed/np.linalg.norm(proposed)
+        change = local_energy(case,spins,index,neighbors)-previous_energy
+        if change > 0 and random.random() >= math.exp(-change/case["temperature"]):
+            spins[index] = previous
+    return spins
+
+ input/cases/initial_cubic_particle_00.json
+{'version': 1, 'case_id': 'initial_cubic_particle_00', 'family': 'cubic_particle', 'n_spins': 2744, 'temperature': 0.55, 'seed': 771031, 'shape': [14, 14, 14], 'periodic': [False, False, False], 'angles': [0.0, 0.19634954084936207, 0.39269908169872414, 0.5890486225480862, 0.7853981633974483, 0.9817477042468103, 1.1780972450961724, 1.3744467859455345, 1.5707963267948966]}
+onsite Counter({(0.0, 0.0, 0.008, 0.0, 0.0, 0.0, 0.026): 1728, (0.0, 0.0, 0.063, 0.0, 0.0, 0.0, 0.026): 288, (0.0, 0.055, 0.008, 0.0, 0.0, 0.0, 0.026): 288, (0.095, 0.0, 0.008, 0.0, 0.0, 0.0, 0.026): 288, (0.0, 0.055, 0.063, 0.0, 0.0, 0.0, 0.026): 48, (0.095, 0.0, 0.063, 0.0, 0.0, 0.0, 0.026): 48, (0.095, 0.055, 0.008, 0.0, 0.0, 0.0, 0.026): 48, (0.095, 0.055, 0.063, 0.0, 0.0, 0.0, 0.026): 8})
+bonds Counter({(1.0, 0.0): 7644})
+
+ input/cases/initial_cubic_particle_01.json
+{'version': 1, 'case_id': 'initial_cubic_particle_01', 'family': 'cubic_particle', 'n_spins': 2744, 'temperature': 0.9, 'seed': 771324, 'shape': [14, 14, 14], 'periodic': [False, False, False], 'angles': [0.0, 0.19634954084936207, 0.39269908169872414, 0.5890486225480862, 0.7853981633974483, 0.9817477042468103, 1.1780972450961724, 1.3744467859455345, 1.5707963267948966]}
+onsite Counter({(0.0, 0.0, 0.008, 0.0, 0.0, 0.0, 0.031): 1728, (0.0, 0.0, 0.0685, 0.0, 0.0, 0.0, 0.031): 288, (0.0, 0.060500000000000005, 0.008, 0.0, 0.0, 0.0, 0.031): 288, (0.10450000000000001, 0.0, 0.008, 0.0, 0.0, 0.0, 0.031): 288, (0.0, 0.060500000000000005, 0.0685, 0.0, 0.0, 0.0, 0.031): 48, (0.10450000000000001, 0.0, 0.0685, 0.0, 0.0, 0.0, 0.031): 48, (0.10450000000000001, 0.060500000000000005, 0.008, 0.0, 0.0, 0.0, 0.031): 48, (0.10450000000000001, 0.060500000000000005, 0.0685, 0.0, 0.0, 0.0, 0.031): 8})
+bonds Counter({(1.0, 0.0): 7644})
+
+ input/cases/initial_interface_spring_00.json
+{'version': 1, 'case_id': 'initial_interface_spring_00', 'family': 'interface_spring', 'n_spins': 2048, 'temperature': 0.55, 'seed': 771031, 'shape': [16, 16, 8], 'periodic': [True, True, False], 'angles': [0.0, 0.19634954084936207, 0.39269908169872414, 0.5890486225480862, 0.7853981633974483, 0.9817477042468103, 1.1780972450961724, 1.3744467859455345, 1.5707963267948966]}
+onsite Counter({(0.0, 0.0, 0.04, 0.0, 0.0, 0.0, 0.0): 768, (0.04, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0): 768, (0.0, 0.0, 0.052000000000000005, 0.0, 0.0, 0.0, 0.0): 256, (0.04, 0.0, 0.012, 0.0, 0.0, 0.0, 0.0): 256})
+bonds Counter({(1.0, 0.0): 2816, (0.62, 0.0): 2816, (0.42, 0.1): 256})
+
+ input/cases/initial_interface_spring_01.json
+{'version': 1, 'case_id': 'initial_interface_spring_01', 'family': 'interface_spring', 'n_spins': 2048, 'temperature': 0.9, 'seed': 771324, 'shape': [16, 16, 8], 'periodic': [True, True, False], 'angles': [0.0, 0.19634954084936207, 0.39269908169872414, 0.5890486225480862, 0.7853981633974483, 0.9817477042468103, 1.1780972450961724, 1.3744467859455345, 1.5707963267948966]}
+onsite Counter({(0.0, 0.0, 0.049, 0.0, 0.0, 0.0, 0.0): 768, (0.049, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0): 768, (0.0, 0.0, 0.061, 0.0, 0.0, 0.0, 0.0): 256, (0.049, 0.0, 0.012, 0.0, 0.0, 0.0, 0.0): 256})
+bonds Counter({(1.0, 0.0): 2816, (0.66, 0.0): 2816, (0.45999999999999996, 0.12000000000000001): 256})
+
+ input/cases/initial_surface_reorientation_00.json
+{'version': 1, 'case_id': 'initial_surface_reorientation_00', 'family': 'surface_reorientation', 'n_spins': 2048, 'temperature': 0.55, 'seed': 771031, 'shape': [16, 16, 8], 'periodic': [True, True, False], 'angles': [0.0, 0.19634954084936207, 0.39269908169872414, 0.5890486225480862, 0.7853981633974483, 0.9817477042468103, 1.1780972450961724, 1.3744467859455345, 1.5707963267948966]}
+onsite Counter({(0.0, 0.0, 0.011, 0.0, 0.0, 0.0, 0.0): 1536, (0.055, 0.055, 0.011, 0.0, 0.0, 0.0, 0.0): 512})
+bonds Counter({(1.0, 0.0): 5888})
+
+ input/cases/initial_surface_reorientation_01.json
+{'version': 1, 'case_id': 'initial_surface_reorientation_01', 'family': 'surface_reorientation', 'n_spins': 2048, 'temperature': 0.9, 'seed': 771324, 'shape': [16, 16, 8], 'periodic': [True, True, False], 'angles': [0.0, 0.19634954084936207, 0.39269908169872414, 0.5890486225480862, 0.7853981633974483, 0.9817477042468103, 1.1780972450961724, 1.3744467859455345, 1.5707963267948966]}
+onsite Counter({(0.0, 0.0, 0.013099999999999999, 0.0, 0.0, 0.0, 0.0): 1536, (0.068, 0.068, 0.013099999999999999, 0.0, 0.0, 0.0, 0.0): 512})
+bonds Counter({(1.0, 0.0): 5888})
+/usr/bin/g++
+/srv/home/xuandong/.codex/tmp/arg0/codex-arg0RnSxKn/apply_patch
+Thu Aug 27 18:21:20 PDT 2026
+
+**Evaluating torque structure**
+
+I'm considering the torque structure with a nonlinear strong spring at T0.9, which might allow for high modes but still stay mild at around a0.01 for the interface. I need to refine sample angles and consider midpoint matching. There are 550 seconds total for calculations, with 7 interior nodes at specified multiples supporting Fourier analysis. First, I’ll fit the initial 3-4 nodes to reduce variance, then integrate all nodes with a sine series to minimize noise. The goal is to keep things flexible and avoid assumptions while effectively handling endpoints and free energy.
+**Analyzing noise reduction**
+
+I’m noticing that the noise hasn’t been reduced significantly, and I see that the small high harmonic noise reference tolerance around 1e-5 could be acceptable if the Monte Carlo standard error is 5e-6. It seems like I should select 4 harmonics based on AIC or cross-validation methods. To make progress, I’ll need to gather test data and compare two different seeds to estimate the standard error. This approach should provide more reliable insights.
+codex
+The directional ensemble needs special sampling. I’m implementing an exact projected-exchange sampler and an independent pair-move cross-check.
+
+The directional measure can be sampled by reversible isotropic-exchange moves, exact magnetization realignment, and an anisotropy Metropolis correction. An explicit Jacobian-corrected pair kernel will independently validate it.
+  ✓ Inspect cases and derive constrained sampler
+  → Implement native sampling and thermodynamic integration
+  • Validate equilibrium, accuracy, and runtime
+  • Finalize self-contained submission and scientific notes
+**Choosing initial test**
+
+I need to select a simple, proven initial test and write it down. Keeping things straightforward is key! It’s tempting to overcomplicate things, but I think starting with something basic will pave the way for more complex tests later on. I’ll make sure to document everything clearly so I can easily reference it later. Let’s get this written down and move forward!
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/sampler.cpp
++#include <algorithm>
++#include <array>
++#include <chrono>
++#include <cmath>
++#include <cstdint>
++#include <fstream>
++#include <iomanip>
++#include <iostream>
++#include <numeric>
++#include <random>
++#include <string>
++#include <vector>
++
++struct Vector {
++    double x, y, z;
++    Vector operator+(const Vector &other) const { return {x+other.x,y+other.y,z+other.z}; }
++    Vector operator-(const Vector &other) const { return {x-other.x,y-other.y,z-other.z}; }
++    Vector operator*(double scale) const { return {x*scale,y*scale,z*scale}; }
++    Vector &operator+=(const Vector &other) { x+=other.x; y+=other.y; z+=other.z; return *this; }
++};
++
++double dot(const Vector &first, const Vector &second) {
++    return first.x*second.x+first.y*second.y+first.z*second.z;
++}
++
++Vector cross(const Vector &first, const Vector &second) {
++    return {first.y*second.z-first.z*second.y,
++            first.z*second.x-first.x*second.z,
++            first.x*second.y-first.y*second.x};
++}
++
++struct Random {
++    uint64_t state[4];
++    explicit Random(uint64_t seed) {
++        for (auto &element:state) {
++            seed+=0x9e3779b97f4a7c15ULL;
++            uint64_t value=seed;
++            value=(value"'^(value>>30))*0xbf58476d1ce4e5b9ULL;
++            value=(value''^(value>>27))*0x94d049bb133111ebULL;
++            element=value''^(value>>31);
++        }
++    }
++    static uint64_t rotate(uint64_t value, int shift) { return (value<<shift)|(value>>(64-shift)); }
++    uint64_t next() {
++        uint64_t result=rotate(state[1]*5,7)*9;
++        uint64_t temporary=state[1]<<17;
++        state[2]''^=state[0]; state[3]''^=state[1]; state[1]''^=state[2]; state[0]''^=state[3];
++        state[2]''^=temporary; state[3]=rotate(state[3],45);
++        return result;
++    }
++    double uniform() { return ((next()>>11)+0.5)*0x1.0p-53; }
++    int index(int count) { return static_cast<int>((static_cast<uint64_t>(static_cast<uint32_t>(next()))*count)>>32); }
++    Vector sphere() {
++        double first,second,radius;
++        do { first=2*uniform()-1; second=2*uniform()-1; radius=first*first+second*second; }
++        while (radius>=1 || radius==0);
++        double scale=2*std::sqrt(1-radius);
++        return {first*scale,second*scale,1-2*radius};
++    }
++};
++
++struct Neighbor { int site; double exchange, axial; };
++struct Bond { int first,second; double exchange,axial; };
++struct Observable { double energy,torque,magnetization; };
++
++struct Model {
++    int count;
++    double temperature;
++    uint64_t seed;
++    std::vector<std::array<double,7>> onsite;
++    std::vector<Bond> bonds, axial_bonds;
++    std::vector<int> offsets;
++    std::vector<Neighbor> neighbors;
++    std::vector<Vector> spins, backup, laboratory;
++    std::vector<double> angles;
++    Random random;
++    double cosine=1,sine=0,magnetization=0;
++    Observable current{};
++    uint64_t heat_attempt=0,heat_accept=0,over_attempt=0,over_accept=0;
++
++    explicit Model(const std::string &filename):random(1) {
++        std::ifstream stream(filename);
++        int bond_count,angle_count;
++        stream>>count>>bond_count>>temperature>>seed>>angle_count;
++        if (!stream || count<2 || temperature<=0) throw std::runtime_error("Invalid model");
++        random=Random(seed);
++        angles.resize(angle_count);
++        for (auto &angle:angles) stream>>angle;
++        onsite.resize(count);
++        for (auto &tensor:onsite) for (auto &value:tensor) stream>>value;
++        bonds.resize(bond_count);
++        offsets.assign(count+1,0);
++        for (auto &bond:bonds) {
++            stream>>bond.first>>bond.second>>bond.exchange>>bond.axial;
++            ++offsets[bond.first+1]; ++offsets[bond.second+1];
++            if (bond.axial!=0) axial_bonds.push_back(bond);
++        }
++        if (!stream) throw std::runtime_error("Truncated model");
++        std::partial_sum(offsets.begin(),offsets.end(),offsets.begin());
++        auto cursor=offsets;
++        neighbors.resize(2*bond_count);
++        for (auto bond:bonds) {
++            neighbors[cursor[bond.first]++]={bond.second,bond.exchange,bond.axial};
++            neighbors[cursor[bond.second]++]={bond.first,bond.exchange,bond.axial};
++        }
++        spins.assign(count,{0,0,1});
++        backup.resize(count); laboratory.resize(count);
++        magnetization=count;
++    }
++
++    Vector lab(Vector spin) const {
++        return {cosine*spin.x+sine*spin.z,spin.y,cosine*spin.z-sine*spin.x};
++    }
++
++    double site_energy(int site,Vector spin) const {
++        auto value=lab(spin);
++        auto tensor=onsite[site];
++        double square_x=value.x*value.x,square_y=value.y*value.y,square_z=value.z*value.z;
++        return -tensor[0]*square_x-tensor[1]*square_y-tensor[2]*square_z
++            -2*(tensor[3]*value.x*value.y+tensor[4]*value.x*value.z+tensor[5]*value.y*value.z)
++            -tensor[6]*(square_x*square_x+square_y*square_y+square_z*square_z);
++    }
++
++    Vector field(int site,bool axial=false) const {
++        Vector result{0,0,0};
++        for (int offset=offsets[site];offset<offsets[site+1];++offset) {
++            auto neighbor=neighbors[offset];
++            auto spin=spins[neighbor.site];
++            result+=spin*neighbor.exchange;
++            if (axial && neighbor.axial!=0) {
++                double value=neighbor.axial*(cosine*spin.z-sine*spin.x);
++                result.x-=sine*value;
++                result.z+=cosine*value;
++            }
++        }
++        return result;
++    }
++
++    Observable observe(bool align) {
++        Vector total{0,0,0};
++        for (auto spin:spins) total+=spin;
++        double magnitude=std::sqrt(dot(total,total));
++        if (align && magnitude>0) {
++            if (magnitude+total.z<1e-10*magnitude) {
++                for (auto &spin:spins) { spin.x=-spin.x; spin.z=-spin.z; }
++                total.x=-total.x; total.z=-total.z;
++            }
++            double inverse=1/magnitude;
++            double denominator=1/(magnitude+total.z);
++            for (auto &spin:spins) {
++                double transverse=total.x*spin.x+total.y*spin.y;
++                double factor=(spin.z+transverse*denominator)*inverse;
++                spin={spin.x-total.x*factor,spin.y-total.y*factor,(transverse+total.z*spin.z)*inverse};
++            }
++        }
++        double energy=0,torque=0;
++        for (int site=0;site<count;++site) {
++            auto value=lab(spins[site]);
++            laboratory[site]=value;
++            auto tensor=onsite[site];
++            double square_x=value.x*value.x,square_y=value.y*value.y,square_z=value.z*value.z;
++            energy-=tensor[0]*square_x+tensor[1]*square_y+tensor[2]*square_z
++                +2*(tensor[3]*value.x*value.y+tensor[4]*value.x*value.z+tensor[5]*value.y*value.z)
++                +tensor[6]*(square_x*square_x+square_y*square_y+square_z*square_z);
++            double field_x=2*(tensor[0]*value.x+tensor[3]*value.y+tensor[4]*value.z)+4*tensor[6]*value.x*square_x;
++            double field_z=2*(tensor[2]*value.z+tensor[4]*value.x+tensor[5]*value.y)+4*tensor[6]*value.z*square_z;
++            torque+=value.z*field_x-value.x*field_z;
++        }
++        for (auto bond:axial_bonds) {
++            auto first=laboratory[bond.first],second=laboratory[bond.second];
++            energy-=bond.axial*first.z*second.z;
++            torque-=bond.axial*(first.x*second.z+first.z*second.x);
++        }
++        return {energy,torque/count,magnitude/count};
++    }
++
++    Vector heatbath(Vector local_field) {
++        double strength=std::sqrt(dot(local_field,local_field));
++        if (strength<1e-12) return random.sphere();
++        Vector axis=local_field*(1/strength);
++        double scaled=strength/temperature;
++        double uniform=random.uniform();
++        double longitudinal=1+std::log(uniform+(1-uniform)*std::exp(-2*scaled))/scaled;
++        double azimuth=6.2831853071795864769*random.uniform();
++        double transverse=std::sqrt(std::max(0.0,1-longitudinal*longitudinal));
++        Vector tangent;
++        if (std::abs(axis.z)<0.9) {
++            double inverse=1/std::sqrt(axis.x*axis.x+axis.y*axis.y);
++            tangent={-axis.y*inverse,axis.x*inverse,0};
++        } else {
++            double inverse=1/std::sqrt(axis.y*axis.y+axis.z*axis.z);
++            tangent={0,-axis.z*inverse,axis.y*inverse};
++        }
++        return axis*longitudinal+tangent*(transverse*std::cos(azimuth))+cross(axis,tangent)*(transverse*std::sin(azimuth));
++    }
++
++    void projected_sweep() {
++        backup=spins;
++        bool thermal=(random.index(5)==0);
++        bool reverse=(random.next()&1);
++        for (int update=0;update<count;++update) {
++            int site=thermal ? (reverse ? count-1-update:update):random.index(count);
++            Vector local_field=field(site);
++            if (thermal) spins[site]=heatbath(local_field);
++            else {
++                double squared=dot(local_field,local_field);
++                if (squared>1e-24) spins[site]=local_field*(2*dot(local_field,spins[site])/squared)-spins[site];
++            }
++        }
++        Observable candidate=observe(true);
++        bool accepted=random.uniform()<std::exp(std::min(0.0,(current.energy-candidate.energy)/temperature));
++        if (accepted) current=candidate;
++        else spins.swap(backup);
++        if (thermal) { ++heat_attempt; heat_accept+=accepted; }
++        else { ++over_attempt; over_accept+=accepted; }
++    }
++
++    void pair_sweep() {
++        for (int update=0;update<count;++update) {
++            int first=random.index(count),second=random.index(count-1);
++            if (second>=first) ++second;
++            Vector previous_first=spins[first],previous_second=spins[second];
++            Vector candidate_first=previous_first+random.sphere()*0.55;
++            candidate_first=candidate_first*(1/std::sqrt(dot(candidate_first,candidate_first)));
++            Vector candidate_second{previous_first.x+previous_second.x-candidate_first.x,
++                previous_first.y+previous_second.y-candidate_first.y,0};
++            double squared=1-candidate_second.x*candidate_second.x-candidate_second.y*candidate_second.y;
++            if (squared<=0) continue;
++            candidate_second.z=std::copysign(std::sqrt(squared),previous_second.z);
++            if (random.uniform()<0.05) candidate_second.z=-candidate_second.z;
++            double new_magnetization=magnetization+candidate_first.z+candidate_second.z-previous_first.z-previous_second.z;
++            if (new_magnetization<=0) continue;
++            Vector change_first=candidate_first-previous_first,change_second=candidate_second-previous_second;
++            double energy_change=site_energy(first,candidate_first)-site_energy(first,previous_first)
++                +site_energy(second,candidate_second)-site_energy(second,previous_second)
++                -dot(change_first,field(first,true))-dot(change_second,field(second,true));
++            for (int offset=offsets[first];offset<offsets[first+1];++offset) {
++                auto neighbor=neighbors[offset];
++                if (neighbor.site==second) energy_change-=neighbor.exchange*dot(change_first,change_second)
++                    +neighbor.axial*(cosine*change_first.z-sine*change_first.x)*(cosine*change_second.z-sine*change_second.x);
++            }
++            double ratio=new_magnetization/magnetization;
++            double acceptance=ratio*ratio*std::abs(previous_second.z/candidate_second.z)*std::exp(-energy_change/temperature);
++            ++heat_attempt;
++            if (random.uniform()<acceptance) {
++                ++heat_accept;
++                spins[first]=candidate_first; spins[second]=candidate_second; magnetization=new_magnetization;
++            }
++        }
++        current=observe(false);
++    }
++};
++
++using Clock=std::chrono::steady_clock;
++double seconds(Clock::time_point start) {
++    return std::chrono::duration<double>(Clock::now()-start).count();
++}
++
++int main(int argc,char **argv) {
++    try {
++        if (argc<4) throw std::runtime_error("Usage: sampler MODEL STATS SECONDS [pairs]");
++        Model model(argv[1]);
++        std::ofstream output(argv[2]);
++        output<<std::setprecision(17);
++        double budget=std::stod(argv[3]);
++        bool pairs=argc>4 && std::string(argv[4])=="pairs";
++        auto start=Clock::now();
++        int angle_count=model.angles.size();
++        for (int angle_index=0;angle_index<angle_count;++angle_index) {
++            double angle=model.angles[angle_index];
++            model.sine=std::sin(angle); model.cosine=std::cos(angle);
++            model.current=model.observe(true);
++            model.magnetization=model.current.magnetization*model.count;
++            double slot=(budget-seconds(start))/(angle_count-angle_index);
++            double angle_start=seconds(start);
++            double warmup_end=angle_start+0.14*slot;
++            uint64_t warmup=0;
++            do {
++                for (int sweep=0;sweep<32;++sweep) { if (pairs) model.pair_sweep(); else model.projected_sweep(); }
++                warmup+=32;
++            } while (seconds(start)<warmup_end);
++            double production_start=seconds(start);
++            double end=angle_start+slot;
++            double mean=0,magnetization=0;
++            uint64_t total_samples=0;
++            model.heat_attempt=model.heat_accept=model.over_attempt=model.over_accept=0;
++            const int blocks=64;
++            for (int block=0;block<blocks;++block) {
++                double block_end=production_start+(end-production_start)*(block+1)/blocks;
++                double block_sum=0,block_magnetization=0;
++                uint64_t samples=0;
++                do {
++                    for (int sweep=0;sweep<16;++sweep) {
++                        if (pairs) model.pair_sweep(); else model.projected_sweep();
++                        block_sum+=model.current.torque;
++                        block_magnetization+=model.current.magnetization;
++                        ++samples;
++                    }
++                } while (seconds(start)<block_end);
++                output<<angle_index<<'"' '<<angle<<' '<<block<<' '<<samples<<' '
++                      <<block_sum/samples<<' '<<block_magnetization/samples<<'\\n';
++                total_samples+=samples; mean+=block_sum; magnetization+=block_magnetization;
++            }
++            output.flush();
++            std::cerr<<\"angle \"<<angle<<\" torque \"<<mean/total_samples<<\" m \"<<magnetization/total_samples
++                     <<\" sweeps \"<<total_samples<<\" warmup \"<<warmup<<\" acceptance \"
++                     <<double(model.heat_accept)/std::max(uint64_t(1),model.heat_attempt)<<' '
++                     <<double(model.over_accept)/std::max(uint64_t(1),model.over_attempt)<<'\\n';
++        }
++    } catch (const std::exception &error) {
++        std::cerr<<error.what()<<'\\n';
++        return 1;
++    }
++    return 0;
++}
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/solve.py
++import json
++import math
++import os
++from pathlib import Path
++import subprocess
++import sys
++import tempfile
++import time
++
++os.environ[\"OMP_NUM_THREADS\"] = \"1\"
++os.environ[\"OPENBLAS_NUM_THREADS\"] = \"1\"
++os.environ[\"MKL_NUM_THREADS\"] = \"1\"
++os.environ[\"NUMEXPR_NUM_THREADS\"] = \"1\"
++sys.dont_write_bytecode = True
++
++import numpy as np
++
++
++def write_model(case, angles, path):
++    with open(path, \"w\") as stream:
++        stream.write(f\"{case['n_spins']} {len(case['bonds'])} {case['temperature']:.17g} \"
++                     f\"{case['seed']} {len(angles)}\\n\")
++        stream.write(\" \".join(format(float(value), \".17g\") for value in angles) + \"\\n\")
++        for row in case[\"onsite\"]:
++            stream.write(\" \".join(format(value, \".17g\") for value in row) + \"\\n\")
++        for first, second, exchange, axial in case[\"bonds\"]:
++            stream.write(f\"{first} {second} {exchange:.17g} {axial:.17g}\\n\")
++
++
++def summarize(raw):
++    node_count = int(raw[:, 0].max()) + 1
++    means, errors, angles = [], [], []
++    for node in range(node_count):
++        records = raw[raw[:, 0] == node]
++        blocks = records[:, 4]
++        means.append(np.average(blocks, weights=records[:, 3]))
++        angles.append(records[0, 1])
++        estimates = []
++        for grouping in (1, 2, 4, 8):
++            grouped = blocks.reshape(-1, grouping).mean(axis=1)
++            estimates.append(np.std(grouped, ddof=1) / math.sqrt(len(grouped)))
++        errors.append(max(estimates))
++    return np.asarray(angles), np.asarray(means), np.maximum(errors, 1e-10)
++
++
++def integrate(angles, torque, error, requested):
++    harmonic_count = min(7, len(angles) - 1)
++    harmonics = np.arange(1, harmonic_count + 1, dtype=float)
++    design = np.sin(2 * angles[:, None] * harmonics)
++    weighted = design / error[:, None]
++    covariance = np.linalg.inv(weighted.T @ weighted)
++    coefficients = covariance @ (weighted.T @ (torque / error))
++    coefficient_error = np.sqrt(np.diag(covariance))
++    retained = 2
++    for index in range(2, harmonic_count):
++        if abs(coefficients[index]) > 2.5 * coefficient_error[index]:
++            retained = index + 1
++    harmonics = harmonics[:retained]
++    design = design[:, :retained]
++    weighted = design / error[:, None]
++    covariance = np.linalg.inv(weighted.T @ weighted)
++    coefficients = covariance @ (weighted.T @ (torque / error))
++    requested = np.asarray(requested)
++    torque_design = np.sin(2 * requested[:, None] * harmonics)
++    free_design = (np.cos(2 * requested[:, None] * harmonics) - 1) / (2 * harmonics)
++    predicted_torque = torque_design @ coefficients
++    predicted_free = free_design @ coefficients
++    predicted_torque[np.abs(np.sin(2 * requested)) < 1e-14] = 0.0
++    predicted_free[0] = 0.0
++    torque_sem = np.sqrt(np.maximum(0, np.einsum(\"ij,jk,ik->i\", torque_design, covariance, torque_design)))
++    free_sem = np.sqrt(np.maximum(0, np.einsum(\"ij,jk,ik->i\", free_design, covariance, free_design)))
++    return {\"torque\": predicted_torque.tolist(), \"free_energy\": predicted_free.tolist(),
++            \"torque_sem\": torque_sem.tolist(), \"free_energy_sem\": free_sem.tolist(),
++            \"harmonics\": retained, \"coefficients\": coefficients.tolist(),
++            \"sample_angles\": angles.tolist(), \"sample_torque\": torque.tolist(),
++            \"sample_sem\": error.tolist()}
++
++
++def main():
++    start = time.monotonic()
++    with open(sys.argv[1]) as stream:
++        case = json.load(stream)
++    output = Path(sys.argv[2]).resolve()
++    budget = float(os.environ.get(\"SPIN_SECONDS\", \"550\"))
++    nodes = int(os.environ.get(\"SPIN_NODES\", \"15\"))
++    angles = np.arange(1, nodes + 1) * (math.pi / (2 * (nodes + 1)))
++    with tempfile.TemporaryDirectory(prefix=\"spin-build-\", dir=output.parent) as scratch:
++        scratch = Path(scratch)
++        executable = scratch / \"sampler\"
++        subprocess.run([\"g++\", \"-O3\", \"-std=c++17\", \"-march=native\",
++                        str(Path(__file__).with_name(\"sampler.cpp\")), \"-o\", str(executable)], check=True)
++        model_path = scratch / \"model.txt\"
++        raw_path = scratch / \"blocks.txt\"
++        write_model(case, angles, model_path)
++        runtime = max(1.0, budget - (time.monotonic() - start))
++        subprocess.run([str(executable), str(model_path), str(raw_path), str(runtime),
++                        os.environ.get(\"SPIN_KERNEL\", \"projected\")], check=True, timeout=runtime + 15)
++        raw = np.loadtxt(raw_path)
++        if os.environ.get(\"SPIN_SAVE_BLOCKS\"):
++            np.savetxt(output.with_suffix(\".blocks.txt\"), raw)
++        result = integrate(*summarize(raw), case[\"angles\"])
++    result.update(version=1, case_id=case[\"case_id\"])
++    with open(output, \"w\") as stream:
++        json.dump(result, stream, allow_nan=False)
++
++
++if __name__ == \"__main__\":
++    main()
+*** End Patch
+PATCH
+
+g++ -O3 -std=c++17 -march=native sampler.cpp -o sampler" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 4267ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/sampler.cpp
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/solve.py
+
+exec
+/bin/bash -lc 'date; PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor PYTHONDONTWRITEBYTECODE=1 SPIN_SECONDS=90 SPIN_NODES=15 SPIN_SAVE_BLOCKS=1 python solve.py ../participant/input/cases/initial_interface_spring_01.json spring_smoke.json >spring_smoke.log 2>&1' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate.py
++import json
++import math
++import os
++from pathlib import Path
++import subprocess
++import sys
++
++os.environ[\"OPENBLAS_NUM_THREADS\"] = \"1\"
++sys.dont_write_bytecode = True
++
++import numpy as np
++from numpy.polynomial.legendre import leggauss
++from solve import summarize, write_model
++
++
++def exact_pair(case, theta):
++    nodes, weights = leggauss(160)
++    longitudinal = np.sqrt((nodes + 1) / 2)
++    azimuth = np.arange(512) * (2 * math.pi / 512)
++    transverse = np.sqrt(1 - longitudinal**2)
++    spin_x = transverse[:, None] * np.cos(azimuth)
++    spin_y = transverse[:, None] * np.sin(azimuth)
++    spin_z = np.broadcast_to(longitudinal[:, None], spin_x.shape)
++    first = np.stack([spin_x, spin_y, spin_z], axis=-1)
++    second = np.stack([-spin_x, -spin_y, spin_z], axis=-1)
++    rotation = np.array([[math.cos(theta), 0, math.sin(theta)],
++                         [0, 1, 0], [-math.sin(theta), 0, math.cos(theta)]])
++    first = first @ rotation.T
++    second = second @ rotation.T
++    exchange, axial = case[\"bonds\"][0][2:]
++    energy = -exchange * (first * second).sum(axis=-1) - axial * first[..., 2] * second[..., 2]
++    torque = -axial * (first[..., 0] * second[..., 2] + first[..., 2] * second[..., 0])
++    for spin, tensor in zip([first, second], case[\"onsite\"]):
++        quadratic = np.array([[tensor[0], tensor[3], tensor[4]],
++                              [tensor[3], tensor[1], tensor[5]],
++                              [tensor[4], tensor[5], tensor[2]]])
++        energy -= np.einsum(\"...i,ij,...j->...\", spin, quadratic, spin) + tensor[6] * (spin**4).sum(axis=-1)
++        field = 2 * spin @ quadratic + 4 * tensor[6] * spin**3
++        torque += np.cross(spin, field)[..., 1]
++    probability = weights[:, None] * np.exp(-energy / case[\"temperature\"])
++    probability /= probability.sum()
++    return float((probability * torque).sum() / 2), float((probability * longitudinal[:, None]).sum())
++
++
++def main():
++    root = Path(__file__).resolve().parent
++    case = {\"n_spins\": 2, \"bonds\": [[0, 1, 0.7, 0.2]], \"temperature\": 0.8, \"seed\": 719311,
++            \"onsite\": [[0.17, -0.13, 0.29, 0, 0, 0, 0.18],
++                       [-0.22, 0.05, 0.15, 0, 0, 0, 0.09]]}
++    angles = [0.23, 0.67, 1.16]
++    write_model(case, angles, root / \"pair_test.model\")
++    expected = np.array([exact_pair(case, angle) for angle in angles])
++    print(\"Exact pair torque and magnetization:\", expected, flush=True)
++    for kernel in [\"projected\", \"pairs\"]:
++        path = root / f\"pair_test_{kernel}.txt\"
++        subprocess.run([str(root / \"sampler\"), str(root / \"pair_test.model\"), str(path), \"9\", kernel], check=True)
++        data = np.loadtxt(path)
++        _, torque, error = summarize(data)
++        measured_magnetization = np.array([data[data[:, 0] == index, 5].mean() for index in range(len(angles))])
++        print(kernel, \"torque\", torque, \"sem\", error, \"m\", measured_magnetization, flush=True)
++        assert np.all(abs(torque - expected[:, 0]) < 6 * error + 2e-5)
++        assert np.max(abs(measured_magnetization - expected[:, 1])) < 0.002
++    case[\"bonds\"] = [[0, 1, 0.0, 0.0]]
++    case[\"onsite\"] = [[0.0] * 7] * 2
++    write_model(case, [0.0], root / \"pair_isotropic.model\")
++    subprocess.run([str(root / \"sampler\"), str(root / \"pair_isotropic.model\"),
++                    str(root / \"pair_isotropic.txt\"), \"2\"], check=True)
++    data = np.loadtxt(root / \"pair_isotropic.txt\")
++    assert np.all(data[:, 4] == 0)
++    assert abs(np.mean(data[:, 5]) - 2 / 3) < 0.003
++    print(\"All exact-ensemble checks passed.\")
++
++
++if __name__ == \"__main__\":
++    main()
+*** End Patch
+PATCH
+tail -5 spring_smoke.log; date" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+**Checking time inconsistencies**
+
+I notice there's a time discrepancy; the date shows 18:26:30, but I thought it was 18:36. It feels strange to have clock tool latency issues. When I checked, I wrote thousands of tokens in just 4 minutes, but it’s showing 54 minutes as the actual time. Maybe some commands are queued due to a patch being applied? I need to understand the outputs to see what’s going on.
+exec
+/bin/bash -lc 'ls -l; tail -12 spring_smoke.log; date; ps -eo pid,etime,time,pcpu,comm | tail -10' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 44011ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate.py
+angle 0.785398 torque -0.018 m 1 sweeps 50368 warmup 7232 acceptance 0 1
+angle 0.883573 torque -0.0176541 m 1 sweeps 60368 warmup 8960 acceptance 0 1
+angle 0.981748 torque -0.0166298 m 1 sweeps 58224 warmup 8704 acceptance 0 1
+angle 1.07992 torque -0.0149665 m 1 sweeps 60720 warmup 8960 acceptance 0 1
+angle 1.1781 torque -0.0127279 m 1 sweeps 65136 warmup 9952 acceptance 0 1
+Thu Aug 27 18:27:45 PDT 2026
+
+ succeeded in 95188ms:
+Thu Aug 27 18:26:30 PDT 2026
+
+ succeeded in 42953ms:
+total 244
+-rwxrwxr-x 1 xuandong xuandong  62872 Aug 27 18:26 sampler
+-rw-rw-r-- 1 xuandong xuandong  14561 Aug 27 18:26 sampler.cpp
+-rw-rw-r-- 1 xuandong xuandong   4733 Aug 27 18:26 solve.py
+-rw-rw-r-- 1 xuandong xuandong 144960 Aug 27 18:28 spring_smoke.blocks.txt
+-rw-rw-r-- 1 xuandong xuandong   1746 Aug 27 18:28 spring_smoke.json
+-rw-rw-r-- 1 xuandong xuandong   1153 Aug 27 18:28 spring_smoke.log
+-rw-rw-r-- 1 xuandong xuandong   3529 Aug 27 18:27 validate.py
+angle 0.392699 torque -0.0127279 m 1 sweeps 64240 warmup 10528 acceptance 0 1
+angle 0.490874 torque -0.0149665 m 1 sweeps 68768 warmup 10272 acceptance 0 1
+angle 0.589049 torque -0.0166298 m 1 sweeps 64752 warmup 9888 acceptance 0 1
+angle 0.687223 torque -0.0176541 m 1 sweeps 62640 warmup 10112 acceptance 0 1
+angle 0.785398 torque -0.018 m 1 sweeps 50368 warmup 7232 acceptance 0 1
+angle 0.883573 torque -0.0176541 m 1 sweeps 60368 warmup 8960 acceptance 0 1
+angle 0.981748 torque -0.0166298 m 1 sweeps 58224 warmup 8704 acceptance 0 1
+angle 1.07992 torque -0.0149665 m 1 sweeps 60720 warmup 8960 acceptance 0 1
+angle 1.1781 torque -0.0127279 m 1 sweeps 65136 warmup 9952 acceptance 0 1
+angle 1.27627 torque -0.0100003 m 1 sweeps 64752 warmup 10784 acceptance 0 1
+angle 1.37445 torque -0.0068883 m 1 sweeps 70032 warmup 10688 acceptance 0 1
+angle 1.47262 torque -0.00351163 m 1 sweeps 63520 warmup 10944 acceptance 0 1
+Thu Aug 27 18:28:05 PDT 2026
+    PID     ELAPSED     TIME %CPU COMMAND
+      1       00:02 00:00:00 18.0 codex-linux-san
+      2       00:00 00:00:00  0.0 bash
+      9       00:00 00:00:00  0.0 ps
+     10       00:00 00:00:00  0.0 tail
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/sampler.cpp
+@@
+-    void projected_sweep() {
++    void projected_sweep(bool unconditional=false) {
+         backup=spins;
+-        bool thermal=(random.index(5)==0);
++        bool thermal=unconditional || (random.index(5)==0);
+@@
+-        bool accepted=random.uniform()<std::exp(std::min(0.0,(current.energy-candidate.energy)/temperature));
++        bool accepted=unconditional || random.uniform()<std::exp(std::min(0.0,(current.energy-candidate.energy)/temperature));
+@@
+             double warmup_end=angle_start+0.14*slot;
+             uint64_t warmup=0;
++            if (angle_index==0 && "'!pairs) {
++                for (int sweep=0;sweep<256;++sweep) model.projected_sweep(true);
++            }
+*** End Patch
+PATCH
+g++ -O3 -std=c++17 -march=native sampler.cpp -o sampler
+export PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor
+export PYTHONDONTWRITEBYTECODE=1
+python validate.py >validation.log 2>&1
+SPIN_SECONDS=90 SPIN_NODES=15 SPIN_SAVE_BLOCKS=1 python solve.py ../participant/input/cases/initial_interface_spring_01.json spring_warm.json >spring_warm.log 2>&1' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+**Analyzing standard pairs**
+
+I'm considering a standard pair with Jacob checks for inverse compensation, looking at how the old and new finite proposals relate to spin directions on a symmetric sphere. It seems like a normalized setup where the rotational invariance depends on cosine, leading to symmetric results. Then there's the branch probability with a flip of 0.05, which might or might not be reversible based on previous signs. The discussion about pairs being ergodic if N exceeds 2 is intriguing, too!
+exec
+/bin/bash -lc 'cat validation.log; tail -5 spring_warm.log; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 31701ms:
+Exact pair torque and magnetization: [[-0.11405683  0.81888131]
+ [-0.20319493  0.79602595]
+ [-0.13652049  0.77559522]]
+angle 0.23 torque -0.114006 m 0.818894 sweeps 20326880 warmup 3305152 acceptance 0.857056 1
+angle 0.67 torque -0.203089 m 0.795859 sweeps 20381616 warmup 3343968 acceptance 0.907539 1
+angle 1.16 torque -0.136468 m 0.775543 sweeps 20979968 warmup 3460608 acceptance 0.936382 1
+projected torque [-0.11400567 -0.20308897 -0.13646847] sem [1.22669171e-04 1.10354171e-04 5.97948975e-05] m [0.81888968 0.79585546 0.77554198]
+angle 0.23 torque -0.114083 m 0.818932 sweeps 11598320 warmup 1940800 acceptance 0.603078 0
+tail: cannot open 'spring_warm.log' for reading: No such file or directory
+Thu Aug 27 18:29:15 PDT 2026
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/sampler.cpp
+@@
+     std::vector<Vector> spins, backup, laboratory;
++    std::vector<double> projections;
++    std::vector<uint64_t> visited;
++    std::vector<int> cluster;
++    uint64_t generation=0;
+@@
+     uint64_t heat_attempt=0,heat_accept=0,over_attempt=0,over_accept=0;
++    uint64_t cluster_attempt=0,cluster_accept=0;
+@@
+         backup.resize(count); laboratory.resize(count);
++        projections.resize(count); visited.assign(count,0); cluster.reserve(count);
+@@
+-    void projected_sweep(bool unconditional=false) {
++    void wolff() {
++        Vector axis=random.sphere();
++        for (int site=0;site<count;++site) projections[site]=dot(axis,spins[site]);
++        ++generation;
++        cluster.clear();
++        int initial=random.index(count);
++        cluster.push_back(initial); visited[initial]=generation;
++        for (size_t position=0;position<cluster.size();++position) {
++            int site=cluster[position];
++            double factor=2*projections[site]/temperature;
++            for (int offset=offsets[site];offset<offsets[site+1];++offset) {
++                auto neighbor=neighbors[offset];
++                if (visited[neighbor.site]==generation) continue;
++                double coupling=factor*neighbor.exchange*projections[neighbor.site];
++                if (coupling>0 && random.uniform()>std::exp(-coupling)) {
++                    visited[neighbor.site]=generation;
++                    cluster.push_back(neighbor.site);
++                }
++            }
++        }
++        for (int site:cluster) spins[site]=spins[site]-axis*(2*projections[site]);
++    }
++
++    void projected_sweep(bool unconditional=false,bool use_clusters=false) {
+         backup=spins;
+-        bool thermal=unconditional || (random.index(5)==0);
++        int kind=random.index(10);
++        bool clustered=use_clusters && "'!unconditional && kind<2;
++        bool thermal=unconditional || (use_clusters ? kind==2:kind<2);
+         bool reverse=(random.next()&1);
+-        for (int update=0;update<count;++update) {
++        if (clustered) wolff();
++        for (int update=0;!clustered && update<count;++update) {
+@@
+-        if (thermal) { ++heat_attempt; heat_accept+=accepted; }
++        if (clustered) { ++cluster_attempt; cluster_accept+=accepted; }
++        else if (thermal) { ++heat_attempt; heat_accept+=accepted; }
+@@
+         bool pairs=argc>4 && std::string(argv[4])=="pairs";
++        bool clusters=argc>4 && std::string(argv[4])=="cluster";
+@@
+-                for (int sweep=0;sweep<32;++sweep) { if (pairs) model.pair_sweep(); else model.projected_sweep(); }
++                for (int sweep=0;sweep<32;++sweep) { if (pairs) model.pair_sweep(); else model.projected_sweep(false,clusters); }
+@@
+             model.heat_attempt=model.heat_accept=model.over_attempt=model.over_accept=0;
++            model.cluster_attempt=model.cluster_accept=0;
+@@
+-                        if (pairs) model.pair_sweep(); else model.projected_sweep();
++                        if (pairs) model.pair_sweep(); else model.projected_sweep(false,clusters);
+@@
+-                     <<double(model.over_accept)/std::max(uint64_t(1),model.over_attempt)<<'"'\\n';
++                     <<double(model.over_accept)/std::max(uint64_t(1),model.over_attempt)<<' '
++                     <<double(model.cluster_accept)/std::max(uint64_t(1),model.cluster_attempt)<<'\\n';
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/solve.py
+@@
+         scratch = Path(scratch)
+         executable = scratch / \"sampler\"
++        compilation_environment = dict(os.environ, TMPDIR=str(scratch))
+         subprocess.run([\"g++\", \"-O3\", \"-std=c++17\", \"-march=native\",
+-                        str(Path(__file__).with_name(\"sampler.cpp\")), \"-o\", str(executable)], check=True)
++                        str(Path(__file__).with_name(\"sampler.cpp\")), \"-o\", str(executable)],
++                       check=True, env=compilation_environment)
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate.py
+@@
+-    for kernel in [\"projected\", \"pairs\"]:
++    for kernel in [\"projected\", \"pairs\", \"cluster\"]:
+*** End Patch
+PATCH
+export TMPDIR=\""'$PWD"
+g++ -O3 -std=c++17 -march=native sampler.cpp -o sampler
+export PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor
+export PYTHONDONTWRITEBYTECODE=1
+while [ ! -f spring_warm.json ]; do sleep 5; done
+SPIN_SECONDS=90 SPIN_NODES=15 SPIN_KERNEL=cluster SPIN_SAVE_BLOCKS=1 python solve.py ../participant/input/cases/initial_interface_spring_01.json spring_cluster.json >spring_cluster.log 2>&1
+python validate.py >validation_cluster.log 2>&1' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+exec
+/bin/bash -lc 'cat validation.log; tail -15 spring_warm.log; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+**Investigating tool delays**
+
+I’m noticing delays with the tool, possibly due to a hang in the filesystem. It might be that ongoing CPU tasks are causing issues, or perhaps network file system locks are the culprit. The command shell startup seems expensive, taking about 20 seconds before any commands can be executed. One solution could be to set `login: false` for future sessions to avoid this slowdown from the shell profile. That might help with performance.
+ succeeded in 145251ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/sampler.cpp
+
+exec
+/bin/bash -c 'tail -8 validation.log; tail -6 spring_warm.log; tail -6 spring_cluster.log; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 7349ms:
+angle 1.16 torque -0.136468 m 0.775543 sweeps 20979968 warmup 3460608 acceptance 0.936382 1
+projected torque [-0.11400567 -0.20308897 -0.13646847] sem [1.22669171e-04 1.10354171e-04 5.97948975e-05] m [0.81888968 0.79585546 0.77554198]
+angle 0.23 torque -0.114083 m 0.818932 sweeps 11598320 warmup 1940800 acceptance 0.603078 0
+angle 0.67 torque -0.203167 m 0.795918 sweeps 11830480 warmup 1864448 acceptance 0.666421 0
+angle 1.16 torque -0.136514 m 0.775518 sweeps 12032976 warmup 1982688 acceptance 0.683958 0
+pairs torque [-0.11408258 -0.20316655 -0.13651407] sem [7.84936143e-05 8.51846926e-05 5.41883713e-05] m [0.81891982 0.79593187 0.77549985]
+angle 0 torque 0 m 0.666625 sweeps 26752032 warmup 4500704 acceptance 1 1
+All exact-ensemble checks passed.
+angle 0.981748 torque -0.0108813 m 0.528555 sweeps 59280 warmup 9920 acceptance 0.450949 0.536877
+angle 1.07992 torque -0.0101313 m 0.527509 sweeps 62544 warmup 9920 acceptance 0.462591 0.543929
+angle 1.1781 torque -0.00880187 m 0.526594 sweeps 60672 warmup 10432 acceptance 0.467176 0.547827
+angle 1.27627 torque -0.00715389 m 0.524822 sweeps 54880 warmup 9248 acceptance 0.476294 0.556098
+angle 1.37445 torque -0.00495991 m 0.522516 sweeps 56960 warmup 9376 acceptance 0.477959 0.557513
+angle 1.47262 torque -0.00260534 m 0.523693 sweeps 61376 warmup 9760 acceptance 0.48891 0.560267
+angle 0.0981748 torque -0.00177552 m 0.538578 sweeps 63968 warmup 10208 acceptance 0.408313 0.562476 0.766021
+Thu Aug 27 18:31:03 PDT 2026
+
+ succeeded in 25930ms:
+Exact pair torque and magnetization: [[-0.11405683  0.81888131]
+ [-0.20319493  0.79602595]
+ [-0.13652049  0.77559522]]
+angle 0.23 torque -0.114006 m 0.818894 sweeps 20326880 warmup 3305152 acceptance 0.857056 1
+angle 0.67 torque -0.203089 m 0.795859 sweeps 20381616 warmup 3343968 acceptance 0.907539 1
+angle 1.16 torque -0.136468 m 0.775543 sweeps 20979968 warmup 3460608 acceptance 0.936382 1
+projected torque [-0.11400567 -0.20308897 -0.13646847] sem [1.22669171e-04 1.10354171e-04 5.97948975e-05] m [0.81888968 0.79585546 0.77554198]
+angle 0.23 torque -0.114083 m 0.818932 sweeps 11598320 warmup 1940800 acceptance 0.603078 0
+angle 0.67 torque -0.203167 m 0.795918 sweeps 11830480 warmup 1864448 acceptance 0.666421 0
+angle 1.16 torque -0.136514 m 0.775518 sweeps 12032976 warmup 1982688 acceptance 0.683958 0
+pairs torque [-0.11408258 -0.20316655 -0.13651407] sem [7.84936143e-05 8.51846926e-05 5.41883713e-05] m [0.81891982 0.79593187 0.77549985]
+angle 0 torque 0 m 0.666625 sweeps 26752032 warmup 4500704 acceptance 1 1
+All exact-ensemble checks passed.
+angle 0.0981748 torque -0.0016062 m 0.537899 sweeps 67888 warmup 9728 acceptance 0.403658 0.571381
+angle 0.19635 torque -0.00334819 m 0.539774 sweeps 68704 warmup 10368 acceptance 0.392442 0.56179
+angle 0.294524 torque -0.00496544 m 0.538764 sweeps 57920 warmup 9440 acceptance 0.39826 0.552449
+angle 0.392699 torque -0.00659274 m 0.5364 sweeps 58080 warmup 8352 acceptance 0.412243 0.552685
+angle 0.490874 torque -0.00808205 m 0.536064 sweeps 61264 warmup 9664 acceptance 0.414764 0.539854
+angle 0.589049 torque -0.00936134 m 0.535131 sweeps 63232 warmup 10240 acceptance 0.419643 0.531339
+angle 0.687223 torque -0.0103705 m 0.533455 sweeps 58160 warmup 9504 acceptance 0.413431 0.527919
+angle 0.785398 torque -0.011028 m 0.531689 sweeps 60816 warmup 9504 acceptance 0.41279 0.522982
+angle 0.883573 torque -0.0112436 m 0.530246 sweeps 62000 warmup 9888 acceptance 0.440087 0.535235
+angle 0.981748 torque -0.0108813 m 0.528555 sweeps 59280 warmup 9920 acceptance 0.450949 0.536877
+angle 1.07992 torque -0.0101313 m 0.527509 sweeps 62544 warmup 9920 acceptance 0.462591 0.543929
+angle 1.1781 torque -0.00880187 m 0.526594 sweeps 60672 warmup 10432 acceptance 0.467176 0.547827
+angle 1.27627 torque -0.00715389 m 0.524822 sweeps 54880 warmup 9248 acceptance 0.476294 0.556098
+angle 1.37445 torque -0.00495991 m 0.522516 sweeps 56960 warmup 9376 acceptance 0.477959 0.557513
+angle 1.47262 torque -0.00260534 m 0.523693 sweeps 61376 warmup 9760 acceptance 0.48891 0.560267
+Thu Aug 27 18:31:07 PDT 2026
+
+codex
+Both samplers match exact two-spin quadrature. Large-system testing caught and fixed a cold-start sampling trap.
+
+exec
+/bin/bash -c "export PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor
+export PYTHONDONTWRITEBYTECODE=1
+python - <<'PY'
+import json, numpy as np
+for path in ['spring_warm.json','spring_cluster.json']:
+ try: data=json.load(open(path))
+ except FileNotFoundError: continue
+ print(path,'harmonics',data['harmonics'],'coefficients',data['coefficients'])
+ print('node sem',data['sample_sem'])
+ print('torque',data['torque']);print('free',data['free_energy'])
+ if path=='spring_cluster.json':
+  old=json.load(open('spring_warm.json')); diff=np.array(data['sample_torque'])-old['sample_torque']; err=np.hypot(data['sample_sem'],old['sample_sem']); print('difference/SEM', diff/err)
+PY
+tail -4 spring_cluster.log; date" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 13693ms:
+spring_warm.json harmonics 3 coefficients [-0.010963478071718996, 0.0011237399387906022, 5.7031869669539105e-05]
+node sem [5.321635742343808e-05, 5.1408591320630034e-05, 5.3757071811166734e-05, 4.926462021057983e-05, 4.035724238694299e-05, 3.790325693975199e-05, 2.5835565615565007e-05, 2.062455623654213e-05, 3.165054820597432e-05, 3.880042084515331e-05, 3.758616533748832e-05, 5.194529287741741e-05, 5.444879090481325e-05, 6.226873729235699e-05, 5.19343743764524e-05]
+torque [0.0, -0.003348246711047292, -0.006588282129324836, -0.009356154016227835, -0.011020509941388534, -0.010945362278245817, -0.008835762006906042, -0.004937454973065275, 0.0]
+free [0.0, 0.00032912079977698413, 0.0013084026243011522, 0.0028860952343775096, 0.004910363754852607, 0.007099200179218509, 0.009074194854799362, 0.010450778744828026, 0.010944467448495816]
+angle 0.294524 torque -0.00502617 m 0.538241 sweeps 69536 warmup 10528 acceptance 0.404797 0.554648 0.719053
+angle 0.392699 torque -0.00653464 m 0.537532 sweeps 72560 warmup 11392 acceptance 0.402223 0.543738 0.692656
+angle 0.490874 torque -0.00808984 m 0.535511 sweeps 70800 warmup 11488 acceptance 0.402813 0.528046 0.665082
+angle 0.589049 torque -0.00937705 m 0.535261 sweeps 66272 warmup 10592 acceptance 0.392139 0.534692 0.664638
+Thu Aug 27 18:31:33 PDT 2026
+
+**Checking computational results**
+
+I'm calculating a correlation based on some data, dividing 60,000 by 1,000 and arriving at 60. It seems there's a tiny yet meaningful node error to check. Running 180 seconds for about 100k sweeps sounds like plenty of time. I want to optimize the data without unnecessary cross-checking. At high spring, I'm comparing baseline values, noticing significant improvements, and needing to manage complex torque stats. It looks like I’ll need to address node errors next.
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/sampler.cpp
+@@
+-    void projected_sweep(bool unconditional=false,bool use_clusters=false) {
++    void projected_sweep(bool unconditional=false,int cluster_threshold=0) {
+         backup=spins;
+         int kind=random.index(10);
+-        bool clustered=use_clusters && "'!unconditional && kind<2;
+-        bool thermal=unconditional || (use_clusters ? kind==2:kind<2);
++        bool clustered=!unconditional && kind<cluster_threshold;
++        bool thermal=unconditional || (cluster_threshold ? kind==cluster_threshold:kind<2);
+@@
+-        bool clusters=argc>4 && std::string(argv[4])=="cluster";
++        int cluster_threshold=0;
++        if (argc>4 && std::string(argv[4]).find("cluster")==0) {
++            std::string suffix=std::string(argv[4]).substr(7);
++            cluster_threshold=suffix.empty() ? 2:std::stoi(suffix);
++            if (cluster_threshold<0 || cluster_threshold>9) throw std::runtime_error("Invalid cluster frequency");
++        }
+@@
+-                for (int sweep=0;sweep<32;++sweep) { if (pairs) model.pair_sweep(); else model.projected_sweep(false,clusters); }
++                for (int sweep=0;sweep<32;++sweep) { if (pairs) model.pair_sweep(); else model.projected_sweep(false,cluster_threshold); }
+@@
+-                        if (pairs) model.pair_sweep(); else model.projected_sweep(false,clusters);
++                        if (pairs) model.pair_sweep(); else model.projected_sweep(false,cluster_threshold);
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/benchmark.py
++import json
++import os
++from pathlib import Path
++import subprocess
++import sys
++
++os.environ["OPENBLAS_NUM_THREADS"] = "1"
++sys.dont_write_bytecode = True
++
++import numpy as np
++from solve import summarize, write_model
++
++
++root = Path(__file__).resolve().parent
++case = json.load(open(root.parent / "participant/input/cases/initial_interface_spring_01.json"))
++write_model(case, [1.2762720155208536], root / "benchmark.model")
++for kernel in ["projected", "cluster2", "cluster5", "cluster8", "cluster9", "pairs"]:
++    path = root / f"benchmark_{kernel}.txt"
++    subprocess.run([str(root / "sampler"), str(root / "benchmark.model"), str(path), "35", kernel], check=True)
++    data = np.loadtxt(path)
++    angle, torque, error = summarize(data)
++    print(kernel, "torque", torque, "sem", error, "m", data[:, 5].mean(), flush=True)
+*** End Patch
+PATCH
+export TMPDIR="$PWD"
+while [ ! -f validation_cluster.log ] || ! tail -1 validation_cluster.log | grep -q '"'checks passed'; do sleep 5; done
+g++ -O3 -std=c++17 -march=native sampler.cpp -o sampler
+export PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor
+export PYTHONDONTWRITEBYTECODE=1
+python benchmark.py >benchmark.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+exec
+/bin/bash -c 'cat validation_cluster.log; tail -4 spring_cluster.log; cat spring_cluster.json; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ exited 1 in 163542ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/sampler.cpp
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/solve.py
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate.py
+
+ succeeded in 9875ms:
+Exact pair torque and magnetization: [[-0.11405683  0.81888131]
+ [-0.20319493  0.79602595]
+ [-0.13652049  0.77559522]]
+angle 0.23 torque -0.113987 m 0.818861 sweeps 21636880 warmup 3356448 acceptance 0.857083 1 0
+angle 0.67 torque -0.203048 m 0.795754 sweeps 22357920 warmup 3428224 acceptance 0.907647 1 0
+angle 1.16 torque -0.136468 m 0.775647 sweeps 22686704 warmup 3455392 acceptance 0.936409 1 0
+projected torque [-0.11398713 -0.20304835 -0.13646817] sem [9.23757153e-05 9.22720229e-05 6.02892061e-05] m [0.81884646 0.79575842 0.77565229]
+angle 0.23 torque -0.114097 m 0.818934 sweeps 12605600 warmup 2126144 acceptance 0.603072 0 0
+angle 0.67 torque -0.203198 m 0.795965 sweeps 12904848 warmup 2086432 acceptance 0.665489 0 0
+angle 1.16 torque -0.136599 m 0.775666 sweeps 12337744 warmup 2140704 acceptance 0.664712 0 0
+pairs torque [-0.11409685 -0.20319814 -0.13659904] sem [7.55671885e-05 9.20359577e-05 4.75327625e-05] m [0.81893294 0.7959597  0.77567199]
+angle 0.23 torque -0.114039 m 0.818921 sweeps 20121616 warmup 3311712 acceptance 0.857169 1 0.923401
+angle 0.67 torque -0.203274 m 0.796118 sweeps 22810160 warmup 3369312 acceptance 0.907671 1 0.939237
+angle 1.16 torque -0.146412 m 0.790963 sweeps 1024 warmup 32 acceptance 0.912281 1 0.943925
+cluster torque [-0.11403887 -0.20327406 -0.14641185] sem [9.05364246e-05 1.11943174e-04 7.07220640e-03] m [0.81892896 0.79611617 0.7909634 ]
+Traceback (most recent call last):
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate.py", line 75, in <module>
+    main()
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate.py", line 62, in main
+    assert np.max(abs(measured_magnetization - expected[:, 1])) < 0.002
+AssertionError
+angle 1.1781 torque -0.0089105 m 0.524956 sweeps 68752 warmup 11072 acceptance 0.474727 0.553541 0.68993
+angle 1.27627 torque -0.0069982 m 0.523444 sweeps 63248 warmup 9408 acceptance 0.474746 0.55671 0.712088
+angle 1.37445 torque -0.00492665 m 0.523169 sweeps 60240 warmup 9984 acceptance 0.491199 0.565667 0.726136
+angle 1.47262 torque -0.00252425 m 0.520046 sweeps 64880 warmup 10400 acceptance 0.478791 0.563495 0.74912
+{"torque": [0.0, -0.003347324530053176, -0.006586312325587882, -0.009356052926988951, -0.011028549298836286, -0.010965310021793767, -0.008862145534405978, -0.0049565816248579924, 0.0], "free_energy": [0.0, 0.0003290387442959688, 0.0013080233489772954, 0.0028854286542421914, 0.004910369684826949, 0.007101954743915026, 0.009081674322881126, 0.010462973201263659, 0.010958655974062946], "torque_sem": [0.0, 2.0370919646956593e-05, 2.374936194478428e-05, 1.6876589266426814e-05, 1.5980278442039837e-05, 1.5428440165533605e-05, 2.2717412988800984e-05, 1.994121225756722e-05, 7.432593221943316e-21], "free_energy_sem": [0.0, 2.1845417741520603e-06, 6.799957560649256e-06, 1.0373858289569171e-05, 1.1753831951384863e-05, 1.2145753347248708e-05, 1.2969271223427476e-05, 1.50781188330816e-05, 1.641122579559254e-05], "harmonics": 3, "coefficients": [-0.010976129305256281, 0.0011379166044090477, 5.241999358000394e-05], "sample_angles": [0.09817477042468103, 0.19634954084936207, 0.2945243112740431, 0.39269908169872414, 0.4908738521234052, 0.5890486225480862, 0.6872233929727672, 0.7853981633974483, 0.8835729338221293, 0.9817477042468103, 1.0799224746714913, 1.1780972450961724, 1.2762720155208536, 1.3744467859455345, 1.4726215563702154], "sample_torque": [-0.0017755237171756541, -0.003320580603411811, -0.005026168565627378, -0.0065346398524080505, -0.008089836960863867, -0.009377052931019493, -0.010337871321533009, -0.011012864361600044, -0.01128625099546218, -0.010965194579318112, -0.010145261489265896, -0.008910497613659986, -0.006998196254802911, -0.004926648609296256, -0.0025242462290468947], "sample_sem": [4.4761941361557824e-05, 4.207675238180866e-05, 5.50504149135095e-05, 5.210475918183586e-05, 4.7091636802220696e-05, 4.073275633251065e-05, 3.143463630110165e-05, 2.719447616242387e-05, 2.9176390684442818e-05, 3.479879831122291e-05, 3.835694528609481e-05, 3.8978209203016616e-05, 6.139841811077866e-05, 6.620592929529568e-05, 5.239141007868084e-05], "version": 1, "case_id": "initial_interface_spring_01"}Thu Aug 27 18:33:07 PDT 2026
+
+**Calculating torque with configurations**
+
+I’m focusing on computing torque directly at the requested angles. I'll make sure that all configurations are properly weighted. Instead of relying on internal energy, I'll use free energy via MBAR. This approach should ensure accurate results. By correctly setting up the calculations, I hope to get the desired torque values effectively. There’s a bit of complexity involved, but I’m determined to manage it and deliver the right output!
+**Revising the plan for MBAR**
+
+I'm considering how MBAR can effectively share all similar samples and use an isotropic base that supports all angles. It seems like the joint needs to be broad enough to ensure accuracy. I think I need to update the plan to include MBAR and possibly explain the non-harmonic aspects, while also removing quadrature details. The user doesn’t seem to need extensive scientific steps. I could mention, "I'm testing cluster acceleration and cross-angle reweighting for lower noise." The current time is approximately 18:38.
+codex
+I’m testing cluster moves and cross-angle reweighting to reduce noise.
+
+exec
+/bin/bash -c 'tail -14 benchmark.log; tail -3 validation_cluster.log; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 17811ms:
+tail: cannot open 'benchmark.log' for reading: No such file or directory
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate.py", line 62, in main
+    assert np.max(abs(measured_magnetization - expected[:, 1])) < 0.002
+AssertionError
+Thu Aug 27 18:35:22 PDT 2026
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/sampler.cpp
+@@
+     Observable observe(bool align) {
+@@
+         return {energy,torque/count,magnitude/count};
+     }
++
++    std::array<double,6> energy_coefficients() const {
++        std::array<double,6> result{};
++        for (int site=0;site<count;++site) {
++            auto spin=spins[site];
++            auto tensor=onsite[site];
++            double square_x=spin.x*spin.x,square_z=spin.z*spin.z;
++            double product=spin.x*spin.z;
++            double difference=tensor[0]-tensor[2];
++            result[0]-=2*spin.y*(tensor[3]*spin.x+tensor[5]*spin.z);
++            result[1]-=2*spin.y*(tensor[3]*spin.z-tensor[5]*spin.x);
++            result[2]-=0.5*difference*(square_x-square_z)+2*tensor[4]*product;
++            result[3]-=difference*product+tensor[4]*(square_z-square_x);
++            result[4]-=0.25*tensor[6]*(square_x*square_x-6*square_x*square_z+square_z*square_z);
++            result[5]-=tensor[6]*product*(square_x-square_z);
++        }
++        for (auto bond:axial_bonds) {
++            auto first=spins[bond.first],second=spins[bond.second];
++            result[2]+=0.5*bond.axial*(first.x*second.x-first.z*second.z);
++            result[3]+=0.5*bond.axial*(first.x*second.z+first.z*second.x);
++        }
++        return result;
++    }
+@@
+         std::ofstream output(argv[2]);
+         output<<std::setprecision(17);
++        std::ofstream configurations;
++        if (argc>5) configurations.open(argv[5],std::ios::binary);
++        int sample_stride=std::max(64,131072/model.count);
+@@
+                         block_magnetization+=model.current.magnetization;
+                         ++samples;
++                        if (configurations.is_open() && samples%sample_stride==0) {
++                            auto coefficients=model.energy_coefficients();
++                            std::array<double,8> record{double(angle_index),double(block),
++                                coefficients[0],coefficients[1],coefficients[2],coefficients[3],coefficients[4],coefficients[5]};
++                            configurations.write(reinterpret_cast<const char *>(record.data()),sizeof(record));
++                        }
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/reweight.py
++import math
++
++import numpy as np
++
++
++def symmetric_potentials(coefficients, angles, temperature):
++    harmonics = np.array([2.0, 4.0])
++    arguments = np.asarray(angles)[:, None] * harmonics
++    even = coefficients[:, [2, 4]] @ np.cos(arguments).T
++    odd = coefficients[:, [3, 5]] @ np.sin(arguments).T
++    scaled = odd / temperature
++    absolute = np.abs(scaled)
++    potential = even / temperature - absolute - np.log1p(np.exp(-2 * absolute)) + math.log(2)
++    torque = coefficients[:, [2, 4]] @ (harmonics * np.sin(arguments)).T
++    torque += np.tanh(scaled) * (coefficients[:, [3, 5]] @ (harmonics * np.cos(arguments)).T)
++    return potential, torque
++
++
++def fit_mbar(potential, labels, initial=None):
++    state_count = potential.shape[1]
++    counts = np.bincount(labels, minlength=state_count).astype(float)
++    if np.any(counts == 0):
++        raise ValueError(\"Missing reweighting state\")
++    free = np.zeros(state_count) if initial is None else initial.copy()
++    shift = -potential.min(axis=1)
++    density = np.exp(-potential - shift[:, None])
++    for iteration in range(60):
++        maximum = free.max()
++        activity = counts * np.exp(free - maximum)
++        denominator = density @ activity
++        probability = density * (activity[None, :] / denominator[:, None])
++        totals = probability.sum(axis=0)
++        gradient = totals - counts
++        if np.max(np.abs(gradient) / counts) < 2e-10:
++            break
++        hessian = np.diag(totals) - probability.T @ probability
++        direction = np.zeros(state_count)
++        direction[1:] = np.linalg.solve(hessian[1:, 1:], gradient[1:])
++        objective = np.log(denominator).sum() + len(labels) * maximum - counts @ free
++        slope = gradient @ direction
++        scale = 1.0
++        for search in range(30):
++            candidate = free - scale * direction
++            candidate_maximum = candidate.max()
++            candidate_denominator = density @ (counts * np.exp(candidate - candidate_maximum))
++            candidate_objective = np.log(candidate_denominator).sum() + len(labels) * candidate_maximum - counts @ candidate
++            if candidate_objective <= objective - 1e-4 * scale * slope + 1e-8:
++                free = candidate
++                break
++            scale *= 0.5
++        else:
++            raise ArithmeticError(\"Multistate reweighting did not converge\")
++    else:
++        raise ArithmeticError(\"Multistate reweighting exceeded iteration limit\")
++    maximum = free.max()
++    denominator = density @ (counts * np.exp(free - maximum))
++    log_denominator = np.log(denominator) + shift + maximum
++    return free, log_denominator
++
++
++def evaluate(potential, torque, log_denominator, temperature, spin_count):
++    log_weight = -potential - log_denominator[:, None]
++    maximum = log_weight.max(axis=0)
++    weights = np.exp(log_weight - maximum)
++    normalization = weights.sum(axis=0)
++    log_partition = np.log(normalization) + maximum
++    free = -temperature * (log_partition - log_partition[0]) / spin_count
++    average_torque = (weights * torque).sum(axis=0) / normalization / spin_count
++    effective = normalization**2 / (weights**2).sum(axis=0)
++    return average_torque, free, effective
++
++
++def reweight(samples, angles, requested, temperature, spin_count):
++    labels = samples[:, 0].astype(int)
++    folds = samples[:, 1].astype(int) // 8
++    coefficients = samples[:, 2:]
++    training_potential, _ = symmetric_potentials(coefficients, angles, temperature)
++    target_angles = np.concatenate(([0.0], np.asarray(requested)))
++    target_potential, target_torque = symmetric_potentials(coefficients, target_angles, temperature)
++    fitted, denominator = fit_mbar(training_potential, labels)
++    torque, free, effective = evaluate(target_potential, target_torque, denominator, temperature, spin_count)
++    jackknife_torque, jackknife_free = [], []
++    for fold in range(8):
++        retained = folds "'!= fold
++        _, partial_denominator = fit_mbar(training_potential[retained], labels[retained], fitted)
++        partial_torque, partial_free, _ = evaluate(target_potential[retained], target_torque[retained],
++                                                  partial_denominator, temperature, spin_count)
++        jackknife_torque.append(partial_torque)
++        jackknife_free.append(partial_free)
++    torque_sem = np.std(jackknife_torque, axis=0, ddof=0) * math.sqrt(7)
++    free_sem = np.std(jackknife_free, axis=0, ddof=0) * math.sqrt(7)
++    torque = torque[1:]
++    free = free[1:]
++    torque[np.abs(np.sin(2 * np.asarray(requested))) < 1e-14] = 0.0
++    free[0] = 0.0
++    return {"torque": torque.tolist(), "free_energy": free.tolist(),
++            "torque_sem": torque_sem[1:].tolist(), "free_energy_sem": free_sem[1:].tolist(),
++            "reweighting_effective_samples": effective[1:].tolist(),
++            "reweighting_samples": len(samples), "method": "directional-exchange-MC/symmetric-MBAR"}
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/solve.py
+@@
+ import numpy as np
++from reweight import reweight
+@@
+         model_path = scratch / "model.txt"
+         raw_path = scratch / "blocks.txt"
++        samples_path = scratch / "samples.bin"
+         write_model(case, angles, model_path)
+-        runtime = max(1.0, budget - (time.monotonic() - start))
++        runtime = max(1.0, budget - (time.monotonic() - start) - 15)
+         subprocess.run([str(executable), str(model_path), str(raw_path), str(runtime),
+-                        os.environ.get("SPIN_KERNEL", "projected")], check=True, timeout=runtime + 15)
++                        os.environ.get("SPIN_KERNEL", "cluster5"), str(samples_path)], check=True, timeout=runtime + 15)
+         raw = np.loadtxt(raw_path)
++        samples = np.fromfile(samples_path, dtype=np.float64).reshape(-1, 8)
+         if os.environ.get("SPIN_SAVE_BLOCKS"):
+             np.savetxt(output.with_suffix(".blocks.txt"), raw)
++            np.save(output.with_suffix(".samples.npy"), samples)
+         result = integrate(*summarize(raw), case["angles"])
++        diagonal = np.max(np.abs(np.asarray(case["onsite"])[:, 3:6])) < 1e-15
++        if diagonal and len(samples) >= 10 * nodes and not os.environ.get("SPIN_NO_MBAR"):
++            try:
++                result.update(reweight(samples, angles, case["angles"], case["temperature"], case["n_spins"]))
++            except (ArithmeticError, ValueError, np.linalg.LinAlgError) as error:
++                print(f"Reweighting unavailable; using torque integration: {error}", file=sys.stderr)
+*** End Patch
+PATCH
+export TMPDIR="$PWD"
+export PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor
+export PYTHONDONTWRITEBYTECODE=1
+while [ ! -f benchmark_pairs.txt ]; do sleep 5; done
+sleep 40
+SPIN_SECONDS=110 SPIN_SAVE_BLOCKS=1 python solve.py ../participant/input/cases/initial_interface_spring_01.json spring_mbar.json >spring_mbar.log 2>&1' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+exec
+/bin/bash -c 'cat validation_cluster.log; tail -8 spring_cluster.log; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 4084ms:
+Exact pair torque and magnetization: [[-0.11405683  0.81888131]
+ [-0.20319493  0.79602595]
+ [-0.13652049  0.77559522]]
+angle 0.23 torque -0.113987 m 0.818861 sweeps 21636880 warmup 3356448 acceptance 0.857083 1 0
+angle 0.67 torque -0.203048 m 0.795754 sweeps 22357920 warmup 3428224 acceptance 0.907647 1 0
+angle 1.16 torque -0.136468 m 0.775647 sweeps 22686704 warmup 3455392 acceptance 0.936409 1 0
+projected torque [-0.11398713 -0.20304835 -0.13646817] sem [9.23757153e-05 9.22720229e-05 6.02892061e-05] m [0.81884646 0.79575842 0.77565229]
+angle 0.23 torque -0.114097 m 0.818934 sweeps 12605600 warmup 2126144 acceptance 0.603072 0 0
+angle 0.67 torque -0.203198 m 0.795965 sweeps 12904848 warmup 2086432 acceptance 0.665489 0 0
+angle 1.16 torque -0.136599 m 0.775666 sweeps 12337744 warmup 2140704 acceptance 0.664712 0 0
+pairs torque [-0.11409685 -0.20319814 -0.13659904] sem [7.55671885e-05 9.20359577e-05 4.75327625e-05] m [0.81893294 0.7959597  0.77567199]
+angle 0.23 torque -0.114039 m 0.818921 sweeps 20121616 warmup 3311712 acceptance 0.857169 1 0.923401
+angle 0.67 torque -0.203274 m 0.796118 sweeps 22810160 warmup 3369312 acceptance 0.907671 1 0.939237
+angle 1.16 torque -0.146412 m 0.790963 sweeps 1024 warmup 32 acceptance 0.912281 1 0.943925
+cluster torque [-0.11403887 -0.20327406 -0.14641185] sem [9.05364246e-05 1.11943174e-04 7.07220640e-03] m [0.81892896 0.79611617 0.7909634 ]
+Traceback (most recent call last):
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate.py", line 75, in <module>
+    main()
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate.py", line 62, in main
+    assert np.max(abs(measured_magnetization - expected[:, 1])) < 0.002
+AssertionError
+angle 0.785398 torque -0.0110129 m 0.532285 sweeps 68064 warmup 9664 acceptance 0.420718 0.523902 0.652698
+angle 0.883573 torque -0.0112863 m 0.531302 sweeps 67760 warmup 10816 acceptance 0.429752 0.524769 0.649476
+angle 0.981748 torque -0.0109652 m 0.529355 sweeps 62432 warmup 10688 acceptance 0.43224 0.537579 0.657
+angle 1.07992 torque -0.0101453 m 0.527572 sweeps 67488 warmup 10464 acceptance 0.452897 0.542666 0.675988
+angle 1.1781 torque -0.0089105 m 0.524956 sweeps 68752 warmup 11072 acceptance 0.474727 0.553541 0.68993
+angle 1.27627 torque -0.0069982 m 0.523444 sweeps 63248 warmup 9408 acceptance 0.474746 0.55671 0.712088
+angle 1.37445 torque -0.00492665 m 0.523169 sweeps 60240 warmup 9984 acceptance 0.491199 0.565667 0.726136
+angle 1.47262 torque -0.00252425 m 0.520046 sweeps 64880 warmup 10400 acceptance 0.478791 0.563495 0.74912
+Thu Aug 27 18:37:33 PDT 2026
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/sampler.cpp
+@@
+-            } while (seconds(start)<warmup_end);
++            } while (seconds(start)<warmup_end || warmup<uint64_t(std::max(32,131072/model.count)));
+@@
+-                } while (seconds(start)<block_end);
++                } while (seconds(start)<block_end || samples<uint64_t(std::max(32,131072/model.count)));
+*** End Patch
+PATCH
+export TMPDIR=\""'$PWD"
+g++ -O3 -std=c++17 -march=native sampler.cpp -o sampler
+export PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor
+export PYTHONDONTWRITEBYTECODE=1
+python validate.py >validation_cluster.log 2>&1' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 60326ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/sampler.cpp
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/README.md
++# Direction-constrained thermal free energy
++
++Run "'`python solve.py CASE.json OUTPUT.json`. The implementation uses NumPy and
++compiles its self-contained C++17 sampler with `g++`. It uses one computational
++thread, no network, and no case-specific predictions or stored reference data.
++Temporary compilation and sampling files are placed beside the output and
++removed on success or failure. The default time budget is 550 seconds, including
++startup, with time reserved for statistical postprocessing.
++
++## Ensemble and moves
++
++Spins are represented in a frame whose positive z axis is the requested total
++magnetization direction. Write the Hamiltonian as isotropic exchange `H0` plus
++all supplied onsite and axial-bond anisotropies `A`.
++
++Each proposal first uses a reversible, rotationally covariant exchange-only
++kernel: heat-bath updates, stochastic overrelaxation, or an embedded Wolff
++cluster reflection. Its resulting magnetization is then rotated to positive z
++by the shortest proper rotation. An ordinary Metropolis decision using the
++change in `A` completes the proposal. Rejections are retained in the averages.
++The magnetization magnitude is never fixed. Initialization first thermalizes
++the exchange reference system; a separate, discarded target-ensemble warmup
++is performed at each sampling angle.
++
++This projection is not a Cartesian-delta approximation. To see why, disintegrate
++the rotationally invariant exchange measure into its magnetization direction
++and the conditional configuration measure. If `R(m)` is the shortest rotation
++from the constrained direction `n` to `m`, the projected transition integrates
++the exchange transition from `x` to `R(m)y` over solid angle `dm`. Reversibility
++and rotational covariance convert this into the reverse transition from `y`
++to `R(m)''^(-1)x`. The change of variable
++`m -> R(m)''^(-1)n` preserves solid angle and replaces `R(m)` by its inverse.
++Consequently the projected kernel is reversible for the *directional* exchange
++measure. Metropolis reweighting by `exp(-A/T)` gives the stated full ensemble,
++including the radial `|M|''^2` factor implicit in a directional delta.
++
++The independent `pairs` verification kernel instead changes two spins while
++preserving the two transverse components of their sum. Its acceptance includes
++`(M_new/M_old)''^2 * abs(s_compensator,z,old/s_compensator,z,new)`. This explicitly
++checks both the directional Jacobian and the projected algorithm.
++
++## Observables and free energy
++
++The microscopic torque is computed from the complete anisotropy Hamiltonian,
++including off-diagonal onsite tensors, fourth-order cubic terms, and each
++axial bond exactly once. Isotropic exchange cancels from the total torque.
++
++Fifteen interior angular states cover the first quadrant. For diagonal onsite
++tensors, each saved configuration supplies its exact second- and fourth-order
++rotation-energy coefficients. A symmetry-folded multistate Bennett acceptance
++ratio (MBAR) calculation combines the angular ensembles. Reflection-related
++orientations are integrated analytically: if their anisotropy energies are
++`C(theta) +/- S(theta)`, the effective reduced potential is
++`C(theta)/T - log(cosh(S(theta)/T))`. This is an exact reflection average, not an
++assumption that the free energy has only a few harmonics.
++
++Free energies are logarithms of reweighted partition-function ratios, and
++torques are derivatives of those same partition functions. Thus the reported
++free energy is not a mean internal-energy difference, and the default method
++has no angular integration-grid truncation. All four stated angular symmetries
++are enforced. Eight delete-block-group reweightings estimate statistical errors.
++
++For nondiagonal tensors, or if the multistate equations cannot be solved, the
++fallback integrates a statistically selected multi-harmonic fit to measured
++torques. Its fit and integral use the same coefficients. The raw angular means
++and conservative batch errors are included as diagnostic output keys.
++
++## Validation and diagnostics
++
++`validate.py` checks projected, cluster, and explicit-Jacobian pair sampling
++against deterministic two-spin angular quadrature, including cubic and
++two-ion anisotropy. It also checks the exact isotropic two-spin directional
++mean magnetization, `2/3`, and vanishing torque. `benchmark.py` compares mixing
++kernels on a supplied large case; it is not needed by the entry point.
++
++Development controls are `SPIN_SECONDS`, `SPIN_NODES`, `SPIN_KERNEL`,
++`SPIN_SAVE_BLOCKS`, and `SPIN_NO_MBAR`. They are optional; normal evaluation
++needs none. `SPIN_SAVE_BLOCKS=1` retains block data and energy coefficients beside
++the output. The supplied numerical dependencies must be on `PYTHONPATH` when
++running development checks outside the evaluator.
++
++## Scientific limitations
++
++The Hamiltonian and directional ensemble are sampled without coherent-rotation,
++fixed-magnetization, mean-field, or material-calibration assumptions. Finite
++sampling and equilibration errors remain. Cluster moves and multiple angular
++ensembles reduce, but do not eliminate, metastability or slow mixing. MBAR
++requires overlap among sampled ensembles; its reported effective sample counts
++describe importance weights, not autocorrelation-corrected independent counts.
++Block errors can underestimate exceptionally slow modes and are themselves
++noisy. Stronger anisotropy, much larger systems, or sharp angular transitions
++can require longer runs and a denser state grid. The torque-fit fallback has
++additional angular truncation error. No private-reference accuracy claim is
++made.
+*** End Patch
+PATCH
+cat benchmark.log 2>/dev/null; tail -2 validation_cluster.log; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+**Updating task implementation**
+
+I'm almost done with the task stage implementation, which is great! Now, I'm focusing on validating everything to ensure it works as expected. I want to make sure all parts are functioning properly before I finalize things. There’s a lot to consider, and it's essential that everything is in order. I’m just keeping a close eye on the progress and making adjustments as needed in my update plan!
+ succeeded in 4762ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/README.md
+angle 0 torque 0 m 0.66662 sweeps 25950032 warmup 3909504 acceptance 1 1 0
+All exact-ensemble checks passed.
+Thu Aug 27 18:39:18 PDT 2026
+
+Implemented exact projected exchange/cluster sampling, an independent constrained-pair kernel, and symmetry-folded multistate free-energy estimation. Now checking exact small-system results, large-case agreement, and the execution budget.
+  ✓ Inspect cases and derive constrained sampler
+  ✓ Implement native sampling and thermodynamic integration
+  → Validate equilibrium, accuracy, and runtime
+  • Finalize self-contained submission and scientific notes
+**Ensuring validation processes**
+
+I noticed that a benchmark file is missing, but it should loop and compile, perhaps within 2 seconds. I didn't get logs for later validation, and I need to ensure global validation for the old main run, which is 9 seconds with minimum stitched results passing. Our new cluster threshold may mean all model seeds are matching and unaffected, which is good. I think I should add a statistical test to check this further.
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate_reweight.py
++import math
++import os
++import sys
++
++os.environ[\"OPENBLAS_NUM_THREADS\"] = \"1\"
++sys.dont_write_bytecode = True
++
++import numpy as np
++from reweight import evaluate, fit_mbar, reweight, symmetric_potentials
++
++
++def main():
++    random = np.random.default_rng(771090)
++    temperature = 0.8
++    angles = np.arange(1, 16) * math.pi / 32
++    requested = np.arange(9) * math.pi / 16
++    mean = np.array([0, 0, 1.7, 0, -0.7, 0])
++    variance = np.array([0, 0, 0.15, 0.3, 0.03, 0.09])
++    records = []
++    count = 4096
++    for index, angle in enumerate(angles):
++        basis = np.array([0, 0, np.cos(2 * angle), np.sin(2 * angle),
++                          np.cos(4 * angle), np.sin(4 * angle)])
++        coefficients = mean - variance * basis / temperature + random.normal(size=(count, 6)) * np.sqrt(variance)
++        records.append(np.column_stack([np.full(count, index), np.arange(count) // 64, coefficients]))
++    records = np.concatenate(records)
++    result = reweight(records, angles, requested, temperature, 1)
++    basis = np.stack([np.zeros_like(requested), np.zeros_like(requested),
++                      np.cos(2 * requested), np.sin(2 * requested),
++                      np.cos(4 * requested), np.sin(4 * requested)], axis=1)
++    derivative = np.stack([np.zeros_like(requested), np.zeros_like(requested),
++                           -2 * np.sin(2 * requested), 2 * np.cos(2 * requested),
++                           -4 * np.sin(4 * requested), 4 * np.cos(4 * requested)], axis=1)
++    exact_free = basis @ mean - (basis**2 @ variance) / (2 * temperature)
++    exact_free -= exact_free[0]
++    exact_torque = -derivative @ mean + (derivative * basis) @ variance / temperature
++    print(\"Gaussian exact free energy:\", exact_free)
++    print(\"Gaussian reweighted free energy:\", result[\"free_energy\"])
++    print(\"Gaussian exact torque:\", exact_torque)
++    print(\"Gaussian reweighted torque:\", result[\"torque\"])
++    assert np.all(abs(np.asarray(result[\"free_energy\"]) - exact_free) < 6 * np.asarray(result[\"free_energy_sem\"]) + 0.004)
++    assert np.all(abs(np.asarray(result[\"torque\"]) - exact_torque) < 6 * np.asarray(result[\"torque_sem\"]) + 0.008)
++    potential, _ = symmetric_potentials(records[:, 2:], angles, temperature)
++    _, denominator = fit_mbar(potential, records[:, 0].astype(int))
++    center, step = 0.631, 1e-5
++    query = np.array([0, center - step, center, center + step, -center, math.pi + center])
++    potential, observable = symmetric_potentials(records[:, 2:], query, temperature)
++    torque, free, _ = evaluate(potential, observable, denominator, temperature, 1)
++    assert abs(torque[2] + (free[3] - free[1]) / (2 * step)) < 1e-7
++    assert abs(free[4] - free[2]) < 1e-12
++    assert abs(free[5] - free[2]) < 1e-12
++    assert abs(torque[4] + torque[2]) < 1e-12
++    print(\"Reweighting, symmetry, and torque/free-energy derivative checks passed.\")
++
++
++if __name__ == \"__main__\":
++    main()
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/check_native.cpp
++#define main sampler_main
++#include \"sampler.cpp\"
++#undef main
++
++int main() {
++    Model model(\"pair_test.model\");
++    model.onsite[0][3]=0.043;
++    model.onsite[0][4]=-0.037;
++    model.onsite[1][5]=0.061;
++    for (int trial=0;trial<100;++trial) {
++        for (auto &spin:model.spins) spin=model.random.sphere();
++        double angle=3*model.random.uniform();
++        model.sine=std::sin(angle); model.cosine=std::cos(angle);
++        auto observed=model.observe(false);
++        auto coefficients=model.energy_coefficients();
++        double derivative_torque=0;
++        const int frequencies[3]={1,2,4};
++        for (int index=0;index<3;++index) {
++            int frequency=frequencies[index];
++            derivative_torque+=frequency*(coefficients[2*index]*std::sin(frequency*angle)
++                -coefficients[2*index+1]*std::cos(frequency*angle));
++        }
++        if (std::abs(derivative_torque/model.count-observed.torque)>1e-12) return 1;
++        double step=1e-6;
++        model.sine=std::sin(angle+step); model.cosine=std::cos(angle+step);
++        double above=model.observe(false).energy;
++        model.sine=std::sin(angle-step); model.cosine=std::cos(angle-step);
++        double below=model.observe(false).energy;
++        if (std::abs((above-below)/(2*step)/model.count+observed.torque)>1e-8) return 2;
++    }
++    std::cout<<\"Native full-tensor torque and rotation coefficients passed.\\n\";
++}
+*** End Patch
+PATCH
+cat benchmark.log 2>/dev/null; date" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 7369ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate_reweight.py
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/check_native.cpp
+angle 1.27627 torque -0.00701787 m 0.522792 sweeps 337312 warmup 49056 acceptance 0.474369 0.556344 0
+projected torque [-0.00701787] sem [2.67707704e-05] m 0.5227857061970914
+angle 1.27627 torque -0.00707227 m 0.523686 sweeps 366800 warmup 65440 acceptance 0.471068 0.554546 0.705312
+cluster2 torque [-0.00707227] sem [1.80664569e-05] m 0.5235911083575919
+Thu Aug 27 18:40:42 PDT 2026
+
+exec
+/bin/bash -c 'tail -14 benchmark.log; tail -5 spring_mbar.log 2>/dev/null; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 16545ms:
+angle 1.27627 torque -0.00701787 m 0.522792 sweeps 337312 warmup 49056 acceptance 0.474369 0.556344 0
+projected torque [-0.00701787] sem [2.67707704e-05] m 0.5227857061970914
+angle 1.27627 torque -0.00707227 m 0.523686 sweeps 366800 warmup 65440 acceptance 0.471068 0.554546 0.705312
+cluster2 torque [-0.00707227] sem [1.80664569e-05] m 0.5235911083575919
+angle 1.27627 torque -0.00705252 m 0.523295 sweeps 343184 warmup 55296 acceptance 0.476434 0.556075 0.705646
+cluster5 torque [-0.00705252] sem [2.31538146e-05] m 0.5232118121423128
+angle 1.27627 torque -0.00702614 m 0.52354 sweeps 351184 warmup 54112 acceptance 0.473004 0.559025 0.707901
+cluster8 torque [-0.00702614] sem [2.63723443e-05] m 0.5235331693666906
+angle 1.27627 torque -0.00702606 m 0.52269 sweeps 335184 warmup 56128 acceptance 0.472371 0 0.705706
+cluster9 torque [-0.00702606] sem [3.02985749e-05] m 0.5227019670877224
+Thu Aug 27 18:42:20 PDT 2026
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/solve.py
+@@
+     return {\"torque\": predicted_torque.tolist(), \"free_energy\": predicted_free.tolist(),
+             \"torque_sem\": torque_sem.tolist(), \"free_energy_sem\": free_sem.tolist(),
++            \"method\": \"directional-exchange-MC/torque-integration\",
+@@
+     with open(sys.argv[1]) as stream:
+         case = json.load(stream)
+     output = Path(sys.argv[2]).resolve()
++    isotropic = all(row[0] == row[1] == row[2] and not any(row[3:]) for row in case[\"onsite\"])
++    if isotropic and all(row[3] == 0 for row in case[\"bonds\"]):
++        zeros = [0.0] * len(case[\"angles\"])
++        with open(output, \"w\") as stream:
++            json.dump({\"version\": 1, \"case_id\": case[\"case_id\"], \"torque\": zeros,
++                       \"free_energy\": zeros, \"torque_sem\": zeros, \"free_energy_sem\": zeros}, stream)
++        return
+@@
+-    result.update(version=1, case_id=case[\"case_id\"])
++    result.update(version=1, case_id=case[\"case_id\"], runtime_seconds=time.monotonic() - start)
+*** End Patch
+PATCH
+while [ "'! -f spring_mbar.json ]; do sleep 5; done
+export TMPDIR="$PWD"
+export PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor
+export PYTHONDONTWRITEBYTECODE=1
+python validate_reweight.py >validation_reweight.log 2>&1
+g++ -O3 -std=c++17 -march=native check_native.cpp -o check_native
+./check_native >validation_native.log 2>&1
+for case in ../participant/input/cases/*.json; do
+ name=$(basename "$case" .json)
+ SPIN_SECONDS=140 SPIN_SAVE_BLOCKS=1 python solve.py "$case" "test_${name}.json" >"test_${name}.log" 2>&1 || break
+done' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 620853ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/benchmark.py
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/sampler.cpp
+
+exec
+/bin/bash -c 'tail -6 benchmark.log; tail -5 spring_mbar.log 2>/dev/null; ls -lh spring_mbar* 2>/dev/null; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 1205ms:
+angle 1.27627 torque -0.00702614 m 0.52354 sweeps 351184 warmup 54112 acceptance 0.473004 0.559025 0.707901
+cluster8 torque [-0.00702614] sem [2.63723443e-05] m 0.5235331693666906
+angle 1.27627 torque -0.00702606 m 0.52269 sweeps 335184 warmup 56128 acceptance 0.472371 0 0.705706
+cluster9 torque [-0.00702606] sem [3.02985749e-05] m 0.5227019670877224
+angle 1.27627 torque -0.00712429 m 0.521843 sweeps 124912 warmup 21792 acceptance 0.601885 0 0
+pairs torque [-0.00712429] sem [8.99412755e-05] m 0.521919338575503
+angle 0.0981748 torque -0.00170905 m 0.540419 sweeps 62560 warmup 10272 acceptance 0.404773 0.56722 0.760938
+angle 0.19635 torque -0.00339415 m 0.538619 sweeps 61440 warmup 9472 acceptance 0.403372 0.560923 0.741982
+angle 0.294524 torque -0.00504801 m 0.538054 sweeps 63488 warmup 10016 acceptance 0.405075 0.552714 0.71597
+angle 0.392699 torque -0.00656105 m 0.537383 sweeps 59136 warmup 9728 acceptance 0.406438 0.54307 0.685839
+-rw-rw-r-- 1 xuandong xuandong 431 Aug 27 18:43 spring_mbar.log
+Thu Aug 27 18:43:36 PDT 2026
+
+exec
+/bin/bash -c 'tail -6 spring_mbar.log; cat validation_reweight.log 2>/dev/null; cat validation_native.log 2>/dev/null; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 3570ms:
+angle 0.687223 torque -0.0103459 m 0.533156 sweeps 64400 warmup 10336 acceptance 0.420514 0.519027 0.656193
+angle 0.785398 torque -0.0109906 m 0.532693 sweeps 62256 warmup 9536 acceptance 0.425802 0.520731 0.652319
+angle 0.883573 torque -0.01129 m 0.529975 sweeps 60736 warmup 10816 acceptance 0.426033 0.526508 0.654141
+angle 0.981748 torque -0.0109257 m 0.528276 sweeps 57808 warmup 9952 acceptance 0.444904 0.540794 0.666069
+angle 1.07992 torque -0.010119 m 0.526861 sweeps 61920 warmup 9952 acceptance 0.470363 0.541392 0.674193
+angle 1.1781 torque -0.0088712 m 0.524252 sweeps 61984 warmup 10112 acceptance 0.463504 0.543409 0.685652
+Thu Aug 27 18:44:27 PDT 2026
+
+ succeeded in 464197ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/reweight.py
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/sampler.cpp
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/solve.py
+
+exec
+/bin/bash -c 'tail -5 spring_mbar.log; tail -3 validation_reweight.log 2>/dev/null; cat validation_native.log 2>/dev/null; ls test_*.json 2>/dev/null; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 9282ms:
+angle 1.07992 torque -0.010119 m 0.526861 sweeps 61920 warmup 9952 acceptance 0.470363 0.541392 0.674193
+angle 1.1781 torque -0.0088712 m 0.524252 sweeps 61984 warmup 10112 acceptance 0.463504 0.543409 0.685652
+angle 1.27627 torque -0.00702797 m 0.522375 sweeps 59264 warmup 9440 acceptance 0.462997 0.554784 0.710695
+angle 1.37445 torque -0.00484028 m 0.521221 sweeps 61984 warmup 9120 acceptance 0.474102 0.553162 0.72693
+angle 1.47262 torque -0.00250814 m 0.520551 sweeps 59888 warmup 10464 acceptance 0.48002 0.575922 0.749891
+  9.82779056e-16]
+Gaussian reweighted torque: [0.0, -0.40291664190889165, -0.21324696100946225, 1.145304357271806, 3.406359890449616, 5.144995800370047, 5.01851180145259, 2.999168902874061, 0.0]
+Reweighting, symmetry, and torque/free-energy derivative checks passed.
+Native full-tensor torque and rotation coefficients passed.
+Thu Aug 27 18:46:04 PDT 2026
+
+codex
+Reweighting passes analytic and derivative checks. All six public cases are now running.
+
+exec
+/bin/bash -c "python - <<'PY'
+import json, math
+for name in ['spring_warm','spring_cluster','spring_mbar']:
+ result=json.load(open(name+'.json'))
+ print(name, result.get('method','integration'))
+ print('torque',result['torque'])
+ print('torque SEM',result['torque_sem'])
+ print('free',result['free_energy'])
+ print('free SEM',result['free_energy_sem'])
+ print('reweighting effective samples',result.get('reweighting_effective_samples'))
+PY
+tail -2 test_initial_cubic_particle_00.log; date" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 1732ms:
+spring_warm integration
+torque [0.0, -0.003348246711047292, -0.006588282129324836, -0.009356154016227835, -0.011020509941388534, -0.010945362278245817, -0.008835762006906042, -0.004937454973065275, 0.0]
+torque SEM [0.0, 2.038375493633971e-05, 2.3490430191237878e-05, 1.5209128606511767e-05, 1.3953547564568858e-05, 1.5783979559468876e-05, 2.4007685651020968e-05, 2.0662083668314867e-05, 7.657280611117614e-21]
+free [0.0, 0.00032912079977698413, 0.0013084026243011522, 0.0028860952343775096, 0.004910363754852607, 0.007099200179218509, 0.009074194854799362, 0.010450778744828026, 0.010944467448495816]
+free SEM [0.0, 2.1869933792564204e-06, 6.793993472406421e-06, 1.0273679172618061e-05, 1.1367796432517788e-05, 1.1457142546743527e-05, 1.2480228099588294e-05, 1.514908036629771e-05, 1.673026829502305e-05]
+reweighting effective samples None
+spring_cluster integration
+torque [0.0, -0.003347324530053176, -0.006586312325587882, -0.009356052926988951, -0.011028549298836286, -0.010965310021793767, -0.008862145534405978, -0.0049565816248579924, 0.0]
+torque SEM [0.0, 2.0370919646956593e-05, 2.374936194478428e-05, 1.6876589266426814e-05, 1.5980278442039837e-05, 1.5428440165533605e-05, 2.2717412988800984e-05, 1.994121225756722e-05, 7.432593221943316e-21]
+free [0.0, 0.0003290387442959688, 0.0013080233489772954, 0.0028854286542421914, 0.004910369684826949, 0.007101954743915026, 0.009081674322881126, 0.010462973201263659, 0.010958655974062946]
+free SEM [0.0, 2.1845417741520603e-06, 6.799957560649256e-06, 1.0373858289569171e-05, 1.1753831951384863e-05, 1.2145753347248708e-05, 1.2969271223427476e-05, 1.50781188330816e-05, 1.641122579559254e-05]
+reweighting effective samples None
+spring_mbar directional-exchange-MC/symmetric-MBAR
+torque [0.0, -0.003368131460355418, -0.006579831458087311, -0.009325456748037942, -0.010997681177048378, -0.010947273298949728, -0.008827221015661371, -0.004904377996030502, 0.0]
+torque SEM [0.0, 3.0224400453799682e-05, 2.485184304045671e-05, 1.5470577061303858e-05, 1.437372221689568e-05, 1.3637833851558243e-05, 2.283344304501526e-05, 2.0469161038015933e-05, 8.057298604001424e-21]
+free [0.0, 0.00033196105663602755, 0.001312714801700425, 0.0028861715399908323, 0.004904635374891643, 0.007091564833023354, 0.009066711163509785, 0.010438663854320136, 0.010928199374681898]
+free SEM [0.0, 3.489518684887192e-06, 9.291110190594194e-06, 1.2538772627035608e-05, 1.415992934106967e-05, 1.5297148955440335e-05, 1.551944731036848e-05, 1.5544589561320992e-05, 1.5931529532289268e-05]
+reweighting effective samples [4299.662155924315, 5987.54714736638, 8785.401855763126, 9468.126329241615, 9474.54163164471, 9509.162863264553, 8592.400789892352, 5647.917219272685, 3974.887906738455]
+angle 0.981748 torque 0.000280564 m 0.813424 sweeps 47936 warmup 7904 acceptance 0.38178 0.449721 0.463664
+angle 1.07992 torque 0.00116117 m 0.814931 sweeps 33712 warmup 7648 acceptance 0.376986 0.465266 0.472387
+Thu Aug 27 18:46:24 PDT 2026
+
+**Considering computational tasks**
+
+I’m thinking about various test cases and whether to monitor if the first case fails. Loop breaks could be tricky, especially since I'm working with a potential long run. I’ll need to compare MBAR differences and document the process carefully. The timing from start to end is crucial, and I need to ensure that my data cleanup is efficient. Since each node has a certain runtime, I’ll want to refine my sampling to improve accuracy in my results.
+exec
+/bin/bash -c 'while [ ! -f test_initial_surface_reorientation_01.json ]; do sleep 5; done
+python - <<'"'PY'
+import json
+with open('../participant/input/cases/initial_interface_spring_01.json') as stream:
+ case=json.load(stream)
+case['seed']+=104729
+with open('repeat_case.json','w') as stream:
+ json.dump(case,stream)
+PY
+export TMPDIR=\""'$PWD"
+export PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor
+export PYTHONDONTWRITEBYTECODE=1
+ulimit -v 4194304
+ulimit -t 595
+/usr/bin/time -v env SPIN_SECONDS=550 SPIN_SAVE_BLOCKS=1 python solve.py repeat_case.json long_spring.json >long_spring.log 2>&1
+python - <<'"'PY'
+import json, math
+result=json.load(open('long_spring.json'))
+assert result['version']==1 and result['case_id']=='initial_interface_spring_01'
+assert result['free_energy'][0]==0 and result['torque'][0]==0 and result['torque'][-1]==0
+for name in ('torque','free_energy','torque_sem','free_energy_sem'):
+ assert len(result[name])==9 and all(math.isfinite(value) for value in result[name])
+print('Full-budget output contract passed; runtime:', result['runtime_seconds'])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+exec
+/bin/bash -c "python - <<'PY'
+import glob,json,math
+for path in sorted(glob.glob('test_*.json')):
+ data=json.load(open(path))
+ assert all(len(data[key])==9 and all(math.isfinite(value) for value in data[key]) for key in ['torque','free_energy','torque_sem','free_energy_sem'])
+ assert data['torque'][0]==data['torque'][-1]==data['free_energy'][0]==0
+ print(path, 'runtime', round(data.get('runtime_seconds',0),2), data.get('method'), 'f90',data['free_energy'][-1], 'max torque SEM',max(data['torque_sem']))
+PY
+ls -lt test_*.log | head -3; date" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 1749ms:
+test_initial_cubic_particle_00.json runtime 125.58 directional-exchange-MC/symmetric-MBAR f90 0.0017612423962121248 max torque SEM 1.5804811850488772e-05
+-rw-rw-r-- 1 xuandong xuandong 1510 Aug 27 18:48 test_initial_cubic_particle_01.log
+-rw-rw-r-- 1 xuandong xuandong 1606 Aug 27 18:46 test_initial_cubic_particle_00.log
+Thu Aug 27 18:48:47 PDT 2026
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/README.md
+@@
+ mean magnetization, "'`2/3`, and vanishing torque. `benchmark.py` compares mixing
+ kernels on a supplied large case; it is not needed by the entry point.
++`validate_reweight.py` checks MBAR against analytic Gaussian partition functions
++and verifies the torque/free-energy derivative and angular symmetries.
++`check_native.cpp` checks the full-tensor microscopic torque and saved rotation
++coefficients against finite energy differences; run `validate.py` first to
++generate its small input model.
+*** End Patch
+PATCH
+date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 15852ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/README.md
+Thu Aug 27 18:49:15 PDT 2026
+
+exec
+/bin/bash -c "python - <<'PY'
+import glob,json,math
+for path in sorted(glob.glob('test_*.json')):
+ data=json.load(open(path))
+ assert all(len(data[key])==9 and all(math.isfinite(value) for value in data[key]) for key in ['torque','free_energy','torque_sem','free_energy_sem'])
+ assert data['torque'][0]==data['torque'][-1]==data['free_energy'][0]==0
+ print(path, 'runtime', round(data.get('runtime_seconds',0),2), data.get('method'), 'f90',data['free_energy'][-1], 'max torque SEM',max(data['torque_sem']))
+PY
+ls -lt test_*.log | head -2; tail -2 test_initial_surface_reorientation_00.log 2>/dev/null; date" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 356ms:
+test_initial_cubic_particle_00.json runtime 125.58 directional-exchange-MC/symmetric-MBAR f90 0.0017612423962121248 max torque SEM 1.5804811850488772e-05
+test_initial_cubic_particle_01.json runtime 125.15 directional-exchange-MC/symmetric-MBAR f90 0.0011259463747517885 max torque SEM 8.135788136739947e-06
+test_initial_interface_spring_00.json runtime 125.11 directional-exchange-MC/torque-integration f90 0.012909658476389163 max torque SEM 4.6260562433131665e-05
+test_initial_interface_spring_01.json runtime 125.47 directional-exchange-MC/symmetric-MBAR f90 0.010948282096355387 max torque SEM 2.040271474956531e-05
+-rw-rw-r-- 1 xuandong xuandong  867 Aug 27 18:54 test_initial_surface_reorientation_00.log
+-rw-rw-r-- 1 xuandong xuandong 1618 Aug 27 18:53 test_initial_interface_spring_01.log
+angle 0.687223 torque 0.000774839 m 0.837741 sweeps 59376 warmup 10176 acceptance 0.660125 0.697795 0.680954
+angle 0.785398 torque 0.000709491 m 0.838187 sweeps 59776 warmup 9984 acceptance 0.687624 0.696115 0.679249
+Thu Aug 27 18:54:16 PDT 2026
+
+codex
+Four cases have completed. I’m investigating one reweighting convergence failure.
+
+exec
+/bin/bash -c "tail -7 test_initial_interface_spring_00.log; export PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor; export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1; python - <<'PY'
+import numpy as np,time
+from reweight import symmetric_potentials
+samples=np.load('test_initial_interface_spring_00.samples.npy'); angles=np.arange(1,16)*np.pi/32
+potential,_=symmetric_potentials(samples[:,2:],angles,.55)
+labels=samples[:,0].astype(int); counts=np.bincount(labels).astype(float)
+free=np.zeros(15); shift=-potential.min(axis=1); density=np.exp(-potential-shift[:,None])
+for iteration in range(30):
+ maximum=free.max(); activity=counts*np.exp(free-maximum); denominator=density@activity
+ probability=density*(activity[None,:]/denominator[:,None]); totals=probability.sum(axis=0); gradient=totals-counts
+ hessian=np.diag(totals)-probability.T@probability
+ direction=np.zeros(15);direction[1:]=np.linalg.solve(hessian[1:,1:],gradient[1:])
+ objective=np.log(denominator).sum()+len(labels)*maximum-counts@free
+ print(iteration,'gradient',np.max(abs(gradient)/counts),'step',max(abs(direction)),'condition',np.linalg.cond(hessian[1:,1:]))
+ if max(abs(gradient)/counts)<2e-10:break
+ slope=gradient@direction; scale=1
+ for search in range(30):
+  candidate=free-scale*direction; candidate_maximum=candidate.max();candidate_denominator=density@(counts*np.exp(candidate-candidate_maximum))
+  candidate_objective=np.log(candidate_denominator).sum()+len(labels)*candidate_maximum-counts@candidate
+  if candidate_objective<=objective-1e-4*scale*slope+1e-8:
+   free=candidate;break
+  scale*=.5
+ else: print('line failed');break
+ print('scale',scale,'delta objective',candidate_objective-objective)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 2085ms:
+angle 0.981748 torque -0.015025 m 0.756778 sweeps 63456 warmup 10528 acceptance 0.334485 0.399819 0.43126
+angle 1.07992 torque -0.0149513 m 0.759209 sweeps 63728 warmup 10368 acceptance 0.367715 0.436278 0.435788
+angle 1.1781 torque -0.0136862 m 0.762558 sweeps 62464 warmup 10880 acceptance 0.395913 0.460646 0.454239
+angle 1.27627 torque -0.0116113 m 0.764898 sweeps 62128 warmup 10496 acceptance 0.409231 0.477553 0.467936
+angle 1.37445 torque -0.00829309 m 0.768541 sweeps 61344 warmup 10464 acceptance 0.440455 0.528213 0.526
+angle 1.47262 torque -0.00442277 m 0.769862 sweeps 64288 warmup 10784 acceptance 0.45832 0.555409 0.602895
+Reweighting unavailable; using torque integration: Multistate reweighting did not converge
+0 gradient 3.6150381319469536 step 1.0293832192796126e+16 condition 4.591378925228785e+16
+line failed
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/reweight.py
+@@
+-    free = np.zeros(state_count) if initial is None else initial.copy()
+-    shift = -potential.min(axis=1)
+-    density = np.exp(-potential - shift[:, None])
++    offset = potential.mean(axis=0)
++    centered = potential - offset
++    free = np.zeros(state_count) if initial is None else initial - offset + offset[0]
++    shift = -centered.min(axis=1)
++    density = np.exp(-centered - shift[:, None])
++    if initial is None:
++        for warmup in range(30):
++            maximum = free.max()
++            denominator = density @ (counts * np.exp(free - maximum))
++            candidate = -np.log(density.T @ (1 / denominator))
++            candidate -= candidate[0]
++            change = np.max(np.abs(candidate - free))
++            free = candidate
++            if change < 1e-7:
++                break
+@@
+-    log_denominator = np.log(denominator) + shift + maximum
+-    return free, log_denominator
++    log_denominator = np.log(denominator) + shift + maximum - offset[0]
++    return free + offset - offset[0], log_denominator
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate_reweight.py
+@@
+-    _, denominator = fit_mbar(potential, records[:, 0].astype(int))
++    fitted, denominator = fit_mbar(potential, records[:, 0].astype(int))
++    offsets = np.linspace(-400, 400, len(angles))
++    shifted, _ = fit_mbar(potential + offsets, records[:, 0].astype(int))
++    assert np.max(np.abs(shifted - fitted - offsets + offsets[0])) < 1e-7
+*** End Patch
+PATCH
+export PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor
+export PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1
+python validate_reweight.py >validation_reweight.log 2>&1
+python - <<'PY'
+import json,numpy as np,time
+from reweight import reweight
+start=time.monotonic()
+path='test_initial_interface_spring_00.json'
+result=json.load(open(path));samples=np.load('test_initial_interface_spring_00.samples.npy')
+case=json.load(open('../participant/input/cases/initial_interface_spring_00.json'))
+updated=reweight(samples,np.arange(1,16)*np.pi/32,case['angles'],case['temperature'],case['n_spins'])
+print('Reweighting recovered:',updated['method'],'runtime',time.monotonic()-start)
+print('torque:',updated['torque']);print('SEM:',updated['torque_sem']);print('f90',updated['free_energy'][-1])
+result.update(updated)
+json.dump(result,open(path,'w'))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 9805ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/reweight.py
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/validate_reweight.py
+Reweighting recovered: directional-exchange-MC/symmetric-MBAR runtime 0.1075037459959276
+torque: [0.0, -0.0015184216307818031, -0.004534346811844875, -0.00879026249798512, -0.012903737448802974, -0.015062853520661047, -0.013765520126597205, -0.008370241383785908, 0.0]
+SEM: [0.0, 6.0465995841606115e-05, 3.0652041421845226e-05, 2.0460403667362405e-05, 8.480973474189173e-06, 2.2416644236505712e-05, 3.453074855741027e-05, 3.185926672101722e-05, 1.6634137026960746e-20]
+f90 0.012915867248801038
+
+codex
+Energy recentering fixed the reweighting failure; the regression test passes.
+
+exec
+/bin/bash -c "tail -1 validation_reweight.log; python - <<'PY'
+import json,glob,math
+for path in sorted(glob.glob('test_*.json')):
+ data=json.load(open(path))
+ assert all(len(data[key])==9 and all(math.isfinite(value) for value in data[key]) for key in ['torque','free_energy','torque_sem','free_energy_sem'])
+ assert data['torque'][0]==data['torque'][-1]==data['free_energy'][0]==0
+ print(path, round(data.get('runtime_seconds',0),2), data['method'], 'f90',data['free_energy'][-1])
+PY
+tail -2 long_spring.log 2>/dev/null; date" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 1050ms:
+Reweighting, symmetry, and torque/free-energy derivative checks passed.
+test_initial_cubic_particle_00.json 125.58 directional-exchange-MC/symmetric-MBAR f90 0.0017612423962121248
+test_initial_cubic_particle_01.json 125.15 directional-exchange-MC/symmetric-MBAR f90 0.0011259463747517885
+test_initial_interface_spring_00.json 125.11 directional-exchange-MC/symmetric-MBAR f90 0.012915867248801038
+test_initial_interface_spring_01.json 125.47 directional-exchange-MC/symmetric-MBAR f90 0.010948282096355387
+test_initial_surface_reorientation_00.json 125.16 directional-exchange-MC/symmetric-MBAR f90 -0.000712724521946301
+Thu Aug 27 18:56:46 PDT 2026
+
+ succeeded in 889650ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/solve.py
+
+exec
+/bin/bash -c "python - <<'PY'
+import json,glob,math
+paths=sorted(glob.glob('test_*.json'))
+assert len(paths)==6
+for path in paths:
+ data=json.load(open(path))
+ assert all(len(data[key])==9 and all(math.isfinite(value) for value in data[key]) for key in ['torque','free_energy','torque_sem','free_energy_sem'])
+ assert data['torque'][0]==data['torque'][-1]==data['free_energy'][0]==0
+ assert data['method'].endswith('symmetric-MBAR')
+ print(path, 'f90', format(data['free_energy'][-1],'.9g'), 'SEM',format(data['free_energy_sem'][-1],'.3g'))
+PY
+tail -3 long_spring.log; date" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 560ms:
+test_initial_cubic_particle_00.json f90 0.0017612424 SEM 6.14e-06
+test_initial_cubic_particle_01.json f90 0.00112594637 SEM 7.9e-06
+test_initial_interface_spring_00.json f90 0.0129158672 SEM 1.83e-05
+test_initial_interface_spring_01.json f90 0.0109482821 SEM 1.54e-05
+test_initial_surface_reorientation_00.json f90 -0.000712724522 SEM 2.92e-06
+test_initial_surface_reorientation_01.json f90 5.12386859e-05 SEM 3.18e-06
+angle 0.0981748 torque -0.00167846 m 0.538852 sweeps 327712 warmup 59520 acceptance 0.404115 0.563921 0.76591
+Thu Aug 27 18:58:25 PDT 2026
+
+codex
+All six cases pass; the full-budget check is running.
+
+Exact-ensemble, native torque, analytic reweighting, symmetry, and six public-case checks pass. The remaining validation is an independent-seed run under the full execution and memory limits.
+  ✓ Inspect cases and derive constrained sampler
+  ✓ Implement native sampling and thermodynamic integration
+  → Validate equilibrium, accuracy, and runtime
+  • Finalize self-contained submission and scientific notes
+exec
+/bin/bash -c "python - <<'PY'
+from pathlib import Path
+import difflib,re,subprocess
+path=Path('sampler.cpp')
+previous=path.read_text()
+updated=re.sub(r'\\b([xyz])\\b',lambda match: match.group(1)+'_component',previous)
+updated=updated.replace('#include <random>\\n','#include <stdexcept>\\n')
+difference=list(difflib.unified_diff(previous.splitlines(True),updated.splitlines(True)))[2:]
+body=''.join('@@\\n' if line.startswith('@@') else line for line in difference)
+subprocess.run(['apply_patch'],input='*** Begin Patch\\n*** Update File: sampler.cpp\\n'+body+'*** End Patch\\n',text=True,check=True)
+PY
+export TMPDIR=\""'$PWD"
+g++ -std=c++17 -Wall -Wextra -Wpedantic -fsyntax-only sampler.cpp
+g++ -O3 -std=c++17 -march=native check_native.cpp -o check_native
+./check_native >validation_native.log
+python - <<'"'PY'
+from pathlib import Path
+for path in Path('.').glob('*.py'):
+ compile(path.read_text(),str(path),'exec')
+print('Python syntax and C++ warning checks passed.')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 3235ms:
+Success. Updated the following files:
+M sampler.cpp
+Python syntax and C++ warning checks passed.
+
+exec
+/bin/bash -c 'tail -4 long_spring.log; date; while [ ! -f long_spring.json ]; do sleep 3; done
+export TMPDIR="$PWD"
+export PYTHONPATH=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/participant/workspace/vendor
+export PYTHONDONTWRITEBYTECODE=1
+SPIN_SECONDS=90 python solve.py ../participant/input/cases/initial_interface_spring_00.json recheck_spring00.json >recheck_spring00.log 2>&1
+python - <<'"'PY'
+import json,math
+result=json.load(open('recheck_spring00.json'))
+assert result['method'].endswith('symmetric-MBAR')
+case={'version':1,'case_id':'isotropic_check','n_spins':2,'seed':1,'temperature':1.0,'angles':[0,.4,math.pi/2],
+'onsite':[[1,1,1,0,0,0,0]]*2,'bonds':[[0,1,1,0]]}
+json.dump(case,open('isotropic_case.json','w'))
+print('Corrected low-temperature entry-point check passed.')
+PY
+python solve.py isotropic_case.json isotropic_result.json
+python - <<'PY'
+import json
+result=json.load(open('isotropic_result.json'))
+assert result['case_id']=='isotropic_check'
+assert result['torque']==result['free_energy']==[0.0]*3
+print('Exact isotropic shortcut passed.')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 1143055ms:
+Full-budget output contract passed; runtime: 535.6435092340107
+
+**Analyzing Python without Numpy**
+
+I need to read a resource and compare some examples using Python's standard library, without relying on Numpy. I'm probably thinking about how to manage small matrices effectively in pure Python. It's interesting to consider what functions or methods might be available in the standard library for this purpose. I wonder if I can implement some matrix operations manually. Let’s see how efficiently I can do this while maintaining clarity in my code!
+exec
+/bin/bash -c "tail -24 long_spring.log; python - <<'PY'
+import json,math
+short=json.load(open('test_initial_interface_spring_01.json'))
+long=json.load(open('long_spring.json'))
+for key in ('torque','free_energy'):
+ difference=[first-second for first,second in zip(short[key],long[key])]
+ errors=[math.hypot(first,second) for first,second in zip(short[key+'_sem'],long[key+'_sem'])]
+ standardized=[difference[index]/errors[index] for index in range(len(errors)) if errors[index]>1e-15]
+ print(key,'long=',long[key]);print('SEM=',long[key+'_sem'])
+ print('Independent seed comparison RMS / combined SEM:', math.sqrt(sum(value*value for value in standardized)/len(standardized)), 'max:',max(map(abs,standardized)))
+ print('maximum absolute difference',max(map(abs,difference)))
+print('ESS',long['reweighting_effective_samples'],'saved',long['reweighting_samples'])
+PY
+date" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 6900ms:
+angle 1.47262 torque -0.00252261 m 0.521189 sweeps 349616 warmup 59488 acceptance 0.495178 0.564946 0.747891
+	Command being timed: "env SPIN_SECONDS=550 SPIN_SAVE_BLOCKS=1 python solve.py repeat_case.json long_spring.json"
+	User time (seconds): 516.62
+	System time (seconds): 29.62
+	Percent of CPU this job got: 101%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 8:55.85
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 181612
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 78067
+	Voluntary context switches: 10009
+	Involuntary context switches: 3966
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 21136
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+torque long= [0.0, -0.0033537150894546084, -0.006582928908550923, -0.009340583542831927, -0.011019520107004929, -0.010968162961350897, -0.008843526297690215, -0.004916102316800291, 0.0]
+SEM= [0.0, 4.250826460331269e-06, 5.4069181726039075e-06, 5.263364044214908e-06, 5.0220275457008704e-06, 7.65835265474055e-06, 9.62683233853579e-06, 8.194163976315782e-06, 3.64497988455975e-21]
+Independent seed comparison RMS / combined SEM: 0.7322616833616225 max: 1.2037511719341825
+maximum absolute difference 2.1043535480518537e-05
+free_energy long= [0.0, 0.00032990459557685205, 0.0013093919634011568, 0.0028847916941712403, 0.004906962633723154, 0.007098223208619494, 0.009077007862407324, 0.010451768441177962, 0.01094257344837278]
+SEM= [0.0, 5.065717222564445e-07, 1.349954031120365e-06, 2.2668442416698687e-06, 3.073325422511986e-06, 3.6618745451627857e-06, 4.575719349354776e-06, 5.7674041432062605e-06, 6.346406210047547e-06]
+Independent seed comparison RMS / combined SEM: 0.26428822918394124 max: 0.534619314564274
+maximum absolute difference 5.70864798260691e-06
+ESS [23931.991640614895, 33353.191333384886, 48912.264270887514, 52499.535239657685, 52063.025647692484, 52119.30813498888, 47466.07336471092, 31809.180638231457, 22564.8387249734] saved 76892
+Thu Aug 27 19:06:33 PDT 2026
+
+**Finalizing validation details**
+
+I'm confirming that validation has completed successfully but I'm still running a short recheck. I can move ahead with writing the README report while waiting for that. It means finalizing is in progress, and I'm checking to make sure everything is critical and fully done. There's one pending test, a final sanity check that isn’t contradictory to the plan. I'll wait for about a minute for the recheck before I read the metrics from the tool.
+ succeeded in 111713ms:
+angle 1.07992 torque -0.0102193 m 0.52781 sweeps 194496 warmup 56960 acceptance 0.452931 0.540894 0.674624
+angle 1.1781 torque -0.00881568 m 0.525379 sweeps 343824 warmup 56704 acceptance 0.465615 0.547595 0.689009
+angle 1.27627 torque -0.00705616 m 0.5237 sweeps 343312 warmup 61184 acceptance 0.475867 0.554625 0.706692
+angle 1.37445 torque -0.0049037 m 0.52228 sweeps 352144 warmup 61344 acceptance 0.487293 0.561984 0.729188
+Thu Aug 27 19:05:40 PDT 2026
+Corrected low-temperature entry-point check passed.
+Exact isotropic shortcut passed.
+
+codex
+The full run used 536 seconds and 177 MiB; independent seeds agree within estimated uncertainty.
+
+The full-budget independent-seed run passes the output contract within 600 seconds and 4 GiB, and agrees with the shorter run within combined Monte Carlo errors. Finalizing validation notes and removing build/sampling artifacts.
+  ✓ Inspect cases and derive constrained sampler
+  ✓ Implement native sampling and thermodynamic integration
+  ✓ Validate equilibrium, accuracy, and runtime
+  → Finalize self-contained submission and scientific notes
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/VALIDATION.md
++# Validation record
++
++These are public-input and analytic checks, not comparisons with unavailable
++private references. No reference predictions are embedded in the solver.
++
++## Analytic and independent checks
++
++- Projected heat-bath/overrelaxation, projected Wolff clusters, and the separate
++  explicit-Jacobian pair sampler agree with deterministic two-spin quadrature.
++  The test includes unequal onsite tensors, cubic anisotropy, axial two-ion
++  anisotropy, and three nonsymmetry angles.
++- The isotropic two-spin directional ensemble gives mean magnetization per
++  spin "'`2/3`, rather than constraining its magnitude. Its torque vanishes.
++- Native torque agrees with finite energy differences for 100 configurations
++  with all off-diagonal tensor components present. The saved rotation-energy
++  coefficients reproduce the native torque to roundoff.
++- Symmetry-folded MBAR agrees with analytic Gaussian partition functions.
++  Its torque is the negative derivative of its free energy, and the reflection
++  and periodicity identities hold. Adding arbitrary reduced-energy offsets
++  spanning 800 units leaves the inferred distributions unchanged.
++- Large-system pair and projected-kernel estimates agree within their batch
++  errors in the higher-temperature exchange-spring case.
++- Python syntax checks and C++17 `-Wall -Wextra -Wpedantic` checks pass.
++
++## Supplied cases
++
++All six supplied inputs were run with a development budget of 140 seconds
++(about 125 seconds of actual elapsed time each). All produce finite,
++correctly sized arrays, zero torque at both symmetry endpoints, and exactly
++zero free energy at the origin. All use the multistate free-energy estimator.
++One low-temperature reweighting initialization issue was identified, corrected
++by energy recentering and a stable fixed-point warm start, and covered by the
++energy-offset regression test. Its saved configurations were reprocessed and
++the corrected entry point was also rerun.
++
++The surface cases predict opposite signs of `f(pi/2)-f(0)` at their two
++temperatures, illustrating that this implementation does not merely rescale
++the coherent-rotation landscape. This is a solver prediction, not an external
++accuracy validation.
++
++## Full-budget execution
++
++An independent-seed run of `initial_interface_spring_01` used the default
++550-second budget under a 4-GiB address-space limit:
++
++- Wall time, including compilation and startup: **535.85 seconds**.
++- Total reported user plus system CPU time: **546.24 seconds**.
++- Peak resident memory: **181,612 KiB**, approximately **177 MiB**.
++- Exit status: zero; all output-contract assertions pass.
++- Saved configurations: 76,892; no sampling files are retained by a normal run.
++
++Compared with the shorter run using the original seed, the maximum torque
++difference is `2.10e-5` per spin, or 1.20 combined estimated standard errors.
++The maximum free-energy difference is `5.71e-6` per spin, or 0.54 combined
++standard errors. The full-run interior torque standard errors range from
++`4.25e-6` to `9.63e-6` per spin.
++
++The runtime has substantial headroom below the 600-wall-second and
++602-CPU-second limits. These measurements do not guarantee identical timing
++on other hardware or establish convergence in more strongly metastable cases.
++See `README.md` for the sampling derivation and scientific limitations.
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/README.md
+@@
+ generate its small input model.
++
++With the supplied numerical runtime on `PYTHONPATH`, the analytic checks can
++be reproduced from this directory with:
++
++```sh
++export TMPDIR="$PWD"
++g++ -O3 -std=c++17 sampler.cpp -o sampler
++python validate.py
++python validate_reweight.py
++g++ -O3 -std=c++17 check_native.cpp -o check_native
++./check_native
++```
++
++`VALIDATION.md` records the public-case, independent-seed, and resource checks.
+*** End Patch
+PATCH
+tail -2 recheck_spring00.log; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 221ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/VALIDATION.md
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/README.md
+angle 1.37445 torque -0.00831063 m 0.768784 sweeps 37312 warmup 6112 acceptance 0.442853 0.533024 0.522044
+angle 1.47262 torque -0.00433971 m 0.770085 sweeps 36368 warmup 6016 acceptance 0.452646 0.557203 0.600683
+Thu Aug 27 19:08:08 PDT 2026
+
+**Preparing for cleanup**
+
+I’m finishing up a final check and making sure that everything's good. It seems like I need to clean up the listings, but I also want to make sure not to delete anything dangerous or beyond our control. The user has allowed deletions, but I must be cautious, especially with readonly directories. I’ll list the root files and their sizes for a thorough cleanup plan. Let's ensure this is done right!
+exec
+/bin/bash -c "ls -lh; rg -n '"'^def (main|reweight|fit_mbar)|''^    void (projected_sweep|pair_sweep)|''^# '"' solve.py sampler.cpp reweight.py README.md VALIDATION.md; date" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 4609ms:
+total 14M
+-rw-rw-r-- 1 xuandong xuandong 6.2K Aug 27 19:08 README.md
+-rw-rw-r-- 1 xuandong xuandong 3.3K Aug 27 19:08 VALIDATION.md
+-rw-rw-r-- 1 xuandong xuandong 1.1K Aug 27 18:42 benchmark.log
+-rw-rw-r-- 1 xuandong xuandong 200K Aug 27 18:39 benchmark.model
+-rw-rw-r-- 1 xuandong xuandong  813 Aug 27 18:33 benchmark.py
+-rw-rw-r-- 1 xuandong xuandong 4.5K Aug 27 18:40 benchmark_cluster2.txt
+-rw-rw-r-- 1 xuandong xuandong 4.5K Aug 27 18:40 benchmark_cluster5.txt
+-rw-rw-r-- 1 xuandong xuandong 4.5K Aug 27 18:41 benchmark_cluster8.txt
+-rw-rw-r-- 1 xuandong xuandong 4.5K Aug 27 18:42 benchmark_cluster9.txt
+-rw-rw-r-- 1 xuandong xuandong 4.5K Aug 27 18:42 benchmark_pairs.txt
+-rw-rw-r-- 1 xuandong xuandong 4.5K Aug 27 18:39 benchmark_projected.txt
+-rwxrwxr-x 1 xuandong xuandong  87K Aug 27 18:59 check_native
+-rw-rw-r-- 1 xuandong xuandong 1.4K Aug 27 18:40 check_native.cpp
+-rw-rw-r-- 1 xuandong xuandong  212 Aug 27 19:07 isotropic_case.json
+-rw-rw-r-- 1 xuandong xuandong  170 Aug 27 19:07 isotropic_result.json
+-rw-rw-r-- 1 xuandong xuandong 142K Aug 27 19:06 long_spring.blocks.txt
+-rw-rw-r-- 1 xuandong xuandong 2.3K Aug 27 19:06 long_spring.json
+-rw-rw-r-- 1 xuandong xuandong 2.4K Aug 27 19:06 long_spring.log
+-rw-rw-r-- 1 xuandong xuandong 4.7M Aug 27 19:06 long_spring.samples.npy
+-rw-rw-r-- 1 xuandong xuandong   71 Aug 27 18:39 pair_isotropic.model
+-rw-rw-r-- 1 xuandong xuandong 2.3K Aug 27 18:39 pair_isotropic.txt
+-rw-rw-r-- 1 xuandong xuandong  282 Aug 27 18:38 pair_test.model
+-rw-rw-r-- 1 xuandong xuandong  14K Aug 27 18:39 pair_test_cluster.txt
+-rw-rw-r-- 1 xuandong xuandong  14K Aug 27 18:38 pair_test_pairs.txt
+-rw-rw-r-- 1 xuandong xuandong  14K Aug 27 18:38 pair_test_projected.txt
+-rw-rw-r-- 1 xuandong xuandong 2.4K Aug 27 19:07 recheck_spring00.json
+-rw-rw-r-- 1 xuandong xuandong 1.6K Aug 27 19:07 recheck_spring00.log
+-rw-rw-r-- 1 xuandong xuandong 222K Aug 27 18:57 repeat_case.json
+-rw-rw-r-- 1 xuandong xuandong 5.3K Aug 27 18:56 reweight.py
+-rwxrwxr-x 1 xuandong xuandong  79K Aug 27 18:39 sampler
+-rw-rw-r-- 1 xuandong xuandong  21K Aug 27 18:59 sampler.cpp
+-rw-rw-r-- 1 xuandong xuandong 6.0K Aug 27 18:42 solve.py
+-rw-rw-r-- 1 xuandong xuandong 142K Aug 27 18:32 spring_cluster.blocks.txt
+-rw-rw-r-- 1 xuandong xuandong 2.0K Aug 27 18:32 spring_cluster.json
+-rw-rw-r-- 1 xuandong xuandong 1.6K Aug 27 18:32 spring_cluster.log
+-rw-rw-r-- 1 xuandong xuandong 142K Aug 27 18:44 spring_mbar.blocks.txt
+-rw-rw-r-- 1 xuandong xuandong 2.4K Aug 27 18:44 spring_mbar.json
+-rw-rw-r-- 1 xuandong xuandong 1.6K Aug 27 18:44 spring_mbar.log
+-rw-rw-r-- 1 xuandong xuandong 870K Aug 27 18:44 spring_mbar.samples.npy
+-rw-rw-r-- 1 xuandong xuandong 142K Aug 27 18:28 spring_smoke.blocks.txt
+-rw-rw-r-- 1 xuandong xuandong 1.8K Aug 27 18:28 spring_smoke.json
+-rw-rw-r-- 1 xuandong xuandong 1.2K Aug 27 18:28 spring_smoke.log
+-rw-rw-r-- 1 xuandong xuandong 142K Aug 27 18:30 spring_warm.blocks.txt
+-rw-rw-r-- 1 xuandong xuandong 2.0K Aug 27 18:30 spring_warm.json
+-rw-rw-r-- 1 xuandong xuandong 1.5K Aug 27 18:30 spring_warm.log
+-rw-rw-r-- 1 xuandong xuandong 142K Aug 27 18:46 test_initial_cubic_particle_00.blocks.txt
+-rw-rw-r-- 1 xuandong xuandong 2.4K Aug 27 18:46 test_initial_cubic_particle_00.json
+-rw-rw-r-- 1 xuandong xuandong 1.6K Aug 27 18:46 test_initial_cubic_particle_00.log
+-rw-rw-r-- 1 xuandong xuandong 651K Aug 27 18:46 test_initial_cubic_particle_00.samples.npy
+-rw-rw-r-- 1 xuandong xuandong 142K Aug 27 18:48 test_initial_cubic_particle_01.blocks.txt
+-rw-rw-r-- 1 xuandong xuandong 2.3K Aug 27 18:48 test_initial_cubic_particle_01.json
+-rw-rw-r-- 1 xuandong xuandong 1.6K Aug 27 18:48 test_initial_cubic_particle_01.log
+-rw-rw-r-- 1 xuandong xuandong 811K Aug 27 18:48 test_initial_cubic_particle_01.samples.npy
+-rw-rw-r-- 1 xuandong xuandong 142K Aug 27 18:50 test_initial_interface_spring_00.blocks.txt
+-rw-rw-r-- 1 xuandong xuandong 2.4K Aug 27 18:56 test_initial_interface_spring_00.json
+-rw-rw-r-- 1 xuandong xuandong 1.7K Aug 27 18:50 test_initial_interface_spring_00.log
+-rw-rw-r-- 1 xuandong xuandong 882K Aug 27 18:50 test_initial_interface_spring_00.samples.npy
+-rw-rw-r-- 1 xuandong xuandong 142K Aug 27 18:53 test_initial_interface_spring_01.blocks.txt
+-rw-rw-r-- 1 xuandong xuandong 2.3K Aug 27 18:53 test_initial_interface_spring_01.json
+-rw-rw-r-- 1 xuandong xuandong 1.6K Aug 27 18:53 test_initial_interface_spring_01.log
+-rw-rw-r-- 1 xuandong xuandong 1.3M Aug 27 18:53 test_initial_interface_spring_01.samples.npy
+-rw-rw-r-- 1 xuandong xuandong 141K Aug 27 18:55 test_initial_surface_reorientation_00.blocks.txt
+-rw-rw-r-- 1 xuandong xuandong 2.3K Aug 27 18:55 test_initial_surface_reorientation_00.json
+-rw-rw-r-- 1 xuandong xuandong 1.6K Aug 27 18:55 test_initial_surface_reorientation_00.log
+-rw-rw-r-- 1 xuandong xuandong 871K Aug 27 18:55 test_initial_surface_reorientation_00.samples.npy
+-rw-rw-r-- 1 xuandong xuandong 142K Aug 27 18:57 test_initial_surface_reorientation_01.blocks.txt
+-rw-rw-r-- 1 xuandong xuandong 2.4K Aug 27 18:57 test_initial_surface_reorientation_01.json
+-rw-rw-r-- 1 xuandong xuandong 1.6K Aug 27 18:57 test_initial_surface_reorientation_01.log
+-rw-rw-r-- 1 xuandong xuandong 928K Aug 27 18:57 test_initial_surface_reorientation_01.samples.npy
+-rw-rw-r-- 1 xuandong xuandong 3.5K Aug 27 18:30 validate.py
+-rw-rw-r-- 1 xuandong xuandong 3.1K Aug 27 18:56 validate_reweight.py
+-rw-rw-r-- 1 xuandong xuandong 1.1K Aug 27 18:29 validation.log
+-rw-rw-r-- 1 xuandong xuandong 1.5K Aug 27 18:39 validation_cluster.log
+-rw-rw-r-- 1 xuandong xuandong   60 Aug 27 18:59 validation_native.log
+-rw-rw-r-- 1 xuandong xuandong  767 Aug 27 18:56 validation_reweight.log
+VALIDATION.md:1:# Validation record
+README.md:1:# Direction-constrained thermal free energy
+sampler.cpp:249:    void projected_sweep(bool unconditional=false,int cluster_threshold=0) {
+sampler.cpp:274:    void pair_sweep() {
+solve.py:81:def main():
+reweight.py:19:def fit_mbar(potential, labels, initial=None):
+reweight.py:85:def reweight(samples, angles, requested, temperature, spin_count):
+Thu Aug 27 19:08:24 PDT 2026
+
+**Cleaning up code and files**
+
+I’m confirming there's no need to embed hardcoded case output matching code. I have to check for leftover files and confirm cleanup is complete. Tools will apply patches and move or delete artifacts as needed. I need to create the `validation_results` directory and move known pattern files there. All functions have completed, and there’s no lingering processes left. The background tests are clean and I can proceed with a final check before moving the output. Good, everything seems solid!
+2026-08-28T02:10:22.353973Z ERROR codex_core::tools::router: error=exec_command failed for `/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/VALIDATION.md
+@@
+-An independent-seed run of "'`initial_interface_spring_01` used the default
++An independent-seed run of `initial_interface_spring_01` (seed 876053) used the default
+*** End Patch
+PATCH
+mkdir -p validation_results
+mv test_*.json test_*.log long_spring.json long_spring.log recheck_spring00.json recheck_spring00.log validation_cluster.log validation_native.log validation_reweight.log benchmark.log isotropic_case.json isotropic_result.json validation_results/
+rm -f -- sampler check_native benchmark.model pair_isotropic.model pair_test.model repeat_case.json benchmark_*.txt pair_test_*.txt pair_isotropic.txt *.blocks.txt *.samples.npy spring_smoke.json spring_smoke.log spring_warm.json spring_warm.log spring_cluster.json spring_cluster.log spring_mbar.json spring_mbar.log validation.log
+python - <<'"'PY'
+from pathlib import Path
+import json,math
+for name in ['solve.py','sampler.cpp','reweight.py','README.md','VALIDATION.md']:
+ assert Path(name).is_file() and Path(name).stat().st_size>0
+for path in Path('.').glob('*.py'):
+ compile(path.read_text(),str(path),'exec')
+count=0
+for path in Path('validation_results').glob('*.json'):
+ data=json.loads(path.read_text())
+ if 'torque' not in data:continue
+ count+=1
+ assert path.stat().st_size<2**21
+ assert data['version']==1 and data['free_energy'][0]==0
+ for name in ['torque','free_energy','torque_sem','free_energy_sem']:
+  assert len(data[name])==len(data['torque']) and all(math.isfinite(value) for value in data[name])
+ for name in ['torque_sem','free_energy_sem']:
+  assert all(value>=0 for value in data[name])
+print('Final source checks and',count,'preserved output-contract checks passed.')
+PY
+ls -lh; du -sh .; date"`: CreateProcess { message: "Rejected(\"`/bin/bash -c \\\"apply_patch <<'PATCH'\\n*** Begin Patch\\n*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/VALIDATION.md\\n@@\\n-An independent-seed run of \\\"'`initial_interface_spring_01` used the default\\n+An independent-seed run of `initial_interface_spring_01` (seed 876053) used the default\\n*** End Patch\\nPATCH\\nmkdir -p validation_results\\nmv test_*.json test_*.log long_spring.json long_spring.log recheck_spring00.json recheck_spring00.log validation_cluster.log validation_native.log validation_reweight.log benchmark.log isotropic_case.json isotropic_result.json validation_results/\\nrm -f -- sampler check_native benchmark.model pair_isotropic.model pair_test.model repeat_case.json benchmark_*.txt pair_test_*.txt pair_isotropic.txt *.blocks.txt *.samples.npy spring_smoke.json spring_smoke.log spring_warm.json spring_warm.log spring_cluster.json spring_cluster.log spring_mbar.json spring_mbar.log validation.log\\npython - <<'\\\"'PY'\\nfrom pathlib import Path\\nimport json,math\\nfor name in ['solve.py','sampler.cpp','reweight.py','README.md','VALIDATION.md']:\\n assert Path(name).is_file() and Path(name).stat().st_size>0\\nfor path in Path('.').glob('*.py'):\\n compile(path.read_text(),str(path),'exec')\\ncount=0\\nfor path in Path('validation_results').glob('*.json'):\\n data=json.loads(path.read_text())\\n if 'torque' not in data:continue\\n count+=1\\n assert path.stat().st_size<2**21\\n assert data['version']==1 and data['free_energy'][0]==0\\n for name in ['torque','free_energy','torque_sem','free_energy_sem']:\\n  assert len(data[name])==len(data['torque']) and all(math.isfinite(value) for value in data[name])\\n for name in ['torque_sem','free_energy_sem']:\\n  assert all(value>=0 for value in data[name])\\nprint('Final source checks and',count,'preserved output-contract checks passed.')\\nPY\\nls -lh; du -sh .; date\\\"` rejected: rm -f style commands are not permitted. Use a safer approach\")" }
+**Organizing submission files**
+
+I see that the remaining disk space is only 14MB, so I need to be careful. There's no need to take unnecessary risks. The user mentioned a "self-contained submission" with all scratch and build files, right? It sounds like separating them into a different `scratch` directory is a good idea. 
+
+Output limits aren’t a concern either. I should use the patch doc seed, create a directory, and move files instead of deleting them. The source paths all look good!
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/VALIDATION.md
+@@
+-An independent-seed run of "'`initial_interface_spring_01` used the default
++An independent-seed run of `initial_interface_spring_01` (seed 876053) used the default
+*** End Patch
+PATCH
+mkdir -p validation_results scratch
+mv test_*.json test_*.log long_spring.json long_spring.log recheck_spring00.json recheck_spring00.log validation_cluster.log validation_native.log validation_reweight.log benchmark.log isotropic_case.json isotropic_result.json validation_results/
+mv sampler check_native benchmark.model pair_isotropic.model pair_test.model repeat_case.json benchmark_*.txt pair_test_*.txt pair_isotropic.txt *.blocks.txt *.samples.npy spring_smoke.json spring_smoke.log spring_warm.json spring_warm.log spring_cluster.json spring_cluster.log spring_mbar.json spring_mbar.log validation.log scratch/
+python - <<'"'PY'
+from pathlib import Path
+import json,math
+for name in ['solve.py','sampler.cpp','reweight.py','README.md','VALIDATION.md']:
+ assert Path(name).is_file() and Path(name).stat().st_size>0
+for path in Path('.').glob('*.py'):
+ compile(path.read_text(),str(path),'exec')
+count=0
+for path in Path('validation_results').glob('*.json'):
+ data=json.loads(path.read_text())
+ if 'torque' not in data:continue
+ count+=1
+ assert path.stat().st_size<2**21
+ assert data['version']==1 and data['free_energy'][0]==0
+ for name in ['torque','free_energy','torque_sem','free_energy_sem']:
+  assert len(data[name])==len(data['torque']) and all(math.isfinite(value) for value in data[name])
+ for name in ['torque_sem','free_energy_sem']:
+  assert all(value>=0 for value in data[name])
+print('Final source checks and',count,'preserved output-contract checks passed.')
+PY
+ls -lh; du -sh .; date" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt
+ succeeded in 1941ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/pilots/free_energy/attempt/VALIDATION.md
+Final source checks and 9 preserved output-contract checks passed.
+total 76K
+-rw-rw-r-- 1 xuandong xuandong 6.2K Aug 27 19:08 README.md
+-rw-rw-r-- 1 xuandong xuandong 3.3K Aug 27 19:11 VALIDATION.md
+-rw-rw-r-- 1 xuandong xuandong  813 Aug 27 18:33 benchmark.py
+-rw-rw-r-- 1 xuandong xuandong 1.4K Aug 27 18:40 check_native.cpp
+-rw-rw-r-- 1 xuandong xuandong 5.3K Aug 27 18:56 reweight.py
+-rw-rw-r-- 1 xuandong xuandong  21K Aug 27 18:59 sampler.cpp
+drwxrwxr-x 2 xuandong xuandong 4.0K Aug 27 19:11 scratch
+-rw-rw-r-- 1 xuandong xuandong 6.0K Aug 27 18:42 solve.py
+-rw-rw-r-- 1 xuandong xuandong 3.5K Aug 27 18:30 validate.py
+-rw-rw-r-- 1 xuandong xuandong 3.1K Aug 27 18:56 validate_reweight.py
+drwxrwxr-x 2 xuandong xuandong 4.0K Aug 27 19:11 validation_results
+14M	.
+Thu Aug 27 19:11:00 PDT 2026
+
+Submission, scientific derivation, validation record, and reproducible checks are complete. Build and sampling artifacts are separated into scratch/, and nine preserved outputs pass the final contract checks.
+  ✓ Inspect cases and derive constrained sampler
+  ✓ Implement native sampling and thermodynamic integration
+  ✓ Validate equilibrium, accuracy, and runtime
+  ✓ Finalize self-contained submission and scientific notes
+codex
+Implemented `../attempt/solve.py:81` with native direction-constrained Monte Carlo, fluctuating magnetization magnitude, and symmetry-aware MBAR free energies.
+
+- Tested analytic limits, all six public cases, and independent-seed agreement.
+- Full-budget run: **536s wall, 546s CPU, 177 MiB RAM**.
+- Documentation and results: `../attempt/README.md:1` and `../attempt/VALIDATION.md:1`.
+
+Remaining scientific limitations are finite sampling, possible metastability, and insufficient ensemble overlap in harder cases.
+tokens used
+204,475
+Implemented `../attempt/solve.py:81` with native direction-constrained Monte Carlo, fluctuating magnetization magnitude, and symmetry-aware MBAR free energies.
+
+- Tested analytic limits, all six public cases, and independent-seed agreement.
+- Full-budget run: **536s wall, 546s CPU, 177 MiB RAM**.
+- Documentation and results: `../attempt/README.md:1` and `../attempt/VALIDATION.md:1`.
+
+Remaining scientific limitations are finite sampling, possible metastability, and insufficient ensemble overlap in harder cases.
