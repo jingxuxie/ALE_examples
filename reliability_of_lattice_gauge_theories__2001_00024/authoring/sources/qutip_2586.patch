@@ -1,0 +1,96 @@
+From e410210f1121276b66b1411afc75ccd42181ce09 Mon Sep 17 00:00:00 2001
+From: Eric Giguere <eric.giguere@calculquebec.ca>
+Date: Wed, 18 Dec 2024 11:02:49 -0500
+Subject: [PATCH] fix simdiag degen eigenval issue
+
+---
+ qutip/core/data/eigen.py    |  3 ++-
+ qutip/simdiag.py            | 21 +++++++++++++++++----
+ qutip/tests/test_simdiag.py |  9 +++++++++
+ 3 files changed, 28 insertions(+), 5 deletions(-)
+
+diff --git a/qutip/core/data/eigen.py b/qutip/core/data/eigen.py
+index a77f092b99..ae9dd13f80 100644
+--- a/qutip/core/data/eigen.py
++++ b/qutip/core/data/eigen.py
+@@ -239,8 +239,9 @@ def eigs_csr(data, /, isherm=None, vecs=True, sort='low', eigvals=0,
+ 
+     if vecs and isherm:
+         i = 0
++        degen_tol = (2 * tol or 1e-15 * data.shape[0])
+         while i < len(evals):
+-            num_degen = np.sum(np.abs(evals - evals[i]) < (2 * tol or 1e-14))
++            num_degen = np.sum(np.abs(evals[i:] - evals[i]) < degen_tol)
+             # orthogonalize vectors 1 .. k with respect to the first, then
+             # 2 .. k with respect to the second, and so on. Relies on both the
+             # order of each pair and the ordering of pairs returned by
+diff --git a/qutip/simdiag.py b/qutip/simdiag.py
+index 9277a38ccc..16b95273d2 100644
+--- a/qutip/simdiag.py
++++ b/qutip/simdiag.py
+@@ -41,8 +41,13 @@ def _degen(tol, vecs, ops, i=0):
+     return vecs_new
+ 
+ 
+-def simdiag(ops, evals: bool = True, *,
+-            tol: float = 1e-14, safe_mode: bool = True):
++def simdiag(
++    ops,
++    evals: bool = True, *,
++    tol: float = 1e-14,
++    safe_mode: bool = True,
++    use_dense_solver: bool = True,
++):
+     """Simultaneous diagonalization of commuting Hermitian matrices.
+ 
+     Parameters
+@@ -58,11 +63,16 @@ def simdiag(ops, evals: bool = True, *,
+     tol : float, default: 1e-14
+         Tolerance for detecting degenerate eigenstates.
+ 
+-    safe_mode : bool, default:  True
++    safe_mode : bool, default: True
+         Whether to check that all ops are Hermitian and commuting. If set to
+         ``False`` and operators are not commuting, the eigenvectors returned
+         will often be eigenvectors of only the first operator.
+ 
++    use_dense_solver: bool, default: True
++        Whether to force use of numpy dense eigen solver. When ``False``
++        sparse operators will use scipy sparse eigen solver which is not
++        appropriate for this use.
++
+     Returns
+     -------
+     eigs : tuple
+@@ -89,7 +99,10 @@ def simdiag(ops, evals: bool = True, *,
+             if (A * B - B * A).norm() / (A * B).norm() > tol:
+                 raise TypeError('Matrices must commute.')
+ 
+-    # TODO: rewrite using Data object
++    if use_dense_solver:
++        # Do not use sparse eigen solver.
++        ops = [op.to("Dense") for op in ops]
++
+     eigvals, eigvecs = _data.eigs(ops[0].data, True, True)
+     eigvecs = eigvecs.to_array()
+ 
+diff --git a/qutip/tests/test_simdiag.py b/qutip/tests/test_simdiag.py
+index 16fc6682e2..00743e0e3b 100644
+--- a/qutip/tests/test_simdiag.py
++++ b/qutip/tests/test_simdiag.py
+@@ -94,6 +94,15 @@ def test_simdiag_orthonormal_eigenvectors():
+     )
+ 
+ 
++def test_large_degenerate():
++    N = sum(
++        qutip.expand_operator((1 + qutip.sigmaz()) / 2, [2] * 6, i)
++        for i in range(6)
++    )
++    vals, vecs = qutip.simdiag([N, N])
++    assert len(np.unique(np.round(vals, 14))) == 7
++
++
+ def test_simdiag_no_input():
+     with pytest.raises(ValueError):
+         qutip.simdiag([])
