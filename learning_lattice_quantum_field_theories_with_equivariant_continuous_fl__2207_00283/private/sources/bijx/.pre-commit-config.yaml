@@ -1,0 +1,44 @@
+repos:
+
+- repo: https://github.com/PyCQA/isort
+  rev: 6.0.1
+  hooks:
+    - id: isort
+      args: [--profile=black, --filter-files]
+      exclude: ^.*/__init__\.py$
+
+- repo: https://github.com/psf/black
+  rev: 25.1.0
+  hooks:
+    - id: black
+      args: [--line-length=88]
+
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.12.10
+  hooks:
+    - id: ruff
+      args: [
+        "--fix",
+        "--show-fixes",
+        "--select=E,F,I,NPY,UP,N8,PT,SIM,ERA",
+        "--ignore=E203,ERA001",
+      ]
+      # Exclude __init__.py from F401 (unused import) checks and ipynb files
+      exclude: ^.*/__init__\.py$|.*\.ipynb$|docs/source/conf\.py$
+
+- repo: https://github.com/srstevenson/nb-clean
+  rev: 4.0.1
+  hooks:
+    - id: nb-clean
+      args:
+        - --preserve-cell-outputs
+        - --preserve-cell-metadata
+        - id
+        - --
+
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+  hooks:  # Basic sanity checks
+    - id: check-yaml
+    - id: end-of-file-fixer
+    - id: trailing-whitespace

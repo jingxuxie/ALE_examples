@@ -1,0 +1,1556 @@
+Non-Perturbative Trivializing Flows for Lattice Gauge Theories
+Mathis Gerdes∗
+Institute of Physics, University of Amsterdam
+Pim de Haan
+CuspAI
+Roberto Bondesan
+Department of Computing, Imperial College London
+Miranda C. N. Cheng †
+Institute of Physics, University of Amsterdam
+Institute for Mathematics, Academia Sinica, Taiwan and
+Korteweg-de Vries Institute for Mathematics, University of Amsterdam
+Continuous normalizing flows are known to be highly expressive and flexible, which allows for
+easier incorporation of large symmetries and makes them a powerful computational tool for lattice
+field theories. Building on previous work, we present a general continuous normalizing flow architec-
+ture for matrix Lie groups that is equivariant under group transformations. We apply this to lattice
+gauge theories in two dimensions as a proof of principle and demonstrate competitive performance,
+showing its potential as a tool for future lattice computations.
+CONTENTS
+I. Introduction 1
+II. Gauge Equivariant Continuous Flows 2
+A. Ordinary Differential Equations on Lie
+Groups 3
+B. Adjoint Sensitivity Method 3
+C. Numerical Integration 4
+D. Lattice Gauge Theory Flow 4
+III. Numerical Experiments 5
+A. Single-Variable Conjugation Equivariant
+Flows 5
+B. Pure Gauge Theory in Two Dimensions 6
+1. Flows on SU(2) lattices 6
+2. Flows on SU(3) lattices 7
+IV. Outlook 7
+Acknowledgments 7
+A. Adjoint Sensitivity Method 7
+1. Lie-Algebra Valued Adjoint State 8
+B. Gradient Implementation 9
+1. Gradients and Divergence of Loops 9
+C. Computational Cost of the Divergence 10
+D. Implementation of the Crouch-Grossman Runge
+Kutta integration method 10
+∗ m.gerdes@uva.nl
+† On leave from CNRS, France.
+E. Haar Measure and Sampling 11
+1. Haar Measure for Matrix Lie Groups 11
+2. Sampling from the Haar Distribution 11
+3. Haar Measure forSU(3) 11
+F. Markov Chain Monte Carlo & Observables 11
+References 13
+I. INTRODUCTION
+Lattice gauge theory is a cornerstone of theoretical
+physics, providing non-perturbative insights into quan-
+tum field theories such as Quantum Chromodynamics
+(QCD). Traditional computational methods like Markov
+Chain Monte Carlo (MCMC) [1] suffer from critical slow-
+ing down near phase transitions and in the continuum
+limit, leading to significant computational challenges [2].
+Normalizing flows are machine learning models that
+produce samples from a target distribution by learning a
+bijective transformation between an easy-to-sample dis-
+tribution and the target [3]. They have emerged as a
+fundamental approach to computing observables in lat-
+tice field theory, promising to accelerate computations by
+improving sampling efficiency and reducing autocorrela-
+tion times [4]. See [5, 6] for an overview.
+Explicitly preserving symmetries is crucial in design-
+ing efficient samplers based on normalizing flows. This
+is because symmetries allow one to restrict the class of
+possible bijective transformations to be learned, thereby
+reducing the sample complexity of the task. The im-
+portance of symmetries is especially pronounced when
+simulating lattice gauge theories, where the size of the
+gauge symmetry group grows rapidly with the lattice size.
+arXiv:2410.13161v2  [hep-lat]  19 Dec 2025
+2
+Given their high design flexibility, continuous-time nor-
+malizing flows [7] are a promising framework. This is to
+be contrasted with discrete flows [4, 8], where a partition
+of the lattice, with a partial breaking of the translation
+symmetry as a result, is required. For instance, in [9, 10]
+continuous-time flows equivariant to spatial symmetries
+have been developed for scalar field theories withϕ 4 cou-
+pling, reaching higher performance than their discrete-
+time counterpart. Other contexts in which continuous
+normalizing flows play a role in physics sampling include
+[11]. In the following, we shall simply refer to continuous-
+time flows as continuous flows and discrete-time flows as
+discrete flows.
+For gauge theories, discrete normalizing flows, such
+as those employing residual networks [12–14] and cou-
+pling layers [8], have been developed to respect gauge
+symmetries. In view of the above-mentioned benefits,
+it is desirable to explore continuous realizations of nor-
+malizing flows for lattice gauge theories. Exactly such
+a method was theoretically proposed by L¨ uscher in the
+name of “trivializing maps” for gauge theories in the
+foundational work [15], before the advent of the modern
+machine learning technology. In particular, the L¨ uscher
+flow is driven by a potential that is assumed to admit a
+perturbative expansion in flow time. The specific Ansatz
+of the L¨ uscher flow then dictates that this perturbative
+expansion in flow time is also a perturbative expansion in
+the inverse coupling constantβ(see (15)). In particular,
+it has the form ˜S=β P
+k(βt
+6 )k ˜S(k), where ˜S(k) is inde-
+pendent ofβ. Following this idea, a machine learning-
+enhanced implementation of such a trivializing flow was
+recently reported in [16], showing promising results in
+sampling quality. While effective, this approach did not
+make full use of the general expressive power of neural
+networks, constraining itself instead to a specific form of
+expansion closely following L¨ uscher’s original idea.
+Building on these developments, we present a flexible
+and fully equivariant framework for continuous normaliz-
+ing flows for lattice gauge theories. The goal of continu-
+ous flows is to learn the vector field driving the field trans-
+formation such that the endpoint of the flow gives a good
+approximation of the target density, in this case given in
+terms of the action. In contrast to the original Ansatz
+of L¨ uscher’s, the time dependence of the vector field in
+our flow is not constrained to be polynomial. Moreover,
+while retaining equivariance, we do not constrain the vec-
+tor field to be given by the gradient of a scalar potential.
+Most importantly, our framework allows for general neu-
+ral network architectures parameterizing the vector field,
+leading to more expressive machine-learning models. As
+a result, the vector field can in principle be an arbitrary
+function of the field configuration, limited only by the
+particular choice of architecture which has to be made in
+consideration of computational efficiency.
+In particular, our framework includes the flow of
+L¨ uscher [15] and its machine learning implementation
+[16] as special cases. The additional flexibility of our
+framework gives us the freedom to choose a more or less
+complex neural network, as appropriate for the given ap-
+plication, balancing the trade-off between expressiveness
+and computational cost.
+A feature of neural ODE allowing for efficient gradient
+computations is the adjoint sensitivity method, which we
+implemented in a general way. This approach allows for
+automatic differentiation and memory-efficient gradient
+computation for an arbitrary neural network architec-
+ture. This is combined with Crouch-Grossman Runge-
+Kutta integration schemes that can simultaneously pro-
+cess scalar and matrix group-valued degrees of freedom,
+ensuring numerical stability. Our implementation can be
+straightforwardly applied to any related integration prob-
+lem involving real numbers and matrix groups, and any
+loss functions.
+We used this framework to construct a novel contin-
+uous normalizing flow model for lattice gauge theories.
+Our method achieves state-of-the-art effective sample size
+– a metric quantifying the efficiency of the sampler –
+when benchmarked on sampling two-dimensional SU(2)
+and SU(3) lattice gauge theories. The integration and
+Lie group infrastructure developed for this study forms
+part of the broader flow library bijx [17]. Numerical data
+for the figures can be found at [18].
+II. GAUGE EQUIVARIANT CONTINUOUS
+FLOWS
+The aim of normalizing flows is to approximate samples
+from a target distribution, which in the present context
+is given in terms of the actionsSas
+p(U) = e−S(U)
+Z ,(1)
+where the partition functionZis a normalization con-
+stant.Uis a random variable that for lattice gauge the-
+ories takes value in SU(N)|E| with the number of edges is
+given by|E|=L ddfor a periodic square lattice with side
+lengthLin each of theddimensions. To sample from
+p, we initially draw samplesU∼ρ(U) from an easy-to-
+sample distribution, which we choose that associated to
+be the Haar measureDU. One then applies a bijective
+mapU7→U ′ = Φ(U) to obtain the output samples.
+This change of variables induces a probability distribu-
+tionq(U ′) on the proposed samplesU ′. To train the
+normalizing flow, crucially without having reliable sam-
+ples from the target distribution, we minimize the reverse
+Kullback-Leibler (KL) divergence
+Z
+DUq(U) log
+q(U)
+p(U)
+
+= logZ+E U∼qL(U),(2)
+where
+L(U) = logq(U) +S(U) (3)
+which we refer to as our loss function. Note that the
+partition function is a constant, and therefore drops out
+3
+when computing the gradient with respect to the network
+parameters, and that we only need to generate samples
+from the modelqand not the target distributionp. In
+practice, we will not be able to obtain a global minimum
+of the loss. We use the flow as the proposal distribution in
+a Metropolis-Hasting algorithm that guarantees asymp-
+totic exactness of the sampling process[4], in importance
+sampling [19], or in conjunction with Hamiltonian Monte
+Carlo [20].
+Continuous normalizing flows define the map Φ as
+the solution to an ordinary differential equation (ODE),
+whose vector field is given by a neural network. In con-
+trast to discrete flows, any sufficiently regular ODE is
+always invertible, and the change of density can be easily
+computed if the divergence of the vector field is numeri-
+cally tractable. This approach leads to highly expressive
+architectures that can be made to manifestly respect the
+symmetries of the target theory, leading to higher param-
+eter efficiency.
+In the following, we will present architectures for gauge
+equivariant normalizing flows that achieve state-of-the-
+art performance on two-dimensional pure gauge theory
+for both SU(2) and SU(3). We will first introduce the
+necessary notations and background in the following sec-
+tion. For simplicity, we will initially suppress the edge
+index and consider a single copy of SU(N) (or a matrix
+Lie groupGmore generally), as the statements can be
+easily generalized to the lattice setup.
+A. Ordinary Differential Equations on Lie Groups
+LetGbe a matrix Lie group andgthe corresponding
+Lie algebra. In the following, we will focus on the case
+G= SU(N), but most of the results straightforwardly
+apply to any matrix Lie group.
+Any tangent vectorV∈T UGat the pointU∈G
+can be decomposed in terms of a Lie algebra element
+Z∈gasV=ZU. Consequently, a neural ODE onG
+is defined in terms of a neural networkZ θ :G×R→g,
+with parametersθ, as
+˙U(t) =Z θ(U,t)U(t).(4)
+The Lie algebrag=su(N) is spanned by a set of basis
+vectors{T a}N 2−1
+a=1 , as SU(N) has dimensionalityN 2−1.
+For instance, forG= SU(2) we useT a =iσ a, whereσ a
+are the Pauli matrices, while forG= SU(3) we useT a =
+iλa, whereλ a are the Gell-Mann matrices. Requiring
+these vectors to form an orthonormal basis, the metric is
+fixed to have the normalization
+⟨A,B⟩=−tr(AB)/2.(5)
+Correspondingly, a basis for tangent spaceT UGat the
+pointUis given by{T aU}a.
+We can define the directional derivative of a function
+f:G→Ras
+∂af(U) = d
+dt
+
+t=0
+f
+ 
+etTaU
+
+.(6)
+The gradient off, which yields a tangent vector atU, is
+then given as
+∇f(U) =
+X
+a
+∂af(U)T aU.(7)
+Consider now the situation when the initial point
+U(0)∈Gis sampled from a certain distributionq 0 on
+G, and evolves following the ODE of equation (4) up to
+timeT. The resulting distributionq T ofU(T), incor-
+porating the change of density induced by the flow, also
+solves an ODE.
+Denoting the log-likelihood asL(t,U) = logq t(U)
+and writing the right-hand side of the ODE (4) as
+Zθ(U,t)U(t) = P
+aZa
+θ (t,U)T aU(t), we have [21, 22]
+L(T,U) =L(0,U)−
+Z T
+0
+∇· ˙U(t,U) dt ,(8)
+where the divergence can be computed using the Lie al-
+gebra basis as
+∇· ˙U(t,U) =
+X
+a
+∂aZa
+θ (t,U).(9)
+In the form of an ODE, this is
+˙L=−∇· ˙U(t,U).(10)
+In the application in lattice gauge theories,Uwill be
+replaced by a collection of group elements{U e}e, one for
+each edge of the lattice.
+B. Adjoint Sensitivity Method
+The adjoint sensitivity method is a way of comput-
+ing gradients through the solution of an ODE. Below
+we will give a general version of the adjoint sensitivity
+method. The generality of the mathematical equations
+(11) and (12) here is reflected in our implementation
+of the method, which can be used for any loss and on
+any manifold as long as it can be embedded inC n. We
+also record the explicit form this takes in equations (13)
+and (14) for the special case of integrating on matrix Lie
+groups with the KL divergence loss, as they are relevant
+for the lattice gauge theory application in the context of
+normalizing flows. Further details and explanations as
+well as the derivation of the specialized expressions can
+be found in the Appendix A, and alternative treatments
+can be found in [16, 23, 24].
+For a general flow on a manifoldMgiven by the ODE
+˙z=fθ(z),z∈M, the gradient of the lossL(z(T)) given
+a fixed initial valuez(0) can be computed using
+dθL(z(T)) =−
+Z 0
+T
+a(t)◦d θfθ(t,z(t)) dt ,(11)
+by integrating backwards fromT. This uses the auxiliary
+adjoint statea(t), which is formally a cotangent vector
+4
+(0) (1) (2) (3) (4) (5) (6) (7)
+FIG. 1. Loops used in the ODE architecture. The first two loops, highlighted in red, are used for the non-linear superposition
+function. The anchor in the dual lattice is displayed as a dot.
+ofM. It is initialized asa(T) =d zL
+
+z(T) and solved for
+simultaneously using
+˙a(t) =−a(t)◦d zfθ
+
+z(t). (12)
+Here, we have used the more abstract notation from dif-
+ferential geometry. See for instance [25] for an introduc-
+tion for physicists. In particular, forφ:M→M ′,dφ
+denotes the corresponding differential mapdφx :T xM→
+Tφ(x)M′ on the tangent spaces, “◦” denotes the compo-
+sition of maps, and we routinely treat a cotangent vector
+v∈T ∗
+xMas a mapv∈T xM→R.
+For our particular problem, the adjoint state can be
+reduced to an element of the Lie algebra (i.e. for SU(N)
+embedded inC n as a skew-symmetric traceless matrix),
+that follows the ODE
+˙A= [Z,A] +∇(∇· ˙U)U−1−
+X
+a
+Aa(∇Za)U−1.(13)
+Again, it is initialized asA a(T) =∂ aL(U(T)), where we
+have specified to the lossLfrom (3), withq=q T the
+distribution at timeT. After solving the ODE forA, the
+gradient of the loss is computed as
+∂θL(U(T)) =−
+Z 0
+T
+ 
+⟨A(t),∂θZ⟩−
+X
+a
+∂θ∂aZa
+!
+dt .
+(14)
+A derivation of this from the general statement above can
+be found in the appendix.
+C. Numerical Integration
+Central to implementing the continuous flows for gauge
+theories is to define an integration scheme that works si-
+multaneously for Lie group and scalar-valued degrees of
+freedom. The former is required for the field configura-
+tions themselves, while the latter arises for the proba-
+bility densities as well as the gradients with respect to
+parameters in the adjoint sensitivity method. In princi-
+ple, the adjoint state additionally introduces the tangent
+space, which we could identify as a Lie algebra element
+and treat separately. However, for our implementation
+we treat it simply as an element of the ambient complex
+space.
+In principle, the Lie group elements themselves could
+also be treated as elements of the ambient space. How-
+ever, a discrete integration scheme would inevitably re-
+sult in paths leaving the target manifold. Including pro-
+jection steps could address this, but the need to reli-
+ably estimate the change of density makes this naive ap-
+proach unwieldy. We, therefore, implement a Crouch-
+Grossmann Runge-Kutta method [26, 27], which can be
+defined for any matrix group and result in paths that re-
+main in the desired submanifold up to numerical error.
+The algorithm is briefly outlined with further technical
+details in section D of the appendix.
+D. Lattice Gauge Theory Flow
+In this section, we describe in some detail our choice for
+the neural vector field. In pure gauge theories on the lat-
+tice with gauge groupGand square latticeV L∼= (Z/LZ)d
+with oriented edges connecting the adjacent vertices, the
+field configuration consists ofU e ∈Gfor each edgee.
+Reversing the direction of the edge givesU −e =U−1
+e .
+The target probability density is given by the Wilson
+action
+S(U) =− β
+N
+X
+x∈VL
+X
+µ<ν
+Re[trPµν(x)],(15)
+whereP µν(x) are the plaquettes, namely the product of
+Ualong edges forming the smallest closed loops. Here,
+xdenotes the initial vertex, andµandνare the two
+directions that the loop spans. We only include one ori-
+entation by requiringµ<νwith bothµandνpointing in
+the positive direction. An illustration is given in FIG. 1
+(0).
+For any given Ω :V→Gwe denote the corresponding
+gauge transformation as Ω·U. For instance, we have
+Ue7→(Ω·U) e = ΩxiUe Ω−1
+xf (16)
+wherex i/f represent the starting/end-point of the edge
+e. Note that the traces of Wilson loops, and hence the
+Wilson action, are invariant under the above gauge trans-
+formation.
+The guiding idea for constructing our continuous flow
+architecture is that the gradients of gauge-invariant
+5
+quantities, such as traces of loopsW, are gauge equivari-
+ant:
+∇eW
+U7→Ω·U
+7−−−−−→Ωxi(∇eW)Ω−1
+xf .(17)
+which is the precisely property we require of the vector
+fieldZθ(U,t)U(t) defining the ODE (4) for our continuous
+normalizing flows.
+In terms of the directional derivatives, i.e. transporting
+the above back by right multiplication to the Lie algebra,
+this is equivalent to
+∂e
+aW7→Ω xi(∂e
+aW)Ω−1
+xi .(18)
+If the ODE is gauge equivariant, then transformation
+commutes with the normalizing flow map. Since the
+prior we choose (the Haar measure) is by definition
+gauge-invariant, the generated probability distribution
+will automatically be gauge-invariant, namelyq T (U) =
+qT (Ω·U), just like the target Wilson action.
+We will now use the Wilson loops as building blocks of
+our vector field. To build a sufficiently expressive ODE,
+we must use a larger set of loops than just the plaquettes.
+We denote the traces of loops of some (to be specified be-
+low) class (k) asW (k). FIG. 1 shows the specific classes
+of loops we consider for our experiments in two dimen-
+sions. Instead of the lattice vertices, we will use elements
+of the dual lattice as anchor points of the Wilson loops,
+denoted as ¯xand shown in the figure as dots, as this
+better reflects the symmetries of the loops. InW (k) we
+include all spatial alignments and shifts that keep the
+original anchor point enclosed in the loop and leave the
+orientation of the loop invariant. For instance, for each
+anchor point ¯xin two dimensions,W (0) gives rise to one
+trace value, namely the plaquetteW 1
+(0) = trP 01, while
+W(1) andW (3) each gives rise to four (corresponding to
+up, down, left, right).
+Concretely, we build the neural ODE by taking a su-
+perposition of the vectors∂ e
+aWwith coefficients depend-
+ing on gauge invariant quantities, which in particular in-
+clude any element ofW (k). To allow for efficient compu-
+tation of the divergence, which is needed to compute the
+change of density, we use a shallow architecture that first
+applies a neural network locally in ¯xto a subset ofW, fol-
+lowed by a convolution in ¯xthat introduces non-local cor-
+relations. This way the divergence computation can be
+done inO(|E|) time, while for general gauge invariant co-
+efficients, it would takeO(|E| 2) time. See section C of the
+appendix. Writing, as before, ˙Ue =P
+aZa
+e (t,U)T aUe, we
+define
+Za
+e (t,U) =
+X
+k,¯x
+ 
+∂e
+aWk(¯x)
+
+Λk
+¯x(t,W),(19)
+with Λ(t,W) a time-dependent convolution of features
+obtained fromWby locally applying a neural network
+at each anchor point ¯y:
+Λk
+¯x= ˆΛk(t) +
+X
+j,¯y
+Ckj
+¯x¯y(t)gj
+¯y(t,W(¯y)),(20)
+whereC(t) is a time-dependent convolution kernel, ˆΛk(t)
+are field-independent learnable parameters, andgrepre-
+sents a neural network.
+We found that this parametrization is expressive while
+still allowing for a tractable divergence computation, as
+required for the change of density computation. Fur-
+ther details of the architecture used in our experiments
+can be found in section III B, where it is applied to two-
+dimensional pure gauge theories.
+III. NUMERICAL EXPERIMENTS
+A. Single-Variable Conjugation Equivariant Flows
+0
+Flow
+0
+0
+T arget
+0
+ 0
+10 5
+ 10 4
+ 10 3
+ 10 2
+ 10 1
+ 100
+FIG. 2. Comparison of the SU(3) densities atβ= 9 in terms
+of angular coordinates for the three conjugation equivariant
+targets listed in table I and the respectively trained continu-
+ous normalizing flows.
+To highlight the flexibility of continuous flows and their
+expressive power, we first repeat the experiment in [8]
+and use flows to learn a conjugation-invariant density on
+a single copy of SU(N). Specifically, we use three different
+families of target actions of the form
+S(i)(U) =− β
+N Re tr
+
+c(i)
+n Un
+
+(21)
+with the sets of valuesc (i) as shown in table I.
+TABLE I. Table of coefficientsc(i) for the conjugation equiv-
+ariant target actions of equation (21). These are the same
+values as used in [8].
+Target (i)c (i)
+1 c(i)
+2 c(i)
+3
+0 1 0 0
+1 0.17 -0.65 1.22
+2 0.98 -0.63 -0.21
+6
+We parametrize the ODE using a time-dependent po-
+tential denotedP θ, which we learn as a neural network:
+˙U=∇P θ(t,U).(22)
+The gradient and the Laplacian, needed for the change of
+density computation following (10), are both computed
+using automatic differentiation, which is feasible as we
+only consider a single SU(N) matrix here.
+To ensure that the defined flow is conjugation equiv-
+ariant, we define the potential exclusively in terms of
+conjugation invariant quantities. First, we construct 64
+time features by applying the sin-function with individ-
+ually learnable frequencies tot, followed by a dense layer
+with 64 features. ForU-dependent features, we use ab-
+solute, real, and imaginary parts of tr(U n) for powers
+n= 1... n max. Specifically, we use
+|tr(U n)|,Re tr(U n),(Re tr(U n))2,
+Im tr(Un),(Im tr(U n))2.
+(23)
+The time andU-dependent features are then concate-
+nated and processed by a ResNet of width 512 and ac-
+tivation functiongelubefore being projected to a single
+real value representing the potentialP θ.
+For targetc (1) we used ResNet depth 3 andn max =
+2, while for the other two targets we used depth 3 and
+nmax = 4.
+Leveraging the continuous nature of our normalizing
+flows, we train a single potential for each type of target
+and match the flow timetwith the target inverse temper-
+atureβasβ(t) = 9·t. For training, we use 4 randomly
+drawn end timesTand corresponding betas uniformly in
+T∈[0.1,1] and evaluate the KL loss on 1024 samples for
+each.
+The densities evaluated in angular coordinates (see ap-
+pendix E for details) of the flow shown in FIG. 2 match
+the target densities visually to high accuracy. Similarly,
+FIG. 3 shows that the flows are able to approximate the
+target density for the whole range of targetβvalues to
+high accuracy as measured by effective sample size (ESS).
+2 4 6 8
+0.6
+0.8
+1.0ESS
+c(1) Contin.
+c(1) Discrete
+c(2) Contin.
+c(2) Discrete
+c(3) Contin.
+c(3) Discrete
+FIG. 3. Effective sample size along the flow time of trained
+normalizing flows for each of the three families of target dis-
+tributions listed in table I in comparison to the ESS achieved
+by the individual discrete flows from [8].
+B. Pure Gauge Theory in Two Dimensions
+To demonstrate the feasibility of the model, and in
+particular the model architecture described in equation
+(19), we performed experiments on two-dimensional pure
+gauge theory (15) for SU(2) and SU(3), achieving state-
+of-the-art or better effective sample sizes. Table II shows
+the result of training for a 16×16 lattice, comparing
+to previous discrete [8] and continuous [16] architectures.
+Table III shows results for SU(3) on a smaller 8×8 lattice
+but for larger values ofβ.
+In contrast to previous work [8, 16], we have found that
+initially using a smaller batch size of 32 and increasing
+this after some steps helps to speed up training. Con-
+cretely, we train using a second-order Crouch-Grossmann
+integrator with 40 steps in 32-bit mode until training ap-
+proximately converged, then switching to 64-bit mode
+and a batch size of 128. ESS evaluation was done in each
+case in 64-bit mode and using 40 steps of a third-order
+Crouch-Grossmann method.
+We will now outline in more detail the architectures
+used for SU(2) and SU(3) flows, respectively.
+TABLE II. Effective sample sizes for normalizing flows for
+SU(2) andSU(3) on 16×16 lattice compared to previous
+work. Best values in bold.
+SU(2) SU(3)
+ESS [%]β= 2.2β= 2.7β= 5β= 6β= 8
+Continuous flow87 688676 23
+Bacchio et al [16] – –8870 –
+Boyda et al [8] 80 56 75 48 –
+TABLE III. Effective sample sizes for normalizing flows for
+SU(3) on 8×8 lattice compared to previous work. Best values
+in bold.
+ESS [%]β= 8β= 12
+Continuous flow64 27
+Multiscale + flow [28] 35 13
+Haar + flow [28] 25 3
+1. Flows onSU(2)lattices
+When applying the general form of the architecture
+in (19) above to the specific experiments described here,
+we only used the first two classes of loops, shown in red
+in FIG. 1, as input to the neural network that defines
+the superposition coefficients Λ. Moreover, as we sum
+over the anchor points ¯x, to avoid redundancy we do
+not include all shifted copies of the Wilson loops in the
+gradients∇ eW. We therefore denote by ˜W(i) the subset
+of tracesW (i) where we pick one representative of each
+7
+set of shifted loops. For example, ˜W(1)(¯x) contains two
+instead of four values for each anchor point.
+LetW (i1:i2) denote the union ofW (i1),...,W (i2). The
+architecture of the neural ODE used in our experiments
+is then given by
+Za
+e (t,U) =
+X
+k,¯x
+
+∂e
+a ˜Wk
+(0:7)(¯x)
+
+Λk
+¯x
+ 
+t,W (0:1)
+
+,(24)
+where the superposition coefficients are
+Λk
+¯x= ˆΛk(t) +
+X
+j,¯y
+Ckj
+¯x¯y(t)gj
+¯y
+ 
+t,W (0:1)(¯y)
+
+.(25)
+Note that for SU(2) all tracesWare real numbers, and
+can be directly input into conventional dense neural net-
+works.
+We parametrizegas a ResNet of depth 3, width 128,
+and withgeluactivation function. The time depen-
+dence is introduced by first applying a set of 16 uniformly
+shifted Gaussian density functions totfollowed by a sin-
+gle dense layer with output size 16 to generate a set of
+featuresK l
+g(t) withl= 1,...,16.
+The convolution kernel is chosen to be of size 5×5.
+The time dependence is introduced by having 16 copies
+of parameters and contracting them withK l
+C(t) which
+is constructed as above but with independently trainable
+parameters in the dense layer. The number of output
+features ofgand thus input features ofC, indexed byj
+in equation (25), are chosen to be 24.
+2. Flows onSU(3)lattices
+The architecture for SU(3) is qualitatively the same as
+for SU(2). However, in this case, the traces of loops are
+generally complex. For the input of the networkgwe use
+ReW (0:1) and
+ 
+ImW (0:1)
+2
+. The latter is chosen to reflect
+the parity symmetry of the theory. Similarly, We have
+two output channels in the convolution corresponding to
+the imaginary and real parts of the gradients∂W. The
+final form of the architecture is then
+Za
+e (t,U) =
+X
+k,¯x
+Re
+
+∂e
+a ˜Wk
+(0:7)(¯x)
+
+Λ(R)k
+¯x
+ 
+t,W (0:1)
+
++
+Im
+
+∂e
+a ˜Wk
+(0:7)(¯x)
+
+Dkj ImWj
+(0:1)
+
+Λ(I)k
+¯x
+ 
+t,W (0:1)
+
+,
+(26)
+where we ensure parity symmetry by introducing a dense
+matrixD, and with the two superposition factors similar
+to the above:
+Λ(∗)k
+¯x = ˆΛ(∗)k(t) +
+X
+j,¯y
+C(∗)kj
+¯x¯y (t)gj
+¯y
+ 
+t,W (0:1)(¯y)
+
+. (27)
+The time dependence and network architecture are the
+same as those specified above for SU(2).
+IV. OUTLOOK
+In this work, we introduced a gauge-equivariant con-
+tinuous normalizing flow framework for lattice gauge
+theories. Our method demonstrates competitive effec-
+tive sample sizes (ESS) when applied to two-dimensional
+SU(2) and SU(3) pure gauge theories, outperforming pre-
+vious discrete and continuous approaches.
+In machine learning literature, the idea of guiding the
+continuous flow to achieve more stability and accuracy
+has been discussed in various works [29, 30]. In our exper-
+iment on a single Lie group flow, we have briefly explored
+the method matching the flow time to a predetermined
+evolution of target density and obtained encouraging pre-
+liminary results. It would be extended to lattice gauge
+theories, connecting to related work of stochastic normal-
+izing flows [31] that have shown promising results also in
+higher spatial dimensions [32, 33].
+Scaling up normalizing flows to larger lattice sizes re-
+mains a challenge [34, 35]. We believe that the broad
+class of continuous equivariant normalizing flows devel-
+oped in this paper constitutes a promising tool for achiev-
+ing large-scale flow-based lattice simulations. To facili-
+tate scaling, the incorporation of methods such as multi-
+scale sampling [28], transfer learning [10] and other hier-
+archical generation and transfer learning ideas should be
+further explored.
+In this work, we have limited ourselves to simple dense
+networks when designing neural networks employed to
+construct the neural ODE. It would be interesting to ex-
+plore other network architectures, including the recently
+proposed gauge equivariant convolutional networks [36],
+in the future. Finally, it will be useful to extend the
+present work to include field theories with fermions.
+ACKNOWLEDGMENTS
+We thank Niki Stratikopoulou for helpful discussions.
+The research of MG and MC is supported by the Vidi
+grant (number 016.Vidi.189.182) from the Dutch Re-
+search Council (NWO). MG was partially supported by
+a project that has received funding from the European
+Research Council (ERC) under the European Union’s
+Horizon 2020 research and innovation programme (Grant
+agreement No. 864035).
+Appendix A: Adjoint Sensitivity Method
+For a smooth manifoldM, we consider the ODE ˙z=
+fθ(t,z)∈T zMwhereθrepresents some set of trainable
+parameters. Let Φ be the associated flow map with the
+properties
+d
+dsΦt,s(z)
+
+s=0
+=f θ(t,z) (A1a)
+Φt+s,s′◦Φt,s = Φ t,s+s′,(A1b)
+8
+and with the boundary condition Φ t,0(z) =z. From the
+above, it is clear that the map Φ depends on the trainable
+parametersθthrough the form of the ODE.
+Given a loss functionL:M→R, we are interested
+in computing∂ θL(z(T)) wherez(T) = Φ 0,T (z(0)) given
+a fixed initialz(0). At the final timeT, the deriva-
+tivedL| z(T) measures the sensitivity of the loss to small
+changes in the final valuez(T). Formally, it is a cotan-
+gent vectordL| z(T) ∈T ∗
+z(T)Mwhich linearly maps vec-
+tors inT z(T)Mto a real number. To compute it, one
+needs to take into account the effect of changing the ODE
+at all earlier timest<T. To this end, we define an aux-
+iliaryadjoint statea(t)∈T ∗
+z(t)Mdefined as follows:
+a(t) :=d(L◦Φ t,T−t )
+
+z(t) =dL
+
+z(T)◦dΦt,T−t
+
+z(t).(A2)
+LikedL| z(T) , the cotangent vectora(t) is a linear map
+from a tangent vector inT z(t)Mto a real number. It
+captures the sensitivity of the loss to (infinitesimally)
+perturbingz(t) in the direction of the tangent vector,
+then flowing with the ODE to timeT, and evaluating
+the loss. More explicitly, this means
+a(t)(X) =dL
+
+z(T) (dΦt,T−t (X)) (A3)
+for allX∈T z(t)M, where
+dΦt,T−t
+
+z(t) :T z(t)M→T z(T)M(A4)
+is the differential map associated to Φ t,T−t . Formally,
+a(t) is the pullback ofdLunder the flow map Φ:
+a(t) = Φ∗
+t,T−t dL.
+To obtain an equation fora(t), we take the derivative
+with respect tot. First, observe that
+a(t−s) =d(L◦Φ t,T−t◦Φt−s,s) =a(t)◦dΦ t−s,s (A5)
+which follows from the composition property (A1b) and
+the chain rule. Then, using that the derivatives with
+respect tozandtcommute and property (A1a) we can
+take the time derivative to get:
+˙a(t) =− d
+dsa(t−s)
+
+s=0
+=−a(t)◦d
+ d
+dsΦt−s,s
+
+z(t−s)
+
+s=0
+=−a(t)◦df θ
+
+z(t)
+(A6)
+Note that we also use here that the tangent space is a
+vector space, and as such its tangent space can be iden-
+tified with itself. If we letz(t) vary inMand consider
+aas a section of the cotangent bundle, ˙athen lies in its
+vertical bundle.
+Using this, we can solve for the adjoint state by inte-
+grating the ODE (A6) backwards in time, starting from
+z(T) and the initial valuea(T) =dL
+
+z(T) . Given the ad-
+joint state, the derivative with respect to parameters is
+computed simultaneously as
+dθL(z(T)) =−
+Z 0
+T
+a(t)◦d θfθ(t,z(t)) dt ,(A7)
+as explained in [21].
+1. Lie-Algebra Valued Adjoint State
+We will show how the explicit equation of (13) for the
+adjoint state, represented as a Lie algebra element, fol-
+lows from the general expression in equation (12).
+We consider an ODE onM=G×Rwhose elements
+we denotez= (z (1),z (2)) = (U,L) whereL ∈Rrep-
+resents the log-likelihood. In particular we may have
+G= SU(N)|E|, but to improve legibility we will suppress
+the lattice index onU∈Gbelow.
+The ODE ˙z=f θ is given byf θ = ( ˙U, ˙L), and using
+the ODE forLof equation (10) we have:
+˙U=Z(t,U)U=
+X
+a
+Za(t,U)T aU,(A8a)
+˙L=−∇ U· ˙U=−
+X
+a
+∂aZa(t,U).(A8b)
+We integrate this forward in time fromt= 0 tot=T
+with the initialU(0) drawn from the Haar priorq 0(U) =
+ρ(U) andL(0) = logρ(U(0)). Our loss function has the
+specific form
+L(U,L) =S(U) +L,(A9)
+which we evaluate atz(T) = (U(T),L(T)). Note that as
+our manifoldMis a product space, its cotangent space
+at any given pointzcan be split into an element inT ∗
+z(1)G
+andT ∗
+z(2) R∼= R, and we can use the notationd U anddL
+to indicate the corresponding operators in the two spaces.
+Thus, we have
+a(T) =a (1)(T) +a (2)(T)
+a(1)(T) =d US, a (2)(T) =d LL= 1.
+(A10)
+We havedf θ = (d ˙U,d ˙L) and both vector fields only
+have explicit dependence onU, so we havedf θ =d Ufθ.
+To obtain the specific form of ˙a(t) from the genral form
+of equation (A6) we compute
+dU ˙Ue =d U(ZU) = (dUZ)U+Zd UU,(A11a)
+dU ˙L=−d U(∇U· ˙U).(A11b)
+This implies that the adjoint state satisfies
+˙a=−a◦d zfθ
+=−a◦(d U(ZU),0) +a◦(0,d U(∇U· ˙U))
+= ˙a(1) + ˙a(2),
+(A12)
+9
+where we split ˙ainto
+˙a(1) =−a (1)◦dU(ZU) +a (2)◦dU(∇U· ˙U),(A13a)
+˙a(2) = 0,(A13b)
+as the component in the vertical bundle ofT ∗GandT ∗R
+respectively. Thus, given the initial conditiona(2)(T) = 1
+we havea (2)(t) = 1 for all times, and we are left with
+˙a(1) =−a (1)◦dU(ZU) +d U(∇U· ˙U).(A14)
+Recall thata (1)(t)∈T ∗
+U(t)G. In view of the decompo-
+sition mentioned above (4) and givenU(t), we can equiv-
+alently define ˜a(1)∈g∗ such that for allv∈gwe have
+˜a(1)(v) =a (1)(vU), namely ˜a(1) =a (1)◦r U wherer U
+denotes right-multiplication byU=U(t). We thus have
+d
+dt˜a(1) = ˙a(1)◦rU +a (1)◦rZU ,(A15)
+where we have used ˙U=ZU. Using the scalar product
+which gives an isomorphismg ∗ →g, we can represent
+˜a(1)(t) as a Lie algebra elementA(t) such that
+˜a(1)(t)(v) =a (1)(t)(vU) =⟨A(t),v⟩ ∀v∈g.(A16)
+Similarly, defining the gradient∇ Uh∈T UGof a scalar
+functionhas
+dUh(vU) =⟨∇ UhU−1,v⟩,(A17)
+the initial condition is then given byA(T) =∇ US. In
+terms of the explicit orthonormal basis{T a}, we have
+A(T) = P
+a(∂aS)TaU.
+Following a straightforward calculation using the above
+relations and expressing the bilinear form as trace (5), we
+finally obtain the adjoint state ODE
+˙A= [Z,A]+∇ U(∇U· ˙U)U−1−
+X
+a
+Aa∇UZaU−1,(A18)
+where [Z,A] is the commutator and theaindex is the
+component with respect to the Lie algebra basis. In terms
+of explicit basis{T a}a forgand the dual basis{T a}a for
+g∗, we have ˜a(1)(t) = P
+aAaTa andA(t) = P
+aAaTa.
+Then (A15) acting onv∈ggives
+X
+a
+va ˙Aa =
+X
+a,b
+(−Aavb∂bZa +∂a∂bZb)−
+X
+a
+Aa⟨Ta,[v,Z]⟩,
+which becomes, upon using the cyclic property of the
+trace,
+˙Aa =
+X
+b
+(−Ab∂aZb +∂a∂bZb) +⟨Ta,[Z,A]⟩(A19)
+which is precisely (A18). To translate the general loss
+integral (11) , repeated here:
+dθL(z(T)) =−
+Z 0
+T
+a(t)◦d θfθ(t,z(t)) dt ,(A20)
+into the specialized expression (14), we simply specialize
+to the casedf θ = (d ˙U,d ˙L). With ˙U=ZUwe get
+a(1)◦dθ ˙U=⟨A(t),∂ θZ⟩
+a(2)◦dθ ˙L=−
+X
+a
+∂θ∂aZa (A21)
+and thus the loss is computed as
+∂θL(z(T)) =
+Z 0
+T
+ 
+−⟨A(t),∂θZ⟩+
+X
+a
+∂θ∂aZa
+!
+dt
+=
+X
+a
+Z 0
+T
+(−Aa(t)∂θZa +∂θ∂aZa) dt .
+(A22)
+Appendix B: Gradient Implementation
+In practice, we implement the adjoint sensitivity
+method under the assumption thatMis embedded in
+Cn for some integern, and that we represent the values
+as elements of this ambient space. This is in particular
+the case for matrix Lie groups such as SU(N), product
+manifolds thereof, and the real numbers that represent
+the log-density of samples. The implementation makes
+heavy use of JAX’s [37] Jacobian-vector product (JVP,
+also known as forward mode) and vector-Jacobian prod-
+ucts (VJP, also known as reverse mode). Given a function
+f:C m7→C n, these generate new functions
+JVP(f) :TC m→TC n, v7→df(v)
+VJP(f) :T ∗Cn→T ∗Cm, c7→c◦df.
+(B1)
+NumericallyT ∗Cm→∼=TCm∼= Cm, and the action of a
+dual space elementc∈T ∗Cm onv∈TC m is simply the
+inner productc·v∈ConC m. In particular, for a real
+functionh:C m7→R, the cotangentdhcan be obtained
+via VJP with cotangent 1∈C ∼= T∗Cas input. With
+these operations, the adjoint sensitivity method can thus
+be implemented in full generality.
+1. Gradients and Divergence of Loops
+For traces of loops, the gradient and second derivatives
+needed to compute the neural ODE and its divergence
+can be efficiently computed by inserting Lie group gen-
+erators into the product of group elementsU e labeled by
+the edgese.
+10
+If a loop has the form
+W= tr(U e1...U ei...U en),(B2)
+the directional derivative∂ ei
+a acts onU ei as∂ ei
+a Uei =
+TaUei and∂ ei
+a Uej = 0 fori̸=j. Then for the loop we
+have
+∂ei
+aW= tr(U e1...T aUei...U en),(B3)
+with a sum over all occurrences ifU ei appears in more
+than one place. ForU −1
+ei =U †
+ei, using the fact that
+the generators are skew-symmetric, we have∂ ei
+a U†
+ei =
+(TaUei)† =−U †
+eiTa. Once these directional deriva-
+tives are computed, they can be propagated through the
+derivative of the neural network as described above. For
+the divergence, one has to trace overeanda. The pri-
+mary challenge in the implementation is to efficiently
+keep track of the combinatorics of where edge elements
+appear and to avoid redundant computations for the sec-
+ond derivatives arising from the divergence calculation.
+Appendix C: Computational Cost of the Divergence
+To understand the role of architecture in relation to
+the computational cost of the divergence, first consider a
+simpler scalar vector field
+˙ϕx =f x(ϕ,t).(C1)
+Computing the divergence
+∂
+∂ϕx
+fx(ϕ,t) (C2)
+for a genericfwould require one automatic differenti-
+ation call per lattice site valuex, regardless of whether
+forward or backward mode is used. LetNbe the number
+of such sites (i.e. the size of the vectorsϕandf(ϕ)). As
+fis a function ofNvariables, its computational cost will
+scale asO(N) in the best case. A single backward or
+forward pass would thus also scale linearly inN. Since
+the full divergence computation requiresNbackward or
+forward passes, this leads to a total computational cost
+for the divergence ofO(N 2).
+If the analytic form offis known and chosen appro-
+priately, it may be used to reduce this computational
+cost. Before considering our gauge field architecture,
+we can illustrate this in the following toy example. Let
+fx(ϕ) = P
+y,iMi
+xy sin(ωiϕy). It is clear the divergence
+is in fact cheaper to evaluate than the vector field it-
+self:∂f x/∂ϕx = P
+iMi
+xxωi cos(ωiϕx). This simplifica-
+tion arises from the linear mapMand the “locally” ap-
+plied function sin. However, a black-box application of
+automatic differentiation for the divergence would not
+be able to exploit this fact, leading to a large amount of
+redundant computations.
+Now, recall the general architecture of equation (19):
+Za
+e (t,U) =
+X
+k,¯x
+ 
+∂e
+aWk(¯x)
+
+Λk
+¯x(t,W).(C3)
+Applying the chain rule, after differentiating with respect
+to the same link and Lie algebra component (i.e. applying
+∂e
+a), the divergence becomes:
+∂e
+aZa
+e (t,U) =
+X
+k,¯x
+ 
+∂e
+a∂e
+aWk(¯x)
+
+Λk
+¯x(t,W) +
+X
+k,¯x
+X
+j,¯y
+ 
+∂e
+aWk(¯x)
+ 
+∂e
+aWj(¯y)
+ ∂
+∂Wj(¯y)Λk
+¯x(t,W).
+(C4)
+The cost of taking the second derivative of the Wilson
+loops for a given edgeedoes not increase with the lat-
+tice size, at least when the choice of included loops is
+held constant. We can thus focus on the second term.
+Since not all Wilson loops contain the linkU e, the sums
+over ¯xand ¯ydo not scale with|E|. Thus, the num-
+ber of derivatives∂Λ/∂Wthat need to be taken for any
+given edge remainsO(1). However, if the network Λ is
+a black box, these derivatives still have to be computed
+with automatic-differentiation for each lattice site. Since
+Λ is generically a function of all field variables, this may
+still scale asO(|E| 2) – a function of|E|variables evalu-
+ated|E|times.
+The final simplification arises from the shallow form
+Λk
+¯x= ˆΛk(t) +
+X
+l,¯z
+Ckl
+¯x¯z(t)gl
+¯z(t,W(¯z)).(C5)
+Applying the derivative:
+∂
+∂Wj(¯y)Λk
+¯x=
+X
+l
+Ckl
+¯x¯y(t) ∂
+∂Wj(¯y)gl
+¯y(t,W(¯y)).
+(C6)
+Because the non-linearitygis applied “locally”, i.e. its
+output at ¯zonly depends on the Wilson loop stack at ¯z
+(which does not scale with|E|), the sum over ¯zabove is
+removed and the convolution reduces to a simple point-
+wise multiplication. Thus, computinggand its deriva-
+tives with respect toWdoes not itself scale with|E|. We
+still have to compute this once for each link, of course,
+leading to a computational cost that grows linearly with
+|E|. In contrast to a black-box vector field, however, this
+shows that computing the divergence for our shallow vec-
+tor field architecture does not add an additional factor of
+|E|relative to the vector field itself.
+Appendix D: Implementation of the
+Crouch-Grossman Runge Kutta integration method
+We consider ODEs onG×Rd, where we simultaneously
+evolve both real degrees of freedomx∈R d and matrix
+11
+Lie group degrees of freedomY∈G. To achieve this, we
+apply a Runge-Kutta method for the former and simul-
+taneously a Crouch-Grossmann method [26, 27] for the
+latter ensuring that the group structure ofYis preserved
+during the simultaneous time evolution of both variables.
+In the Crouch-Grossman method, the Lie group ele-
+ment evolves according to:
+Yn+1 = exp
+
+hbsZ(n)
+s
+
+·····exp
+
+hb1Z(n)
+1
+
+Yn,
+wherehis the time step size,b i are the coefficients
+from the Butcher tableau (Runge-Kutta coefficients) and
+Z(n)
+i =Z(x (n)
+i ,Y (n)
+i )∈gis the Lie algebra-valued vector
+field at the internal stageithat generally may depend on
+bothx (n)
+i andY (n)
+i .
+The internal stagesY (n)
+i ∈Gare computed using:
+Y (n)
+i = exp
+
+hai,i−1Z(n)
+i−1
+
+·····exp
+
+hai,1Z(n)
+1
+
+Yn,
+wherea i,j are given by the chosen Butcher tableau.
+While we have suppressed the explicit time-dependence
+in the equations above, we note that in evaluatingZ (n)
+i ,
+we set the time to bet (n)
+i =t n +cihwithc i =P
+jai,j.
+For the real degrees of freedomx∈R d, we use a stan-
+dard Runge-Kutta method with the same time steph
+and the same Butcher-tableau coefficientsa i,j,bi as for
+the Lie group variables. The real degrees of freedom are
+updated as:
+xn+1 =x n +h
+sX
+i=1
+bif(x(n)
+i ,Y (n)
+i ),
+wheref(x (n)
+i ,Y (n)
+i )∈R d is the vector field in the ODE
+˙x=f(x,Y), governing the evolution ofxandx i are the
+internal stages computed similarly:
+x(n)
+i =x n +h
+i−1X
+j=1
+ai,jf(x(n)
+j ,Y (n)
+j ).
+Note that both internal stagesx (n)
+i andY (n)
+i are updated
+in parallel using their respective methods.
+Appendix E: Haar Measure and Sampling
+1. Haar Measure for Matrix Lie Groups
+The Haar measure defines a unique invariant mea-
+sure on compact Lie groupsGsuch as SU(N) [38]. The
+measure, denoteddU, is invariant under left- and right-
+multiplications:
+d(VU) =d(UV) =dU∀V,U∈G.
+This invariance ensures that the measure is uniform
+across the group. With respect to this measure, the Haar
+prior distribution is uniform and (up to volume normal-
+ization) given asq 0(U) = 1.
+2. Sampling from the Haar Distribution
+Sampling from the Haar distribution onSU(N) can be
+achieved through the construction of random unitary ma-
+trices. The method involves generating random matrices
+with independent complex entries, followed by an orthog-
+onalization procedure that ensures the sampled matrix
+lies within theSU(N) group [39].
+We start with a random complex matrixX∈C N×N ,
+whose elements are drawn from a standard normal dis-
+tribution. We then apply a QR decomposition:
+X=QR,
+whereQ∈C N×N is a unitary matrix, andR∈C N×N
+is upper triangular. We then extract and normalize the
+diagonal part ofRby dividing each element by its abso-
+lute value:R ′ = diag(R)/|diag(R)|, i.e.R ′
+ii =R ii/|Rii|,
+which ensures that all elements are pure phases thus mak-
+ing it unitary. We then need to divide by
+κ=
+N
+p
+det(Q) det(R′),(E1)
+to ensure that the matrixX′ =QR′/κhas a determinant
+of 1, so finally we haveX ′ ∈SU(N). The resulting
+matrixX′ is then uniformly distributed according to the
+Haar measure onSU(N).
+3. Haar Measure forSU(3)
+For the specific case ofSU(3), the Haar measure
+can be expressed in terms of angular coordinates that
+parametrize the eigenvalues of the matrix. The maximal
+torus ofSU(3) corresponds to diagonal matrices with
+phasesθ 1,θ 2, andθ 3, satisfying P3
+i=1θi = 0 and ensur-
+ing the unit determinant condition.
+The Haar measure onSU(3) in terms of these angular
+variables is given by [40]:
+dU=dθ 1dθ2
+Y
+i<j
+eiθi−eiθj
+2
+.(E2)
+Appendix F: Markov Chain Monte Carlo &
+Observables
+To verify the implementation and successful training
+of normalizing flows, we generated asymptotically unbi-
+ased samples using an independent Metropolis-Hastings
+Markov chain with the trained normalizing flows as in-
+dependent proposal distributions. Denoting the learned
+flow distribution asq(U) and the target distribution as
+p(U), one samples proposalsU ′∼qwhich are accepted,
+U(i) =U′, with probability
+min
+
+1,q(U (i−1))p(U′)
+q(U′)p(U(i−1))
+
+(F1)
+12
+and otherwise rejected, leading to a repeat of the previous
+sampleU (i) =U (i−1).
+The acceptance rates over a sequence of this Markov
+chain gives an alternative quality of fit measure for the
+generative models to the ESS used in the main text. Ta-
+ble IV gives an overview of these values, which are gen-
+erally in agreement with the ESS.
+TABLE IV. Acceptance rates (in %) for the continuous nor-
+malizing flows trained for different gauge groups and lattice
+sizes using an independent Metropolis-Hastings Markov chain
+of length 20480 for all configurations of tables II and III.
+SU(2), L=16 SU(3), L=16 SU(3), L=8
+β= 2.2β= 2.7β= 5β= 6β= 8β= 8β= 12
+84 82 78 71 38 65 32
+Figures 4 and 5 show the ratios of observables esti-
+mated using the same Markov chains compared to ana-
+lytically known values [41, 42] for SU(2) and SU(3), re-
+spectively. Here,W l1l2 denote the expectation values of
+the real parts of the traces of rectangular Wilson loops
+with edge lengthsl 1 andl 2. In addition,|ℓ| 2 is the zero-
+separation two-point function of Polyakov loops
+ℓ(x2) = tr
+Y
+t
+U1(x= (t,x 2)),(F2)
+identifying axis-1 of the lattice with Euclidean time.
+Then|ℓ| 2 =l∗(x)l(x) is independent ofxdue to transla-
+tional symmetry.
+0.95
+1.00
+1.05
+W11 W12 W21 W22 W13 W31 W14 W41 | |2
+0.95
+1.00
+1.05
+= 2.2
+= 2.7
+Ratio of MC estimate to true value
+FIG. 4. Ratio of Monte Carlo estimates of observables to
+analytic values for flows on SU(2) on a 16×16 lattice. The
+trained flows of table II are used as proposal distribution for
+an independent Metropolis-Hastings Markov chain of length
+20480, and errors shown as vertical bars are estimated using
+a bootstrap method.
+0.95
+1.00
+1.05
+0.95
+1.00
+1.05
+W11 W12 W21 W22 W13 W31 W14 W41 | |2
+Loop type
+0.95
+1.00
+1.05
+= 5.0
+= 6.0
+= 8.0
+Ratio of MC estimate to true value
+FIG. 5. Ratio of Monte Carlo estimates of observables to
+analytic values for flows on SU(3) on a 16×16 lattice. The
+trained flows of table II are used as proposal distribution for
+an independent Metropolis-Hastings Markov chain of length
+20480, and errors shown as vertical bars are estimated using
+a bootstrap method.
+13
+[1] C. Morningstar, The Monte Carlo method in quantum
+field theory (2007), arXiv:hep-lat/0702020.
+[2] A. Sokal, Monte carlo methods in statistical mechanics:
+foundations and new algorithms, inFunctional integra-
+tion: Basics and applications(Springer, 1997) pp. 131–
+192.
+[3] G. Papamakarios, E. Nalisnick, D. J. Rezende, S. Mo-
+hamed, and B. Lakshminarayanan, Normalizing flows for
+probabilistic modeling and inference, Journal of Machine
+Learning Research22, 1 (2021).
+[4] M. S. Albergo, G. Kanwar, and P. E. Shanahan, Flow-
+based generative models for Markov chain Monte Carlo
+in lattice field theory, Phys. Rev. D100, 034515 (2019),
+arXiv:1904.12072 [hep-lat].
+[5] M. S. Albergo, D. Boyda, D. C. Hackett, G. Kanwar,
+K. Cranmer, S. Racani` ere, D. J. Rezende, and P. E.
+Shanahan, Introduction to Normalizing Flows for Lattice
+Field Theory (2021), arXiv:2101.08176 [hep-lat].
+[6] M. C. N. Cheng and N. Stratikopoulou, Lecture Notes on
+Normalizing Flows for Lattice Quantum Field Theories ,
+to appear (2024).
+[7] R. T. Q. Chen, Y. Rubanova, J. Bettencourt, and D. Du-
+venaud, Neural ordinary differential equations (2019),
+arXiv:1806.07366 [cs.LG].
+[8] D. Boyda, G. Kanwar, S. Racani` ere, D. J. Rezende, M. S.
+Albergo, K. Cranmer, D. C. Hackett, and P. E. Shana-
+han, Sampling using$SU(N)$gauge equivariant flows,
+Phys. Rev. D103, 074504 (2021), arXiv:2008.05456 [hep-
+lat].
+[9] P. de Haan, C. Rainone, M. C. N. Cheng, and
+R. Bondesan, Scaling up machine learning for quantum
+field theory with equivariant continuous flows (2021),
+arXiv:2110.02673 [cs.LG].
+[10] M. Gerdes, P. de Haan, C. Rainone, R. Bondesan, and
+M. C. N. Cheng, Learning Lattice Quantum Field The-
+ories with Equivariant Continuous Flows, SciPost Phys.
+15, 238 (2023), arXiv:2207.00283 [hep-lat].
+[11] M. Caselle, E. Cellini, and A. Nada, Sampling the
+lattice nambu-goto string using continuous normal-
+izing flows, Journal of High Energy Physics2024,
+10.1007/jhep02(2024)048 (2024).
+[12] Y. Nagai and A. Tomiya, Gauge covariant neural network
+for quarks and gluons, Phys. Rev. D111, 074501 (2025),
+arXiv:2103.11965 [hep-lat].
+[13] R. Abbott, M. S. Albergo, A. Botev, D. Boyda, K. Cran-
+mer, D. C. Hackett, G. Kanwar, A. G. D. G. Matthews,
+S. Racani` ere, A. Razavi, D. J. Rezende, F. Romero-
+L´ opez, P. E. Shanahan, and J. M. Urban, Normalizing
+flows for lattice gauge theory in arbitrary space-time di-
+mension (2023), arXiv:2305.02402 [hep-lat].
+[14] R. Abbott, A. Botev, D. Boyda, D. C. Hackett, G. Kan-
+war, S. Racani` ere, D. J. Rezende, F. Romero-L´ opez, P. E.
+Shanahan, and J. M. Urban, Applications of flow mod-
+els to the generation of correlated lattice qcd ensembles,
+Phys. Rev. D109, 094514 (2024).
+[15] M. L¨ uscher, Trivializing maps, the Wilson flow and the
+HMC algorithm, Commun. Math. Phys.293, 899 (2010),
+arXiv:0907.5491 [hep-lat].
+[16] S. Bacchio, P. Kessel, S. Schaefer, and L. Vaitl, Learning
+Trivializing Gradient Flows for Lattice Gauge Theories,
+Phys. Rev. D107, L051504 (2023), arXiv:2212.08469
+[hep-lat].
+[17] M. Gerdes and M. C. N. Cheng, Bijx: Bijections and
+normalizing flows with jax/nnx, Journal of Open Source
+Software10, 9521 (2025).
+[18] M. Gerdes, P. de Haan, R. Bondesan, and M. C. N.
+Cheng, Non-perturbative trivializing flows for lattice
+gauge theories, 10.5281/zenodo.15576712 (2025).
+[19] K. A. Nicoli, C. J. Anders, L. Funcke, T. Hartung,
+K. Jansen, P. Kessel, S. Nakajima, and P. Stornati, Esti-
+mation of Thermodynamic Observables in Lattice Field
+Theories with Deep Generative Models, Phys. Rev. Lett.
+126, 032001 (2021), arXiv:2007.07115 [hep-lat].
+[20] D. Albandea, L. Del Debbio, P. Hern´ andez, R. Kenway,
+J. Marsh Rossney, and A. Ramos, Learning trivializing
+flows, Eur. Phys. J. C83, 676 (2023), arXiv:2302.08408
+[hep-lat].
+[21] R. T. Q. Chen, Y. Rubanova, J. Bettencourt, and
+D. K. Duvenaud, Neural Ordinary Differential Equations,
+inAdvances in Neural Information Processing Systems,
+Vol. 31 (Curran Associates, Inc., 2018).
+[22] L. Falorsi, Continuous normalizing flows on manifolds
+(2021), arXiv:2104.14959 [cs, stat].
+[23] A. Lou, D. Lim, I. Katsman, L. Huang, Q. Jiang, S.-N.
+Lim, and C. De Sa, Neural Manifold Ordinary Differen-
+tial Equations (2020), arXiv:2006.10254 [cs, math, stat].
+[24] L. Falorsi and P. Forr´ e, Neural ordinary differential equa-
+tions on manifolds (2020), arXiv:2006.06663 [stat.ML].
+[25] M. Nakahara,Geometry, Topology and Physics, 2nd ed.
+(CRC Press, Bristol, 2003).
+[26] P. E. Crouch and R. Grossman, Numerical integration of
+ordinary differential equations on manifolds, Journal of
+Nonlinear Science3, 1 (1993).
+[27] M. Wandelt,Geometric Integration on Lie Groups and
+its Applications in Lattice QCD, Ph.D. thesis, Univer-
+sit¨ atsbibliothek Wuppertal (2021).
+[28] R. Abbott, M. S. Albergo, D. Boyda, D. C. Hackett,
+G. Kanwar, F. Romero-L´ opez, P. E. Shanahan, and J. M.
+Urban, Multiscale Normalizing Flows for Gauge Theo-
+ries, PoSLATTICE2023, 035 (2024), arXiv:2404.10819
+[hep-lat].
+[29] H. Wu, J. K¨ ohler, and F. No´ e, Stochastic Normalizing
+Flows (2020), arXiv:2002.06707 [physics, stat].
+[30] L. I. Midgley, V. Stimper, G. N. C. Simm, B. Sch¨ olkopf,
+and J. M. Hern´ andez-Lobato, Flow Annealed Importance
+Sampling Bootstrap (2023), arXiv:2208.01893 [cs.LG].
+[31] M. Caselle, E. Cellini, A. Nada, and M. Panero, Stochas-
+tic normalizing flows as non-equilibrium transformations,
+Journal of High Energy Physics2022, 15 (2022).
+[32] A. Bulgarelli, E. Cellini, and A. Nada, Sampling su(3)
+pure gauge theory with stochastic normalizing flows
+(2024), arXiv:2409.18861 [hep-lat].
+[33] A. Bulgarelli, E. Cellini, and A. Nada, Scaling of stochas-
+tic normalizing flows in SU(3) lattice gauge theory, Phys.
+Rev. D111, 074517 (2025), arXiv:2412.00200 [hep-lat].
+[34] R. Abbott, M. S. Albergo, A. Botev, D. Boyda, K. Cran-
+mer, D. C. Hackett, A. G. D. G. Matthews, S. Racani` ere,
+A. Razavi, D. J. Rezende, F. Romero-L´ opez, P. E. Shana-
+han, and J. M. Urban, Aspects of scaling and scalability
+for flow-based sampling of lattice QCD, Eur. Phys. J. A
+59, 257 (2023), arXiv:2211.07541 [hep-lat].
+[35] L. Del Debbio, J. M. Rossney, and M. Wilson, Efficient
+14
+Modelling of Trivializing Maps for Lattice$\phiˆ4$The-
+ory Using Normalizing Flows: A First Look at Scalabil-
+ity, Phys. Rev. D104, 094507 (2021), arXiv:2105.12481
+[hep-lat].
+[36] M. Favoni, A. Ipp, D. I. M¨ uller, and D. Schuh, Lattice
+gauge equivariant convolutional neural networks, Phys.
+Rev. Lett.128, 032003 (2022).
+[37] J. Bradbury, R. Frostig, P. Hawkins, M. J. Johnson,
+C. Leary, D. Maclaurin, G. Necula, A. Paszke, J. Van-
+derPlas, S. Wanderman-Milne, and Q. Zhang, JAX: com-
+posable transformations of Python+NumPy programs
+(2018).
+[38] J. J. Duistermaat and J. A. C. Kolk,Lie Groups, Uni-
+versitext (Springer, Berlin, Heidelberg, 2000).
+[39] F. Mezzadri, How to generate random matrices from the
+classical compact groups, Notices of the American Math-
+ematical Society54, 592 (2007).
+[40] D. Bump, The Weyl Integration Formula, inLie Groups,
+Graduate Texts in Mathematics, edited by D. Bump
+(Springer, New York, NY, 2004) pp. 112–116.
+[41] A. A. Migdal, Recursion Equations in Gauge Theories,
+Sov. Phys. JETP42, 413 (1975).
+[42] D. J. Gross and W. Taylor, Two-dimensional QCD is a
+string theory, Nucl. Phys. B400, 181 (1993), arXiv:hep-
+th/9301068.

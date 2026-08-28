@@ -1,0 +1,36 @@
+name: docs
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      JAX_PLATFORMS: cpu
+    steps:
+      - name: Checkout repository with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for setuptools_scm to work properly
+      - id: deployment
+        uses: sphinx-notes/pages@v3
+        with:
+          documentation_path: ./docs/source
+          pyproject_extras: docs
+          publish: true
+          checkout: false  # We handle checkout ourselves above
