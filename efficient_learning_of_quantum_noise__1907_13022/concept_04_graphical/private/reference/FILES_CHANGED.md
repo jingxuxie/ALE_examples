@@ -1,0 +1,77 @@
+# Exact worker file inventory
+
+All paths are relative to `concept_04_graphical/`. This worker created these 71 files, including 46 generated NPZ artifacts.
+The owned task directory did not exist at the start. No source checkout or sibling task is part of this patch.
+The empty `attempt/` directory was created for the main author; no agent attempt was launched or written.
+
+- `participant/TASK.md`
+- `participant/input/FORMAT.md`
+- `participant/input/example.npz`
+- `participant/workspace/local_adapter.py`
+- `participant/workspace/solver.py`
+- `private/challenge_pool/h01.npz`
+- `private/challenge_pool/h02.npz`
+- `private/challenge_pool/h03.npz`
+- `private/challenge_pool/h04.npz`
+- `private/challenge_pool/h05.npz`
+- `private/challenge_pool/h06.npz`
+- `private/evaluator.py`
+- `private/reference/ANTI_COMPRESSION.md`
+- `private/reference/FILES_CHANGED.md`
+- `private/reference/PROVENANCE.md`
+- `private/reference/README.md`
+- `private/reference/audit.json`
+- `private/reference/audit.py`
+- `private/reference/author_tools.py`
+- `private/reference/build.py`
+- `private/reference/capture_provenance.py`
+- `private/reference/challenge_truth/h01.npz`
+- `private/reference/challenge_truth/h02.npz`
+- `private/reference/challenge_truth/h03.npz`
+- `private/reference/challenge_truth/h04.npz`
+- `private/reference/challenge_truth/h05.npz`
+- `private/reference/challenge_truth/h06.npz`
+- `private/reference/check_regeneration.py`
+- `private/reference/core/inputs/c01.npz`
+- `private/reference/core/inputs/c02.npz`
+- `private/reference/core/inputs/c03.npz`
+- `private/reference/core/inputs/c04.npz`
+- `private/reference/core/inputs/c05.npz`
+- `private/reference/core/inputs/c06.npz`
+- `private/reference/core/inputs/c07.npz`
+- `private/reference/core/inputs/c08.npz`
+- `private/reference/core/inputs/c09.npz`
+- `private/reference/core/truth/c01.npz`
+- `private/reference/core/truth/c02.npz`
+- `private/reference/core/truth/c03.npz`
+- `private/reference/core/truth/c04.npz`
+- `private/reference/core/truth/c05.npz`
+- `private/reference/core/truth/c06.npz`
+- `private/reference/core/truth/c07.npz`
+- `private/reference/core/truth/c08.npz`
+- `private/reference/core/truth/c09.npz`
+- `private/reference/juqst_08101ff.patch`
+- `private/reference/manifest.json`
+- `private/reference/models/c01.npz`
+- `private/reference/models/c02.npz`
+- `private/reference/models/c03.npz`
+- `private/reference/models/c04.npz`
+- `private/reference/models/c05.npz`
+- `private/reference/models/c06.npz`
+- `private/reference/models/c07.npz`
+- `private/reference/models/c08.npz`
+- `private/reference/models/c09.npz`
+- `private/reference/models/h01.npz`
+- `private/reference/models/h02.npz`
+- `private/reference/models/h03.npz`
+- `private/reference/models/h04.npz`
+- `private/reference/models/h05.npz`
+- `private/reference/models/h06.npz`
+- `private/reference/regeneration_check.json`
+- `private/reference/solver.py`
+- `private/reference/source_manifest.json`
+- `private/reference/strong_challenge.json`
+- `private/reference/strong_core.json`
+- `private/reference/weak_challenge.json`
+- `private/reference/weak_core.json`
+- `private/reference/weak_solver.py`

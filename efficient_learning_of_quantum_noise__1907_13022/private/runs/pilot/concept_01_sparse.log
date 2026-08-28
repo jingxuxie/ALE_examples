@@ -1,0 +1,2995 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 01a045ec-8d4e-7e80-995d-0e4bdfc53c8e
+--------
+user
+Read TASK.md and input/FORMAT.md if present. Complete the task autonomously. Write your final reusable, self-contained solver.py and development files only to /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt. The evaluator stages only your final solver.py, not development helpers. The task directory is read-only. You have at most 3600 seconds. Use installed numerical tools and test your implementation; do not stop at a plan. Only the task directory and your output directory are available. Do not seek other tasks, hidden references, or earlier attempts.
+codex
+I’ll read the task, build the solver, and test it.
+
+exec
+/bin/bash -lc "pwd && ls -la && if [ -f TASK.md ]; then cat TASK.md; fi && if [ -f input/FORMAT.md ]; then printf '\\n--- FORMAT ---\\n'; cat input/FORMAT.md; fi && printf '\\n--- INSTRUCTIONS ---\\n' && find . -name AGENTS.md -print" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/participant
+ succeeded in 18945ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/participant
+total 16
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:49 .
+drwx------ 4 xuandong xuandong   80 Aug 27 18:13 ..
+-rw-rw-r-- 1 xuandong xuandong  824 Aug 27 17:49 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:54 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:31 workspace
+# Sparse Pauli-channel reconstruction
+
+Recover significant arbitrary-weight Pauli errors and their probabilities from noisy, structured eigenvalue observations of 40–100-qubit channels. Resolve sampling collisions without assuming local support, and estimate probabilities despite large dynamic range and weak nonsparse backgrounds.
+
+Submit one reusable `solver.py`, invoked as `python solver.py INPUT.npz OUTPUT.npz`. Support recovery and probability estimation are assessed separately on hidden channels. Use Python, NumPy, and SciPy; each case allows one CPU thread, 2 GiB address space, and 120 seconds.
+
+The complete observation and submission contract is in `input/FORMAT.md`. `input/example.npz` is an unlabeled format example. Develop in `workspace/`; submit a solver, not a table of example-specific predictions.
+
+--- FORMAT ---
+# Input, output, and evaluation contract
+
+Implement a reusable `solver.py` invoked as:
+
+`python solver.py INPUT.npz OUTPUT.npz`
+
+Recover the significant **nonidentity Pauli strings and their probabilities** from calibrated, noisy Pauli-eigenvalue estimates. Channels have 40–100 qubits, arbitrary-weight errors, collisions in the subsampling patterns, and potentially a weak nonsparse remainder. The identity can carry most probability. Dense enumeration of all strings is not feasible. Only NumPy, SciPy, and Python's standard library are available. Each input runs independently with one CPU thread, 2 GiB address space, and a 120-second wall-time limit. Submit the single Python file, not predictions for the example.
+
+## Input schema
+
+Scratch files have a 32 MiB individual-file limit; at most 64 file descriptors may be open. Submit a regular output file, not a symlink. Valid schema-sized outputs are much smaller than the 16 MiB compressed/32 MiB decompressed output-validation bounds.
+
+NPZ files contain only these numeric arrays; use `allow_pickle=False`:
+
+| Key | dtype, shape | Meaning |
+|---|---|---|
+| `n_qubits` | int64 scalar | Number of qubits, `n` |
+| `hashes` | uint8 `(G,b,2*n)` | Binary full-row-rank sampling matrices; rows within a group commute symplectically |
+| `offsets` | uint8 `(T,2*n)` | Character masks: zero row, the `2*n` standard basis rows in order, then additional binary masks |
+| `eigenvalues` | float64 `(G,T,2**b)` | Noisy eigenvalue estimates, in the order defined below |
+| `noise_std` | float64 `(G,T)` | Known standard deviation of each eigenvalue estimate along its last axis |
+| `recovery_floor` | float64 scalar | Probability threshold used to assess significant support |
+| `max_terms` | int64 scalar | Maximum number of nonidentity strings in your output |
+
+For a Pauli string `E`, define `e=(x0,z0,x1,z1,...)` with `I=(0,0)`, `X=(1,0)`, `Y=(1,1)`, `Z=(0,1)`. All binary algebra is modulo two. For last-axis index `v`, let `v_bits[j]=(v >> j)&1`, `j=0,...,b-1`. Define the character mask
+
+`q[g,t,v] = offsets[t] XOR (v_bits @ hashes[g] mod 2)`.
+
+The measured Pauli has `(x,z)` bits `(q_z,q_x)` on each qubit. Its noiseless eigenvalue is
+
+`lambda(q) = sum_E p(E) * (-1)**(e dot q mod 2)`.
+
+`eigenvalues[g,t,v] = lambda(q[g,t,v]) + noise`, with independent mean-zero Gaussian noise of the supplied standard deviation, including independently acquired repeats of the same mask. These are fitted eigenvalue estimates, not single-shot outcomes; do not clip them to `[-1,1]`. The underlying channel probabilities are nonnegative and sum to one. The approximately sparse remainder also consists of physical Pauli errors, not additional measurement noise. There is no promised bound on Pauli weight, locality, or a known candidate support. Hidden inputs vary the channel, sampling matrices, noise, and dimensions; no seed, family, or ground truth is in an input.
+
+Typical dimensions are `G=3..5`, `b=6..8`, `T=2*n+33..2*n+49`, with at most 512 significant terms. Significant probabilities may span several thousand-fold. The single public input is an unlabeled format example, not a training set.
+
+## Output schema
+
+Write an NPZ with exactly:
+
+- `paulis`: uint8 `(K,n)`, `K<=max_terms`, using `0=I, 1=X, 2=Y, 3=Z`; rows must be unique and nonidentity.
+- `probabilities`: float64 `(K,)`, finite, nonnegative probabilities in the same order.
+- `p_identity`: float64 scalar, finite and nonnegative.
+
+Require `p_identity + probabilities.sum() <= 1` (numerical tolerance `1e-8`). Any remaining mass is interpreted as a completely depolarizing channel: uniform over all `4**n` Pauli strings. Empty support is allowed. No auxiliary files or input-specific hardcoded outputs.
+
+## Evaluation
+
+Let `A` be nonidentity probability L1 error divided by true nonidentity mass, `F` significant-support F1 at `recovery_floor`, and `B` relative spectral L2 error on unseen nonidentity observables after subtracting each channel's identity atom. Diffuse remaining mass counts in `A`; omitted background is not free. Neither numerical error is capped. Define `L = 0.45*A + 0.35*(1-F) + 0.20*B`. The probability-estimation loss is `E = (0.45*A + 0.20*B)/0.65`.
+
+For each case, privately calibrated strong and weak losses define `s=max(L_strong,1e-4)*L_weak`. The continuous grade is `s/(s+L**2)`, with no clipping or saturation plateau. Probability estimation is separately graded by the same formula with `E` and its own calibration; support recovery is separately reported as `F`. Thus numerical improvements remain valuable even outside the calibration interval. Invalid outputs or exceeded resource limits receive zero. Reports include both subcomponent scores, raw errors, mean score, worst-family mean, family means, individual cases, and runtime. The identity cannot dominate these errors. A filesystem-confined child sees only the solver, its input, writable scratch space, and the Python runtime; no private answers.
+
+--- INSTRUCTIONS ---
+
+exec
+/bin/bash -c "pwd; ls -la; if [ -f TASK.md ]; then cat TASK.md; fi; if [ -f input/FORMAT.md ]; then printf '\\n--- FORMAT ---\\n'; cat input/FORMAT.md; fi; printf '\\n--- INSTRUCTIONS ---\\n'; find . -name AGENTS.md -print" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/participant
+exec
+/usr/bin/sh -c '/bin/echo hello' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+  → Inspect observations and numerical environment
+  • Implement robust sparse channel reconstruction
+  • Validate using synthetic stress cases
+  • Finalize standalone solver and checks
+ succeeded in 48392ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/participant
+total 16
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:49 .
+drwx------ 4 xuandong xuandong   80 Aug 27 18:14 ..
+-rw-rw-r-- 1 xuandong xuandong  824 Aug 27 17:49 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:54 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:31 workspace
+# Sparse Pauli-channel reconstruction
+
+Recover significant arbitrary-weight Pauli errors and their probabilities from noisy, structured eigenvalue observations of 40–100-qubit channels. Resolve sampling collisions without assuming local support, and estimate probabilities despite large dynamic range and weak nonsparse backgrounds.
+
+Submit one reusable `solver.py`, invoked as `python solver.py INPUT.npz OUTPUT.npz`. Support recovery and probability estimation are assessed separately on hidden channels. Use Python, NumPy, and SciPy; each case allows one CPU thread, 2 GiB address space, and 120 seconds.
+
+The complete observation and submission contract is in `input/FORMAT.md`. `input/example.npz` is an unlabeled format example. Develop in `workspace/`; submit a solver, not a table of example-specific predictions.
+
+--- FORMAT ---
+# Input, output, and evaluation contract
+
+Implement a reusable `solver.py` invoked as:
+
+`python solver.py INPUT.npz OUTPUT.npz`
+
+Recover the significant **nonidentity Pauli strings and their probabilities** from calibrated, noisy Pauli-eigenvalue estimates. Channels have 40–100 qubits, arbitrary-weight errors, collisions in the subsampling patterns, and potentially a weak nonsparse remainder. The identity can carry most probability. Dense enumeration of all strings is not feasible. Only NumPy, SciPy, and Python's standard library are available. Each input runs independently with one CPU thread, 2 GiB address space, and a 120-second wall-time limit. Submit the single Python file, not predictions for the example.
+
+## Input schema
+
+Scratch files have a 32 MiB individual-file limit; at most 64 file descriptors may be open. Submit a regular output file, not a symlink. Valid schema-sized outputs are much smaller than the 16 MiB compressed/32 MiB decompressed output-validation bounds.
+
+NPZ files contain only these numeric arrays; use `allow_pickle=False`:
+
+| Key | dtype, shape | Meaning |
+|---|---|---|
+| `n_qubits` | int64 scalar | Number of qubits, `n` |
+| `hashes` | uint8 `(G,b,2*n)` | Binary full-row-rank sampling matrices; rows within a group commute symplectically |
+| `offsets` | uint8 `(T,2*n)` | Character masks: zero row, the `2*n` standard basis rows in order, then additional binary masks |
+| `eigenvalues` | float64 `(G,T,2**b)` | Noisy eigenvalue estimates, in the order defined below |
+| `noise_std` | float64 `(G,T)` | Known standard deviation of each eigenvalue estimate along its last axis |
+| `recovery_floor` | float64 scalar | Probability threshold used to assess significant support |
+| `max_terms` | int64 scalar | Maximum number of nonidentity strings in your output |
+
+For a Pauli string `E`, define `e=(x0,z0,x1,z1,...)` with `I=(0,0)`, `X=(1,0)`, `Y=(1,1)`, `Z=(0,1)`. All binary algebra is modulo two. For last-axis index `v`, let `v_bits[j]=(v >> j)&1`, `j=0,...,b-1`. Define the character mask
+
+`q[g,t,v] = offsets[t] XOR (v_bits @ hashes[g] mod 2)`.
+
+The measured Pauli has `(x,z)` bits `(q_z,q_x)` on each qubit. Its noiseless eigenvalue is
+
+`lambda(q) = sum_E p(E) * (-1)**(e dot q mod 2)`.
+
+`eigenvalues[g,t,v] = lambda(q[g,t,v]) + noise`, with independent mean-zero Gaussian noise of the supplied standard deviation, including independently acquired repeats of the same mask. These are fitted eigenvalue estimates, not single-shot outcomes; do not clip them to `[-1,1]`. The underlying channel probabilities are nonnegative and sum to one. The approximately sparse remainder also consists of physical Pauli errors, not additional measurement noise. There is no promised bound on Pauli weight, locality, or a known candidate support. Hidden inputs vary the channel, sampling matrices, noise, and dimensions; no seed, family, or ground truth is in an input.
+
+Typical dimensions are `G=3..5`, `b=6..8`, `T=2*n+33..2*n+49`, with at most 512 significant terms. Significant probabilities may span several thousand-fold. The single public input is an unlabeled format example, not a training set.
+
+## Output schema
+
+Write an NPZ with exactly:
+
+- `paulis`: uint8 `(K,n)`, `K<=max_terms`, using `0=I, 1=X, 2=Y, 3=Z`; rows must be unique and nonidentity.
+- `probabilities`: float64 `(K,)`, finite, nonnegative probabilities in the same order.
+- `p_identity`: float64 scalar, finite and nonnegative.
+
+Require `p_identity + probabilities.sum() <= 1` (numerical tolerance `1e-8`). Any remaining mass is interpreted as a completely depolarizing channel: uniform over all `4**n` Pauli strings. Empty support is allowed. No auxiliary files or input-specific hardcoded outputs.
+
+## Evaluation
+
+Let `A` be nonidentity probability L1 error divided by true nonidentity mass, `F` significant-support F1 at `recovery_floor`, and `B` relative spectral L2 error on unseen nonidentity observables after subtracting each channel's identity atom. Diffuse remaining mass counts in `A`; omitted background is not free. Neither numerical error is capped. Define `L = 0.45*A + 0.35*(1-F) + 0.20*B`. The probability-estimation loss is `E = (0.45*A + 0.20*B)/0.65`.
+
+For each case, privately calibrated strong and weak losses define `s=max(L_strong,1e-4)*L_weak`. The continuous grade is `s/(s+L**2)`, with no clipping or saturation plateau. Probability estimation is separately graded by the same formula with `E` and its own calibration; support recovery is separately reported as `F`. Thus numerical improvements remain valuable even outside the calibration interval. Invalid outputs or exceeded resource limits receive zero. Reports include both subcomponent scores, raw errors, mean score, worst-family mean, family means, individual cases, and runtime. The identity cannot dominate these errors. A filesystem-confined child sees only the solver, its input, writable scratch space, and the Python runtime; no private answers.
+
+--- INSTRUCTIONS ---
+
+exec
+/bin/bash -c "ls -la input workspace; python - <<'PY'
+import os, numpy as np, scipy
+print('numpy',np.__version__,'scipy',scipy.__version__)
+p='input/example.npz'
+with np.load(p,allow_pickle=False) as data:
+ for key in data.files:
+  value=data[key]
+  print(key, value.shape,value.dtype, (value.item() if value.ndim==0 else ('min',value.min(),'max',value.max(),'mean',value.mean())))
+print('threads', [(key,os.environ.get(key)) for key in ['OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','MKL_NUM_THREADS']])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/participant
+ succeeded in 15668ms:
+hello
+
+**Evaluating execution time**
+
+I’m thinking we might need to use around 120 units of time for execution. It looks like each execution has about a 1-minute startup latency. I’m wondering if there might be filesystem overhead on the shell? After that startup, could a single long interpreter be more dynamic? I’m also considering how queued delays from tools might impact this due to NFS current working directory. There’s a lot to explore here!
+ succeeded in 19928ms:
+input:
+total 176
+drwxrwxr-x 2 xuandong xuandong   4096 Aug 27 17:54 .
+drwxrwxr-x 4 xuandong xuandong   4096 Aug 27 17:49 ..
+-rw-rw-r-- 1 xuandong xuandong   4947 Aug 27 18:06 FORMAT.md
+-rw-rw-r-- 1 xuandong xuandong 161675 Aug 27 17:54 example.npz
+
+workspace:
+total 12
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:31 .
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:49 ..
+-rw-rw-r-- 1 xuandong xuandong    1 Aug 27 17:31 .gitkeep
+numpy 1.21.5 scipy 1.8.0
+n_qubits () int64 40
+hashes (3, 6, 80) uint8 ('min', 0, 'max', 1, 'mean', 0.5243055555555556)
+offsets (113, 80) uint8 ('min', 0, 'max', 1, 'mean', 0.15110619469026548)
+eigenvalues (3, 113, 64) float64 ('min', 0.806642764168254, 'max', 1.0000516399729071, 'mean', 0.878001920763313)
+noise_std (3, 113) float64 ('min', 0.0002173499720115337, 'max', 0.00026530967245624545, 'mean', 0.00024237142921709724)
+recovery_floor () float64 0.00018570548588861912
+max_terms () int64 512
+threads [('OPENBLAS_NUM_THREADS', '1'), ('OMP_NUM_THREADS', '1'), ('MKL_NUM_THREADS', None)]
+
+**Analyzing dimensions and hashing**
+
+I’m exploring typical dimensions like K512 and B256 with potential hashing. There’s a threshold around .818 and total bins are 768 with edges at 512 — which looks good below the threshold. If I switch to K512 and B64, I only have 192 total bins, which is way beyond BP. I need to ensure I have enough info for better decoding, particularly using pair recovery and MMV. The user wants me to address sampling collisions and dynamics robustly within 120 seconds. I might generate broad tests for better analysis.
+**Analyzing intersection recovery**
+
+I’m thinking about how to handle pair edges and intersections with one term. It seems combining sign recovery with agreement in multi mixtures is the way to go. If both terms are largest, they are the same; otherwise, joint observations may reveal the truth. For bins without shared higher colliders, averaging sign can recover a strong target if the proportion is around 50%. I’m considering using noise cancellation and identifying patterns to extract hidden terms. This involves checking linear equations critically across positions where certain conditions hold.
+**Exploring hash collisions**
+
+I'm thinking about the implications of degree 2 being equal in pairs. If they collide, it seems that the only one hash is likely present, suggesting the other groups are separate. This raises questions about how to handle situations where multiple groups interact but might not yield direct overlaps in hashes. I'm curious how this affects overall data organization and integrity since it could impact the way we interpret results. Let's look deeper into the specifics of these collisions and their effects!
+codex
+The observations support hash-bin decoding, peeling, and joint probability fitting.
+
+exec
+/bin/bash -c 'command -v apply_patch; ls -ld /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt; date +%s' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/participant
+ succeeded in 1213ms:
+/srv/home/xuandong/.codex/tmp/arg0/codex-arg0M1MJ6G/apply_patch
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 27 18:15 /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+1787879738
+
+**Evaluating command efficiency**
+
+I’m wondering if I need to run each command for 60 seconds. Maybe using a persistent shell through tty could help by launching commands and amortizing the backend overhead? Each tool seems to start around 60 seconds, and there might be something about the CLI wrapper invoking the conda environment that’s acting strangely. I need to check if the execution finishes in that 60 seconds during the initial startup of the sandbox. Maybe I should poll the previous command early?
+The Walsh transform converts the observations into signed mixtures in hash bins; reconstruction will combine collision-aware decoding with weighted joint fitting.
+  ✓ Inspect observations and numerical environment
+  → Implement robust sparse channel reconstruction
+  • Validate using synthetic stress cases
+  • Finalize standalone solver and checks
+**Creating a baseline class**
+
+I'm thinking about how to write a baseline class and a development generator. I want to ensure that I get the structure right. Testing the initial case using an apply patch is also on my mind. It feels like a crucial step to make sure everything works smoothly. I’ll need to keep track of how the implementation unfolds, as it will help refine my approach. Let’s hope I can get it all done efficiently!
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
++import os
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++os.environ['MKL_NUM_THREADS'] = '1'
++
++import sys
++import time
++import numpy as np
++from scipy.linalg import cho_factor, cho_solve
++
++
++def walsh(values):
++    result = np.array(values, dtype=np.float64, copy=True)
++    width = result.shape[-1]
++    stride = 1
++    while stride < width:
++        blocks = result.reshape(*result.shape[:-1], -1, 2 * stride)
++        first = blocks[..., :stride].copy()
++        second = blocks[..., stride:].copy()
++        blocks[..., :stride] = first + second
++        blocks[..., stride:] = first - second
++        stride *= 2
++    return result / width
++
++
++def packed_integer(bits):
++    return int.from_bytes(np.packbits(bits, bitorder='little').tobytes(), 'little')
++
++
++def span_coordinates(rows, offsets):
++    basis = {}
++    for index, row in enumerate(rows):
++        value = packed_integer(row)
++        combination = 1 << index
++        while value:
++            pivot = value.bit_length() - 1
++            if pivot not in basis:
++                basis[pivot] = (value, combination)
++                break
++            value "'^= basis[pivot][0]
++            combination ''^= basis[pivot][1]
++    coordinates = []
++    for row in offsets:
++        value = packed_integer(row)
++        combination = 0
++        while value:
++            pivot = value.bit_length() - 1
++            if pivot not in basis:
++                break
++            value ''^= basis[pivot][0]
++            combination ''^= basis[pivot][1]
++        coordinates.append(combination if value == 0 else -1)
++    return coordinates
++
++
++class SoftDecoder:
++    def __init__(self, offsets, hash_rows):
++        self.dimension = offsets.shape[1]
++        self.extra = offsets[self.dimension + 1:]
++        self.checks = np.concatenate((self.extra, hash_rows), axis=0)
++        self.redundancy = self.checks.shape[0]
++        self.columns = [packed_integer(self.checks[:, index])
++                        for index in range(self.dimension)]
++        self.columns.extend(1 << index for index in range(len(self.extra)))
++        self.length = len(self.columns)
++
++    def decode(self, values, hash_bits, order=1, breadth=24, number=2):
++        hard = (values[1:] < 0).astype(np.uint8)
++        reliability = np.abs(values[1:])
++        syndrome_bits = (self.checks @ hard[:self.dimension]) & 1
++        syndrome_bits[:len(self.extra)] ''^= hard[self.dimension:]
++        syndrome_bits[len(self.extra):] ''^= hash_bits
++        syndrome = packed_integer(syndrome_bits)
++        if syndrome == 0:
++            return [hard[:self.dimension].copy()]
++        basis = [0] * self.redundancy
++        transforms = [0] * self.redundancy
++        selected = []
++        selected_set = set()
++        for index in np.argsort(reliability):
++            index = int(index)
++            value = self.columns[index]
++            combination = 1 << len(selected)
++            while value:
++                pivot = value.bit_length() - 1
++                if basis[pivot] == 0:
++                    basis[pivot] = value
++                    transforms[pivot] = combination
++                    selected.append(index)
++                    selected_set.add(index)
++                    break
++                value ''^= basis[pivot]
++                combination ''^= transforms[pivot]
++            if len(selected) == self.redundancy:
++                break
++        if len(selected) != self.redundancy or len(selected) > 64:
++            return []
++
++        def resolve(value):
++            combination = 0
++            while value:
++                pivot = value.bit_length() - 1
++                value ''^= basis[pivot]
++                combination ''^= transforms[pivot]
++            return combination
++
++        initial = resolve(syndrome)
++        outside = [int(index) for index in np.argsort(reliability)
++                   if int(index) not in selected_set][:breadth]
++        changes = [resolve(self.columns[index]) for index in outside]
++        masks = [initial]
++        flipped = [()]
++        costs = [0.0]
++        if order >= 1:
++            for index, change in enumerate(changes):
++                masks.append(initial ''^ change)
++                flipped.append((outside[index],))
++                costs.append(reliability[outside[index]])
++        if order >= 2:
++            for first in range(len(outside)):
++                for second in range(first):
++                    masks.append(initial ''^ changes[first] ''^ changes[second])
++                    flipped.append((outside[first], outside[second]))
++                    costs.append(reliability[outside[first]] + reliability[outside[second]])
++        masks = np.array(masks, dtype=np.uint64)
++        costs = np.array(costs)
++        selected = np.array(selected, dtype=np.int64)
++        byte_bits = ((np.arange(256)[:, None] >> np.arange(8)) & 1)
++        for start in range(0, len(selected), 8):
++            weights = reliability[selected[start:start + 8]]
++            table = byte_bits[:, :len(weights)] @ weights
++            costs += table[((masks >> np.uint64(start)) & np.uint64(255)).astype(np.int64)]
++        results = []
++        for index in np.argsort(costs)[:number]:
++            corrected = hard.copy()
++            change = int(masks[index])
++            while change:
++                lowest = change & -change
++                corrected[selected[lowest.bit_length() - 1]] ''^= 1
++                change ''^= lowest
++            for position in flipped[index]:
++                corrected[position] ''^= 1
++            results.append(corrected[:self.dimension])
++        return results
++
++
++class Reconstruction:
++    def __init__(self, data):
++        self.started = time.monotonic()
++        self.n = int(data['"'n_qubits'])
++        self.dimension = 2 * self.n
++        self.hashes = np.array(data['hashes'], dtype=np.uint8)
++        self.offsets = np.array(data['offsets'], dtype=np.uint8)
++        self.groups, self.hash_width, _ = self.hashes.shape
++        self.buckets = 1 << self.hash_width
++        self.rows = self.offsets.shape[0]
++        self.extra_start = self.dimension + 1
++        self.floor = float(data['recovery_floor'])
++        self.maximum = int(data['max_terms'])
++        self.values = np.ascontiguousarray(walsh(data['eigenvalues']).transpose(0, 2, 1))
++        self.sigma = np.maximum(np.array(data['noise_std']) / np.sqrt(self.buckets), 1e-15)
++        self.weights = (np.median(self.sigma) / self.sigma) ** 2
++        self.bit_weights = (1 << np.arange(self.hash_width, dtype=np.int64))
++        self.uniform = np.zeros_like(self.values)
++        bucket_bits = (np.arange(self.buckets)[:, None] >> np.arange(self.hash_width)) & 1
++        for group in range(self.groups):
++            coordinates = span_coordinates(self.hashes[group], self.offsets)
++            for row, coordinate in enumerate(coordinates):
++                if coordinate >= 0:
++                    binary = (coordinate >> np.arange(self.hash_width)) & 1
++                    self.uniform[group, :, row] = (1.0 - 2.0 * ((bucket_bits @ binary) & 1)) / self.buckets
++        self.uniform_norm = np.sum(self.uniform ** 2 * self.weights[:, None, :])
++        self.uniform_data = np.sum(self.uniform * self.values * self.weights[:, None, :])
++        self.bits = np.zeros((1, self.dimension), dtype=np.uint8)
++        self.probabilities = np.zeros(1)
++        self.known = {bytes(self.bits[0])}
++        self.decoders = [SoftDecoder(self.offsets, self.hashes[group]) for group in range(self.groups)]
++        self.pair_decoders = {}
++        self.residual = self.values.copy()
++        self.fit()
++
++    def signatures(self, bits):
++        return 1.0 - 2.0 * ((bits @ self.offsets.T) & 1)
++
++    def locations(self, bits):
++        return np.stack([((bits @ matrix.T) & 1) @ self.bit_weights for matrix in self.hashes])
++
++    def fit(self):
++        count = len(self.bits)
++        signs = self.signatures(self.bits)
++        locations = self.locations(self.bits)
++        gram = np.full((count, count), -self.uniform_norm)
++        rhs = np.full(count, -self.uniform_data)
++        for group in range(self.groups):
++            weighted = signs * self.weights[group]
++            rhs += np.einsum('ij,ij->i', weighted, self.values[group, locations[group]])
++            ordering = np.argsort(locations[group])
++            borders = np.flatnonzero(np.diff(locations[group, ordering])) + 1
++            for indices in np.split(ordering, borders):
++                gram[np.ix_(indices, indices)] += weighted[indices] @ signs[indices].T
++        diagonal = np.diag(gram).copy()
++        gram.flat[::count + 1] += np.maximum(diagonal, 1.0) * 1e-12
++        active = np.arange(count)
++        solution = np.zeros(count)
++        for iteration in range(15):
++            if not len(active):
++                break
++            submatrix = gram[np.ix_(active, active)]
++            try:
++                factor = cho_factor(submatrix, lower=True, check_finite=False)
++                estimate = cho_solve(factor, rhs[active], check_finite=False)
++                if estimate.sum() > 1.0:
++                    direction = cho_solve(factor, np.ones(len(active)), check_finite=False)
++                    estimate -= direction * ((estimate.sum() - 1.0) / direction.sum())
++            except np.linalg.LinAlgError:
++                estimate = np.linalg.lstsq(submatrix, rhs[active], rcond=1e-10)[0]
++            if np.all(estimate >= 0):
++                solution[active] = estimate
++                break
++            active = active[estimate > 0]
++        else:
++            solution[active] = np.maximum(estimate, 0.0)
++        if solution.sum() > 1.0:
++            solution /= solution.sum()
++        self.probabilities = solution
++        self.residual = self.values - (1.0 - solution.sum()) * self.uniform
++        for group in range(self.groups):
++            np.add.at(self.residual[group], locations[group], -solution[:, None] * signs)
++        self.fit_std = np.median(self.sigma) / np.sqrt(np.diag(gram))
++
++    def consider(self, proposals, mode='direct'):
++        candidates = []
++        sources = []
++        seen = set()
++        for bits, source in proposals:
++            key = bytes(bits)
++            if key in self.known or key in seen:
++                continue
++            seen.add(key)
++            candidates.append(bits)
++            sources.append(source)
++        if not candidates:
++            return 0
++        candidates = np.array(candidates, dtype=np.uint8)
++        signs = self.signatures(candidates)
++        locations = self.locations(candidates)
++        count = len(candidates)
++        check_num = np.zeros(count)
++        check_den = np.zeros(count)
++        external_num = np.zeros(count)
++        external_den = np.zeros(count)
++        amplitude_num = np.zeros(count)
++        amplitude_den = np.zeros(count)
++        source_mask = np.zeros((self.groups, count), dtype=bool)
++        for index, source in enumerate(sources):
++            source_mask[list(source), index] = True
++        for group in range(self.groups):
++            observed = self.residual[group, locations[group]]
++            for start, numerator, denominator, external in [
++                    (self.extra_start, check_num, check_den, False),
++                    (1, external_num, external_den, True)]:
++                weights = self.weights[group, start:]
++                total_weight = weights.sum()
++                matched = observed[:, start:] * signs[:, start:]
++                means = (matched @ weights) / total_weight
++                scatter = np.sum((matched - means[:, None]) ** 2 * weights, axis=1) / total_weight
++                noise = np.mean(self.sigma[group, start:] ** 2)
++                variance = np.maximum(scatter, noise) * np.sum(weights ** 2) / total_weight ** 2
++                precision = 1.0 / np.maximum(variance, 1e-30)
++                if external:
++                    precision *= ~source_mask[group]
++                numerator += means * precision
++                denominator += precision
++            weights = self.weights[group, 1:]
++            means = ((observed[:, 1:] * signs[:, 1:]) @ weights) / weights.sum()
++            amplitude_num += means
++            amplitude_den += 1.0
++        check_z = check_num / np.sqrt(np.maximum(check_den, 1e-30))
++        external_z = external_num / np.sqrt(np.maximum(external_den, 1e-30))
++        estimates = amplitude_num / amplitude_den
++        detection_floor = max(np.median(self.sigma) / np.sqrt(self.groups * (self.rows - 1)) * 3.0,
++                              self.floor * 0.015)
++        if mode == 'direct':
++            accept = (check_z > 5.5) & (external_z > 2.5)
++        elif mode == 'soft':
++            accept = (check_z > 6.0) & (external_z > 5.0)
++        else:
++            accept = (check_z > 6.0) & (external_z > 4.5)
++        accept &= estimates > detection_floor
++        selected = np.flatnonzero(accept)
++        if not len(selected):
++            return 0
++        room = max(0, 2 * self.maximum + 64 - len(self.bits))
++        if len(selected) > room:
++            selected = selected[np.argsort(estimates[selected])[-room:]] if room else selected[:0]
++        if not len(selected):
++            return 0
++        self.bits = np.concatenate((self.bits, candidates[selected]))
++        self.known.update(bytes(bits) for bits in candidates[selected])
++        self.fit()
++        return len(selected)
++
++    def direct(self):
++        proposals = []
++        for group in range(self.groups):
++            bits = (self.residual[group, :, 1:self.dimension + 1] < 0).astype(np.uint8)
++            bins = ((bits @ self.hashes[group].T) & 1) @ self.bit_weights
++            for bucket in np.flatnonzero(bins == np.arange(self.buckets)):
++                proposals.append((bits[bucket], (group,)))
++        return self.consider(proposals)
++
++    def soft(self, order=1):
++        proposals = []
++        for group in range(self.groups):
++            powers = np.mean(self.residual[group, :, 1:] ** 2, axis=1)
++            noise = np.mean(self.sigma[group, 1:] ** 2)
++            selected = np.flatnonzero(powers > max(1.5 * noise, (self.floor * 0.025) ** 2))
++            for bucket in selected[np.argsort(powers[selected])[::-1]]:
++                hash_bits = ((int(bucket) >> np.arange(self.hash_width)) & 1).astype(np.uint8)
++                values = self.residual[group, bucket] * self.weights[group]
++                decoded = self.decoders[group].decode(values, hash_bits, order=order, breadth=28, number=2)
++                proposals.extend((bits, (group,)) for bits in decoded)
++                if time.monotonic() - self.started > 100:
++                    break
++        return self.consider(proposals, 'soft')
++
++    def pairs(self, order=1):
++        proposals = []
++        options = []
++        for first in range(self.groups):
++            for second in range(first):
++                left = self.residual[first, :, 1:]
++                right = self.residual[second, :, 1:]
++                left_norm = np.sqrt(np.sum(left ** 2, axis=1))
++                right_norm = np.sqrt(np.sum(right ** 2, axis=1))
++                correlation = (left @ right.T) / np.maximum(left_norm[:, None] * right_norm[None, :], 1e-30)
++                left_good = left_norm > np.sqrt(self.rows - 1) * np.median(self.sigma[first]) * 1.4
++                right_good = right_norm > np.sqrt(self.rows - 1) * np.median(self.sigma[second]) * 1.4
++                correlation[~left_good] = -1
++                correlation[:, ~right_good] = -1
++                best = np.argpartition(correlation, -min(3, self.buckets), axis=1)[:, -min(3, self.buckets):]
++                for bucket in range(self.buckets):
++                    for other in best[bucket]:
++                        score = correlation[bucket, other]
++                        if score > 0.3:
++                            options.append((score, first, second, bucket, int(other)))
++        options.sort(reverse=True)
++        for score, first, second, bucket, other in options[:600]:
++            key = (first, second)
++            if key not in self.pair_decoders:
++                self.pair_decoders[key] = SoftDecoder(self.offsets, np.concatenate((self.hashes[first], self.hashes[second])))
++            hash_bits = np.concatenate((((bucket >> np.arange(self.hash_width)) & 1),
++                                        ((other >> np.arange(self.hash_width)) & 1))).astype(np.uint8)
++            values = self.residual[first, bucket] + self.residual[second, other]
++            decoded = self.pair_decoders[key].decode(values, hash_bits, order=order, breadth=24, number=2)
++            proposals.extend((bits, key) for bits in decoded)
++            if time.monotonic() - self.started > 100:
++                break
++        return self.consider(proposals, 'pair')
++
++    def solve(self):
++        stagnant = 0
++        for iteration in range(50):
++            if time.monotonic() - self.started > 102:
++                break
++            added = self.direct()
++            if added:
++                stagnant = 0
++                continue
++            added = self.soft(order=1 if stagnant == 0 else 2)
++            if added:
++                stagnant = 0
++                continue
++            if stagnant >= 1:
++                added = self.pairs(order=1 if stagnant == 1 else 2)
++                if added:
++                    stagnant = 0
++                    continue
++            stagnant += 1
++            if stagnant >= 3:
++                break
++        keep = np.flatnonzero((self.probabilities[1:] > np.maximum(2.5 * self.fit_std[1:], self.floor * 0.01))) + 1
++        if len(keep) > self.maximum:
++            keep = keep[np.argsort(self.probabilities[keep])[-self.maximum:]]
++        self.bits = self.bits[np.concatenate(([0], keep))]
++        self.fit()
++        ordering = np.argsort(self.probabilities[1:])[::-1] + 1
++        selected = self.bits[ordering]
++        paulis = np.array([0, 3, 1, 2], dtype=np.uint8)[2 * selected[:, 0::2] + selected[:, 1::2]]
++        return paulis, self.probabilities[ordering], self.probabilities[0]
++
++
++def main():
++    with np.load(sys.argv[1], allow_pickle=False) as data:
++        reconstruction = Reconstruction(data)
++    paulis, probabilities, identity = reconstruction.solve()
++    np.savez(sys.argv[2], paulis=paulis.astype(np.uint8),
++             probabilities=probabilities.astype(np.float64), p_identity=np.float64(identity))
++
++
++if __name__ == '__main__':
++    main()
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/test_solver.py
++import os
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++import time
++import numpy as np
++from solver import Reconstruction
++
++
++def simulate(seed=1, n=40, count=96, width=6, groups=3, extra=32,
++             noise=0.00025, distribution='log', dynamic=30, background=0,
++             weight=None, mass=0.15):
++    random = np.random.default_rng(seed)
++    dimension = 2 * n
++    hashes = random.integers(0, 2, (groups, width, dimension), dtype=np.uint8)
++    offsets = np.concatenate((np.zeros((1, dimension), dtype=np.uint8),
++                              np.eye(dimension, dtype=np.uint8),
++                              random.integers(0, 2, (extra, dimension), dtype=np.uint8)))
++    bits = random.integers(0, 2, (count, dimension), dtype=np.uint8)
++    if weight is not None:
++        bits[:] = 0
++        for row in bits:
++            indices = random.choice(n, size=weight, replace=False)
++            entries = random.integers(1, 4, size=weight)
++            row[indices * 2] = entries & 1
++            row[indices * 2 + 1] = (entries >> 1) & 1
++    if distribution == 'log':
++        probabilities = np.exp(random.uniform(-np.log(dynamic), 0, count))
++    elif distribution == 'equal':
++        probabilities = np.ones(count)
++    elif distribution == 'near':
++        probabilities = random.uniform(0.85, 1.15, count)
++    else:
++        probabilities = random.pareto(1.5, count) + 0.1
++    probabilities *= mass / probabilities.sum()
++    floor = probabilities.min() * 0.8
++    if background:
++        background_bits = random.integers(0, 2, (background, dimension), dtype=np.uint8)
++        bits = np.concatenate((bits, background_bits))
++        probabilities = np.concatenate((probabilities, np.full(background, mass * 0.08 / background)))
++    buckets = 1 << width
++    rows = len(offsets)
++    signs = 1.0 - 2.0 * ((bits @ offsets.T) & 1)
++    identity = 1.0 - probabilities.sum()
++    transformed = np.zeros((groups, buckets, rows))
++    for group in range(groups):
++        transformed[group, 0] += identity
++        locations = ((bits @ hashes[group].T) & 1) @ (1 << np.arange(width))
++        np.add.at(transformed[group], locations, probabilities[:, None] * signs)
++    from solver import walsh
++    observations = walsh(transformed.transpose(0, 2, 1)) * buckets
++    sigma = noise * random.uniform(0.9, 1.1, (groups, rows))
++    observations += random.normal(size=observations.shape) * sigma[:, :, None]
++    data = dict(n_qubits=np.int64(n), hashes=hashes, offsets=offsets, eigenvalues=observations,
++                noise_std=sigma, recovery_floor=np.float64(floor), max_terms=np.int64(max(512, count)))
++    truth = {bytes(row): probability for row, probability in zip(bits, probabilities)}
++    return data, truth, identity
++
++
++def evaluate(data, truth, identity, verbose=False):
++    start = time.monotonic()
++    reconstruction = Reconstruction(data)
++    if verbose:
++        for name in ['direct', 'soft', 'pairs']:
++            original = getattr(reconstruction, name)
++            def wrapped(*args, _original=original, _name=name, **kwargs):
++                before = time.monotonic()
++                result = _original(*args, **kwargs)
++                current = {bytes(row) for row in reconstruction.bits[1:]}
++                correct = len(current & truth.keys())
++                print(_name, kwargs, 'add', result, 'have', len(current), 'true', correct,
++                      'sec', round(time.monotonic() - before, 3), flush=True)
++                return result
++            setattr(reconstruction, name, wrapped)
++    paulis, probabilities, estimate_identity = reconstruction.solve()
++    entries = np.array([[0, 0], [1, 0], [1, 1], [0, 1]], dtype=np.uint8)[paulis]
++    prediction = {bytes(row.reshape(-1)): probability for row, probability in zip(entries, probabilities)}
++    floor = float(data['recovery_floor'])
++    true_support = {key for key, value in truth.items() if value >= floor}
++    estimated_support = {key for key, value in prediction.items() if value >= floor}
++    correct = len(true_support & estimated_support)
++    f1 = 2 * correct / max(1, len(true_support) + len(estimated_support))
++    error = sum(abs(truth.get(key, 0) - prediction.get(key, 0)) for key in truth.keys() | prediction.keys())
++    error += max(0.0, 1.0 - estimate_identity - sum(prediction.values()))
++    l1 = error / sum(truth.values())
++    l2 = np.sqrt(sum((truth.get(key, 0) - prediction.get(key, 0)) ** 2 for key in truth.keys() | prediction.keys()) /
++                 sum(value ** 2 for value in truth.values()))
++    print('RESULT', 'n',int(data['n_qubits']), 'K', len(truth), 'B', 1 << data['hashes'].shape[1],
++          'floor',floor, 'F1',round(f1,6), 'A',round(l1,6), 'B',round(l2,6),
++          'iderr',round(estimate_identity - identity,8), 'out',len(prediction),
++          'time',round(time.monotonic()-start,3), flush=True)
++    return reconstruction, prediction
++
++
++if __name__ == '__main__':
++    import sys
++    mode = sys.argv[1] if len(sys.argv) > 1 else 'basic'
++    if mode == 'example':
++        with np.load('../participant/input/example.npz') as data:
++            reconstruction = Reconstruction(data)
++        start = time.monotonic()
++        paulis, probabilities, identity = reconstruction.solve()
++        print('EXAMPLE',len(probabilities),identity,probabilities.sum(),probabilities[:10],time.monotonic()-start)
++    elif mode == 'basic':
++        for specification in [dict(), dict(n=100,count=256,width=7,groups=4,dynamic=100),
++                              dict(n=100,count=512,width=8,groups=3,distribution='near',noise=0.0003),
++                              dict(n=80,count=256,width=6,groups=3,distribution='equal'),
++                              dict(n=60,count=160,width=6,groups=3,dynamic=3000,noise=0.00002,background=1000)]:
++            data, truth, identity = simulate(**specification)
++            evaluate(data, truth, identity, True)
+*** End Patch
+PATCH
+python test_solver.py basic" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 8343ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/test_solver.py
+direct {} add 69 have 69 true 69 sec 0.006
+direct {} add 25 have 94 true 94 sec 0.006
+direct {} add 2 have 96 true 96 sec 0.006
+direct {} add 0 have 96 true 96 sec 0.001
+soft {'order': 1} add 0 have 96 true 96 sec 0.0
+direct {} add 0 have 96 true 96 sec 0.001
+soft {'order': 2} add 0 have 96 true 96 sec 0.0
+pairs {'order': 1} add 0 have 96 true 96 sec 0.001
+direct {} add 0 have 96 true 96 sec 0.001
+soft {'order': 2} add 0 have 96 true 96 sec 0.0
+pairs {'order': 2} add 0 have 96 true 96 sec 0.001
+RESULT n 40 K 96 B 64 floor 0.0001515175900391033 F1 1.0 A 0.000972 B 0.000801 iderr -2.16e-06 out 96 time 0.035
+direct {} add 165 have 165 true 165 sec 0.051
+direct {} add 49 have 214 true 214 sec 0.037
+direct {} add 5 have 219 true 219 sec 0.031
+direct {} add 0 have 219 true 219 sec 0.001
+soft {'order': 1} add 22 have 241 true 240 sec 0.113
+direct {} add 0 have 241 true 240 sec 0.002
+soft {'order': 1} add 3 have 244 true 241 sec 0.07
+direct {} add 0 have 244 true 241 sec 0.001
+soft {'order': 1} add 1 have 245 true 242 sec 0.063
+direct {} add 0 have 245 true 242 sec 0.001
+soft {'order': 1} add 0 have 245 true 242 sec 0.032
+direct {} add 0 have 245 true 242 sec 0.001
+soft {'order': 2} add 0 have 245 true 242 sec 0.045
+pairs {'order': 1} add 14 have 259 true 256 sec 0.08
+direct {} add 0 have 259 true 256 sec 0.001
+soft {'order': 1} add 0 have 259 true 256 sec 0.0
+direct {} add 0 have 259 true 256 sec 0.001
+soft {'order': 2} add 0 have 259 true 256 sec 0.0
+pairs {'order': 1} add 0 have 259 true 256 sec 0.003
+direct {} add 0 have 259 true 256 sec 0.001
+soft {'order': 2} add 0 have 259 true 256 sec 0.0
+pairs {'order': 2} add 0 have 259 true 256 sec 0.004
+RESULT n 100 K 256 B 128 floor 2.305392882519308e-05 F1 1.0 A 0.001063 B 0.000837 iderr -5.4e-07 out 257 time 0.596
+direct {} add 201 have 201 true 201 sec 0.034
+direct {} add 123 have 324 true 324 sec 0.042
+direct {} add 74 have 398 true 398 sec 0.051
+direct {} add 51 have 449 true 449 sec 0.066
+direct {} add 36 have 485 true 485 sec 0.057
+direct {} add 21 have 506 true 506 sec 0.056
+direct {} add 6 have 512 true 512 sec 0.056
+direct {} add 0 have 512 true 512 sec 0.002
+soft {'order': 1} add 0 have 512 true 512 sec 0.001
+direct {} add 0 have 512 true 512 sec 0.002
+soft {'order': 2} add 0 have 512 true 512 sec 0.0
+pairs {'order': 1} add 0 have 512 true 512 sec 0.005
+direct {} add 0 have 512 true 512 sec 0.002
+soft {'order': 2} add 0 have 512 true 512 sec 0.0
+pairs {'order': 2} add 0 have 512 true 512 sec 0.005
+RESULT n 100 K 512 B 256 floor 0.00019978712017180552 F1 1.0 A 0.001861 B 0.002279 iderr -3.3e-07 out 512 time 0.443
+direct {} add 14 have 14 true 14 sec 0.003
+direct {} add 4 have 18 true 18 sec 0.003
+direct {} add 0 have 18 true 18 sec 0.001
+soft {'order': 1} add 0 have 18 true 18 sec 0.095
+direct {} add 0 have 18 true 18 sec 0.001
+soft {'order': 2} add 1 have 19 true 18 sec 0.143
+direct {} add 0 have 19 true 18 sec 0.001
+soft {'order': 1} add 0 have 19 true 18 sec 0.087
+direct {} add 0 have 19 true 18 sec 0.001
+soft {'order': 2} add 0 have 19 true 18 sec 0.154
+pairs {'order': 1} add 2 have 21 true 18 sec 0.113
+direct {} add 0 have 21 true 18 sec 0.001
+soft {'order': 1} add 0 have 21 true 18 sec 0.102
+direct {} add 0 have 21 true 18 sec 0.001
+soft {'order': 2} add 0 have 21 true 18 sec 0.15
+pairs {'order': 1} add 1 have 22 true 18 sec 0.104
+direct {} add 0 have 22 true 18 sec 0.001
+soft {'order': 1} add 0 have 22 true 18 sec 0.113
+direct {} add 0 have 22 true 18 sec 0.001
+soft {'order': 2} add 0 have 22 true 18 sec 0.16
+pairs {'order': 1} add 0 have 22 true 18 sec 0.094
+direct {} add 0 have 22 true 18 sec 0.001
+soft {'order': 2} add 0 have 22 true 18 sec 0.158
+pairs {'order': 2} add 2 have 24 true 18 sec 0.14
+direct {} add 0 have 24 true 18 sec 0.001
+soft {'order': 1} add 0 have 24 true 18 sec 0.106
+direct {} add 0 have 24 true 18 sec 0.001
+soft {'order': 2} add 0 have 24 true 18 sec 0.171
+pairs {'order': 1} add 0 have 24 true 18 sec 0.091
+direct {} add 0 have 24 true 18 sec 0.001
+soft {'order': 2} add 0 have 24 true 18 sec 0.16
+pairs {'order': 2} add 0 have 24 true 18 sec 0.13
+RESULT n 80 K 256 B 64 floor 0.00046875 F1 0.129032 A 1.862996 B 0.97586 iderr -0.00013149 out 24 time 2.297
+direct {} add 59 have 59 true 59 sec 0.007
+direct {} add 21 have 80 true 80 sec 0.009
+direct {} add 4 have 84 true 84 sec 0.01
+direct {} add 0 have 84 true 84 sec 0.001
+soft {'order': 1} add 10 have 94 true 94 sec 0.11
+direct {} add 0 have 94 true 94 sec 0.001
+soft {'order': 1} add 0 have 94 true 94 sec 0.093
+direct {} add 0 have 94 true 94 sec 0.001
+soft {'order': 2} add 0 have 94 true 94 sec 0.151
+pairs {'order': 1} add 6 have 100 true 99 sec 0.03
+direct {} add 0 have 100 true 99 sec 0.001
+soft {'order': 1} add 0 have 100 true 99 sec 0.098
+direct {} add 0 have 100 true 99 sec 0.001
+soft {'order': 2} add 0 have 100 true 99 sec 0.159
+pairs {'order': 1} add 0 have 100 true 99 sec 0.011
+direct {} add 0 have 100 true 99 sec 0.001
+soft {'order': 2} add 0 have 100 true 99 sec 0.162
+pairs {'order': 2} add 2 have 102 true 101 sec 0.025
+direct {} add 0 have 102 true 101 sec 0.001
+soft {'order': 1} add 0 have 102 true 101 sec 0.106
+direct {} add 0 have 102 true 101 sec 0.001
+soft {'order': 2} add 0 have 102 true 101 sec 0.177
+pairs {'order': 1} add 0 have 102 true 101 sec 0.009
+direct {} add 0 have 102 true 101 sec 0.001
+soft {'order': 2} add 0 have 102 true 101 sec 0.161
+pairs {'order': 2} add 0 have 102 true 101 sec 0.012
+RESULT n 60 K 1160 B 64 floor 2.5150519396889496e-06 F1 0.160063 A 0.1581 B 0.015732 iderr -1.86e-06 out 102 time 1.353
+
+**Examining algorithm efficiency**
+
+I'm thinking about the tools and potential overhead; there seems to be a 60-second startup time, but the code runs in about 2 seconds. I have to improve accuracy and deal with equal collision issues, especially when approaching a certain parameter threshold. I need examples with log noise and will test baseline findings with synthetic data. There's also a necessity for deeper algorithms and verification methods to prune false positives. I'm gathering these insights to enhance my approach overall.
+**Analyzing recovery strategies**
+
+I’m looking at the need to recover dozens since I have K238 remaining and a load of 3.7. Each term in degree 2 has a probability, and it seems like there might be a correlation that could lead to an avalanche scenario. I'm considering thresholds and the strength of checksums while debugging the cross hash values. The combined values seem promising, and I need to ensure I'm accurately decoding to maximize efficiency. Essentially, I’m aiming for effective pair selection with robust support.
+codex
+Initial tests recover sparse cases; dense equal-weight collisions need stronger decoding.
+
+exec
+/bin/bash -c "date -u '+%Y-%m-%d %H:%M:%S'; python test_solver.py example; python - <<'PY'
+from test_solver import simulate,evaluate
+for spec in [dict(n=40,count=192,width=6,groups=3,distribution='equal'),dict(n=80,count=384,width=7,groups=3,distribution='near'),dict(n=100,count=512,width=7,groups=4,distribution='log',dynamic=10),dict(n=60,count=96,width=6,groups=3,weight=1,distribution='log')]:
+ data,truth,identity=simulate(**spec)
+ evaluate(data,truth,identity)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 4866ms:
+2026-08-28 01:22:19
+EXAMPLE 72 0.8780606056637325 0.12193939433626746 [0.00554985 0.00547418 0.00497224 0.00481259 0.00451275 0.00435918
+ 0.00422272 0.00397708 0.00379151 0.00366871] 0.019120843964628875
+RESULT n 40 K 192 B 64 floor 0.000625 F1 1.0 A 0.00161 B 0.002057 iderr -2.47e-06 out 192 time 1.127
+RESULT n 80 K 384 B 128 floor 0.0002647938245203128 F1 1.0 A 0.001902 B 0.002348 iderr -1.02e-06 out 384 time 0.648
+RESULT n 100 K 512 B 128 floor 6.0119199203089555e-05 F1 1.0 A 0.00181 B 0.001908 iderr -1.8e-07 out 512 time 0.487
+RESULT n 60 K 80 B 64 floor 0.00019276642206477975 F1 1.0 A 0.147297 B 0.318963 iderr -3.11e-06 out 80 time 0.039
+
+exec
+/bin/bash -c "python - <<'PY'
+from test_solver import simulate,evaluate
+import numpy as np
+spec=dict(n=80,count=256,width=6,groups=3,distribution='equal')
+data,truth,identity=simulate(**spec)
+rec,pred=evaluate(data,truth,identity)
+truebits=np.array([np.frombuffer(key,dtype=np.uint8) for key in truth])
+for index, bits in enumerate(rec.bits[1:],1):
+ if bytes(bits) not in truth:
+  distances=np.sum(truebits "'!= bits,axis=1)
+  nearest=distances.argmin()
+  loc=rec.locations(bits[None])[:,0]
+  true_loc=rec.locations(truebits[nearest:nearest+1])[:,0]
+  signs=rec.signatures(bits[None])[0]
+  print('"'false',rec.probabilities[index], 'dist',distances[nearest], 'locs',loc,'near',true_loc)
+  for group in range(rec.groups):
+   matched=(rec.residual[group,loc[group]]+rec.probabilities[index]*signs)*signs
+   print(group,'all',matched[1:].mean(), 'check',matched[rec.extra_start:].mean(), 'SD',matched[1:].std())
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+**Managing time effectively**
+
+I'm considering how much time to allocate for coding and checking utilities. I think about setting aside 20 minutes, and since the clock says 18:33, I might aim to finish just before 19:00. So far, I've spent about 10 minutes reasoning. With a total of 40 minutes available, that should give me enough time. I need to focus on writing the code while also checking for any false or pending issues.
+ succeeded in 9701ms:
+RESULT n 80 K 256 B 64 floor 0.00046875 F1 0.129032 A 1.862996 B 0.97586 iderr -0.00013149 out 24 time 2.151
+false 0.0003415899910764186 dist 43 locs [51 30 19] near [14 38 19]
+0 all 3.9841120793742705e-05 check 0.00017241881555488895 SD 0.0010538137270235067
+1 all 0.00023792927418262916 check 0.0002972339837956688 SD 0.0007234710004841099
+2 all 0.0007723110905532487 check 0.000880183597959444 SD 0.0005836633505629075
+false 0.0006222021178697007 dist 33 locs [63 39 29] near [63 39 29]
+0 all 0.00038397233374260625 check 0.0007730175377844275 SD 0.001138474878426211
+1 all 0.0008724783247839157 check 0.0009631615473157867 SD 0.0009084637408044704
+2 all 0.0006192267570668282 check 0.0006631942293878488 SD 0.0008232548325874477
+false 0.0006792263814596115 dist 45 locs [58 10 26] near [58 10 26]
+0 all 0.0006229658294226816 check 0.0008735653158882419 SD 0.001251722001118855
+1 all 0.0006413392121410151 check 0.0006527158873866055 SD 0.0007054800207507956
+2 all 0.0007919190590318353 check 0.0011730155560626529 SD 0.0008682059898322481
+false 0.0005528209276451149 dist 39 locs [58 10 36] near [58 10 36]
+0 all 0.00045266093814938594 check 0.0007377293185173036 SD 0.0012489760583392726
+1 all 0.0004219662122484324 check 0.0005874127778310224 SD 0.0006942726703075472
+2 all 0.0008024562987149012 check 0.0008796998344885798 SD 0.0008972262565299456
+false 0.0005689210763823207 dist 37 locs [28 30 16] near [28 30 16]
+0 all 0.0009732378307413339 check 0.0010357898080147004 SD 0.0009360891022344641
+1 all 0.00033930190137439 check 0.0004120405710084839 SD 0.0006938521940853761
+2 all 0.00042650893940331217 check 0.0005098937207923268 SD 0.0006350629583116297
+false 0.0006081111009305338 dist 30 locs [10 46 52] near [10 46 52]
+0 all 0.0004420318874520187 check 0.00039880993471101364 SD 0.0011390528715632764
+1 all 0.0005372569708521831 check 0.000398615756875904 SD 0.0006942505488833858
+2 all 0.000860477350995889 check 0.000740830590271395 SD 0.0009444467189782675
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+ import sys
+ import time
++import itertools
+@@
+-        if len(selected) "'!= self.redundancy or len(selected) > 64:
+-            return []
+-
+         def resolve(value):
+             combination = 0
+             while value:
+                 pivot = value.bit_length() - 1
++                if basis[pivot] == 0:
++                    return None
+                 value ''^= basis[pivot]
+                 combination ''^= transforms[pivot]
+             return combination
+ 
+         initial = resolve(syndrome)
++        if initial is None:
++            return []
+@@
+-        masks = np.array(masks, dtype=np.uint64)
++        mask_integers = masks
++        masks = np.array([mask & ((1 << 64) - 1) for mask in masks], dtype=np.uint64)
++        upper_masks = None
++        if len(selected) > 64:
++            upper_masks = np.array([mask >> 64 for mask in mask_integers], dtype=np.uint64)
+@@
+-            costs += table[((masks >> np.uint64(start)) & np.uint64(255)).astype(np.int64)]
++            part = masks if start < 64 else upper_masks
++            costs += table[((part >> np.uint64(start % 64)) & np.uint64(255)).astype(np.int64)]
+@@
+-            change = int(masks[index])
++            change = mask_integers[index]
+@@
+         self.pair_decoders = {}
++        self.xor_decoders = {}
+@@
+     def pairs(self, order=1):
+@@
+         return self.consider(proposals, '"'pair')
++
++    def doubletons(self):
++        doubletons = []
++        for group in range(self.groups):
++            for bucket in range(self.buckets):
++                observed = self.residual[group, bucket]
++                absolute = np.abs(observed[1:])
++                low, high = np.quantile(absolute, [0.25, 0.75])
++                for iteration in range(5):
++                    above = absolute > (low + high) * 0.5
++                    if above.all() or not above.any():
++                        break
++                    low = np.mean(absolute[~above])
++                    high = np.mean(absolute[above])
++                if high - low < max(6 * np.median(self.sigma[group]), self.floor * 0.05):
++                    continue
++                center = (high + low) * 0.5
++                magnitude_values = np.abs(observed) - center
++                difference = (magnitude_values[1:self.dimension + 1] < 0).astype(np.uint8)
++                if not np.any(difference) or np.any((self.hashes[group] @ difference) & 1):
++                    continue
++                xor_signs = self.signatures(difference[None])[0]
++                if np.count_nonzero(xor_signs[1:] * magnitude_values[1:] < 0) > 0:
++                    continue
++                levels = np.where(xor_signs[1:] > 0, high, low)
++                scatter = np.sqrt(np.mean((absolute - levels) ** 2))
++                if scatter > (high - low) * 0.18:
++                    continue
++                doubletons.append((high, group, bucket, difference, xor_signs))
++        doubletons.sort(key=lambda item: -item[0])
++        proposals = []
++        seen = set()
++        for mass, source, bucket, difference, xor_signs in doubletons:
++            source_values = self.residual[source, bucket]
++            known = xor_signs > 0
++            known[0] = False
++            unknown = (xor_signs < 0)
++            if np.count_nonzero(unknown) < 8:
++                continue
++            orientation = np.sign(source_values)
++            options = []
++            for group in range(self.groups):
++                if group == source:
++                    continue
++                delta = int(self.locations(difference[None])[group, 0])
++                if delta == 0:
++                    continue
++                choices = np.arange(self.buckets)
++                partners = choices "'^ delta
++                choices = choices[choices < partners]
++                partners = choices ''^ delta
++                combined = self.residual[group, choices] + self.residual[group, partners] * xor_signs
++                selected_values = combined[:, known]
++                score = (selected_values @ orientation[known]) / np.maximum(
++                    np.sqrt(np.sum(selected_values ** 2, axis=1) * np.count_nonzero(known)), 1e-30)
++                ordering = np.argsort(score)[-3:][::-1]
++                if score[ordering[0]] > 0.3:
++                    options.append((float(score[ordering[0]]), group, delta, choices[ordering]))
++            options.sort(reverse=True, key=lambda item: item[0])
++            if len(options) < 2:
++                continue
++            first_option, second_option = options[:2]
++            first, first_delta, first_choices = first_option[1:]
++            second, second_delta, second_choices = second_option[1:]
++            groups = (source, first, second)
++            key = groups
++            if key not in self.xor_decoders:
++                self.xor_decoders[key] = SoftDecoder(self.offsets, np.concatenate([self.hashes[group] for group in groups]))
++            decoder = self.xor_decoders[key]
++            constraint_rows = np.concatenate([self.hashes[group] for group in groups] + [self.offsets[known]])
++            basis = {}
++            for row in constraint_rows:
++                value = packed_integer(row)
++                while value:
++                    pivot = value.bit_length() - 1
++                    if pivot not in basis:
++                        basis[pivot] = value
++                        break
++                    value ''^= basis[pivot]
++            freedom = max(0, self.dimension - len(basis))
++            threshold = 2.0 * freedom * np.log(2.0) + 22.0
++            amplitude = mass * 0.5
++            for first_bucket, second_base, flip in itertools.product(first_choices, second_choices, range(2)):
++                second_bucket = int(second_base) ''^ (second_delta if flip else 0)
++                locations = (bucket, int(first_bucket), second_bucket)
++                unknown_values = np.zeros(self.rows)
++                contributions = []
++                for group, location, delta in [(first, int(first_bucket), first_delta),
++                                                (second, second_bucket, second_delta)]:
++                    for paired, multiplier in [(location, np.ones(self.rows)), (location ''^ delta, xor_signs)]:
++                        observed = self.residual[group, paired] * multiplier
++                        power = np.mean(observed[unknown] ** 2)
++                        variance = max(power - amplitude ** 2, 0.3 * power,
++                                       np.mean(self.sigma[group, unknown] ** 2))
++                        unknown_values += observed / variance
++                        contributions.append((observed, variance))
++                values = unknown_values.copy()
++                values[known] = orientation[known] * max(np.max(np.abs(values)), 1.0) * 1000.0
++                hash_bits = np.concatenate([((location >> np.arange(self.hash_width)) & 1)
++                                             for location in locations]).astype(np.uint8)
++                decoded = decoder.decode(values, hash_bits, order=2, breadth=40, number=3)
++                for bits in decoded:
++                    signature = self.signatures(bits[None])[0]
++                    if np.any(signature[known] * orientation[known] < 0):
++                        continue
++                    likelihood = 0.0
++                    for observed, variance in contributions:
++                        likelihood += np.sum(2 * amplitude * signature[unknown] * observed[unknown] - amplitude ** 2) / variance
++                    if likelihood < threshold:
++                        continue
++                    counterpart = bits ''^ difference
++                    accepted = True
++                    if self.groups > 3:
++                        check_locations = self.locations(np.stack((bits, counterpart)))
++                        for group in range(self.groups):
++                            if group in groups:
++                                continue
++                            total = 0.0
++                            variance_sum = 0.0
++                            for row, check_bits in enumerate((bits, counterpart)):
++                                check_signs = signature if row == 0 else signature * xor_signs
++                                matched = self.residual[group, check_locations[group, row], 1:] * check_signs[1:]
++                                total += np.mean(matched)
++                                variance_sum += max(np.var(matched), np.mean(self.sigma[group, 1:] ** 2)) / (self.rows - 1)
++                            if total < 3.0 * np.sqrt(variance_sum):
++                                accepted = False
++                                break
++                    if accepted:
++                        for item in (bits, counterpart):
++                            entry = bytes(item)
++                            if entry not in self.known and entry not in seen:
++                                seen.add(entry)
++                                proposals.append(item)
++                if time.monotonic() - self.started > 95:
++                    break
++            if time.monotonic() - self.started > 95:
++                break
++        if not proposals:
++            return 0
++        self.bits = np.concatenate((self.bits, np.array(proposals, dtype=np.uint8)))
++        self.known.update(bytes(bits) for bits in proposals)
++        self.fit()
++        return len(proposals)
+@@
+             if stagnant >= 1:
++                added = self.doubletons()
++                if added:
++                    stagnant = 0
++                    continue
+                 added = self.pairs(order=1 if stagnant == 1 else 2)
+*** End Patch
+PATCH
+python - <<'"'PY'
+from test_solver import simulate,evaluate
+for spec in [dict(n=80,count=256,width=6,groups=3,distribution='equal'),dict(n=100,count=512,width=7,groups=3,distribution='equal'),dict(n=100,count=512,width=7,groups=3,distribution='near'),dict(n=80,count=512,width=6,groups=3,distribution='log',dynamic=3)]:
+ data,truth,identity=simulate(**spec)
+ evaluate(data,truth,identity,True)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+             threshold = 2.0 * freedom * np.log(2.0) + 22.0
+             amplitude = mass * 0.5
++            best_pair = None
++            best_likelihood = threshold
+@@
+-                    if accepted:
+-                        for item in (bits, counterpart):
+-                            entry = bytes(item)
+-                            if entry not in self.known and entry not in seen:
+-                                seen.add(entry)
+-                                proposals.append(item)
++                    if accepted and likelihood > best_likelihood:
++                        best_likelihood = likelihood
++                        best_pair = (bits, counterpart)
+@@
+                 if time.monotonic() - self.started > 95:
+                     break
++            if best_pair is not None:
++                for item in best_pair:
++                    entry = bytes(item)
++                    if entry not in self.known and entry not in seen:
++                        seen.add(entry)
++                        proposals.append(item)
+             if time.monotonic() - self.started > 95:
+*** End Patch
+PATCH
+python - <<'PY'
+from test_solver import simulate,evaluate
+for spec in [dict(n=80,count=256,width=6,groups=3,distribution='equal'),dict(n=100,count=512,width=7,groups=3,distribution='equal'),dict(n=100,count=512,width=7,groups=3,distribution='near'),dict(n=80,count=512,width=6,groups=3,distribution='log',dynamic=3)]:
+ data,truth,identity=simulate(**spec)
+ evaluate(data,truth,identity,True)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+**Optimizing processes**
+
+I’m thinking about the new patch that's pending. It should be improved. I'm also considering whether each command takes about 60 seconds to start up, but not all tests take that long—some are around 30 seconds. We have 37 minutes to work with, and I need to make sure to reduce the footprint after we finish. It's crucial to streamline everything for efficiency!
+ succeeded in 78007ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+direct {} add 14 have 14 true 14 sec 0.003
+direct {} add 4 have 18 true 18 sec 0.003
+direct {} add 0 have 18 true 18 sec 0.001
+soft {'order': 1} add 0 have 18 true 18 sec 0.115
+direct {} add 0 have 18 true 18 sec 0.001
+soft {'order': 2} add 1 have 19 true 18 sec 0.169
+direct {} add 0 have 19 true 18 sec 0.001
+soft {'order': 1} add 0 have 19 true 18 sec 0.107
+direct {} add 0 have 19 true 18 sec 0.001
+soft {'order': 2} add 0 have 19 true 18 sec 0.173
+direct {} add 2 have 188 true 59 sec 0.019
+direct {} add 1 have 189 true 60 sec 0.019
+direct {} add 0 have 189 true 60 sec 0.001
+soft {'order': 1} add 2 have 191 true 62 sec 0.12
+direct {} add 0 have 191 true 62 sec 0.001
+soft {'order': 1} add 0 have 191 true 62 sec 0.094
+direct {} add 0 have 191 true 62 sec 0.001
+soft {'order': 2} add 0 have 191 true 62 sec 0.156
+direct {} add 0 have 259 true 80 sec 0.001
+soft {'order': 1} add 4 have 263 true 82 sec 0.121
+direct {} add 0 have 263 true 82 sec 0.001
+soft {'order': 1} add 0 have 263 true 82 sec 0.097
+direct {} add 0 have 263 true 82 sec 0.001
+soft {'order': 2} add 0 have 263 true 82 sec 0.149
+pairs {'order': 1} add 1 have 264 true 82 sec 0.105
+direct {} add 0 have 264 true 82 sec 0.0
+soft {'order': 1} add 0 have 264 true 82 sec 0.096
+direct {} add 0 have 264 true 82 sec 0.0
+soft {'order': 2} add 0 have 264 true 82 sec 0.15
+pairs {'order': 1} add 0 have 264 true 82 sec 0.072
+direct {} add 0 have 264 true 82 sec 0.0
+soft {'order': 2} add 0 have 264 true 82 sec 0.155
+pairs {'order': 2} add 0 have 264 true 82 sec 0.116
+RESULT n 80 K 256 B 64 floor 0.00046875 F1 0.263514 A 1.514508 B 0.871318 iderr -0.00012864 out 233 time 3.793
+direct {} add 21 have 21 true 21 sec 0.005
+direct {} add 4 have 25 true 25 sec 0.005
+direct {} add 1 have 26 true 26 sec 0.004
+direct {} add 0 have 26 true 26 sec 0.001
+soft {'order': 1} add 0 have 26 true 26 sec 0.208
+direct {} add 0 have 26 true 26 sec 0.001
+soft {'order': 2} add 0 have 26 true 26 sec 0.326
+direct {} add 0 have 621 true 105 sec 0.001
+soft {'order': 1} add 2 have 623 true 106 sec 0.273
+direct {} add 0 have 623 true 106 sec 0.001
+soft {'order': 1} add 0 have 623 true 106 sec 0.196
+direct {} add 0 have 623 true 106 sec 0.001
+soft {'order': 2} add 0 have 623 true 106 sec 0.303
+direct {} add 0 have 701 true 112 sec 0.001
+soft {'order': 1} add 1 have 702 true 113 sec 0.285
+direct {} add 0 have 702 true 113 sec 0.001
+soft {'order': 1} add 0 have 702 true 113 sec 0.197
+direct {} add 0 have 702 true 113 sec 0.001
+soft {'order': 2} add 0 have 702 true 113 sec 0.315
+direct {} add 0 have 720 true 115 sec 0.002
+soft {'order': 1} add 0 have 720 true 115 sec 0.206
+direct {} add 0 have 720 true 115 sec 0.001
+soft {'order': 2} add 0 have 720 true 115 sec 0.324
+direct {} add 0 have 726 true 117 sec 0.002
+soft {'order': 1} add 1 have 727 true 118 sec 0.315
+direct {} add 0 have 727 true 118 sec 0.001
+soft {'order': 1} add 0 have 727 true 118 sec 0.208
+direct {} add 0 have 727 true 118 sec 0.001
+soft {'order': 2} add 0 have 727 true 118 sec 0.312
+direct {} add 0 have 733 true 120 sec 0.002
+soft {'order': 1} add 0 have 733 true 120 sec 0.201
+direct {} add 0 have 733 true 120 sec 0.001
+soft {'order': 2} add 0 have 733 true 120 sec 0.304
+pairs {'order': 1} add 1 have 734 true 120 sec 0.238
+direct {} add 0 have 734 true 120 sec 0.001
+soft {'order': 1} add 0 have 734 true 120 sec 0.222
+direct {} add 0 have 734 true 120 sec 0.002
+soft {'order': 2} add 0 have 734 true 120 sec 0.297
+pairs {'order': 1} add 0 have 734 true 120 sec 0.148
+direct {} add 0 have 734 true 120 sec 0.001
+soft {'order': 2} add 0 have 734 true 120 sec 0.306
+pairs {'order': 2} add 0 have 734 true 120 sec 0.199
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 0.12 A 1.702705 B 0.936685 iderr -1.377e-05 out 512 time 9.846
+direct {} add 32 have 32 true 32 sec 0.006
+direct {} add 18 have 50 true 50 sec 0.007
+direct {} add 5 have 55 true 55 sec 0.007
+direct {} add 3 have 58 true 58 sec 0.007
+direct {} add 0 have 58 true 58 sec 0.001
+soft {'order': 1} add 21 have 79 true 78 sec 0.195
+direct {} add 24 have 103 true 102 sec 0.014
+direct {} add 4 have 107 true 106 sec 0.013
+direct {} add 2 have 109 true 108 sec 0.012
+direct {} add 0 have 109 true 108 sec 0.001
+soft {'order': 1} add 3 have 112 true 111 sec 0.208
+direct {} add 4 have 116 true 115 sec 0.014
+direct {} add 0 have 116 true 115 sec 0.001
+soft {'order': 1} add 2 have 118 true 117 sec 0.2
+direct {} add 2 have 120 true 119 sec 0.014
+direct {} add 0 have 120 true 119 sec 0.001
+soft {'order': 1} add 0 have 120 true 119 sec 0.181
+direct {} add 0 have 120 true 119 sec 0.001
+soft {'order': 2} add 1 have 121 true 120 sec 0.309
+direct {} add 1 have 122 true 121 sec 0.013
+direct {} add 0 have 122 true 121 sec 0.001
+soft {'order': 1} add 0 have 122 true 121 sec 0.182
+direct {} add 0 have 122 true 121 sec 0.001
+soft {'order': 2} add 0 have 122 true 121 sec 0.28
+direct {} add 1 have 419 true 182 sec 0.043
+direct {} add 0 have 419 true 182 sec 0.001
+soft {'order': 1} add 2 have 421 true 183 sec 0.227
+direct {} add 0 have 421 true 183 sec 0.001
+soft {'order': 1} add 0 have 421 true 183 sec 0.183
+direct {} add 0 have 421 true 183 sec 0.001
+soft {'order': 2} add 0 have 421 true 183 sec 0.297
+direct {} add 0 have 491 true 197 sec 0.001
+soft {'order': 1} add 5 have 496 true 199 sec 0.239
+direct {} add 0 have 496 true 199 sec 0.001
+soft {'order': 1} add 0 have 496 true 199 sec 0.189
+direct {} add 0 have 496 true 199 sec 0.001
+soft {'order': 2} add 0 have 496 true 199 sec 0.285
+direct {} add 0 have 522 true 205 sec 0.001
+soft {'order': 1} add 1 have 523 true 206 sec 0.241
+direct {} add 1 have 524 true 207 sec 0.055
+direct {} add 1 have 525 true 208 sec 0.057
+direct {} add 0 have 525 true 208 sec 0.002
+soft {'order': 1} add 1 have 526 true 208 sec 0.247
+direct {} add 0 have 526 true 208 sec 0.001
+soft {'order': 1} add 0 have 526 true 208 sec 0.193
+direct {} add 0 have 526 true 208 sec 0.001
+soft {'order': 2} add 0 have 526 true 208 sec 0.299
+direct {} add 0 have 538 true 208 sec 0.002
+soft {'order': 1} add 0 have 538 true 208 sec 0.215
+direct {} add 0 have 538 true 208 sec 0.001
+soft {'order': 2} add 0 have 538 true 208 sec 0.324
+pairs {'order': 1} add 1 have 539 true 208 sec 0.252
+direct {} add 0 have 539 true 208 sec 0.002
+soft {'order': 1} add 0 have 539 true 208 sec 0.205
+direct {} add 0 have 539 true 208 sec 0.001
+soft {'order': 2} add 0 have 539 true 208 sec 0.403
+direct {} add 0 have 545 true 208 sec 0.002
+soft {'order': 1} add 0 have 545 true 208 sec 0.26
+direct {} add 0 have 545 true 208 sec 0.002
+soft {'order': 2} add 0 have 545 true 208 sec 0.36
+pairs {'order': 1} add 0 have 545 true 208 sec 0.204
+direct {} add 0 have 545 true 208 sec 0.006
+soft {'order': 2} add 0 have 545 true 208 sec 0.348
+pairs {'order': 2} add 2 have 547 true 208 sec 0.334
+direct {} add 0 have 547 true 208 sec 0.002
+soft {'order': 1} add 0 have 547 true 208 sec 0.212
+direct {} add 0 have 547 true 208 sec 0.001
+soft {'order': 2} add 0 have 547 true 208 sec 0.35
+direct {} add 0 have 559 true 208 sec 0.002
+soft {'order': 1} add 0 have 559 true 208 sec 0.216
+direct {} add 0 have 559 true 208 sec 0.002
+soft {'order': 2} add 0 have 559 true 208 sec 0.334
+pairs {'order': 1} add 0 have 559 true 208 sec 0.188
+direct {} add 0 have 559 true 208 sec 0.002
+soft {'order': 2} add 0 have 559 true 208 sec 0.34
+pairs {'order': 2} add 0 have 559 true 208 sec 0.264
+RESULT n 100 K 512 B 128 floor 0.0002004503633645689 F1 0.45045 A 1.325213 B 0.819992 iderr -1.355e-05 out 512 time 12.582
+direct {} add 1 have 1 true 1 sec 0.002
+direct {} add 0 have 1 true 1 sec 0.001
+soft {'order': 1} add 1 have 2 true 2 sec 0.116
+direct {} add 1 have 3 true 3 sec 0.002
+direct {} add 0 have 3 true 3 sec 0.001
+soft {'order': 1} add 0 have 3 true 3 sec 0.12
+direct {} add 0 have 3 true 3 sec 0.001
+soft {'order': 2} add 0 have 3 true 3 sec 0.172
+direct {} add 1 have 10 true 6 sec 0.003
+direct {} add 0 have 10 true 6 sec 0.001
+soft {'order': 1} add 0 have 10 true 6 sec 0.133
+direct {} add 0 have 10 true 6 sec 0.001
+soft {'order': 2} add 0 have 10 true 6 sec 0.196
+pairs {'order': 1} add 1 have 11 true 6 sec 0.067
+direct {} add 0 have 11 true 6 sec 0.001
+soft {'order': 1} add 0 have 11 true 6 sec 0.114
+direct {} add 0 have 11 true 6 sec 0.001
+soft {'order': 2} add 0 have 11 true 6 sec 0.219
+pairs {'order': 1} add 0 have 11 true 6 sec 0.064
+direct {} add 0 have 11 true 6 sec 0.001
+soft {'order': 2} add 0 have 11 true 6 sec 0.185
+pairs {'order': 2} add 1 have 12 true 6 sec 0.089
+direct {} add 0 have 12 true 6 sec 0.001
+soft {'order': 1} add 0 have 12 true 6 sec 0.123
+direct {} add 0 have 12 true 6 sec 0.001
+soft {'order': 2} add 0 have 12 true 6 sec 0.185
+pairs {'order': 1} add 0 have 12 true 6 sec 0.057
+direct {} add 0 have 12 true 6 sec 0.001
+soft {'order': 2} add 0 have 12 true 6 sec 0.175
+pairs {'order': 2} add 0 have 12 true 6 sec 0.089
+RESULT n 80 K 512 B 64 floor 0.00012845048927826003 F1 0.022945 A 1.98299 B 1.000198 iderr -9.159e-05 out 12 time 2.418
+
+**Analyzing rank codes**
+
+I'm looking at the rank code source and related constraints. It seems like the information provided is enough to distinguish machine learning patterns from overfitting. I think I might need to recover a specific lambda value because the code capacity seems to approximate the signal-to-noise ratio. There's a lot to consider in here, so I want to make sure my understanding is clear as I proceed!
+ succeeded in 91248ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+direct {} add 14 have 14 true 14 sec 0.004
+direct {} add 4 have 18 true 18 sec 0.004
+direct {} add 0 have 18 true 18 sec 0.001
+soft {'order': 1} add 0 have 18 true 18 sec 0.115
+direct {} add 0 have 18 true 18 sec 0.001
+soft {'order': 2} add 1 have 19 true 18 sec 0.17
+direct {} add 0 have 19 true 18 sec 0.001
+soft {'order': 1} add 0 have 19 true 18 sec 0.105
+direct {} add 0 have 19 true 18 sec 0.001
+soft {'order': 2} add 0 have 19 true 18 sec 0.162
+direct {} add 4 have 70 true 61 sec 0.009
+direct {} add 1 have 71 true 62 sec 0.008
+direct {} add 0 have 71 true 62 sec 0.0
+soft {'order': 1} add 0 have 71 true 62 sec 0.1
+direct {} add 0 have 71 true 62 sec 0.0
+soft {'order': 2} add 0 have 71 true 62 sec 0.178
+direct {} add 2 have 103 true 90 sec 0.013
+direct {} add 0 have 103 true 90 sec 0.001
+soft {'order': 1} add 0 have 103 true 90 sec 0.101
+direct {} add 0 have 103 true 90 sec 0.001
+soft {'order': 2} add 0 have 103 true 90 sec 0.149
+direct {} add 1 have 125 true 108 sec 0.012
+direct {} add 0 have 125 true 108 sec 0.0
+soft {'order': 1} add 1 have 126 true 108 sec 0.103
+direct {} add 0 have 126 true 108 sec 0.0
+soft {'order': 1} add 0 have 126 true 108 sec 0.091
+direct {} add 0 have 126 true 108 sec 0.0
+soft {'order': 2} add 0 have 126 true 108 sec 0.154
+direct {} add 0 have 140 true 120 sec 0.001
+soft {'order': 1} add 0 have 140 true 120 sec 0.108
+direct {} add 0 have 140 true 120 sec 0.001
+soft {'order': 2} add 1 have 141 true 120 sec 0.166
+direct {} add 0 have 141 true 120 sec 0.001
+soft {'order': 1} add 0 have 141 true 120 sec 0.09
+direct {} add 0 have 141 true 120 sec 0.001
+soft {'order': 2} add 0 have 141 true 120 sec 0.141
+direct {} add 1 have 156 true 135 sec 0.014
+direct {} add 0 have 156 true 135 sec 0.001
+soft {'order': 1} add 0 have 156 true 135 sec 0.088
+direct {} add 0 have 156 true 135 sec 0.001
+soft {'order': 2} add 0 have 156 true 135 sec 0.138
+direct {} add 1 have 173 true 152 sec 0.016
+direct {} add 0 have 173 true 152 sec 0.001
+soft {'order': 1} add 0 have 173 true 152 sec 0.083
+direct {} add 0 have 173 true 152 sec 0.001
+soft {'order': 2} add 0 have 173 true 152 sec 0.137
+direct {} add 0 have 187 true 166 sec 0.001
+soft {'order': 1} add 0 have 187 true 166 sec 0.081
+direct {} add 0 have 187 true 166 sec 0.001
+soft {'order': 2} add 1 have 188 true 166 sec 0.165
+direct {} add 0 have 188 true 166 sec 0.001
+soft {'order': 1} add 0 have 188 true 166 sec 0.095
+direct {} add 0 have 188 true 166 sec 0.001
+soft {'order': 2} add 0 have 188 true 166 sec 0.126
+direct {} add 1 have 195 true 173 sec 0.016
+direct {} add 0 have 195 true 173 sec 0.001
+soft {'order': 1} add 0 have 195 true 173 sec 0.088
+direct {} add 0 have 195 true 173 sec 0.001
+soft {'order': 2} add 0 have 195 true 173 sec 0.131
+direct {} add 0 have 199 true 177 sec 0.001
+soft {'order': 1} add 0 have 199 true 177 sec 0.079
+direct {} add 0 have 199 true 177 sec 0.001
+soft {'order': 2} add 0 have 199 true 177 sec 0.126
+direct {} add 1 have 211 true 189 sec 0.018
+direct {} add 0 have 211 true 189 sec 0.001
+soft {'order': 1} add 2 have 213 true 189 sec 0.095
+direct {} add 0 have 213 true 189 sec 0.001
+soft {'order': 1} add 0 have 213 true 189 sec 0.073
+direct {} add 0 have 213 true 189 sec 0.001
+soft {'order': 2} add 0 have 213 true 189 sec 0.111
+direct {} add 2 have 232 true 206 sec 0.018
+direct {} add 2 have 234 true 208 sec 0.018
+direct {} add 1 have 235 true 209 sec 0.021
+direct {} add 0 have 235 true 209 sec 0.001
+soft {'order': 1} add 0 have 235 true 209 sec 0.063
+direct {} add 0 have 235 true 209 sec 0.001
+soft {'order': 2} add 1 have 236 true 210 sec 0.117
+direct {} add 0 have 236 true 210 sec 0.001
+soft {'order': 1} add 0 have 236 true 210 sec 0.063
+direct {} add 0 have 236 true 210 sec 0.001
+soft {'order': 2} add 0 have 236 true 210 sec 0.098
+direct {} add 2 have 248 true 222 sec 0.019
+direct {} add 1 have 249 true 223 sec 0.02
+direct {} add 0 have 249 true 223 sec 0.001
+soft {'order': 1} add 2 have 251 true 225 sec 0.072
+RESULT n 80 K 256 B 64 floor 0.00046875 F1 0.907975 A 0.270446 B 0.412967 iderr -3.629e-05 out 251 time 9.24
+direct {} add 21 have 21 true 21 sec 0.005
+direct {} add 4 have 25 true 25 sec 0.005
+direct {} add 1 have 26 true 26 sec 0.005
+direct {} add 0 have 26 true 26 sec 0.001
+soft {'order': 1} add 0 have 26 true 26 sec 0.387
+direct {} add 0 have 26 true 26 sec 0.001
+soft {'order': 2} add 0 have 26 true 26 sec 0.324
+direct {} add 2 have 141 true 101 sec 0.017
+direct {} add 0 have 141 true 101 sec 0.001
+soft {'order': 1} add 0 have 141 true 101 sec 0.232
+direct {} add 0 have 141 true 101 sec 0.001
+soft {'order': 2} add 0 have 141 true 101 sec 0.306
+direct {} add 1 have 199 true 137 sec 0.022
+direct {} add 0 have 199 true 137 sec 0.001
+soft {'order': 1} add 0 have 199 true 137 sec 0.2
+direct {} add 0 have 199 true 137 sec 0.001
+soft {'order': 2} add 1 have 200 true 137 sec 0.325
+direct {} add 0 have 200 true 137 sec 0.001
+soft {'order': 1} add 0 have 200 true 137 sec 0.192
+direct {} add 0 have 200 true 137 sec 0.001
+soft {'order': 2} add 0 have 200 true 137 sec 0.3
+direct {} add 0 have 227 true 156 sec 0.002
+soft {'order': 1} add 0 have 227 true 156 sec 0.192
+direct {} add 0 have 227 true 156 sec 0.001
+soft {'order': 2} add 0 have 227 true 156 sec 0.305
+direct {} add 1 have 240 true 165 sec 0.025
+direct {} add 0 have 240 true 165 sec 0.001
+soft {'order': 1} add 0 have 240 true 165 sec 0.183
+direct {} add 0 have 240 true 165 sec 0.001
+soft {'order': 2} add 0 have 240 true 165 sec 0.28
+direct {} add 0 have 244 true 165 sec 0.002
+soft {'order': 1} add 0 have 244 true 165 sec 0.221
+direct {} add 0 have 244 true 165 sec 0.001
+soft {'order': 2} add 0 have 244 true 165 sec 0.307
+pairs {'order': 1} add 1 have 245 true 165 sec 0.158
+direct {} add 0 have 245 true 165 sec 0.001
+soft {'order': 1} add 0 have 245 true 165 sec 0.183
+direct {} add 0 have 245 true 165 sec 0.001
+soft {'order': 2} add 0 have 245 true 165 sec 0.276
+pairs {'order': 1} add 0 have 245 true 165 sec 0.127
+direct {} add 0 have 245 true 165 sec 0.001
+soft {'order': 2} add 0 have 245 true 165 sec 0.29
+pairs {'order': 2} add 1 have 246 true 165 sec 0.197
+direct {} add 0 have 246 true 165 sec 0.001
+soft {'order': 1} add 0 have 246 true 165 sec 0.191
+direct {} add 0 have 246 true 165 sec 0.001
+soft {'order': 2} add 0 have 246 true 165 sec 0.284
+direct {} add 0 have 250 true 165 sec 0.001
+soft {'order': 1} add 0 have 250 true 165 sec 0.187
+direct {} add 0 have 250 true 165 sec 0.001
+soft {'order': 2} add 0 have 250 true 165 sec 0.287
+pairs {'order': 1} add 0 have 250 true 165 sec 0.126
+direct {} add 0 have 250 true 165 sec 0.001
+soft {'order': 2} add 0 have 250 true 165 sec 0.282
+pairs {'order': 2} add 0 have 250 true 165 sec 0.167
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 0.441176 A 1.374466 B 0.901899 iderr -7.95e-06 out 250 time 14.412
+direct {} add 32 have 32 true 32 sec 0.006
+direct {} add 18 have 50 true 50 sec 0.008
+direct {} add 5 have 55 true 55 sec 0.008
+direct {} add 3 have 58 true 58 sec 0.008
+direct {} add 0 have 58 true 58 sec 0.001
+soft {'order': 1} add 21 have 79 true 78 sec 0.209
+direct {} add 24 have 103 true 102 sec 0.014
+direct {} add 4 have 107 true 106 sec 0.013
+direct {} add 2 have 109 true 108 sec 0.012
+direct {} add 0 have 109 true 108 sec 0.001
+soft {'order': 1} add 3 have 112 true 111 sec 0.205
+direct {} add 4 have 116 true 115 sec 0.014
+direct {} add 0 have 116 true 115 sec 0.001
+soft {'order': 1} add 2 have 118 true 117 sec 0.209
+direct {} add 2 have 120 true 119 sec 0.016
+direct {} add 0 have 120 true 119 sec 0.001
+soft {'order': 1} add 0 have 120 true 119 sec 0.199
+direct {} add 0 have 120 true 119 sec 0.001
+soft {'order': 2} add 1 have 121 true 120 sec 0.307
+direct {} add 1 have 122 true 121 sec 0.015
+direct {} add 0 have 122 true 121 sec 0.001
+soft {'order': 1} add 0 have 122 true 121 sec 0.202
+direct {} add 0 have 122 true 121 sec 0.002
+soft {'order': 2} add 0 have 122 true 121 sec 0.314
+direct {} add 3 have 198 true 183 sec 0.02
+direct {} add 1 have 199 true 184 sec 0.021
+direct {} add 0 have 199 true 184 sec 0.001
+soft {'order': 1} add 10 have 209 true 193 sec 0.198
+direct {} add 10 have 219 true 203 sec 0.023
+direct {} add 1 have 220 true 204 sec 0.022
+direct {} add 0 have 220 true 204 sec 0.001
+soft {'order': 1} add 1 have 221 true 205 sec 0.196
+direct {} add 1 have 222 true 206 sec 0.023
+direct {} add 0 have 222 true 206 sec 0.001
+soft {'order': 1} add 0 have 222 true 206 sec 0.176
+direct {} add 0 have 222 true 206 sec 0.001
+soft {'order': 2} add 2 have 224 true 207 sec 0.286
+direct {} add 2 have 226 true 208 sec 0.023
+direct {} add 0 have 226 true 208 sec 0.001
+soft {'order': 1} add 1 have 227 true 209 sec 0.194
+direct {} add 1 have 228 true 210 sec 0.022
+direct {} add 0 have 228 true 210 sec 0.001
+soft {'order': 1} add 0 have 228 true 210 sec 0.177
+direct {} add 0 have 228 true 210 sec 0.001
+soft {'order': 2} add 0 have 228 true 210 sec 0.265
+direct {} add 4 have 281 true 249 sec 0.027
+direct {} add 2 have 283 true 251 sec 0.027
+direct {} add 1 have 284 true 252 sec 0.028
+direct {} add 0 have 284 true 252 sec 0.001
+soft {'order': 1} add 5 have 289 true 257 sec 0.195
+direct {} add 4 have 293 true 261 sec 0.034
+direct {} add 0 have 293 true 261 sec 0.001
+soft {'order': 1} add 2 have 295 true 263 sec 0.219
+direct {} add 1 have 296 true 264 sec 0.028
+direct {} add 0 have 296 true 264 sec 0.001
+soft {'order': 1} add 1 have 297 true 265 sec 0.201
+direct {} add 1 have 298 true 266 sec 0.031
+direct {} add 1 have 299 true 267 sec 0.03
+direct {} add 1 have 300 true 268 sec 0.029
+direct {} add 0 have 300 true 268 sec 0.001
+soft {'order': 1} add 1 have 301 true 269 sec 0.204
+direct {} add 1 have 302 true 270 sec 0.031
+direct {} add 0 have 302 true 270 sec 0.001
+soft {'order': 1} add 0 have 302 true 270 sec 0.164
+direct {} add 0 have 302 true 270 sec 0.001
+soft {'order': 2} add 1 have 303 true 271 sec 0.276
+direct {} add 1 have 304 true 272 sec 0.028
+direct {} add 0 have 304 true 272 sec 0.001
+soft {'order': 1} add 0 have 304 true 272 sec 0.159
+direct {} add 0 have 304 true 272 sec 0.001
+soft {'order': 2} add 0 have 304 true 272 sec 0.245
+direct {} add 3 have 344 true 300 sec 0.035
+RESULT n 100 K 512 B 128 floor 0.0002004503633645689 F1 0.705325 A 0.847211 B 0.684263 iderr -2.7e-07 out 343 time 8.868
+direct {} add 1 have 1 true 1 sec 0.001
+direct {} add 0 have 1 true 1 sec 0.001
+soft {'order': 1} add 1 have 2 true 2 sec 0.096
+direct {} add 1 have 3 true 3 sec 0.001
+direct {} add 0 have 3 true 3 sec 0.001
+soft {'order': 1} add 0 have 3 true 3 sec 0.096
+direct {} add 0 have 3 true 3 sec 0.001
+soft {'order': 2} add 0 have 3 true 3 sec 0.152
+direct {} add 1 have 6 true 6 sec 0.002
+direct {} add 0 have 6 true 6 sec 0.001
+soft {'order': 1} add 0 have 6 true 6 sec 0.095
+direct {} add 0 have 6 true 6 sec 0.001
+soft {'order': 2} add 0 have 6 true 6 sec 0.151
+pairs {'order': 1} add 1 have 7 true 6 sec 0.053
+direct {} add 0 have 7 true 6 sec 0.001
+soft {'order': 1} add 0 have 7 true 6 sec 0.097
+direct {} add 0 have 7 true 6 sec 0.001
+soft {'order': 2} add 0 have 7 true 6 sec 0.152
+pairs {'order': 1} add 0 have 7 true 6 sec 0.049
+direct {} add 0 have 7 true 6 sec 0.001
+soft {'order': 2} add 0 have 7 true 6 sec 0.15
+pairs {'order': 2} add 1 have 8 true 6 sec 0.07
+direct {} add 0 have 8 true 6 sec 0.001
+soft {'order': 1} add 0 have 8 true 6 sec 0.093
+direct {} add 0 have 8 true 6 sec 0.001
+soft {'order': 2} add 0 have 8 true 6 sec 0.152
+pairs {'order': 1} add 0 have 8 true 6 sec 0.05
+direct {} add 0 have 8 true 6 sec 0.001
+soft {'order': 2} add 0 have 8 true 6 sec 0.153
+pairs {'order': 2} add 0 have 8 true 6 sec 0.067
+RESULT n 80 K 512 B 64 floor 0.00012845048927826003 F1 0.023077 A 1.976384 B 0.997894 iderr -9.159e-05 out 8 time 1.916
+
+codex
+I’m testing XOR-based decoding for equal-probability collisions.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+         elif mode == 'soft':
+-            accept = (check_z > 6.0) & (external_z > 5.0)
++            accept = (check_z > 7.5) & (external_z > 5.5)
+         else:
+-            accept = (check_z > 6.0) & (external_z > 4.5)
++            accept = (check_z > 7.5) & (external_z > 5.0)
+@@
+             best_pair = None
+             best_likelihood = threshold
++            pair_likelihoods = {}
+@@
+                     counterpart = bits "'^ difference
++                    pair_key = tuple(sorted((bytes(bits), bytes(counterpart))))
++                    pair_likelihoods[pair_key] = max(likelihood, pair_likelihoods.get(pair_key, -np.inf))
+@@
+-            if best_pair is not None:
++            ranked_likelihoods = sorted(pair_likelihoods.values(), reverse=True)
++            separated = len(ranked_likelihoods) < 2 or ranked_likelihoods[0] - ranked_likelihoods[1] > 10.0
++            if best_pair is not None and separated:
+@@
+-        for iteration in range(50):
++        for iteration in range(200):
+*** End Patch
+PATCH
+python - <<'"'PY'
+from test_solver import simulate,evaluate
+for spec in [dict(n=80,count=256,width=6,groups=3,distribution='equal'),dict(n=100,count=512,width=7,groups=3,distribution='equal'),dict(n=100,count=512,width=7,groups=3,distribution='near'),dict(n=80,count=512,width=6,groups=3,distribution='log',dynamic=3)]:
+ data,truth,identity=simulate(**spec)
+ evaluate(data,truth,identity)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+**Evaluating command processes**
+
+I need to note that while one process is running, I should order a patch with a different command so it won’t affect the initial load. That feels fine! I wonder if I should get results in around two minutes? I’ll poll the old test now that it's complete. Keeping track of this helps me ensure everything runs smoothly. I’m curious if I’m on the right track with this approach!
+ succeeded in 88649ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+RESULT n 80 K 256 B 64 floor 0.00046875 F1 1.0 A 0.001902 B 0.002266 iderr -2.15e-06 out 256 time 6.899
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 0.966797 A 0.078858 B 0.240112 iderr 3.68e-06 out 512 time 37.39
+RESULT n 100 K 512 B 128 floor 0.0002004503633645689 F1 0.988281 A 0.026081 B 0.130682 iderr -6e-07 out 512 time 16.813
+RESULT n 80 K 512 B 64 floor 0.00012845048927826003 F1 0.023121 A 1.976387 B 0.995183 iderr -9.163e-05 out 7 time 1.773
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+     def doubletons(self):
+         doubletons = []
++        physical = self.residual + (1.0 - self.probabilities.sum()) * self.uniform
+         for group in range(self.groups):
+             for bucket in range(self.buckets):
+-                observed = self.residual[group, bucket]
++                observed = physical[group, bucket]
+@@
+-                doubletons.append((high, group, bucket, difference, xor_signs))
++                doubletons.append((high, group, bucket, difference, xor_signs, (high - low) * 0.5))
+@@
+-        for mass, source, bucket, difference, xor_signs in doubletons:
+-            source_values = self.residual[source, bucket]
++        for mass, source, bucket, difference, xor_signs, minimum_amplitude in doubletons:
++            source_values = physical[source, bucket]
+@@
+-                combined = self.residual[group, choices] + self.residual[group, partners] * xor_signs
++                combined = physical[group, choices] + physical[group, partners] * xor_signs
+@@
+                 locations = (bucket, int(first_bucket), second_bucket)
+                 unknown_values = np.zeros(self.rows)
+                 contributions = []
++                forced = known.copy()
++                forced_signs = orientation.copy()
++                compatible = True
+                 for group, location, delta in [(first, int(first_bucket), first_delta),
+                                                 (second, second_bucket, second_delta)]:
+                     for paired, multiplier in [(location, np.ones(self.rows)), (location "'^ delta, xor_signs)]:
+-                        observed = self.residual[group, paired] * multiplier
++                        raw = physical[group, paired]
++                        observed = raw * multiplier
++                        bound = raw[0] - 2 * minimum_amplitude + max(0.45 * amplitude, 6 * np.max(self.sigma[group]))
++                        certain = np.abs(raw) > max(bound, 0.55 * amplitude)
++                        certain[0] = False
++                        observed_signs = np.sign(observed)
++                        if np.any(certain & forced & (observed_signs != forced_signs)):
++                            compatible = False
++                            break
++                        forced_signs[certain] = observed_signs[certain]
++                        forced |= certain
+                         power = np.mean(observed[unknown] ** 2)
+@@
+                         unknown_values += observed / variance
+                         contributions.append((observed, variance))
++                    if not compatible:
++                        break
++                if not compatible:
++                    continue
+                 values = unknown_values.copy()
+-                values[known] = orientation[known] * max(np.max(np.abs(values)), 1.0) * 1000.0
++                values[forced] = forced_signs[forced] * max(np.max(np.abs(values)), 1.0) * 1000.0
+@@
+-                    if np.any(signature[known] * orientation[known] < 0):
++                    if np.any(signature[forced] * forced_signs[forced] < 0):
+*** End Patch
+PATCH
+python - <<'"'PY'
+from test_solver import simulate,evaluate
+for spec in [dict(n=80,count=256,width=6,groups=3,distribution='equal'),dict(n=100,count=512,width=7,groups=3,distribution='equal'),dict(n=100,count=512,width=7,groups=3,distribution='near'),dict(n=80,count=512,width=6,groups=3,distribution='log',dynamic=3)]:
+ data,truth,identity=simulate(**spec)
+ evaluate(data,truth,identity)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 64548ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+RESULT n 80 K 256 B 64 floor 0.00046875 F1 1.0 A 0.001914 B 0.002394 iderr -2.15e-06 out 257 time 4.202
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 0.971652 A 0.068534 B 0.226515 iderr -5.3e-07 out 512 time 26.993
+RESULT n 100 K 512 B 128 floor 0.0002004503633645689 F1 1.0 A 0.002347 B 0.002864 iderr -6e-07 out 512 time 10.665
+RESULT n 80 K 512 B 64 floor 0.00012845048927826003 F1 0.023121 A 1.976387 B 0.995183 iderr -9.163e-05 out 7 time 1.712
+
+**Considering commuting constraints**
+
+I’m thinking about commuting and how there's a hidden randomness that makes it tough to predict consistently. I can't guarantee outcomes due to contradictory constraints, but I want to do my best. If there are repeated groups in a hash, it complicates probabilities and overlaps, so I’ll need to employ checks to distinguish bits associated with potential collisions. I realize that achieving accurate sampling is challenging with noise. Implementing a joint tuple decoder could help navigate this complexity effectively.
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+     def direct(self):
+@@
+         return self.consider(proposals)
++
++    def refine(self):
++        if len(self.bits) <= 1:
++            return 0
++        signs = self.signatures(self.bits)
++        locations = self.locations(self.bits)
++        combined = np.zeros_like(signs)
++        for group in range(self.groups):
++            restored = self.residual[group, locations[group]] + self.probabilities[:, None] * signs
++            power = np.maximum(np.mean(restored[:, 1:] ** 2, axis=1), np.mean(self.sigma[group, 1:] ** 2))
++            combined += restored / power[:, None]
++        decoded = (combined[:, 1:self.dimension + 1] < 0).astype(np.uint8)
++        decoded_locations = self.locations(decoded)
++        possible = np.all(decoded_locations == locations, axis=0) & np.any(decoded "'!= self.bits, axis=1)
++        possible[0] = False
++        indices = np.flatnonzero(possible)
++        if not len(indices):
++            return 0
++        new_signs = self.signatures(decoded[indices])
++        old_signs = signs[indices]
++        improvement = np.zeros(len(indices))
++        total_weight = np.sum(self.weights)
++        for group in range(self.groups):
++            restored = self.residual[group, locations[group, indices]] + self.probabilities[indices, None] * old_signs
++            improvement += np.sum((new_signs - old_signs) * restored * self.weights[group], axis=1) / total_weight
++        checks = combined[indices, self.extra_start:] * new_signs[:, self.extra_start:]
++        correct_checks = np.count_nonzero(checks < 0, axis=1) <= 1
++        accepted = indices[correct_checks & (improvement > np.maximum(4 * self.fit_std[indices], 0.025 * self.probabilities[indices]))]
++        if not len(accepted):
++            return 0
++        self.bits[accepted] = decoded[accepted]
++        unique = []
++        self.known = set()
++        for bits in self.bits:
++            key = bytes(bits)
++            if key not in self.known:
++                unique.append(bits)
++                self.known.add(key)
++        self.bits = np.array(unique, dtype=np.uint8)
++        self.fit()
++        return len(accepted)
+@@
+             added = self.soft(order=1 if stagnant == 0 else 2)
+             if added:
+                 stagnant = 0
+                 continue
++            added = self.refine()
++            if added:
++                stagnant = 0
++                continue
+@@
+-        keep = np.flatnonzero((self.probabilities[1:] > np.maximum(2.5 * self.fit_std[1:], self.floor * 0.01))) + 1
++        keep = np.flatnonzero((self.probabilities[1:] > np.maximum(3.5 * self.fit_std[1:], self.floor * 0.01))) + 1
+*** End Patch
+PATCH
+python - <<'"'PY'
+from test_solver import simulate,evaluate
+for spec in [dict(n=100,count=512,width=7,groups=3,distribution='equal'),dict(n=80,count=256,width=6,groups=3,distribution='equal'),dict(n=100,count=512,width=7,groups=3,distribution='near'),dict(n=100,count=512,width=7,groups=3,distribution='equal',seed=2)]:
+ data,truth,identity=simulate(**spec)
+ evaluate(data,truth,identity)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 67712ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 1.0 A 0.002536 B 0.002946 iderr -6e-07 out 512 time 28.666
+RESULT n 80 K 256 B 64 floor 0.00046875 F1 1.0 A 0.001914 B 0.002394 iderr -2.15e-06 out 257 time 3.988
+RESULT n 100 K 512 B 128 floor 0.0002004503633645689 F1 1.0 A 0.002347 B 0.002864 iderr -6e-07 out 512 time 10.381
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 1.0 A 0.002314 B 0.002837 iderr -8.2e-07 out 512 time 13.565
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+         if order >= 2:
+@@
+                     costs.append(reliability[outside[first]] + reliability[outside[second]])
++        if order >= 3:
++            for first, second, third in itertools.combinations(range(min(len(outside), 28)), 3):
++                masks.append(initial "'^ changes[first] ''^ changes[second] ''^ changes[third])
++                flipped.append((outside[first], outside[second], outside[third]))
++                costs.append(reliability[outside[first]] + reliability[outside[second]] + reliability[outside[third]])
+@@
+         self.xor_decoders = {}
++        self.triple_decoders = {}
+@@
+     def doubletons(self):
+@@
+         self.fit()
+         return len(proposals)
++
++    def triples(self):
++        held_out = min(16, (self.rows - self.extra_start) // 2)
++        training_end = self.rows - held_out
++        normalized = []
++        powers = []
++        for group in range(self.groups):
++            values = self.residual[group, :, 1:training_end]
++            power = np.mean(values ** 2, axis=1)
++            norm = np.sqrt(np.sum(values ** 2, axis=1))
++            normalized.append(values / np.maximum(norm[:, None], 1e-30))
++            powers.append(np.maximum(power, np.mean(self.sigma[group, 1:training_end] ** 2)))
++        correlations = {}
++        for first in range(self.groups):
++            for second in range(first + 1, self.groups):
++                correlations[first, second] = normalized[first] @ normalized[second].T
++        options = []
++        for groups in itertools.combinations(range(self.groups), 3):
++            first, second, third = groups
++            first_second = correlations[first, second]
++            first_third = correlations[first, third]
++            second_third = correlations[second, third]
++            best = np.argpartition(first_second, -3, axis=1)[:, -3:]
++            for first_bucket in range(self.buckets):
++                for second_bucket in best[first_bucket]:
++                    pair_score = first_second[first_bucket, second_bucket]
++                    if pair_score < 0.25:
++                        continue
++                    combined_score = first_third[first_bucket] + second_third[second_bucket]
++                    thirds = np.argpartition(combined_score, -2)[-2:]
++                    for third_bucket in thirds:
++                        score = (pair_score + combined_score[third_bucket]) / 3
++                        if score > 0.32 and min(first_third[first_bucket, third_bucket], second_third[second_bucket, third_bucket]) > 0.16:
++                            options.append((score, groups, (first_bucket, int(second_bucket), int(third_bucket))))
++        options.sort(reverse=True)
++        proposals = []
++        seen = set()
++        for score, groups, locations in options[:600]:
++            if groups not in self.triple_decoders:
++                self.triple_decoders[groups] = SoftDecoder(self.offsets, np.concatenate([self.hashes[group] for group in groups]))
++            combined = np.zeros(self.rows)
++            total_precision = 0.0
++            for group, location in zip(groups, locations):
++                precision = 1 / powers[group][location]
++                combined += self.residual[group, location] * precision
++                total_precision += precision
++            combined /= total_precision
++            values = combined.copy()
++            values[training_end:] = 0.0
++            hash_bits = np.concatenate([((location >> np.arange(self.hash_width)) & 1)
++                                         for location in locations]).astype(np.uint8)
++            decoded = self.triple_decoders[groups].decode(values, hash_bits, order=3, breadth=36, number=2)
++            for bits in decoded:
++                key = bytes(bits)
++                if key in self.known or key in seen:
++                    continue
++                signature = self.signatures(bits[None])[0]
++                matched = combined * signature
++                if np.any(matched[training_end:] <= 0):
++                    continue
++                estimate = np.mean(matched[1:training_end])
++                check_estimate = np.mean(matched[training_end:])
++                if estimate <= max(self.floor * 0.02, 4 * np.median(self.sigma) / np.sqrt(self.groups * self.rows)):
++                    continue
++                if not 0.5 * estimate < check_estimate < 1.6 * estimate:
++                    continue
++                if self.groups > 3:
++                    check_locations = self.locations(bits[None])[:, 0]
++                    numerator = 0.0
++                    precision_sum = 0.0
++                    for group in range(self.groups):
++                        if group in groups:
++                            continue
++                        observed = self.residual[group, check_locations[group], 1:] * signature[1:]
++                        variance = max(np.var(observed), np.mean(self.sigma[group, 1:] ** 2)) / (self.rows - 1)
++                        numerator += np.mean(observed) / variance
++                        precision_sum += 1 / variance
++                    if numerator < 5 * np.sqrt(precision_sum):
++                        continue
++                seen.add(key)
++                proposals.append(bits)
++            if time.monotonic() - self.started > 98:
++                break
++        if not proposals:
++            return 0
++        self.bits = np.concatenate((self.bits, np.array(proposals, dtype=np.uint8)))
++        self.known.update(bytes(bits) for bits in proposals)
++        self.fit()
++        return len(proposals)
+@@
+                 if added:
+                     stagnant = 0
+                     continue
++                if stagnant >= 2:
++                    added = self.triples()
++                    if added:
++                        stagnant = 0
++                        continue
+*** End Patch
+PATCH
+python - <<'"'PY'
+from test_solver import simulate,evaluate
+for spec in [dict(n=100,count=80,width=6,groups=3,distribution='near',noise=0.01),dict(n=100,count=192,width=7,groups=3,distribution='log',dynamic=1000,background=4096,noise=0.0001),dict(n=100,count=512,width=7,groups=3,distribution='equal')]:
+ data,truth,identity=simulate(**spec)
+ if spec.get('background'):
+  data['recovery_floor']=2e-5
+ evaluate(data,truth,identity)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 38311ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+RESULT n 100 K 80 B 64 floor 0.0012772336134850744 F1 0.833333 A 0.521971 B 0.52202 iderr -0.00010166 out 69 time 4.679
+RESULT n 100 K 4288 B 128 floor 2e-05 F1 0.996825 A 0.153652 B 0.010366 iderr -8.8e-07 out 159 time 4.179
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 1.0 A 0.002536 B 0.002946 iderr -6e-07 out 512 time 28.134
+
+codex
+Dense collision tests now recover full support. Next: noise and resource checks.
+
+Implemented hash decoding, soft error correction, XOR-based doubleton recovery, joint fitting, and support refinement. Synthetic dense-collision cases now recover all significant terms.
+  ✓ Inspect observations and numerical environment
+  ✓ Implement robust sparse channel reconstruction
+  → Validate using synthetic stress cases
+  • Finalize standalone solver and checks
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+         self.maximum = int(data['max_terms'])
++        self.capacity = min(2048, max(640, 2 * self.maximum + 64))
+@@
+-        room = max(0, 2 * self.maximum + 64 - len(self.bits))
++        room = max(0, self.capacity - len(self.bits))
+@@
+-        if not proposals:
++        proposals = proposals[:max(0, self.capacity - len(self.bits))]
++        if not proposals:
+@@
+-        if not proposals:
++        proposals = proposals[:max(0, self.capacity - len(self.bits))]
++        if not proposals:
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/test_solver.py
+@@
+-             weight=None, mass=0.15):
++             weight=None, mass=0.15, commuting=False):
+@@
+     hashes = random.integers(0, 2, (groups, width, dimension), dtype=np.uint8)
++    if commuting:
++        for group in range(groups):
++            symmetric = random.integers(0, 2, (n, n), dtype=np.uint8)
++            symmetric = np.triu(symmetric) "'^ np.triu(symmetric, 1).T
++            hashes[group, :, 1::2] = (hashes[group, :, 0::2] @ symmetric) & 1
+@@
+-    truth = {bytes(row): probability for row, probability in zip(bits, probabilities)}
++    truth = {}
++    for row, probability in zip(bits, probabilities):
++        key = bytes(row)
++        truth[key] = truth.get(key, 0.0) + probability
+@@
+-        for name in ['"'direct', 'soft', 'pairs']:
++        for name in ['direct', 'soft', 'pairs', 'refine', 'doubletons', 'triples']:
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/stress_tests.py
++from test_solver import simulate, evaluate
++
++
++cases = [
++    dict(seed=101, n=40, count=96, width=6, groups=3, dynamic=30),
++    dict(seed=102, n=100, count=256, width=7, groups=4, dynamic=100),
++    dict(seed=103, n=100, count=512, width=8, groups=3, distribution='near', noise=0.0003),
++    dict(seed=104, n=80, count=256, width=6, groups=3, distribution='equal'),
++    dict(seed=105, n=100, count=512, width=7, groups=3, distribution='equal'),
++    dict(seed=106, n=40, count=128, width=6, groups=3, distribution='equal'),
++    dict(seed=107, n=100, count=512, width=7, groups=4, distribution='equal', extra=48),
++    dict(seed=108, n=100, count=512, width=7, groups=5, distribution='near', extra=48),
++    dict(seed=109, n=80, count=256, width=6, groups=3, dynamic=5000, noise=0.00001),
++    dict(seed=110, n=100, count=128, width=6, groups=3, dynamic=1000, noise=0.00004),
++    dict(seed=111, n=60, count=100, width=6, groups=3, weight=1),
++    dict(seed=112, n=100, count=320, width=7, groups=4, weight=2),
++    dict(seed=113, n=100, count=192, width=7, groups=3, dynamic=1000, background=4096, noise=0.0001),
++    dict(seed=114, n=60, count=128, width=6, groups=4, dynamic=200, background=2048, noise=0.0001),
++    dict(seed=115, n=100, count=80, width=6, groups=3, distribution='near', noise=0.009),
++    dict(seed=116, n=80, count=128, width=6, groups=4, distribution='near', noise=0.005),
++    dict(seed=117, n=40, count=128, width=8, groups=3, distribution='log', noise=0.0),
++]
++
++
++for number, specification in enumerate(cases):
++    print('CASE', number + 1, specification, flush=True)
++    data, truth, identity = simulate(**specification, commuting=True)
++    if specification.get('background'):
++        data['recovery_floor'] = 2e-5
++    evaluate(data, truth, identity)
+*** End Patch
+PATCH
+date -u '+%Y-%m-%d %H:%M:%S'; python stress_tests.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 74176ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/stress_tests.py
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/test_solver.py
+2026-08-28 01:39:14
+CASE 1 {'seed': 101, 'n': 40, 'count': 96, 'width': 6, 'groups': 3, 'dynamic': 30}
+RESULT n 40 K 96 B 64 floor 0.0001384438424682678 F1 1.0 A 0.000898 B 0.000818 iderr -9.6e-07 out 96 time 0.135
+CASE 2 {'seed': 102, 'n': 100, 'count': 256, 'width': 7, 'groups': 4, 'dynamic': 100}
+RESULT n 100 K 256 B 128 floor 1.886206252237613e-05 F1 1.0 A 0.000964 B 0.000849 iderr 9.1e-07 out 256 time 1.258
+CASE 3 {'seed': 103, 'n': 100, 'count': 512, 'width': 8, 'groups': 3, 'distribution': 'near', 'noise': 0.0003}
+RESULT n 100 K 512 B 256 floor 0.00020049634797833523 F1 1.0 A 0.001966 B 0.002395 iderr -1.17e-06 out 512 time 0.793
+CASE 4 {'seed': 104, 'n': 80, 'count': 256, 'width': 6, 'groups': 3, 'distribution': 'equal'}
+RESULT n 80 K 256 B 64 floor 0.00046875 F1 1.0 A 0.001712 B 0.002247 iderr -1.94e-06 out 257 time 4.028
+CASE 5 {'seed': 105, 'n': 100, 'count': 512, 'width': 7, 'groups': 3, 'distribution': 'equal'}
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 0.784493 A 0.680235 B 0.605443 iderr 1.069e-05 out 368 time 28.906
+CASE 6 {'seed': 106, 'n': 40, 'count': 128, 'width': 6, 'groups': 3, 'distribution': 'equal'}
+RESULT n 40 K 128 B 64 floor 0.0009375 F1 1.0 A 0.001168 B 0.001452 iderr 4.08e-06 out 128 time 0.125
+CASE 7 {'seed': 107, 'n': 100, 'count': 512, 'width': 7, 'groups': 4, 'distribution': 'equal', 'extra': 48}
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 1.0 A 0.001992 B 0.002451 iderr -6.4e-07 out 512 time 4.246
+CASE 8 {'seed': 108, 'n': 100, 'count': 512, 'width': 7, 'groups': 5, 'distribution': 'near', 'extra': 48}
+RESULT n 100 K 512 B 128 floor 0.0001983222589628267 F1 1.0 A 0.001712 B 0.002141 iderr 2.7e-07 out 512 time 1.939
+CASE 9 {'seed': 109, 'n': 80, 'count': 256, 'width': 6, 'groups': 3, 'dynamic': 5000, 'noise': 1e-05}
+RESULT n 80 K 256 B 64 floor 9.024059856464084e-07 F1 0.980159 A 0.000227 B 0.000222 iderr 8e-08 out 248 time 1.311
+CASE 10 {'seed': 110, 'n': 100, 'count': 128, 'width': 6, 'groups': 3, 'dynamic': 1000, 'noise': 4e-05}
+RESULT n 100 K 128 B 64 floor 6.260379538659643e-06 F1 1.0 A 0.000136 B 9.5e-05 iderr -1.3e-07 out 128 time 0.283
+CASE 11 {'seed': 111, 'n': 60, 'count': 100, 'width': 6, 'groups': 3, 'weight': 1}
+RESULT n 60 K 81 B 64 floor 0.00015059520007839537 F1 1.0 A 0.000634 B 0.000607 iderr -1.53e-06 out 81 time 0.131
+CASE 12 {'seed': 112, 'n': 100, 'count': 320, 'width': 7, 'groups': 4, 'weight': 2}
+RESULT n 100 K 320 B 128 floor 4.965307993439082e-05 F1 1.0 A 0.001499 B 0.00138 iderr -3.2e-07 out 320 time 0.781
+CASE 13 {'seed': 113, 'n': 100, 'count': 192, 'width': 7, 'groups': 3, 'dynamic': 1000, 'background': 4096, 'noise': 0.0001}
+RESULT n 100 K 4288 B 128 floor 2e-05 F1 0.996656 A 0.154389 B 0.009664 iderr -1.4e-07 out 151 time 6.151
+CASE 14 {'seed': 114, 'n': 60, 'count': 128, 'width': 6, 'groups': 4, 'dynamic': 200, 'background': 2048, 'noise': 0.0001}
+RESULT n 60 K 2176 B 64 floor 2e-05 F1 1.0 A 0.1493 B 0.012115 iderr -1.36e-06 out 129 time 3.025
+CASE 15 {'seed': 115, 'n': 100, 'count': 80, 'width': 6, 'groups': 3, 'distribution': 'near', 'noise': 0.009}
+RESULT n 100 K 80 B 64 floor 0.0012964638205698084 F1 0.968153 A 0.115121 B 0.243705 iderr -8.01e-06 out 80 time 2.284
+CASE 16 {'seed': 116, 'n': 80, 'count': 128, 'width': 6, 'groups': 4, 'distribution': 'near', 'noise': 0.005}
+RESULT n 80 K 128 B 64 floor 0.0008002641753836035 F1 1.0 A 0.018172 B 0.022709 iderr -2.746e-05 out 129 time 0.817
+CASE 17 {'seed': 117, 'n': 40, 'count': 128, 'width': 8, 'groups': 3, 'distribution': 'log', 'noise': 0.0}
+RESULT n 40 K 128 B 256 floor 0.00012851569988627868 F1 1.0 A 0.0 B 0.0 iderr -0.0 out 128 time 2.735
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+-    def refine(self):
++    def refine(self, deep=False):
+@@
+         combined = np.zeros_like(signs)
++        precisions = np.zeros(len(self.bits))
++        restored_groups = []
+         for group in range(self.groups):
+             restored = self.residual[group, locations[group]] + self.probabilities[:, None] * signs
++            restored_groups.append(restored)
+             power = np.maximum(np.mean(restored[:, 1:] ** 2, axis=1), np.mean(self.sigma[group, 1:] ** 2))
+             combined += restored / power[:, None]
++            precisions += 1.0 / power
++        combined /= precisions[:, None]
+         decoded = (combined[:, 1:self.dimension + 1] < 0).astype(np.uint8)
+@@
+         possible[0] = False
+         indices = np.flatnonzero(possible)
+-        if not len(indices):
+-            return 0
+-        new_signs = self.signatures(decoded[indices])
+-        old_signs = signs[indices]
+-        improvement = np.zeros(len(indices))
+         total_weight = np.sum(self.weights)
+-        for group in range(self.groups):
+-            restored = self.residual[group, locations[group, indices]] + self.probabilities[indices, None] * old_signs
+-            improvement += np.sum((new_signs - old_signs) * restored * self.weights[group], axis=1) / total_weight
+-        checks = combined[indices, self.extra_start:] * new_signs[:, self.extra_start:]
+-        correct_checks = np.count_nonzero(checks < 0, axis=1) <= 1
+-        accepted = indices[correct_checks & (improvement > np.maximum(4 * self.fit_std[indices], 0.025 * self.probabilities[indices]))]
+-        if not len(accepted):
++        replacements = {}
++        strength = np.mean(np.abs(combined[:, 1:]), axis=1)
++
++        def assess(index, bits):
++            signature = self.signatures(bits[None])[0]
++            check_values = combined[index, self.extra_start:]
++            reliable = np.abs(check_values) > 0.35 * strength[index]
++            if np.count_nonzero(reliable) < 10 or np.any(check_values[reliable] * signature[self.extra_start:][reliable] < 0):
++                return -np.inf
++            improvement = 0.0
++            for group in range(self.groups):
++                improvement += np.sum((signature - signs[index]) * restored_groups[group][index] * self.weights[group]) / total_weight
++            return improvement
++
++        for index in indices:
++            improvement = assess(index, decoded[index])
++            if improvement > max(4 * self.fit_std[index], 0.025 * self.probabilities[index]):
++                replacements[int(index)] = decoded[index]
++        if deep:
++            groups = tuple(range(self.groups))
++            if groups not in self.triple_decoders:
++                self.triple_decoders[groups] = SoftDecoder(self.offsets, np.concatenate(list(self.hashes)))
++            decoder = self.triple_decoders[groups]
++            held_out = min(16, (self.rows - self.extra_start) // 2)
++            differences = np.sum(decoded "'!= self.bits, axis=1)
++            selected = np.flatnonzero((differences > 0) & (self.probabilities > 4 * np.median(self.sigma)))
++            selected = selected[np.argsort(differences[selected])[::-1]][:512]
++            for index in selected:
++                if index == 0 or int(index) in replacements:
++                    continue
++                values = combined[index].copy()
++                values[-held_out:] = 0.0
++                hash_bits = np.concatenate([((int(location) >> np.arange(self.hash_width)) & 1)
++                                           for location in locations[:, index]]).astype(np.uint8)
++                proposals = decoder.decode(values, hash_bits, order=3, breadth=36, number=3)
++                best_improvement = max(4 * self.fit_std[index], 0.025 * self.probabilities[index])
++                for bits in proposals:
++                    if np.array_equal(bits, self.bits[index]):
++                        continue
++                    signature = self.signatures(bits[None])[0]
++                    check_values = combined[index, -held_out:]
++                    reliable = np.abs(check_values) > 0.35 * strength[index]
++                    if np.count_nonzero(reliable) < 10 or np.any(check_values[reliable] * signature[-held_out:][reliable] < 0):
++                        continue
++                    improvement = assess(index, bits)
++                    if improvement > best_improvement:
++                        best_improvement = improvement
++                        replacements[int(index)] = bits
++                if time.monotonic() - self.started > 95:
++                    break
++        if not replacements:
+             return 0
+-        self.bits[accepted] = decoded[accepted]
++        for index, bits in replacements.items():
++            self.bits[index] = bits
+@@
+-        return len(accepted)
++        return len(replacements)
+@@
+             if stagnant >= 1:
++                added = self.refine(deep=True)
++                if added:
++                    stagnant = 0
++                    continue
+                 added = self.doubletons()
+@@
+-        if len(keep) > self.maximum:
+-            keep = keep[np.argsort(self.probabilities[keep])[-self.maximum:]]
+         self.bits = self.bits[np.concatenate(([0], keep))]
+         self.fit()
+-        ordering = np.argsort(self.probabilities[1:])[::-1] + 1
++        ordering = (np.argsort(self.probabilities[1:])[::-1] + 1)[:self.maximum]
++        ordering = ordering[self.probabilities[ordering] > 0]
+*** End Patch
+PATCH
+python - <<'"'PY'
+from test_solver import simulate,evaluate
+for spec in [dict(seed=105,n=100,count=512,width=7,groups=3,distribution='equal',commuting=True),dict(seed=1,n=100,count=512,width=7,groups=3,distribution='equal'),dict(seed=1,n=100,count=80,width=6,groups=3,distribution='near',noise=0.01)]:
+ data,truth,identity=simulate(**spec)
+ evaluate(data,truth,identity)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 75588ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 0.799097 A 0.640715 B 0.586437 iderr 1.077e-05 out 376 time 36.632
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 1.0 A 0.002536 B 0.002946 iderr -6e-07 out 512 time 33.763
+RESULT n 100 K 80 B 64 floor 0.0012772336134850744 F1 0.833333 A 0.521971 B 0.52202 iderr -0.00010166 out 69 time 4.147
+
+**Evaluating modeling constraints**
+
+I’m considering this complex model involving neural networks and how high correlations might lead to potential issues, especially with constraints. When the model fits well, it should account for true estimates, except for the noise. If all true values exist, then it could fit correctly unless noise interferes. I’m also thinking about the implications of these conditions and how validation can help ensure meaningful progress instead of hitting a dead end.
+exec
+/bin/bash -c "python - <<'PY'
+from test_solver import simulate,evaluate
+import numpy as np
+spec=dict(seed=105,n=100,count=512,width=7,groups=3,distribution='equal',commuting=True)
+data,truth,identity=simulate(**spec)
+rec,pred=evaluate(data,truth,identity)
+missing=np.array([np.frombuffer(key,dtype=np.uint8) for key in truth if key not in pred])
+false=np.array([np.frombuffer(key,dtype=np.uint8) for key in pred if key not in truth])
+print('missing',len(missing),'false',len(false),'missing_in_known',sum(bytes(bits) in rec.known for bits in missing),flush=True)
+missing_locations=rec.locations(missing)
+false_locations=rec.locations(false)
+missing_signs=rec.signatures(missing)
+best_snr=[]
+pure=np.zeros(len(missing),dtype=np.int64)
+for group in range(rec.groups):
+ degree=np.bincount(missing_locations[group],minlength=rec.buckets)
+ false_degree=np.bincount(false_locations[group],minlength=rec.buckets)
+ pure+=(degree[missing_locations[group]]==1)&(false_degree[missing_locations[group]]==0)
+ amplitude=.15/512
+ errors=rec.residual[group,missing_locations[group],1:]-amplitude*missing_signs[:,1:]
+ best_snr.append(amplitude/np.sqrt(np.mean(errors**2,axis=1)))
+print('pure buckets per missing',np.bincount(pure,minlength=4),flush=True)
+print('SNR max percentiles',np.quantile(np.max(best_snr,axis=0),[0,.1,.25,.5,.75,.9,1]),flush=True)
+print('same tuples false/true',np.sum(np.all(false_locations[:,:,None]==missing_locations[:,None,:],axis=0)),flush=True)
+for index,bits in enumerate(false[:12]):
+ distances=np.count_nonzero(missing"'!=bits,axis=1)
+ closest=distances.argmin()
+ print('"'false',pred[bytes(bits)],'dist',distances[closest],'hashmatch',false_locations[:,index]==missing_locations[:,closest],flush=True)
+PY
+python - <<'PY'
+import os, subprocess, sys, time, resource, numpy as np
+
+def limits():
+ resource.setrlimit(resource.RLIMIT_AS,(2*1024**3,2*1024**3))
+ resource.setrlimit(resource.RLIMIT_NOFILE,(64,64))
+ resource.setrlimit(resource.RLIMIT_CPU,(120,120))
+start=time.monotonic()
+subprocess.run([sys.executable,'solver.py','../participant/input/example.npz','example_output.npz'],check=True,timeout=120,preexec_fn=limits)
+with np.load('example_output.npz',allow_pickle=False) as data:
+ assert set(data.files)=={'paulis','probabilities','p_identity'}
+ assert data['paulis'].dtype==np.uint8 and data['paulis'].shape[1]==40
+ assert data['probabilities'].dtype==np.float64 and len(data['probabilities'])==len(data['paulis'])
+ assert np.all(data['paulis'].any(axis=1))
+ assert len(np.unique(data['paulis'],axis=0))==len(data['paulis'])
+ assert np.isfinite(data['probabilities']).all() and np.all(data['probabilities']>=0)
+ assert data['p_identity']+data['probabilities'].sum()<=1+1e-8
+ print('CLI_VALID',len(data['paulis']),data['p_identity'],data['probabilities'].sum(), 'seconds',time.monotonic()-start,'RSS_KB',resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 47155ms:
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 0.799097 A 0.640715 B 0.586437 iderr 1.077e-05 out 376 time 45.576
+missing 158 false 22 missing_in_known 0
+pure buckets per missing [158   0   0   0]
+SNR max percentiles [0.59073133 0.70391027 0.72755785 0.99470335 1.00555934 1.0695182
+ 1.70920366]
+same tuples false/true 20
+false 0.0002927379601134354 dist 19 hashmatch [ True  True  True]
+false 0.000292036769319502 dist 19 hashmatch [ True  True  True]
+false 0.0002865172607996116 dist 24 hashmatch [ True  True  True]
+false 0.0002857585365632781 dist 19 hashmatch [ True  True  True]
+false 0.00028146971125865973 dist 21 hashmatch [ True  True  True]
+false 0.000278422614468517 dist 25 hashmatch [ True  True  True]
+false 0.00027798865259152873 dist 23 hashmatch [ True  True  True]
+false 0.0002763391077959643 dist 26 hashmatch [ True  True  True]
+false 0.00027567581358710087 dist 24 hashmatch [ True  True  True]
+false 0.0002732183594512287 dist 25 hashmatch [ True  True  True]
+false 0.0002728169035082232 dist 26 hashmatch [ True  True  True]
+false 0.00026655595072436027 dist 37 hashmatch [ True  True  True]
+CLI_VALID 72 0.8780606056637325 0.12193939433626746 seconds 0.2794923210167326 RSS_KB 47020
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+         self.known = {bytes(self.bits[0])}
++        self.trusted = set(self.known)
++        self.blocked = set()
++        self.archive = {}
+@@
+             key = bytes(bits)
+-            if key in self.known or key in seen:
++            if key in self.known or key in seen or (mode "'!= '"'direct' and key in self.blocked):
+@@
+         self.bits = np.concatenate((self.bits, candidates[selected]))
+         self.known.update(bytes(bits) for bits in candidates[selected])
++        if mode == 'direct':
++            self.trusted.update(bytes(bits) for bits in candidates[selected])
++            self.blocked.difference_update(bytes(bits) for bits in candidates[selected])
+@@
+-            selected = np.flatnonzero((differences > 0) & (self.probabilities > 4 * np.median(self.sigma)))
++            selected = np.flatnonzero((differences > 0) & (self.probabilities > 1.1 * np.median(self.sigma)))
+@@
+-                    if entry not in self.known and entry not in seen:
++                    if entry not in self.known and entry not in seen and entry not in self.blocked:
+@@
+-                if key in self.known or key in seen:
++                if key in self.known or key in seen or key in self.blocked:
+@@
+         self.fit()
+         return len(proposals)
++
++    def restart(self):
++        signs = self.signatures(self.bits)
++        locations = self.locations(self.bits)
++        confidence = np.zeros(len(self.bits))
++        for group in range(self.groups):
++            matched = self.residual[group, locations[group], 1:] * signs[:, 1:] + self.probabilities[:, None]
++            average = np.mean(matched, axis=1)
++            scatter = np.maximum(np.var(matched, axis=1), np.mean(self.sigma[group, 1:] ** 2))
++            confidence = np.maximum(confidence, average / np.sqrt(scatter))
++        eligible = np.array([bytes(bits) not in self.trusted for bits in self.bits])
++        eligible &= (self.probabilities > max(4 * np.median(self.sigma), self.floor * 0.1)) & (confidence < 1.3)
++        discarded = np.flatnonzero(eligible)
++        if not len(discarded):
++            return 0
++        discarded = discarded[np.argsort(confidence[discarded])[:min(160, max(16, len(self.bits) // 2))]]
++        keep = np.ones(len(self.bits), dtype=bool)
++        keep[discarded] = False
++        for index in discarded:
++            key = bytes(self.bits[index])
++            self.archive[key] = max(float(self.probabilities[index]), self.archive.get(key, 0.0))
++            self.blocked.add(key)
++        self.bits = self.bits[keep]
++        self.known = {bytes(bits) for bits in self.bits}
++        self.fit()
++        return len(discarded)
+@@
+     def solve(self):
+         stagnant = 0
++        restarts = 0
+@@
+             stagnant += 1
+             if stagnant >= 3:
++                if restarts < 2 and time.monotonic() - self.started < 80 and self.restart():
++                    restarts += 1
++                    stagnant = 0
++                    continue
+                 break
++        if self.archive:
++            additional = [np.frombuffer(key, dtype=np.uint8) for key, probability in
++                          sorted(self.archive.items(), key=lambda item: -item[1]) if key not in self.known]
++            additional = additional[:max(0, self.capacity - len(self.bits))]
++            if additional:
++                self.bits = np.concatenate((self.bits, np.array(additional, dtype=np.uint8)))
++                self.fit()
+*** End Patch
+PATCH
+python - <<'PY'
+from test_solver import simulate,evaluate
+for spec in [dict(seed=105,n=100,count=512,width=7,groups=3,distribution='equal',commuting=True),dict(seed=1,n=100,count=80,width=6,groups=3,distribution='near',noise=0.01),dict(seed=1,n=80,count=512,width=6,groups=3,distribution='log',dynamic=3)]:
+ data,truth,identity=simulate(**spec)
+ evaluate(data,truth,identity)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+exec
+/bin/bash -c "if [ -f AGENTS.md ]; then cat AGENTS.md; fi
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/validation_tests.py
++import os
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++import resource
++import subprocess
++import sys
++import time
++import numpy as np
++from solver import Reconstruction, walsh
++from test_solver import simulate, evaluate
++
++
++def validate(paulis, probabilities, identity, n, maximum):
++    assert paulis.dtype == np.uint8 and paulis.shape == (len(probabilities), n)
++    assert len(paulis) <= maximum and np.all(paulis <= 3)
++    assert np.all(paulis.any(axis=1)) and len(np.unique(paulis, axis=0)) == len(paulis)
++    assert probabilities.dtype == np.float64 and np.isfinite(probabilities).all()
++    assert np.all(probabilities >= 0) and np.isfinite(identity) and identity >= 0
++    assert identity + probabilities.sum() <= 1.0 + 1e-8
++
++
++for mass, maximum in [(0.15, 0), (0.15, 1), (1.0, 512), (0.95, 512)]:
++    data, truth, identity = simulate(n=40, count=32, mass=mass, noise=0.0001, commuting=True)
++    data['max_terms'] = maximum
++    result = Reconstruction(data).solve()
++    validate(*result, 40, maximum)
++    print('EDGE', mass, maximum, len(result[0]), result[2], flush=True)
++
++for identity in [0.0, 0.4, 1.0]:
++    data, truth, previous_identity = simulate(n=100, count=1, width=8, groups=5, extra=48, commuting=True)
++    basis = Reconstruction(data)
++    transformed = (1.0 - identity) * basis.uniform
++    transformed[:, 0, :] += identity
++    random = np.random.default_rng(25)
++    data['eigenvalues'] = walsh(transformed.transpose(0, 2, 1)) * basis.buckets
++    data['eigenvalues'] += random.normal(size=data['eigenvalues'].shape) * data['noise_std'][:, :, None]
++    result = Reconstruction(data).solve()
++    validate(*result, 100, 512)
++    assert len(result[0]) == 0
++    assert abs(result[2] - identity) < 1e-5
++    print('EMPTY', identity, result[2], flush=True)
++
++data, truth, identity = simulate(seed=77, n=100, count=512, width=8, groups=5,
++                                extra=48, dynamic=100, commuting=True)
++np.savez('resource_case.npz', **data)
++
++
++def limits():
++    resource.setrlimit(resource.RLIMIT_AS, (2 * 1024 ** 3, 2 * 1024 ** 3))
++    resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
++    resource.setrlimit(resource.RLIMIT_CPU, (120, 120))
++
++
++start = time.monotonic()
++subprocess.run([sys.executable, 'solver.py', 'resource_case.npz', 'resource_output.npz'],
++               preexec_fn=limits, timeout=120, check=True)
++with np.load('resource_output.npz', allow_pickle=False) as output:
++    assert set(output.files) == {'paulis', 'probabilities', 'p_identity'}
++    validate(output['paulis'], output['probabilities'], output['p_identity'], 100, 512)
++    print('RESOURCE', len(output['paulis']), 'seconds', time.monotonic() - start,
++          'peak_rss_kib', resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss, flush=True)
+*** End Patch
+PATCH
+python validation_tests.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 68765ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 1.0 A 0.002714 B 0.003049 iderr 3.7e-07 out 512 time 54.436
+RESULT n 100 K 80 B 64 floor 0.0012772336134850744 F1 0.847682 A 0.416331 B 0.522156 iderr -0.00010063 out 77 time 8.248
+RESULT n 80 K 512 B 64 floor 0.00012845048927826003 F1 0.023121 A 1.976387 B 0.995183 iderr -9.163e-05 out 7 time 2.884
+
+ succeeded in 15015ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/validation_tests.py
+EDGE 0.15 0 0 0.8499991406958225
+EDGE 0.15 1 1 0.8499991406958225
+EDGE 1.0 512 32 0.0
+EDGE 0.95 512 32 0.049999140696622285
+EMPTY 0.0 0.0
+EMPTY 0.4 0.39999989093972427
+EMPTY 1.0 0.9999998909391242
+RESOURCE 511 seconds 11.732056064007338 peak_rss_kib 80932
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+         external_num = np.zeros(count)
+         external_den = np.zeros(count)
++        external_check_num = np.zeros(count)
++        external_check_den = np.zeros(count)
+@@
+                 if external:
+                     precision *= ~source_mask[group]
++                else:
++                    external_check_num += means * precision * (~source_mask[group])
++                    external_check_den += precision * (~source_mask[group])
+@@
+         external_z = external_num / np.sqrt(np.maximum(external_den, 1e-30))
++        external_check_z = external_check_num / np.sqrt(np.maximum(external_check_den, 1e-30))
+@@
+         elif mode == 'soft':
+-            accept = (check_z > 7.5) & (external_z > 5.5)
++            accept = (check_z > 7.5) & (external_z > 5.5) & (external_check_z > 4.5)
+         else:
+-            accept = (check_z > 7.5) & (external_z > 5.0)
++            accept = (check_z > 7.5) & (external_z > 5.0) & (external_check_z > 3.5)
+@@
+-        eligible &= (self.probabilities > max(4 * np.median(self.sigma), self.floor * 0.1)) & (confidence < 1.3)
++        eligible &= (self.probabilities > max(1.1 * np.median(self.sigma), self.floor * 0.1)) & (confidence < 1.3)
+@@
+-        for iteration in range(200):
++        for iteration in range(512):
+*** End Patch
+PATCH
+python - <<'PY'
+from test_solver import simulate,evaluate
+for spec in [dict(seed=1,n=100,count=80,width=6,groups=3,distribution='near',noise=0.01),dict(seed=115,n=100,count=80,width=6,groups=3,distribution='near',noise=0.009,commuting=True),dict(seed=105,n=100,count=512,width=7,groups=3,distribution='equal',commuting=True),dict(seed=102,n=100,count=256,width=7,groups=4,dynamic=100,commuting=True),dict(seed=113,n=100,count=192,width=7,groups=3,dynamic=1000,background=4096,noise=.0001,commuting=True)]:
+ data,truth,identity=simulate(**spec)
+ if spec.get('background'): data['recovery_floor']=2e-5
+ evaluate(data,truth,identity)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 50199ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+RESULT n 100 K 80 B 64 floor 0.0012772336134850744 F1 0.981132 A 0.074459 B 0.172771 iderr -8.778e-05 out 82 time 12.696
+RESULT n 100 K 80 B 64 floor 0.0012964638205698084 F1 1.0 A 0.030835 B 0.050359 iderr -7.79e-06 out 84 time 3.781
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 1.0 A 0.00266 B 0.002925 iderr 3.7e-07 out 512 time 22.233
+RESULT n 100 K 256 B 128 floor 1.886206252237613e-05 F1 1.0 A 0.000964 B 0.000849 iderr 9.1e-07 out 256 time 1.828
+RESULT n 100 K 4288 B 128 floor 2e-05 F1 0.996656 A 0.154389 B 0.009643 iderr -1.4e-07 out 150 time 7.061
+
+codex
+Validation and restart safeguards improved recovery; the resource checks pass.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+-        for iteration in range(15):
++        last_active = active
++        for iteration in range(40):
+             if not len(active):
+                 break
++            last_active = active
+@@
+         else:
+-            solution[active] = np.maximum(estimate, 0.0)
++            solution[last_active] = np.maximum(estimate, 0.0)
+@@
+                         if score > 0.32 and min(first_third[first_bucket, third_bucket], second_third[second_bucket, third_bucket]) > 0.16:
+                             options.append((score, groups, (first_bucket, int(second_bucket), int(third_bucket))))
++        if self.groups > 3:
++            extended = {}
++            for score, groups, locations in sorted(options, reverse=True)[:600]:
++                mapping = dict(zip(groups, locations))
++                compatible = True
++                for other in range(self.groups):
++                    if other in mapping:
++                        continue
++                    similarity = np.zeros(self.buckets)
++                    for group, location in mapping.items():
++                        if group < other:
++                            similarity += correlations[group, other][location]
++                        else:
++                            similarity += correlations[other, group][:, location]
++                    similarity /= len(mapping)
++                    location = int(np.argmax(similarity))
++                    if similarity[location] < 0.22:
++                        compatible = False
++                        break
++                    mapping[other] = location
++                if compatible:
++                    full_locations = tuple(mapping[group] for group in range(self.groups))
++                    total = 0.0
++                    for first, second in itertools.combinations(range(self.groups), 2):
++                        total += correlations[first, second][mapping[first], mapping[second]]
++                    average = total / (self.groups * (self.groups - 1) / 2) + 0.025
++                    extended[full_locations] = max(average, extended.get(full_locations, 0.0))
++            options.extend((score, tuple(range(self.groups)), locations) for locations, score in extended.items())
+         options.sort(reverse=True)
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/README.md
++# Sparse Pauli-channel solver
++
++Run the standalone submission with:
++
++"'```
++python solver.py INPUT.npz OUTPUT.npz
++```
++
++Only `solver.py` is required. Its dependencies are Python, NumPy, and SciPy.
++It sets numerical libraries to one thread before importing them.
++
++## Reconstruction
++
++The solver transforms the eigenvalue observations into signed hash-bin
++mixtures using normalized Walsh-Hadamard transforms. It combines:
++
++- Direct singleton and dominant-term decoding with independent validation.
++- Reliability-ordered binary syndrome decoding using hash and offset checks.
++- Pair and multi-group fusion, reserving masks for validation.
++- Doubleton XOR recovery and physical probability bounds to resolve collisions.
++- Support refinement and conservative restarts to undo incorrect peeling.
++- Joint noise-weighted nonnegative probability fitting with a unit-mass bound.
++
++The probability model explicitly includes the possible diffuse remainder and
++removes the known zero-character contribution. Recovery does not restrict
++Pauli weight or enumerate the exponentially large Pauli space.
++
++The solver limits its candidate pool and checks elapsed time during decoding,
++leaving time for final probability fitting and output serialization.
++
++## Development checks
++
++`test_solver.py` generates and scores independent synthetic channels.
++`stress_tests.py` exercises 40--100 qubits, up to 512 significant terms,
++commuting hash matrices, equal-weight collisions, large dynamic range,
++heterogeneous noise, weak backgrounds, and low-weight supports.
++
++`validation_tests.py` checks the output contract, empty supports, zero output
++capacity, identity-free channels, and execution with 2 GiB address space,
++64 file descriptors, and a 120-second CPU/wall-time allowance. The public
++unlabeled example is also used only for format and execution checks.
++
++These development files are not runtime dependencies of `solver.py`.
+*** End Patch
+PATCH
+python stress_tests.py
+python validation_tests.py
+python -m py_compile solver.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 85460ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/README.md
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+CASE 1 {'seed': 101, 'n': 40, 'count': 96, 'width': 6, 'groups': 3, 'dynamic': 30}
+RESULT n 40 K 96 B 64 floor 0.0001384438424682678 F1 1.0 A 0.000898 B 0.000818 iderr -9.6e-07 out 96 time 0.098
+CASE 2 {'seed': 102, 'n': 100, 'count': 256, 'width': 7, 'groups': 4, 'dynamic': 100}
+RESULT n 100 K 256 B 128 floor 1.886206252237613e-05 F1 1.0 A 0.000964 B 0.000849 iderr 9.1e-07 out 256 time 1.922
+CASE 3 {'seed': 103, 'n': 100, 'count': 512, 'width': 8, 'groups': 3, 'distribution': 'near', 'noise': 0.0003}
+RESULT n 100 K 512 B 256 floor 0.00020049634797833523 F1 1.0 A 0.001966 B 0.002395 iderr -1.17e-06 out 512 time 0.794
+CASE 4 {'seed': 104, 'n': 80, 'count': 256, 'width': 6, 'groups': 3, 'distribution': 'equal'}
+RESULT n 80 K 256 B 64 floor 0.00046875 F1 1.0 A 0.001638 B 0.002063 iderr -1.94e-06 out 256 time 4.272
+CASE 5 {'seed': 105, 'n': 100, 'count': 512, 'width': 7, 'groups': 3, 'distribution': 'equal'}
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 1.0 A 0.00266 B 0.002925 iderr 3.7e-07 out 512 time 24.676
+CASE 6 {'seed': 106, 'n': 40, 'count': 128, 'width': 6, 'groups': 3, 'distribution': 'equal'}
+RESULT n 40 K 128 B 64 floor 0.0009375 F1 1.0 A 0.001168 B 0.001452 iderr 4.08e-06 out 128 time 0.195
+CASE 7 {'seed': 107, 'n': 100, 'count': 512, 'width': 7, 'groups': 4, 'distribution': 'equal', 'extra': 48}
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 1.0 A 0.001992 B 0.002451 iderr -6.4e-07 out 512 time 5.486
+CASE 8 {'seed': 108, 'n': 100, 'count': 512, 'width': 7, 'groups': 5, 'distribution': 'near', 'extra': 48}
+RESULT n 100 K 512 B 128 floor 0.0001983222589628267 F1 1.0 A 0.001712 B 0.002141 iderr 2.7e-07 out 512 time 1.881
+CASE 9 {'seed': 109, 'n': 80, 'count': 256, 'width': 6, 'groups': 3, 'dynamic': 5000, 'noise': 1e-05}
+RESULT n 80 K 256 B 64 floor 9.024059856464084e-07 F1 0.980159 A 0.000227 B 0.000222 iderr 8e-08 out 248 time 2.461
+CASE 10 {'seed': 110, 'n': 100, 'count': 128, 'width': 6, 'groups': 3, 'dynamic': 1000, 'noise': 4e-05}
+RESULT n 100 K 128 B 64 floor 6.260379538659643e-06 F1 1.0 A 0.000136 B 9.5e-05 iderr -1.3e-07 out 128 time 0.335
+CASE 11 {'seed': 111, 'n': 60, 'count': 100, 'width': 6, 'groups': 3, 'weight': 1}
+RESULT n 60 K 81 B 64 floor 0.00015059520007839537 F1 1.0 A 0.000634 B 0.000607 iderr -1.53e-06 out 81 time 0.124
+CASE 12 {'seed': 112, 'n': 100, 'count': 320, 'width': 7, 'groups': 4, 'weight': 2}
+RESULT n 100 K 320 B 128 floor 4.965307993439082e-05 F1 1.0 A 0.001499 B 0.00138 iderr -3.2e-07 out 320 time 0.814
+CASE 13 {'seed': 113, 'n': 100, 'count': 192, 'width': 7, 'groups': 3, 'dynamic': 1000, 'background': 4096, 'noise': 0.0001}
+RESULT n 100 K 4288 B 128 floor 2e-05 F1 0.996656 A 0.154389 B 0.009643 iderr -1.4e-07 out 150 time 7.661
+CASE 14 {'seed': 114, 'n': 60, 'count': 128, 'width': 6, 'groups': 4, 'dynamic': 200, 'background': 2048, 'noise': 0.0001}
+RESULT n 60 K 2176 B 64 floor 2e-05 F1 1.0 A 0.14935 B 0.012123 iderr -1.36e-06 out 130 time 7.218
+CASE 15 {'seed': 115, 'n': 100, 'count': 80, 'width': 6, 'groups': 3, 'distribution': 'near', 'noise': 0.009}
+RESULT n 100 K 80 B 64 floor 0.0012964638205698084 F1 1.0 A 0.030835 B 0.050359 iderr -7.79e-06 out 84 time 4.49
+CASE 16 {'seed': 116, 'n': 80, 'count': 128, 'width': 6, 'groups': 4, 'distribution': 'near', 'noise': 0.005}
+RESULT n 80 K 128 B 64 floor 0.0008002641753836035 F1 1.0 A 0.017414 B 0.021644 iderr -2.701e-05 out 128 time 0.834
+CASE 17 {'seed': 117, 'n': 40, 'count': 128, 'width': 8, 'groups': 3, 'distribution': 'log', 'noise': 0.0}
+RESULT n 40 K 128 B 256 floor 0.00012851569988627868 F1 1.0 A 0.0 B 0.0 iderr -0.0 out 128 time 2.598
+EDGE 0.15 0 0 0.8499991406958225
+EDGE 0.15 1 1 0.8499991406958225
+EDGE 1.0 512 32 0.0
+EDGE 0.95 512 32 0.049999140696622285
+EMPTY 0.0 0.0
+EMPTY 0.4 0.39999989093972427
+EMPTY 1.0 0.9999998909391242
+RESOURCE 511 seconds 12.780792233999819 peak_rss_kib 79512
+
+exec
+/bin/bash -c "date -u '+%Y-%m-%d %H:%M:%S'
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+         self.weights = (np.median(self.sigma) / self.sigma) ** 2
++        self.fit_weights = None
+@@
+-        gram = np.full((count, count), -self.uniform_norm)
+-        rhs = np.full(count, -self.uniform_data)
++        gram = np.full((count, count), self.uniform_norm)
++        rhs = np.full(count, self.uniform_norm - self.uniform_data)
++        uniform_cross = np.zeros(count)
+         for group in range(self.groups):
+-            weighted = signs * self.weights[group]
++            weights = self.weights[group] if self.fit_weights is None else self.fit_weights[group, locations[group]]
++            weighted = signs * weights
+             rhs += np.einsum('ij,ij->i', weighted, self.values[group, locations[group]])
++            uniform_cross += np.einsum('ij,ij->i', weighted, self.uniform[group, locations[group]])
+@@
+                 gram[np.ix_(indices, indices)] += weighted[indices] @ signs[indices].T
++        gram -= uniform_cross[:, None] + uniform_cross[None, :]
++        rhs -= uniform_cross
+@@
+     def restart(self):
+@@
+         self.fit()
+         return len(discarded)
++
++    def adapt_weights(self):
++        power = np.mean(self.residual[:, :, 1:] ** 2, axis=2)
++        noise_power = np.mean(self.sigma[:, 1:] ** 2, axis=1)
++        extra = np.maximum(power - noise_power[:, None] * (1 + 2 * np.sqrt(2 / (self.rows - 1))), 0.0)
++        typical = np.median(extra, axis=1)
++        if not np.any(typical > 0.1 * noise_power) and not np.any(extra > noise_power[:, None]):
++            return
++        extra = 0.75 * extra + 0.25 * typical[:, None]
++        self.fit_weights = np.median(self.sigma) ** 2 / (self.sigma[:, None, :] ** 2 + extra[:, :, None])
++        self.uniform_norm = np.sum(self.uniform ** 2 * self.fit_weights)
++        self.uniform_data = np.sum(self.uniform * self.values * self.fit_weights)
++        self.fit()
+@@
+             if additional:
+                 self.bits = np.concatenate((self.bits, np.array(additional, dtype=np.uint8)))
+                 self.fit()
++        self.adapt_weights()
+*** End Patch
+PATCH
+python - <<'PY'
+from test_solver import simulate,evaluate
+from solver import Reconstruction
+for seed in [113,223,331]:
+ data,truth,identity=simulate(seed=seed,n=100,count=192,width=7,groups=3,dynamic=1000,background=4096,noise=.0001,commuting=True)
+ data['recovery_floor']=2e-5
+ method=Reconstruction.adapt_weights
+ Reconstruction.adapt_weights=lambda self: None
+ print('BASE',seed,flush=True)
+ evaluate(data,truth,identity)
+ Reconstruction.adapt_weights=method
+ print('ADAPT',seed,flush=True)
+ evaluate(data,truth,identity)
+PY
+python validation_tests.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 65075ms:
+2026-08-28 01:57:02
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+BASE 113
+RESULT n 100 K 4288 B 128 floor 2e-05 F1 0.996656 A 0.154389 B 0.009643 iderr -1.4e-07 out 150 time 7.532
+ADAPT 113
+RESULT n 100 K 4288 B 128 floor 2e-05 F1 0.996656 A 0.154368 B 0.009642 iderr -1e-07 out 150 time 8.112
+BASE 223
+RESULT n 100 K 4288 B 128 floor 2e-05 F1 0.996764 A 0.15339 B 0.010569 iderr -3.9e-07 out 155 time 5.442
+ADAPT 223
+RESULT n 100 K 4288 B 128 floor 2e-05 F1 0.996764 A 0.153382 B 0.010568 iderr -3.5e-07 out 155 time 5.38
+BASE 331
+RESULT n 100 K 4288 B 128 floor 2e-05 F1 0.996564 A 0.155357 B 0.010061 iderr -5e-07 out 147 time 8.966
+ADAPT 331
+RESULT n 100 K 4288 B 128 floor 2e-05 F1 0.996564 A 0.155317 B 0.010062 iderr -4.4e-07 out 147 time 8.186
+EDGE 0.15 0 0 0.8499991406958225
+EDGE 0.15 1 1 0.8499991406958225
+EDGE 1.0 512 32 0.0
+EDGE 0.95 512 32 0.049999140696622285
+EMPTY 0.0 0.0
+EMPTY 0.4 0.39999989093972427
+EMPTY 1.0 0.9999998909391242
+RESOURCE 511 seconds 14.249417222978082 peak_rss_kib 81140
+
+**Refining numerical precision**
+
+I'm evaluating how to improve the accuracy of specific codes, especially regarding the use of maximum diagonal elements. It's crucial to ensure that any small jitter applied doesn't bias the results. Regularization might need adjustment to clamp diagonal values, ensuring smooth normalization without aggressive skipping gates. If the weights have low diagonal values, they should reflect stability. Additionally, I'm considering the implications of matrix conditions on precision metrics and making sure the calculations prevent unnecessary errors while ensuring reliable outcomes. It's a balancing act that needs careful handling!
+codex
+Background-aware weighting slightly improves probability estimates. I’m running final regressions.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+-        gram.flat[::count + 1] += np.maximum(diagonal, 1.0) * 1e-12
++        gram.flat[::count + 1] += np.maximum(diagonal, 1e-30) * 1e-12
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/README.md
+@@
+ - Joint noise-weighted nonnegative probability fitting with a unit-mass bound.
++- Residual-based weighting of uncertain bins for weak nonsparse backgrounds.
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/validation_tests.py
+@@
+ def validate(paulis, probabilities, identity, n, maximum):
+@@
+     assert identity + probabilities.sum() <= 1.0 + 1e-8
+ 
+ 
++data, truth, identity = simulate(n=40, count=8, noise=0.0, commuting=True)
++data['hashes'][:] = 0
++for row in range(data['hashes'].shape[1]):
++    data['hashes'][:, row, 2 * row + 1] = 1
++model = Reconstruction(data)
++bits = np.array([np.frombuffer(key, dtype=np.uint8) for key in truth])
++signs = model.signatures(bits)
++locations = model.locations(bits)
++transformed = model.uniform * 0.05
++transformed[:, 0] += identity - 0.05
++for group in range(model.groups):
++    np.add.at(transformed[group], locations[group], np.array(list(truth.values()))[:, None] * signs)
++data['eigenvalues'] = walsh(transformed.transpose(0, 2, 1)) * model.buckets
++model = Reconstruction(data)
++model.bits = np.concatenate((np.zeros((1, model.dimension), dtype=np.uint8), bits))
++model.fit_weights = np.random.default_rng(30).lognormal(0.0, 0.7, model.values.shape)
++model.uniform_norm = np.sum(model.uniform ** 2 * model.fit_weights)
++model.uniform_data = np.sum(model.uniform * model.values * model.fit_weights)
++model.fit()
++signs = model.signatures(model.bits)
++locations = model.locations(model.bits)
++columns = []
++for index in range(len(model.bits)):
++    column = -model.uniform.copy()
++    for group in range(model.groups):
++        column[group, locations[group, index]] += signs[index]
++    columns.append(column.ravel())
++design = np.column_stack(columns) * np.sqrt(model.fit_weights.ravel())[:, None]
++target = (model.values - model.uniform).ravel() * np.sqrt(model.fit_weights.ravel())
++reference = np.linalg.lstsq(design, target, rcond=None)[0]
++assert np.max(np.abs(reference - model.probabilities)) < 1e-10
++result = Reconstruction(data).solve()
++validate(*result, 40, 512)
++assert len(result[0]) == len(truth)
++assert abs(result[2] - (identity - 0.05)) < 1e-9
++print('WEIGHTED_AND_STRUCTURED', np.max(np.abs(reference - model.probabilities)), flush=True)
++
++
+ for mass, maximum in [(0.15, 0), (0.15, 1), (1.0, 512), (0.95, 512)]:
+*** End Patch
+PATCH
+python stress_tests.py
+python validation_tests.py
+python -m py_compile solver.py
+python solver.py ../participant/input/example.npz example_output.npz
+python - <<'PY'
+import ast, pathlib, numpy as np
+path=pathlib.Path('solver.py')
+tree=ast.parse(path.read_text())
+imports=[]
+for node in ast.walk(tree):
+ if isinstance(node,ast.Import): imports.extend(item.name for item in node.names)
+ elif isinstance(node,ast.ImportFrom): imports.append(node.module)
+print('FINAL_FILE', path.resolve(), 'bytes',path.stat().st_size,'regular',path.is_file() and not path.is_symlink(),'imports',imports)
+with np.load('example_output.npz',allow_pickle=False) as output:
+ print('EXAMPLE_OUTPUT', {key:(output[key].shape,str(output[key].dtype)) for key in output.files},'mass',output['p_identity']+output['probabilities'].sum())
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 87715ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/README.md
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/validation_tests.py
+CASE 1 {'seed': 101, 'n': 40, 'count': 96, 'width': 6, 'groups': 3, 'dynamic': 30}
+RESULT n 40 K 96 B 64 floor 0.0001384438424682678 F1 1.0 A 0.000898 B 0.000818 iderr -9.6e-07 out 96 time 0.103
+CASE 2 {'seed': 102, 'n': 100, 'count': 256, 'width': 7, 'groups': 4, 'dynamic': 100}
+RESULT n 100 K 256 B 128 floor 1.886206252237613e-05 F1 1.0 A 0.000964 B 0.000849 iderr 9.1e-07 out 256 time 1.784
+CASE 3 {'seed': 103, 'n': 100, 'count': 512, 'width': 8, 'groups': 3, 'distribution': 'near', 'noise': 0.0003}
+RESULT n 100 K 512 B 256 floor 0.00020049634797833523 F1 1.0 A 0.001966 B 0.002395 iderr -1.17e-06 out 512 time 0.791
+CASE 4 {'seed': 104, 'n': 80, 'count': 256, 'width': 6, 'groups': 3, 'distribution': 'equal'}
+RESULT n 80 K 256 B 64 floor 0.00046875 F1 1.0 A 0.001638 B 0.002063 iderr -1.94e-06 out 256 time 4.271
+CASE 5 {'seed': 105, 'n': 100, 'count': 512, 'width': 7, 'groups': 3, 'distribution': 'equal'}
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 1.0 A 0.00266 B 0.002925 iderr 3.7e-07 out 512 time 25.477
+CASE 6 {'seed': 106, 'n': 40, 'count': 128, 'width': 6, 'groups': 3, 'distribution': 'equal'}
+RESULT n 40 K 128 B 64 floor 0.0009375 F1 1.0 A 0.001168 B 0.001452 iderr 4.08e-06 out 128 time 0.129
+CASE 7 {'seed': 107, 'n': 100, 'count': 512, 'width': 7, 'groups': 4, 'distribution': 'equal', 'extra': 48}
+RESULT n 100 K 512 B 128 floor 0.000234375 F1 1.0 A 0.001992 B 0.002451 iderr -6.4e-07 out 512 time 5.358
+CASE 8 {'seed': 108, 'n': 100, 'count': 512, 'width': 7, 'groups': 5, 'distribution': 'near', 'extra': 48}
+RESULT n 100 K 512 B 128 floor 0.0001983222589628267 F1 1.0 A 0.001712 B 0.002141 iderr 2.7e-07 out 512 time 2.233
+CASE 9 {'seed': 109, 'n': 80, 'count': 256, 'width': 6, 'groups': 3, 'dynamic': 5000, 'noise': 1e-05}
+RESULT n 80 K 256 B 64 floor 9.024059856464084e-07 F1 0.980159 A 0.000226 B 0.000222 iderr 8e-08 out 248 time 2.829
+CASE 10 {'seed': 110, 'n': 100, 'count': 128, 'width': 6, 'groups': 3, 'dynamic': 1000, 'noise': 4e-05}
+RESULT n 100 K 128 B 64 floor 6.260379538659643e-06 F1 1.0 A 0.000136 B 9.5e-05 iderr -1.3e-07 out 128 time 0.33
+CASE 11 {'seed': 111, 'n': 60, 'count': 100, 'width': 6, 'groups': 3, 'weight': 1}
+RESULT n 60 K 81 B 64 floor 0.00015059520007839537 F1 1.0 A 0.000634 B 0.000607 iderr -1.53e-06 out 81 time 0.128
+CASE 12 {'seed': 112, 'n': 100, 'count': 320, 'width': 7, 'groups': 4, 'weight': 2}
+RESULT n 100 K 320 B 128 floor 4.965307993439082e-05 F1 1.0 A 0.001499 B 0.00138 iderr -3.2e-07 out 320 time 0.763
+CASE 13 {'seed': 113, 'n': 100, 'count': 192, 'width': 7, 'groups': 3, 'dynamic': 1000, 'background': 4096, 'noise': 0.0001}
+RESULT n 100 K 4288 B 128 floor 2e-05 F1 0.996656 A 0.154368 B 0.009642 iderr -1e-07 out 150 time 7.553
+CASE 14 {'seed': 114, 'n': 60, 'count': 128, 'width': 6, 'groups': 4, 'dynamic': 200, 'background': 2048, 'noise': 0.0001}
+RESULT n 60 K 2176 B 64 floor 2e-05 F1 1.0 A 0.14935 B 0.012123 iderr -1.31e-06 out 130 time 7.0
+CASE 15 {'seed': 115, 'n': 100, 'count': 80, 'width': 6, 'groups': 3, 'distribution': 'near', 'noise': 0.009}
+RESULT n 100 K 80 B 64 floor 0.0012964638205698084 F1 1.0 A 0.030835 B 0.050359 iderr -7.79e-06 out 84 time 4.28
+CASE 16 {'seed': 116, 'n': 80, 'count': 128, 'width': 6, 'groups': 4, 'distribution': 'near', 'noise': 0.005}
+RESULT n 80 K 128 B 64 floor 0.0008002641753836035 F1 1.0 A 0.017414 B 0.021644 iderr -2.701e-05 out 128 time 0.818
+CASE 17 {'seed': 117, 'n': 40, 'count': 128, 'width': 8, 'groups': 3, 'distribution': 'log', 'noise': 0.0}
+RESULT n 40 K 128 B 256 floor 0.00012851569988627868 F1 1.0 A 0.0 B 0.0 iderr -0.0 out 128 time 2.562
+WEIGHTED_AND_STRUCTURED 8.008038676621254e-13
+EDGE 0.15 0 0 0.8499991406958225
+EDGE 0.15 1 1 0.8499991406958225
+EDGE 1.0 512 32 0.0
+EDGE 0.95 512 32 0.049999140696622285
+EMPTY 0.0 0.0
+EMPTY 0.4 0.39999989093972427
+EMPTY 1.0 0.9999998909391242
+RESOURCE 511 seconds 15.425927074975334 peak_rss_kib 81144
+FINAL_FILE /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py bytes 44114 regular True imports ['os', 'sys', 'time', 'itertools', 'numpy', 'scipy.linalg']
+EXAMPLE_OUTPUT {'paulis': ((72, 40), 'uint8'), 'probabilities': ((72,), 'float64'), 'p_identity': ((), 'float64')} mass 0.9999999999999999
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+         mask_integers = masks
+-        masks = np.array([mask & ((1 << 64) - 1) for mask in masks], dtype=np.uint64)
+-        upper_masks = None
+-        if len(selected) > 64:
+-            upper_masks = np.array([mask >> 64 for mask in mask_integers], dtype=np.uint64)
++        mask_parts = [np.array([(mask >> shift) & ((1 << 64) - 1) for mask in mask_integers], dtype=np.uint64)
++                      for shift in range(0, len(selected), 64)]
+@@
+-            part = masks if start < 64 else upper_masks
++            part = mask_parts[start // 64]
+@@
+-            best = np.argpartition(first_second, -3, axis=1)[:, -3:]
++            choices = min(3, self.buckets)
++            best = np.argpartition(first_second, -choices, axis=1)[:, -choices:]
+@@
+-                    thirds = np.argpartition(combined_score, -2)[-2:]
++                    third_choices = min(2, self.buckets)
++                    thirds = np.argpartition(combined_score, -third_choices)[-third_choices:]
+*** End Patch
+PATCH
+python - <<'PY'
+import numpy as np
+from solver import SoftDecoder
+from test_solver import simulate,evaluate
+random=np.random.default_rng(987)
+dimension=80
+extra=128
+hashes=random.integers(0,2,(18,dimension),dtype=np.uint8)
+offsets=np.concatenate((np.zeros((1,dimension),dtype=np.uint8),np.eye(dimension,dtype=np.uint8),random.integers(0,2,(extra,dimension),dtype=np.uint8)))
+bits=random.integers(0,2,dimension,dtype=np.uint8)
+values=1.0-2.0*((offsets@bits)&1)+random.normal(0,.8,len(offsets))
+decoder=SoftDecoder(offsets,hashes)
+proposals=decoder.decode(values,(hashes@bits)&1,order=3,number=2)
+assert proposals and all(np.all(((hashes@item)&1)==((hashes@bits)&1)) for item in proposals)
+print('LARGE_SYNDROME',decoder.redundancy,'correct',any(np.array_equal(bits,item) for item in proposals))
+for specification in [dict(n=40,count=1,width=1,groups=3,commuting=True),dict(seed=117,n=40,count=128,width=8,groups=3,noise=0.0,commuting=True)]:
+ data,truth,identity=simulate(**specification)
+ evaluate(data,truth,identity)
+PY
+python -m py_compile solver.py
+date -u '+%Y-%m-%d %H:%M:%S'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 8721ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+LARGE_SYNDROME 146 correct True
+RESULT n 40 K 1 B 2 floor 0.12 F1 1.0 A 6.5e-05 B 6.2e-05 iderr 8.82e-06 out 1 time 0.009
+RESULT n 40 K 128 B 256 floor 0.00012851569988627868 F1 1.0 A 0.0 B 0.0 iderr -0.0 out 128 time 2.331
+2026-08-28 02:01:52
+
+**Finalizing the task process**
+
+I'm making sure that the full task is done and I'm waiting for the final mask tool to be completed. There's no need for any additional code changes, which is a relief! I need to validate the plan steps, and it looks like the finalization is in progress. The audit is complete, and I've already finished the final tests. The behavior seems consistent, except for the general masks. Let's keep this moving!
+Completed 17 synthetic stress cases, structured-hash and weighted-fit checks, output edge cases, the public example, and a resource-limited 100-qubit run. The standalone solver uses only permitted dependencies.
+  ✓ Inspect observations and numerical environment
+  ✓ Implement robust sparse channel reconstruction
+  ✓ Validate using synthetic stress cases
+  → Finalize standalone solver and checks
+codex
+The solver is ready; final regression and resource checks passed.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+@@
+-        self.n = int(data['n_qubits'])
+-        self.dimension = 2 * self.n
++        self.qubit_count = int(data['n_qubits'])
++        self.dimension = 2 * self.qubit_count
+*** End Patch
+PATCH
+python -m py_compile solver.py
+python solver.py ../participant/input/example.npz example_output.npz
+python - <<'PY'
+import numpy as np
+with np.load('example_output.npz',allow_pickle=False) as output:
+ assert set(output.files)=={'paulis','probabilities','p_identity'}
+ assert output['paulis'].shape==(len(output['probabilities']),40)
+ assert np.all(output['probabilities']>=0) and np.isfinite(output['probabilities']).all()
+ assert output['p_identity']>=0 and output['p_identity']+output['probabilities'].sum()<=1+1e-8
+ print('Final standalone invocation passed.')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt
+ succeeded in 7033ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_01_sparse/attempt/solver.py
+Final standalone invocation passed.
+
+**Finalizing output structure**
+
+I’m thinking about how the RSS is around 80MiB. It seems like I should avoid unnecessary verbosity, maybe aiming for concise 4-6 bullet points, keeping it to a maximum of nine lines overall. I need to ensure I’ve finished all tools except for one, which is related to polling with a low time limit. It’s essential to make everything clear and easy to understand!
+Final solver is a regular, standalone Python file in the requested output directory. Regression, numerical-reference, edge-case, syntax, public-example, and resource-limit checks are complete.
+  ✓ Inspect observations and numerical environment
+  ✓ Implement robust sparse channel reconstruction
+  ✓ Validate using synthetic stress cases
+  ✓ Finalize standalone solver and checks
+codex
+Implemented `../attempt/solver.py:1` as a self-contained solver.
+
+- Tested on the public example and 17 synthetic stress cases.
+- Passed output-schema, edge-case, and resource-limit checks.
+- Requires only Python, NumPy, and SciPy—no development helpers.
+
+Run: `python solver.py INPUT.npz OUTPUT.npz`
+tokens used
+257,249
+Implemented `../attempt/solver.py:1` as a self-contained solver.
+
+- Tested on the public example and 17 synthetic stress cases.
+- Passed output-schema, edge-case, and resource-limit checks.
+- Requires only Python, NumPy, and SciPy—no development helpers.
+
+Run: `python solver.py INPUT.npz OUTPUT.npz`

@@ -1,0 +1,1819 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 01a045e8-b0c9-7df3-b410-3cb761258f7e
+--------
+user
+Read TASK.md and input/FORMAT.md if present. Complete the task autonomously. Write your final reusable, self-contained solver.py and development files only to /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt. The evaluator stages only your final solver.py, not development helpers. The task directory is read-only. You have at most 3600 seconds. Use installed numerical tools and test your implementation; do not stop at a plan. Only the task directory and your output directory are available. Do not seek other tasks, hidden references, or earlier attempts.
+codex
+I’ll read the task and format, then implement and test a self-contained solver.
+
+exec
+/bin/bash -lc "pwd; rg --files -g 'AGENTS.md' -g 'TASK.md' -g 'FORMAT.md' -g '"'!**/.git/**'"'; ls -la" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/participant
+ succeeded in 9484ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/participant
+input/FORMAT.md
+TASK.md
+total 16
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:25 .
+drwx------ 4 xuandong xuandong   80 Aug 27 18:09 ..
+-rw-rw-r-- 1 xuandong xuandong  833 Aug 27 17:57 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:25 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:25 workspace
+
+exec
+/bin/bash -lc "cat TASK.md; printf '\\n--- FORMAT ---\\n'; cat input/FORMAT.md; printf '\\n--- FILES ---\\n'; rg --files input workspace; printf '\\n--- OUTPUT ---\\n'; ls -la /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/participant
+ succeeded in 6718ms:
+# Recover correlated calibration noise
+
+Complete the analysis pipeline for simultaneous randomized-circuit calibration records. Recover a SPAM-robust, normalized one-cycle effective error distribution and quantify conditional dependence and the discrepancy of the supplied spatial model.
+
+Submit a self-contained `solver.py` in your output directory. It must run as `python solver.py INPUT.npz OUTPUT.npz`; only this file and the current input are staged for evaluation. The numerical contract is in `input/FORMAT.md`; `workspace/baseline.py` is an intentionally weak starting point. Evaluation uses unseen real acquisition records, including single- and simultaneous two-qubit operation, and scores channel reconstruction and dependency diagnostics separately. Allow 120 seconds and 3 GiB per record. NumPy and SciPy are installed.
+
+--- FORMAT ---
+# Numerical contract
+
+The NPZ files contain numeric arrays, never pickle objects.
+
+- `counts`: `(depths, 2**n)` integer final bit-error histograms. Integer column labels use qubit 0 as the least significant bit. Each row is a separate acquisition depth, with its own shot total.
+- `depths`: `(depths,)` nonnegative circuit repetition counts, not necessarily uniformly spaced.
+- `n`: scalar number of qubits, at most 14.
+- `blocks`: binary `(blocks,n)` masks of disjoint qubit groups for the dependence report. A group's event is that at least one bit is nonzero.
+- `conditional_queries`: binary `(queries,3,n)` masks giving disjoint, nonempty X and Y and possibly empty Z. Each selected set is a full categorical bit-vector, NOT an OR event.
+- `parents`: binary `(n,n)` DAG adjacency; `parents[child,parent]=1`.
+
+The effective error distribution is over observed bit errors after local averaging, not an unaveraged `4**n` Pauli distribution. A parity mode of repeated idealized data has an unknown multiplicative SPAM amplitude and a per-cycle geometric decay. Records are finite experimental observations: late, nearly vanished modes need not follow a clean exponential. The desired one-cycle channel excludes the SPAM amplitude. Do not treat depth-zero observations as a noiseless calibration or infer a single common rate for all modes.
+
+Required output arrays:
+
+- `probabilities`: `(2**n,)`, finite, nonnegative and normalized.
+- `correlations`: `(blocks,blocks)`, Pearson correlation of the group events under the recovered distribution. Diagonals are 1 unless variance vanishes, in which case use 0.
+- `conditional_information`: `(queries,)`, conditional mutual information I(X;Y|Z) in natural logarithms.
+- `spatial_jsd`: scalar Jensen–Shannon **distance**, using base-two logarithms, between the recovered distribution and `q(x)=product_i p(x_i|x_parents_i)`. This q is the normalized DAG model with conditionals obtained from the recovered distribution. For a zero-probability parent configuration use the fair binary conditional. No labels are supplied for the example.
+
+Hidden data use the same contract. Distribution error is measured away from the identity spike, so returning nearly all identity receives little credit. Diagnostics are scored independently; computing them consistently from an inaccurate channel does not guarantee a high score. Submit reusable computation, not an output for the example alone.
+
+--- FILES ---
+workspace/baseline.py
+input/FORMAT.md
+input/example.npz
+
+--- OUTPUT ---
+total 4
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 27 18:09 .
+drwx------ 4 xuandong xuandong   80 Aug 27 18:09 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 18:09 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 18:09 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 18:09 .git
+
+  → Inspect records and baseline assumptions
+  • Develop robust channel reconstruction
+  • Implement exact dependency diagnostics
+  • Validate accuracy, runtime, and packaging
+exec
+/bin/bash -lc "cat workspace/baseline.py; python - <<'PY'
+import numpy as np
+p=np.load('input/example.npz')
+for key in p.files:
+ a=p[key]
+ print(key, a.shape, a.dtype)
+ if a.size<300:print(a)
+ elif key=='counts':
+  print('shots',a.sum(1))
+  print('p_identity',a[:,0]/a.sum(1))
+  print('nonzero',np.count_nonzero(a,axis=1))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/participant
+ succeeded in 1831ms:
+import sys
+import numpy as np
+
+
+def solve(input_path, output_path):
+    data = np.load(input_path, allow_pickle=False)
+    probabilities = data['counts'][0].astype(float)
+    probabilities /= probabilities.sum()
+    np.savez(output_path, probabilities=probabilities,
+             correlations=np.eye(len(data['blocks'])),
+             conditional_information=np.zeros(len(data['conditional_queries'])),
+             spatial_jsd=np.array(0.0))
+
+
+if __name__ == '__main__':
+    solve(*sys.argv[1:])
+n () int64
+3
+counts (11, 8) int64
+[[753372  58989 124649  10322  55918   4943  13599   2208]
+ [662968  59306 171274  16582  78413   7741  24348   3368]
+ [576472  61908 196608  22849 106579  12300  41498   5786]
+ [516766  62716 224261  28966 114731  14333  54576   7651]
+ [460215  62946 229454  33360 135278  18945  72519  11283]
+ [378340  63608 247465  43153 146266  25573 100939  18656]
+ [300753  65456 237840  53133 166483  37392 132509  30434]
+ [264668  71705 225507  61399 169053  46439 145248  39981]
+ [231009  72520 213498  68709 172758  55281 158453  51772]
+ [212918  76561 204091  74120 170620  62349 163413  59928]
+ [194440  79629 190425  78174 172450  70630 168684  69568]]
+depths (11,) int64
+[  1   5  10  15  20  30  45  60  75  90 105]
+blocks (3, 3) uint8
+[[1 0 0]
+ [0 1 0]
+ [0 0 1]]
+conditional_queries (16, 3, 3) uint8
+[[[0 0 1]
+  [1 0 0]
+  [0 0 0]]
+
+ [[1 0 1]
+  [0 1 0]
+  [0 0 0]]
+
+ [[0 1 0]
+  [1 0 1]
+  [0 0 0]]
+
+ [[1 0 1]
+  [0 1 0]
+  [0 0 0]]
+
+ [[0 1 0]
+  [0 0 1]
+  [1 0 0]]
+
+ [[1 1 0]
+  [0 0 1]
+  [0 0 0]]
+
+ [[0 0 1]
+  [1 1 0]
+  [0 0 0]]
+
+ [[0 1 1]
+  [1 0 0]
+  [0 0 0]]
+
+ [[1 0 0]
+  [0 1 0]
+  [0 0 1]]
+
+ [[1 1 0]
+  [0 0 1]
+  [0 0 0]]
+
+ [[0 0 1]
+  [1 1 0]
+  [0 0 0]]
+
+ [[0 1 1]
+  [1 0 0]
+  [0 0 0]]
+
+ [[1 0 0]
+  [0 0 1]
+  [0 0 0]]
+
+ [[1 0 1]
+  [0 1 0]
+  [0 0 0]]
+
+ [[0 1 0]
+  [1 0 1]
+  [0 0 0]]
+
+ [[1 1 0]
+  [0 0 1]
+  [0 0 0]]]
+parents (3, 3) uint8
+[[0 1 1]
+ [0 0 0]
+ [0 1 0]]
+
+exec
+/bin/bash -lc "python - <<'PY'
+import numpy as np
+from scipy.optimize import least_squares
+p=np.load('input/example.npz')
+y=p['counts']/p['counts'].sum(1,keepdims=True)
+labels=np.arange(y.shape[1])
+H=np.array([[(-1)**int(i&j).bit_count() for j in labels] for i in labels])
+f=y@H
+m=p['depths'].astype(float)
+print('depth',m)
+for mode in range(1,len(labels)):
+ vals=f[:,mode]
+ print('\\nmode',mode,'values',np.round(vals,7))
+ print('local rates',np.round(-np.diff(np.log(np.maximum(vals,1e-9)))/np.diff(m),6))
+ for steps in [3,4,5,6,7,11]:
+  x=m[:steps]; z=vals[:steps]; shots=p['counts'].sum(1)[:steps]
+  scale=np.sqrt(np.maximum(1-z*z,.001)/shots)
+  opt=least_squares(lambda pars:(pars[0]*np.exp(-pars[1]*x)-z)/scale,[max(z),.01],bounds=([0,0],[2,1]))
+  print(steps,np.round(opt.x,6), 'chi2',round(2*opt.cost/max(steps-2,1),1),end='; ')
+ print()
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/participant
+ succeeded in 3437ms:
+depth [  1.   5.  10.  15.  20.  30.  45.  60.  75.  90. 105.]
+
+mode 1 values [0.8506602 0.830084  0.7991348 0.7779961 0.7528633 0.7050977 0.6359082
+ 0.5712422 0.5150742 0.4668789 0.4179668]
+local rates [0.006121 0.007599 0.005362 0.006568 0.006555 0.006885 0.007149 0.0069
+ 0.006549 0.007378]
+3 [0.857443 0.006922] chi2 16.2; 4 [0.856285 0.006534] chi2 19.1; 5 [0.856001 0.006463] chi2 13.5; 6 [0.856005 0.006464] chi2 10.1; 7 [0.856627 0.006552] chi2 10.8; 11 [0.858556 0.006762] chi2 17.3; 
+
+mode 2 values [0.7055117 0.5789609 0.4790215 0.3838789 0.3230156 0.1988027 0.1134453
+ 0.0778613 0.0382188 0.0204063 0.0100566]
+local rates [0.049422 0.037898 0.044284 0.034525 0.048539 0.037399 0.025093 0.04744
+ 0.041832 0.047174]
+3 [0.733574 0.043952] chi2 228.8; 4 [0.732546 0.043428] chi2 119.8; 5 [0.729518 0.042186] chi2 135.2; 6 [0.730741 0.042583] chi2 110.4; 7 [0.729908 0.04235 ] chi2 94.4; 11 [0.72714  0.041641] chi2 101.9; 
+
+mode 3 values [0.6051172 0.4869746 0.3900117 0.3049102 0.2502656 0.1453418 0.0757871
+ 0.0451191 0.0239219 0.0109102 0.0051406]
+local rates [0.054303 0.044407 0.049232 0.039499 0.054343 0.043411 0.034575 0.042301
+ 0.05234  0.050168]
+3 [0.633074 0.049594] chi2 102.7; 4 [0.632047 0.048998] chi2 55.5; 5 [0.629254 0.047691] chi2 74.3; 6 [0.630248 0.048062] chi2 60.7; 7 [0.629755 0.047902] chi2 50.5; 11 [0.628264 0.047457] chi2 42.8; 
+
+mode 4 values [0.8502578 0.7775977 0.6754629 0.6263848 0.5351074 0.430793  0.2835586
+ 0.2173418 0.1440156 0.1087695 0.0598984]
+local rates [0.022333 0.028162 0.015087 0.031499 0.021684 0.027881 0.01773  0.027437
+ 0.018713 0.039772]
+3 [0.874261 0.025127] chi2 170.0; 4 [0.869051 0.022975] chi2 325.8; 5 [0.87118  0.023667] chi2 267.0; 6 [0.870822 0.023577] chi2 201.4; 7 [0.873003 0.024035] chi2 210.6; 11 [0.872238 0.02388 ] chi2 148.7; 
+
+mode 5 values [0.7288516 0.6510762 0.5452461 0.4902559 0.4060488 0.3086602 0.1844121
+ 0.1261621 0.0772656 0.053293  0.0255137]
+local rates [0.028211 0.035478 0.021262 0.037691 0.027423 0.034338 0.025307 0.032688
+ 0.024763 0.049106]
+3 [0.755195 0.031781] chi2 126.7; 4 [0.750289 0.029549] chi2 188.1; 5 [0.752072 0.030186] chi2 145.3; 6 [0.751248 0.029959] chi2 112.7; 7 [0.75289  0.030339] chi2 107.9; 11 [0.752493 0.030251] chi2 67.3; 
+
+mode 6 values [0.6175156 0.4648242 0.3391875 0.2533379 0.1854746 0.0967637 0.0335
+ 0.0187539 0.0034258 0.0016016 0.000627 ]
+local rates [0.071011 0.063021 0.058366 0.062361 0.065065 0.070715 0.038676 0.113338
+ 0.05069  0.062524]
+3 [0.658732 0.067475] chi2 57.4; 4 [0.655154 0.065241] chi2 83.1; 5 [0.653519 0.064392] chi2 69.7; 6 [0.653159 0.064237] chi2 53.2; 7 [0.653463 0.064354] chi2 44.0; 11 [0.653228 0.064267] chi2 27.7; 
+
+mode 7 values [ 5.278047e-01  3.899199e-01  2.756230e-01  2.004707e-01  1.426543e-01
+  7.032230e-02  2.302150e-02  1.123830e-02  2.835900e-03  1.562500e-03
+ -1.406000e-04]
+local rates [0.075696 0.069381 0.063673 0.068049 0.070734 0.074444 0.047807 0.091797
+ 0.039739 0.950787]
+3 [0.566409 0.072908] chi2 23.0; 4 [0.563447 0.070777] chi2 43.6; 5 [0.562125 0.069982] chi2 37.2; 6 [0.561862 0.06985 ] chi2 28.3; 7 [0.561992 0.069909] chi2 23.0; 11 [0.561846 0.069845] chi2 13.7; 
+
+exec
+/bin/bash -lc "python - <<'PY'
+import numpy as np
+from scipy.optimize import least_squares
+D=np.load('input/example.npz'); counts=D['counts']; m=D['depths']; h=np.array([[(-1)**int(i&j).bit_count() for j in range(8)] for i in range(8)]); f=counts@h/counts.sum(1)[:,None]
+for method in ['linear','nls','robust','log_rel','floor','early']:
+ decay=[1.]; amp=[1.]
+ for mode in range(1,8):
+  y=f[:,mode]; s=np.sqrt((1-y*y)/counts.sum(1)); mask=y>0.03
+  if method=='linear':
+   tau, intercept=np.polyfit(m[mask],np.log(y[mask]),1)
+   pars=[np.exp(intercept),-tau]
+  else:
+   if method=='log_rel':s=np.sqrt(s*s+(.04*y)**2)
+   if method=='floor':s=np.sqrt(s*s+.01**2)
+   if method=='early':mask=m<=45
+   else:mask=np.ones(len(m),bool)
+   fit=least_squares(lambda pars:(pars[0]*np.exp(-pars[1]*m[mask])-y[mask])/s[mask],[max(y),.02],bounds=([0,0],[1,1]),loss='soft_l1' if method=='robust' else 'linear',f_scale=5)
+   pars=fit.x
+  amp.append(pars[0]);decay.append(np.exp(-pars[1]))
+ p=h@decay/8
+ print(method,'p',np.array2string(p,precision=7),'a',np.round(amp,4))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/participant
+ succeeded in 13810ms:
+linear p [ 9.6604392e-01  2.6335310e-03  1.8881371e-02  3.6423200e-04
+  1.1886037e-02  5.5098171e-04 -2.1123041e-04 -1.4884671e-04] a [1.     0.8603 0.6947 0.6042 0.8845 0.7452 0.6636 0.5576]
+nls p [9.6537787e-01 2.9650572e-03 1.9588338e-02 2.7001431e-04 1.1153676e-02
+ 1.1066389e-04 5.1041079e-04 2.3972577e-05] a [1.     0.8586 0.7271 0.6283 0.8722 0.7525 0.6532 0.5618]
+robust p [9.6537747e-01 2.9745955e-03 1.9614648e-02 2.6614623e-04 1.1081764e-02
+ 1.1581923e-04 5.5383599e-04 1.5724340e-05] a [1.     0.8586 0.7285 0.6294 0.8716 0.7523 0.655  0.5626]
+log_rel p [9.6603001e-01 2.8489599e-03 1.8609092e-02 3.8571539e-04 1.1808661e-02
+ 9.5886062e-05 1.5237639e-04 6.9304365e-05] a [1.     0.8603 0.7012 0.5998 0.8852 0.7624 0.6503 0.5573]
+floor p [9.6546997e-01 2.9887876e-03 1.9471750e-02 2.4735904e-04 1.1165571e-02
+ 1.2182984e-04 5.0901324e-04 2.5718370e-05] a [1.     0.8593 0.7245 0.627  0.8728 0.7527 0.6518 0.5611]
+early p [9.6521892e-01 2.8959479e-03 1.9740556e-02 2.7053477e-04 1.1088721e-02
+ 6.3606691e-05 6.8640598e-04 3.5305960e-05] a [1.     0.8566 0.7299 0.6298 0.873  0.7529 0.6535 0.562 ]
+
+**Planning execution limitations**
+
+I’m computing whether 42 fits within a time limit of about 10 seconds. The SciPy startup environment seems slow, so I need to investigate further. I should note the time, starting around 18:10, and it's currently 18:13. That gives us about an hour, but we have a 32k token budget to consider. I must avoid spawning too many threads, as OpenBLAS defaults to a massive load. I'll set the environment thread count to 1 before using NumPy. It’s crucial to check output delays, especially since terminal tools can sometimes lag without proper buffering.
+**Evaluating statistical methods**
+
+I’m considering how to estimate marginals and correlations more accurately without relying on low-order eigenvalues. It seems we can reconstruct higher correlations sparsely. Naive simplex approaches modify low-order marginals, but using weighted FFT appears promising, yet I'm still cautious. It might be effective to fit a probability distribution using hierarchical max entropy regularization as a baseline. Lastly, I'll need to think about how maximum entropy matching works within noise, as it tends to create a nearly diagonal distribution.
+**Analyzing statistical methods**
+
+I’m considering how to approach the information on counts, especially when millions aren’t enough for direct cycles in deconvolution. I think I can estimate some probabilities from rare events using depth differences. There’s something about how high weight tails come from products that might impact my fit. I wonder if the full maximum likelihood estimation would handle sparse counts better, particularly when large zero cells are present in the distribution. This feels like a complex but interesting challenge!
+**Evaluating robust fits**
+
+I’m thinking about the independent mode fit. I notice that robust error aggregation seems to help reduce overfitting to data from other modes. I shouldn’t overcomplicate things. The user likely wants a benchmark with a straightforward pipeline and a good solver for robust fits. To achieve the best results, I believe we’ll need a balanced approach with both robustness and shape in mind. Thankfully, we have time to run some tests.
+codex
+The example has substantial SPAM and nonexponential fluctuations. I’ll fit each decay separately, then enforce channel validity.
+
+The example shows strongly mode-dependent decays and experimental fluctuations well above shot noise; reconstruction needs nuisance amplitudes and robust weighting.
+  ✓ Inspect records and baseline assumptions
+  → Develop robust channel reconstruction
+  • Implement exact dependency diagnostics
+  • Validate accuracy, runtime, and packaging
+exec
+/bin/bash -lc "command -v apply_patch; python - <<'PY'
+import numpy, scipy
+print('numpy',numpy.__version__,'scipy',scipy.__version__)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/participant
+ succeeded in 11986ms:
+/srv/home/xuandong/.codex/tmp/arg0/codex-arg07kkFbY/apply_patch
+numpy 1.21.5 scipy 1.8.0
+
+exec
+/bin/bash -lc 'date -Iseconds; cat /proc/uptime' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/participant
+**Evaluating mathematical factors**
+
+I’m looking at the denominator for estimating variance, specifically using varλ as the sum of b squared times var_d, which could apply if a robust system is included. I'm also considering how to manipulate mode sign amplitude, particularly with a negative flip for y that fits a sign vector. Then, for negative λ, there’s an alternate factor for the period and optional support to think about too. This is quite intricate!
+ succeeded in 42414ms:
+2026-08-27T18:13:34-07:00
+503171.81 148434366.47
+
+**Planning function development**
+
+I’m working on a function called `fit_modes` that will return modes, variance, amplitudes, and optional details. My goal is to create a `statistics` dictionary for target diagnostics tests. I need to focus on reconstructing only `p`. It looks like I’ll have to patch about 400 lines of initial code, plus an additional 200 lines for development testing. This is quite a bit of work, but I’m ready to dive in!
+codex
+I’m implementing robust decay fits, probability constraints, and exact categorical diagnostics.
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: solver.py
++import os
++
++os.environ[\"OPENBLAS_NUM_THREADS\"] = \"1\"
++os.environ[\"OMP_NUM_THREADS\"] = \"1\"
++os.environ[\"MKL_NUM_THREADS\"] = \"1\"
++
++import sys
++import numpy as np
++from scipy.special import rel_entr
++
++
++def hadamard(values):
++    result = np.array(values, dtype=np.float64, copy=True)
++    size = result.shape[-1]
++    stride = 1
++    while stride < size:
++        view = result.reshape(-1, size // (2 * stride), 2, stride)
++        left = view[:, :, 0, :].copy()
++        right = view[:, :, 1, :].copy()
++        view[:, :, 0, :] = left + right
++        view[:, :, 1, :] = left - right
++        stride *= 2
++    return result
++
++
++def simplex(values):
++    ordered = np.sort(values)[::-1]
++    offsets = (np.cumsum(ordered) - 1.0) / np.arange(1, len(values) + 1)
++    active = np.flatnonzero(ordered > offsets)
++    threshold = offsets[active[-1]] if len(active) else offsets[-1]
++    result = np.maximum(values - threshold, 0.0)
++    return result / result.sum()
++
++
++def exponential_fit(times, observed, weights, rates, iterations=18):
++    span = max(float(np.ptp(times)), 1.0)
++    rate_limit = 30.0 / max(float(np.min(np.diff(np.unique(times)))), 1.0)
++    rates = np.clip(rates.copy(), 0.0, rate_limit)
++    for iteration in range(iterations):
++        basis = np.exp(-times[:, None] * rates[None, :])
++        norm = np.maximum(np.sum(weights * basis * basis, axis=0), 1e-280)
++        amplitudes = np.sum(weights * basis * observed, axis=0) / norm
++        amplitudes = np.maximum(amplitudes, 1e-12)
++        residual = observed - basis * amplitudes[None, :]
++        mean_time = np.sum(weights * basis * basis * times[:, None], axis=0) / norm
++        centered = times[:, None] - mean_time[None, :]
++        curvature = np.sum(weights * basis * basis * centered * centered, axis=0)
++        numerator = np.sum(weights * basis * centered * residual, axis=0)
++        step = -numerator / np.maximum(amplitudes * curvature, 1e-280)
++        limit = np.maximum(0.7 * rates, 0.7 / span)
++        step = np.clip(step, -limit, limit)
++        previous_loss = np.sum(weights * residual * residual, axis=0)
++        proposed = np.clip(rates + step, 0.0, rate_limit)
++        for backtrack in range(8):
++            trial_basis = np.exp(-times[:, None] * proposed[None, :])
++            trial_norm = np.maximum(np.sum(weights * trial_basis * trial_basis, axis=0), 1e-280)
++            trial_amplitude = np.maximum(np.sum(weights * trial_basis * observed, axis=0) / trial_norm, 1e-12)
++            trial_loss = np.sum(weights * (observed - trial_basis * trial_amplitude[None, :]) ** 2, axis=0)
++            rejected = trial_loss > previous_loss * (1.0 + 1e-12) + 1e-25
++            if not np.any(rejected):
++                break
++            proposed[rejected] = 0.5 * (proposed[rejected] + rates[rejected])
++        difference = np.max(np.abs(proposed - rates) / (rates + 1.0 / span))
++        rates = proposed
++        if difference < 1e-7:
++            break
++    basis = np.exp(-times[:, None] * rates[None, :])
++    norm = np.maximum(np.sum(weights * basis * basis, axis=0), 1e-280)
++    amplitudes = np.maximum(np.sum(weights * basis * observed, axis=0) / norm, 1e-12)
++    return rates, amplitudes, basis
++
++
++def fit_modes(counts, depths):
++    shots = np.sum(counts, axis=1)
++    valid = shots > 0
++    counts = np.asarray(counts[valid], dtype=np.float64)
++    depths = np.asarray(depths[valid], dtype=np.float64)
++    shots = shots[valid].astype(np.float64)
++    order = np.argsort(depths, kind=\"stable\")
++    depths, shots, counts = depths[order], shots[order], counts[order]
++    size = counts.shape[1]
++    frequencies = counts / shots[:, None]
++    spectrum = hadamard(frequencies)
++    if len(np.unique(depths)) < 2:
++        return np.ones(size), np.full(size, np.inf), {}
++    times = depths - depths[0]
++    observed = spectrum[:, 1:].copy()
++    shot_variance = np.maximum(1.0 - observed * observed, 1.0 / shots[:, None]) / shots[:, None]
++    strength = np.abs(observed) / np.sqrt(shot_variance)
++    strongest = np.argmax(strength, axis=0)
++    signs = np.sign(observed[strongest, np.arange(size - 1)])
++    signs[signs == 0.0] = 1.0
++    observed *= signs[None, :]
++    peak = np.maximum(np.max(observed, axis=0), 1e-8)
++    usable = (observed > 0.12 * peak[None, :]) & (observed > 3.0 * np.sqrt(shot_variance))
++    log_weights = np.where(usable, observed * observed / shot_variance, 0.0)
++    log_weights /= np.maximum(np.max(log_weights, axis=0), 1e-100)
++    log_values = np.log(np.maximum(observed, 1e-12))
++    total = np.maximum(np.sum(log_weights, axis=0), 1e-100)
++    mean_time = np.sum(log_weights * times[:, None], axis=0) / total
++    mean_log = np.sum(log_weights * log_values, axis=0) / total
++    centered = times[:, None] - mean_time[None, :]
++    denominator = np.sum(log_weights * centered * centered, axis=0)
++    rates = -np.sum(log_weights * centered * (log_values - mean_log[None, :]), axis=0) / np.maximum(denominator, 1e-100)
++    rates = np.maximum(rates, 0.0)
++    span = max(float(np.ptp(times)), 1.0)
++    rates[denominator < 1e-12] = 1.0 / span
++    window = times[:, None] * rates[None, :] <= 3.5
++    window[: min(4, len(times)), :] = True
++    weights = window / shot_variance
++    weights /= np.maximum(np.max(weights, axis=0), 1e-100)
++    rates, amplitudes, basis = exponential_fit(times, observed, weights, rates)
++    excess_variance = np.zeros(size - 1)
++    for robust_iteration in range(3):
++        prediction = basis * amplitudes[None, :]
++        residual = observed - prediction
++        window = times[:, None] * rates[None, :] <= 3.5
++        window[: min(4, len(times)), :] = True
++        useful = window & (prediction > 2.0 * np.sqrt(shot_variance))
++        selected = np.where(useful, residual * residual, np.nan)
++        import warnings
++        with warnings.catch_warnings():
++            warnings.simplefilter(\"ignore\", category=RuntimeWarning)
++            residual_variance = np.nanmedian(selected, axis=0) / 0.4549364231
++            typical_shot = np.nanmedian(np.where(useful, shot_variance, np.nan), axis=0)
++        sample_count = np.sum(useful, axis=0)
++        correction = sample_count / np.maximum(sample_count - 2.0, 1.0)
++        new_excess = np.maximum(residual_variance * correction - typical_shot, 0.0)
++        new_excess = np.nan_to_num(new_excess, nan=0.0, posinf=0.0, neginf=0.0)
++        excess_variance = new_excess if robust_iteration == 0 else 0.5 * (excess_variance + new_excess)
++        variance = shot_variance + excess_variance[None, :]
++        standardized = residual / np.sqrt(variance)
++        weights = window / variance / np.sqrt(1.0 + (standardized / 2.5) ** 2)
++        weights /= np.maximum(np.max(weights, axis=0), 1e-100)
++        rates, amplitudes, basis = exponential_fit(times, observed, weights, rates, iterations=12)
++    norm = np.maximum(np.sum(weights * basis * basis, axis=0), 1e-280)
++    mean_time = np.sum(weights * basis * basis * times[:, None], axis=0) / norm
++    centered = times[:, None] - mean_time[None, :]
++    curvature = np.sum(weights * basis * basis * centered * centered, axis=0)
++    eigenvalues = np.exp(-rates)
++    influence = eigenvalues[None, :] * weights * basis * centered / np.maximum(amplitudes * curvature, 1e-280)[None, :]
++    eigen_variance = np.sum(influence * influence * variance, axis=0)
++    reliable = (np.sum(usable, axis=0) >= 2) & (curvature > 1e-20)
++    eigen_variance[~reliable] = np.inf
++    eigen_variance = np.maximum(eigen_variance, 1e-16)
++    result = np.r_[1.0, eigenvalues]
++    uncertainty = np.r_[0.0, eigen_variance]
++    details = {\"spectrum\": spectrum, \"frequencies\": frequencies, \"shots\": shots,
++               \"times\": times, \"amplitudes\": amplitudes, \"rates\": rates,
++               \"influence\": influence * signs[None, :], \"variance\": variance,
++               \"excess_variance\": excess_variance}
++    return result, uncertainty, details
++
++
++def reconstruct(counts, depths):
++    eigenvalues, uncertainty, details = fit_modes(counts, depths)
++    size = len(eigenvalues)
++    qubits = size.bit_length() - 1
++    states = np.arange(size)
++    prior_modes = np.ones(size)
++    for qubit in range(qubits):
++        singleton = 1 << qubit
++        value = eigenvalues[singleton] if np.isfinite(uncertainty[singleton]) else 0.99
++        prior_modes *= np.where(states & singleton, value, 1.0)
++    missing = ~np.isfinite(uncertainty)
++    eigenvalues[missing] = prior_modes[missing]
++    raw = hadamard(eigenvalues) / size
++    if np.min(raw) >= -1e-12:
++        result = np.maximum(raw, 0.0)
++        return result / result.sum()
++    good = np.isfinite(uncertainty[1:])
++    if not np.any(good):
++        return simplex(hadamard(prior_modes) / size)
++    reference_variance = np.median(uncertainty[1:][good])
++    weights = reference_variance / (uncertainty + reference_variance * 0.05)
++    weights[0] = 0.0
++    weights /= np.max(weights)
++    probabilities = simplex(raw)
++    extrapolated = probabilities.copy()
++    momentum = 1.0
++    for iteration in range(700):
++        difference = hadamard(extrapolated) - eigenvalues
++        gradient = hadamard(weights * difference) / size
++        updated = simplex(extrapolated - gradient)
++        next_momentum = 0.5 * (1.0 + np.sqrt(1.0 + 4.0 * momentum * momentum))
++        next_extrapolated = updated + (momentum - 1.0) / next_momentum * (updated - probabilities)
++        if np.dot(extrapolated - updated, updated - probabilities) > 0.0:
++            next_extrapolated = updated.copy()
++            next_momentum = 1.0
++        change = np.max(np.abs(updated - probabilities))
++        probabilities, extrapolated, momentum = updated, next_extrapolated, next_momentum
++        if iteration > 40 and change < 2e-11:
++            break
++    return probabilities / probabilities.sum()
++
++
++def mask_integer(mask):
++    result = 0
++    for qubit in np.flatnonzero(mask):
++        result |= 1 << int(qubit)
++    return result
++
++
++def diagnostics(probabilities, blocks, conditional_queries, parents):
++    size = len(probabilities)
++    states = np.arange(size, dtype=np.int64)
++    event_masks = [mask_integer(block) for block in blocks]
++    events = np.array([(states & mask) "'!= 0 for mask in event_masks], dtype=np.float64).reshape(len(blocks), size)
++    means = events @ probabilities
++    variance = np.maximum(means * (1.0 - means), 0.0)
++    covariance = (events * probabilities[None, :]) @ events.T - np.outer(means, means)
++    denominator = np.sqrt(np.outer(variance, variance))
++    correlations = np.divide(covariance, denominator, out=np.zeros_like(covariance), where=denominator > 0)
++    correlations = np.clip(correlations, -1.0, 1.0)
++    np.fill_diagonal(correlations, (variance > 0).astype(float))
++    entropy_cache = {0: 0.0}
++
++    def entropy(mask):
++        if mask not in entropy_cache:
++            marginal = np.bincount(states & mask, weights=probabilities, minlength=mask + 1)
++            positive = marginal[marginal > 0.0]
++            entropy_cache[mask] = -np.sum(positive * np.log(positive))
++        return entropy_cache[mask]
++
++    information = []
++    for query in conditional_queries:
++        mask_x, mask_y, mask_z = [mask_integer(part) for part in query]
++        value = entropy(mask_x | mask_z) + entropy(mask_y | mask_z) - entropy(mask_z) - entropy(mask_x | mask_y | mask_z)
++        information.append(max(0.0, float(value)))
++    spatial = np.ones(size)
++    for child, parent_row in enumerate(parents):
++        parent_mask = mask_integer(parent_row)
++        child_mask = 1 << child
++        parent_index = states & parent_mask
++        parent_probability = np.bincount(parent_index, weights=probabilities, minlength=parent_mask + 1)
++        joint_index = states & (parent_mask | child_mask)
++        joint_probability = np.bincount(joint_index, weights=probabilities, minlength=(parent_mask | child_mask) + 1)
++        conditional = np.divide(joint_probability[joint_index], parent_probability[parent_index],
++                                out=np.full(size, 0.5), where=parent_probability[parent_index] > 0.0)
++        spatial *= conditional
++    spatial /= spatial.sum()
++    midpoint = 0.5 * (probabilities + spatial)
++    divergence = 0.5 * np.sum(rel_entr(probabilities, midpoint) + rel_entr(spatial, midpoint)) / np.log(2.0)
++    return correlations, np.asarray(information), np.asarray(np.sqrt(max(0.0, divergence)))
++
++
++def solve(input_path, output_path):
++    with np.load(input_path, allow_pickle=False) as data:
++        counts = np.asarray(data["counts"], dtype=np.float64)
++        probabilities = reconstruct(counts, data["depths"])
++        correlations, information, distance = diagnostics(probabilities, data["blocks"], data["conditional_queries"], data["parents"])
++    np.savez(output_path, probabilities=probabilities, correlations=correlations,
++             conditional_information=information, spatial_jsd=distance)
++
++
++if __name__ == "__main__":
++    solve(*sys.argv[1:])
+*** Add File: development.py
++import os
++os.environ['"'OPENBLAS_NUM_THREADS'] = '1'
++import time
++import numpy as np
++from scipy.optimize import least_squares
++import solver
++
++
++def synthetic(qubits, seed, shots=1000000, jitter=0.0, floor=0.0, sparse=True):
++    random = np.random.default_rng(seed)
++    size = 1 << qubits
++    rates = np.zeros(size)
++    for qubit in range(qubits):
++        rates[1 << qubit] = random.uniform(0.001, 0.014)
++    for qubit in range(qubits - 1):
++        rates[(1 << qubit) | (1 << (qubit + 1))] = random.uniform(0.0001, 0.002)
++    if qubits >= 3:
++        rates[7] = 0.0007
++    rates[0] = -rates.sum()
++    modes = np.exp(solver.hadamard(rates))
++    probabilities = solver.hadamard(modes) / size
++    if not sparse:
++        probabilities = 0.99 * probabilities + 0.01 * random.dirichlet(np.ones(size))
++        modes = solver.hadamard(probabilities)
++    spam_rates = np.zeros(size)
++    for qubit in range(qubits):
++        spam_rates[1 << qubit] = random.uniform(0.02, 0.16)
++    spam_rates[0] = -spam_rates.sum()
++    spam_modes = np.exp(solver.hadamard(spam_rates))
++    depths = np.array([1, 5, 10, 15, 20, 30, 45, 60, 75, 90, 105])
++    rows = []
++    for depth in depths:
++        if jitter:
++            noisy_rates = rates.copy()
++            noisy_rates[1:] *= np.exp(random.normal(0, jitter, size - 1) - jitter * jitter / 2)
++            noisy_rates[0] = -noisy_rates[1:].sum()
++            current_modes = np.exp(solver.hadamard(noisy_rates))
++        else:
++            current_modes = modes
++        spectrum = spam_modes * current_modes ** depth
++        distribution = solver.hadamard(spectrum) / size
++        distribution = (1 - floor) * distribution + floor * solver.hadamard(spam_modes) / size
++        distribution = np.maximum(distribution, 0)
++        distribution /= distribution.sum()
++        rows.append(random.multinomial(shots, distribution))
++    return np.array(rows), depths, probabilities
++
++
++def evaluate(counts, depths, true):
++    start = time.monotonic()
++    modes, uncertainty, details = solver.fit_modes(counts, depths)
++    raw = solver.hadamard(modes) / len(modes)
++    projected = solver.simplex(raw)
++    reconstructed = solver.reconstruct(counts, depths)
++    for name, probabilities in [('raw', raw), ('simplex', projected), ('weighted', reconstructed)]:
++        error = np.sum(np.abs(probabilities[1:] - true[1:])) / true[1:].sum()
++        cmi_masks = np.array([[[1, 0, 0], [0, 1, 0], [0, 0, 1]]])
++        print(name, 'rel_L1', round(error, 5), 'identity', round(probabilities[0], 6),
++              'negative_mass', round(-probabilities[probabilities < 0].sum(), 5), end='; ')
++    print('seconds', round(time.monotonic() - start, 3))
++    return reconstructed
++
++
++if __name__ == '__main__':
++    for qubits in [3, 6, 10, 14]:
++        for jitter, floor in [(0., 0.), (0.04, 0.), (0., 0.008)]:
++            counts, depths, true = synthetic(qubits, 37, jitter=jitter, floor=floor)
++            print('n', qubits, 'jitter', jitter, 'floor', floor, 'true identity', true[0], flush=True)
++            evaluate(counts, depths, true)
+*** End Patch
+PATCH
+python solver.py ../participant/input/example.npz example_output.npz
+python -u development.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+ succeeded in 13664ms:
+Success. Updated the following files:
+A solver.py
+A development.py
+n 3 jitter 0.0 floor 0.0 true identity 0.9759022839770721
+raw rel_L1 0.0026 identity 0.975872 negative_mass -0.0; simplex rel_L1 0.0026 identity 0.975872 negative_mass -0.0; weighted rel_L1 0.0026 identity 0.975872 negative_mass -0.0; seconds 0.007
+n 3 jitter 0.04 floor 0.0 true identity 0.9759022839770721
+raw rel_L1 0.01316 identity 0.976186 negative_mass -0.0; simplex rel_L1 0.01316 identity 0.976186 negative_mass -0.0; weighted rel_L1 0.01316 identity 0.976186 negative_mass -0.0; seconds 0.007
+n 3 jitter 0.0 floor 0.008 true identity 0.9759022839770721
+raw rel_L1 0.01984 identity 0.976352 negative_mass -0.0; simplex rel_L1 0.01984 identity 0.976352 negative_mass -0.0; weighted rel_L1 0.01984 identity 0.976352 negative_mass -0.0; seconds 0.006
+n 6 jitter 0.0 floor 0.0 true identity 0.9522307443048127
+raw rel_L1 0.0142 identity 0.952332 negative_mass 6e-05; simplex rel_L1 0.0126 identity 0.952331 negative_mass -0.0; weighted rel_L1 0.01239 identity 0.952332 negative_mass -0.0; seconds 0.017
+n 6 jitter 0.04 floor 0.0 true identity 0.9522307443048127
+raw rel_L1 0.03138 identity 0.952614 negative_mass 6e-05; simplex rel_L1 0.02976 identity 0.952613 negative_mass -0.0; weighted rel_L1 0.02912 identity 0.952613 negative_mass -0.0; seconds 0.018
+n 6 jitter 0.0 floor 0.008 true identity 0.9522307443048127
+raw rel_L1 0.03267 identity 0.953271 negative_mass 9e-05; simplex rel_L1 0.03059 identity 0.953269 negative_mass -0.0; weighted rel_L1 0.02952 identity 0.953265 negative_mass -0.0; seconds 0.022
+n 10 jitter 0.0 floor 0.0 true identity 0.9288245270336134
+raw rel_L1 0.07462 identity 0.928537 negative_mass 0.00174; simplex rel_L1 0.03323 identity 0.928531 negative_mass -0.0; weighted rel_L1 0.02763 identity 0.928548 negative_mass -0.0; seconds 0.05
+n 10 jitter 0.04 floor 0.0 true identity 0.9288245270336134
+raw rel_L1 0.10083 identity 0.92976 negative_mass 0.00188; simplex rel_L1 0.05544 identity 0.929753 negative_mass -0.0; weighted rel_L1 0.05127 identity 0.929764 negative_mass -0.0; seconds 0.048
+n 10 jitter 0.0 floor 0.008 true identity 0.9288245270336134
+raw rel_L1 0.08829 identity 0.930298 negative_mass 0.00178; simplex rel_L1 0.04575 identity 0.930292 negative_mass -0.0; weighted rel_L1 0.03945 identity 0.93028 negative_mass -0.0; seconds 0.055
+n 14 jitter 0.0 floor 0.0 true identity 0.8985980447957364
+raw rel_L1 0.30087 identity 0.898646 negative_mass 0.01288; simplex rel_L1 0.06141 identity 0.898633 negative_mass -0.0; weighted rel_L1 0.04652 identity 0.898663 negative_mass -0.0; seconds 0.572
+n 14 jitter 0.04 floor 0.0 true identity 0.8985980447957364
+raw rel_L1 0.30516 identity 0.898021 negative_mass 0.01309; simplex rel_L1 0.06208 identity 0.898008 negative_mass -0.0; weighted rel_L1 0.05236 identity 0.898031 negative_mass -0.0; seconds 0.572
+n 14 jitter 0.0 floor 0.008 true identity 0.8985980447957364
+raw rel_L1 0.31057 identity 0.90086 negative_mass 0.01306; simplex rel_L1 0.06888 identity 0.900848 negative_mass -0.0; weighted rel_L1 0.05359 identity 0.900806 negative_mass -0.0; seconds 0.594
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: likelihood.py
++import time
++import numpy as np
++from scipy.optimize import minimize
++from solver import hadamard, simplex
++
++
++def refine(counts, depths, initial, maxiter=250, verbose=False):
++    start = time.monotonic()
++    counts = np.asarray(counts, dtype=float)
++    depths = np.asarray(depths, dtype=float)
++    order = np.argsort(depths)
++    counts, depths = counts[order], depths[order]
++    times = depths - depths[0]
++    size = len(initial)
++    fractions = counts / counts.sum()
++    rates = hadamard(initial)
++    bases = np.maximum(rates[None, :], 1e-8) ** times[:, None]
++    spectra = hadamard(counts / counts.sum(1, keepdims=True))
++    nuisance = np.sum(bases * spectra * counts.sum(1)[:, None], axis=0) / np.maximum(np.sum(bases * bases * counts.sum(1)[:, None], axis=0), 1e-30)
++    spam = simplex(hadamard(nuisance) / size)
++    channel = np.maximum(initial, 1e-9)
++    spam = np.maximum(spam, 1e-10)
++    channel /= channel.sum()
++    spam /= spam.sum()
++    scale = 3.0
++    vector = np.r_[np.sqrt(channel) * scale, np.sqrt(spam)]
++    evaluations = [0]
++
++    def objective(vector):
++        channel_square, spam_square = vector[:size] ** 2, vector[size:] ** 2
++        channel_norm, spam_norm = channel_square.sum(), spam_square.sum()
++        channel, spam = channel_square / channel_norm, spam_square / spam_norm
++        modes, amplitudes = hadamard(channel), hadamard(spam)
++        modes = np.maximum(modes, 1e-8)
++        bases = modes[None, :] ** times[:, None]
++        distribution = np.maximum(hadamard(bases * amplitudes[None, :]) / size, 1e-18)
++        loss = -np.sum(fractions * np.log(distribution))
++        transformed = hadamard(-fractions / distribution) / size
++        channel_gradient = hadamard(np.sum(transformed * bases * amplitudes[None, :] * times[:, None] / modes[None, :], axis=0))
++        spam_gradient = hadamard(np.sum(transformed * bases, axis=0))
++        channel_gradient = (channel_gradient - np.dot(channel_gradient, channel)) * 2 * vector[:size] / channel_norm
++        spam_gradient = (spam_gradient - np.dot(spam_gradient, spam)) * 2 * vector[size:] / spam_norm
++        evaluations[0] += 1
++        return loss, np.r_[channel_gradient, spam_gradient]
++
++    initial_loss = objective(vector)[0]
++    fit = minimize(objective, vector, method='L-BFGS-B', jac=True, bounds=[(0, None)] * len(vector),
++                   options={'maxiter': maxiter, 'ftol': 1e-13, 'gtol': 1e-9, 'maxcor': 12, 'maxls': 20})
++    probabilities = fit.x[:size] ** 2
++    probabilities /= probabilities.sum()
++    if verbose:
++        print('likelihood:', fit.message, 'iter', fit.nit, 'eval', evaluations[0],
++              'loss', initial_loss, fit.fun, 'sec', time.monotonic() - start, flush=True)
++    return probabilities
++
++
++if __name__ == '__main__':
++    import solver
++    from development import synthetic
++    for qubits in [3, 6, 10, 14]:
++        for jitter, floor in [(0., 0.), (0.04, 0.), (0., 0.008)]:
++            counts, depths, true = synthetic(qubits, 37, jitter=jitter, floor=floor)
++            initial = solver.reconstruct(counts, depths)
++            refined = refine(counts, depths, initial, verbose=True)
++            print('n', qubits, 'jitter', jitter, 'floor', floor, 'initial',
++                  np.abs(initial[1:] - true[1:]).sum()/true[1:].sum(), 'refined',
++                  np.abs(refined[1:] - true[1:]).sum()/true[1:].sum(), flush=True)
++    data = np.load('../participant/input/example.npz')
++    initial = solver.reconstruct(data['counts'], data['depths'])
++    refined = refine(data['counts'], data['depths'], initial, verbose=True)
++    print('example initial', initial, 'refined', refined)
+*** End Patch
+PATCH
+python -u likelihood.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+**Evaluating weight adjustments**
+
+I'm considering potential arrays for FISTA weight, looking at eigen_variance and normalization. The zero variance in mode0 is making me think twice; it has a positive denominator, but resetting weight0 seems necessary. Watching for any warnings about row variances is essential, especially in the loop. It seems joint refinement will only be beneficial if n is six or more, and it'll be interesting to see the results from that.
+**Considering signal choices**
+
+I'm contemplating how to choose the lambda_sign when the aggregated signal is strongly opposite and the z-scores are at least 4. It seems I should sum data from the lowest 4 rows or look at the early high values where the peak is more than 0.05. If there are noisy high-order modes, I might mistakenly choose negative signs, suggesting many negative eigenvalues near zero from unobservable factors, which could drastically affect the physical projection.
+exec
+/bin/bash -c "date -Iseconds; ps -eo pid,etime,pcpu,rss,args | rg '(likelihood.py|apply_patch|solver.py|development.py|bash -l)'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+**Clarifying diagnostic scores**
+
+I need to compute independent diagnostic scores, possibly from low-order marginals, even if the reconstructed probabilities are a bit off. The user wants correlations from the recovered distribution, but I'm encouraged to use accurate separate estimates instead of relying solely on self-consistent data. I must ensure that the contract is satisfied while computing the recovered distribution; I can't just decouple things. If the reconstruction matches reliable low-order data, then the diagnostics should be accurate. FISTA spectral weights help preserve low modes if the raw values are minimally negative.
+ succeeded in 94655ms:
+Success. Updated the following files:
+A likelihood.py
+likelihood: CONVERGENCE: REL_REDUCTION_OF_F_<=_FACTR*EPSMCH iter 20 eval 24 loss 1.5222826181189157 1.522282333444696 sec 0.004863495007157326
+n 3 jitter 0.0 floor 0.0 initial 0.0026048117965880176 refined 0.002630355200850629
+likelihood: CONVERGENCE: REL_REDUCTION_OF_F_<=_FACTR*EPSMCH iter 23 eval 27 loss 1.519738152897469 1.5197377679322337 sec 0.004828714008908719
+n 3 jitter 0.04 floor 0.0 initial 0.013164637498505345 refined 0.01377627535647354
+likelihood: CONVERGENCE: REL_REDUCTION_OF_F_<=_FACTR*EPSMCH iter 24 eval 29 loss 1.5192213626414115 1.5192200203179707 sec 0.0052026110352016985
+n 3 jitter 0.0 floor 0.008 initial 0.01983691851765385 refined 0.024890000044035132
+likelihood: STOP: TOTAL NO. of ITERATIONS REACHED LIMIT iter 250 eval 273 loss 3.0703615711087044 3.0703064738727015 sec 0.08230437501333654
+n 6 jitter 0.0 floor 0.0 initial 0.012387154365825858 refined 0.010987707847655032
+likelihood: STOP: TOTAL NO. of ITERATIONS REACHED LIMIT iter 250 eval 275 loss 3.0698464682287616 3.069404146222462 sec 0.0836785520077683
+n 6 jitter 0.04 floor 0.0 initial 0.0291223123005397 refined 0.012264844321672401
+likelihood: CONVERGENCE: REL_REDUCTION_OF_F_<=_FACTR*EPSMCH iter 215 eval 230 loss 3.0632142848391757 3.0631500733250925 sec 0.06865659798495471
+n 6 jitter 0.0 floor 0.008 initial 0.029517512719087813 refined 0.05631616935443759
+likelihood: STOP: TOTAL NO. of ITERATIONS REACHED LIMIT iter 250 eval 266 loss 5.144228009428906 5.144015674454723 sec 0.4024086670251563
+n 10 jitter 0.0 floor 0.0 initial 0.027628053535898027 refined 0.023352570744939075
+likelihood: STOP: TOTAL NO. of ITERATIONS REACHED LIMIT iter 250 eval 263 loss 5.140551413814158 5.139728909184049 sec 0.41386626998428255
+n 10 jitter 0.04 floor 0.0 initial 0.05127441437337029 refined 0.022281734022010818
+likelihood: STOP: TOTAL NO. of ITERATIONS REACHED LIMIT iter 250 eval 270 loss 5.134007691576484 5.133795568744132 sec 0.40648802497889847
+n 10 jitter 0.0 floor 0.008 initial 0.039450747873957165 refined 0.0833241149094062
+likelihood: STOP: TOTAL NO. of ITERATIONS REACHED LIMIT iter 250 eval 263 loss 7.123396606497812 7.122496451998915 sec 7.165453006979078
+n 14 jitter 0.0 floor 0.0 initial 0.04652293678358794 refined 0.03999015723792963
+likelihood: STOP: TOTAL NO. of ITERATIONS REACHED LIMIT iter 250 eval 262 loss 7.12594221589298 7.1250210137576575 sec 6.526075248024426
+n 14 jitter 0.04 floor 0.0 initial 0.05235700889519427 refined 0.0463479357737105
+likelihood: STOP: TOTAL NO. of ITERATIONS REACHED LIMIT iter 250 eval 266 loss 7.108709745612225 7.107816327769044 sec 6.458464874012861
+n 14 jitter 0.0 floor 0.008 initial 0.05358929127553496 refined 0.11977742436364879
+likelihood: CONVERGENCE: REL_REDUCTION_OF_F_<=_FACTR*EPSMCH iter 40 eval 48 loss 1.6097223703145194 1.6097143126145115 sec 0.011087065970059484
+example initial [9.65420680e-01 2.99755174e-03 1.95231319e-02 2.41196068e-04
+ 1.11496325e-02 1.34654300e-04 5.23003974e-04 1.01492117e-05] refined [9.65485868e-01 2.99199442e-03 1.94259085e-02 2.94340680e-04
+ 1.10579761e-02 6.84844161e-05 6.60401224e-04 1.50268132e-05]
+
+**Analyzing potential issues**
+
+I’m trying to figure out if the output commands have never started due to the host being temporarily unavailable or if there's long latency. I want to avoid excessive calls, and I'm considering how tokens might keep going while the user's time is limited. 
+
+Maybe executing commands might not yield results if there's a server issue. I suspect that network mounts are causing delays. I’m also pondering whether an overload from many threads could be at play. I'll plan tests to address these concerns fully.
+**Evaluating memory and efficiency**
+
+I’m analyzing the current memory usage, which appears to be moderate, around 30MB, and the processing seems fine overall. I see potential issues with the diagnostic results showing noise in the ratios. There might be a possibility of stopping early at 700 iterations if the maximum difference is below a certain threshold.
+
+The momentum restart condition could lead to underfitting, especially if oscillations occur. I’m also concerned about noise in the results but feel like the output is generally fine even with dense positives. I need to implement robust filtering using fit parameters and error bars.
+**Considering mode adjustments**
+
+I'm looking at the modes where the variance is greater than 0.1, and it seems like the raw initializer for parameters contains some odd high-frequency noise. If the weights are set to zero, it doesn’t constrain high-order terms, which could lead to initial simplex preserving hidden errors in low modes. I think proper regularization is essential here, as it helps select the maximum entropy product prior rather than relying on the raw data. I need to address this for better accuracy.
+ succeeded in 56737ms:
+2026-08-27T18:19:48-07:00
+      1       00:07 11.0 16892 /srv/home/xuandong/.codex/tmp/arg0/codex-arg07kkFbY/codex-linux-sandbox --sandbox-policy-cwd /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/participant --command-cwd /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt --permission-profile {"type":"managed","file_system":{"type":"restricted","entries":[{"path":{"type":"path","path":"/srv/home/xuandong/.codex/packages"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/.codex/packages/standalone/releases/0.150.1-x86_64-unknown-linux-musl/bin/codex"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/.codex/tmp/arg0"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt"},"access":"write"},{"path":{"type":"path","path":"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/participant"},"access":"read"},{"path":{"type":"special","value":{"kind":"minimal"}},"access":"read"}]},"network":"restricted"} --apply-seccomp-then-exec -- /bin/bash -c date -Iseconds; ps -eo pid,etime,pcpu,rss,args | rg '(likelihood.py|apply_patch|solver.py|development.py|bash -l)'
+      2       00:00  0.0  3404 /bin/bash -c date -Iseconds; ps -eo pid,etime,pcpu,rss,args | rg '(likelihood.py|apply_patch|solver.py|development.py|bash -l)'
+      5       00:00  0.0  4672 rg (likelihood.py|apply_patch|solver.py|development.py|bash -l)
+
+**Investigating time issues**
+
+I'm noticing a potential issue with the max yield. It seems like it's set to 1000 but actually only waits for 5 seconds. This might be because empty characters are causing a 5-second duration instead of the intended 1000. The description mentions empty polls waiting for five minutes, which is interesting. I think I need to launch terminal sessions, but it may not be necessary to finish this test before I dig deeper into the problem.
+codex
+Synthetic tests pass through 14 qubits. I’m comparing a likelihood refinement and checking diagnostic edge cases.
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -u - <<'PY'
+import numpy as np
+from solver import hadamard, reconstruct, diagnostics
+rng=np.random.default_rng(811)
+for qubits in [1,3,7]:
+ size=1<<qubits
+ channel=rng.dirichlet(np.ones(size))*.06
+ channel[0]+=.94
+ spam=rng.dirichlet(np.ones(size))*.3
+ spam[0]+=.7
+ depths=np.array([0,3,9,14,27,53])
+ rows=hadamard(hadamard(spam)[None,:]*hadamard(channel)[None,:]**depths[:,None])/size
+ counts=np.round(rows*np.array([1e11,3e11,1.4e11,8e10,2e11,1e11])[:,None])
+ result=reconstruct(counts,depths)
+ print('noiseless',qubits,'max error',np.max(np.abs(result-channel)),flush=True)
+ assert np.max(np.abs(result-channel))<1e-7
+states=np.arange(8)
+xor=np.array([.25 if (int(state).bit_count()%2==0) else 0 for state in states])
+blocks=np.eye(3,dtype=np.uint8)
+queries=np.array([[[1,0,0],[0,1,0],[0,0,1]],[[1,0,0],[0,1,0],[0,0,0]],[[1,1,0],[0,0,1],[0,0,0]]])
+parents=np.zeros((3,3),dtype=np.uint8)
+corr,info,distance=diagnostics(xor,blocks,queries,parents)
+print('xor corr',corr,'info',info,'jsd',distance,flush=True)
+assert np.allclose(corr,np.eye(3))
+assert np.allclose(info,[np.log(2),0,np.log(2)])
+assert np.allclose(distance,np.sqrt(.31127812445913283))
+parents[2,:2]=1
+assert diagnostics(xor,blocks,queries,parents)[2]<1e-7
+for state in [0,7]:
+ point=np.eye(8)[state]
+ corr,info,distance=diagnostics(point,blocks,queries,parents)
+ assert np.allclose(corr,0) and np.allclose(info,0) and distance<1e-7
+print('diagnostic edge cases passed',flush=True)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+ succeeded in 9468ms:
+noiseless 1 max error 9.825473767932635e-14
+noiseless 3 max error 8.191468336971042e-13
+noiseless 7 max error 2.9630742304220803e-12
+xor corr [[1. 0. 0.]
+ [0. 1. 0.]
+ [0. 0. 1.]] info [0.69314718 0.         0.69314718] jsd 0.5579230452841438
+diagnostic edge cases passed
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: variance_projection.py
++import os
++os.environ['OPENBLAS_NUM_THREADS']='1'
++import numpy as np
++import solver
++from development import synthetic
++
++
++def variance_project(counts, depths, jackknife=False):
++    eigenvalues, uncertainty, details = solver.fit_modes(counts, depths)
++    size = len(eigenvalues)
++    raw = solver.hadamard(eigenvalues)/size
++    influence = np.pad(details['influence'], ((0,0),(1,0)))
++    kernel = solver.hadamard(influence)/size
++    variances = solver.hadamard(details['spectrum'] * solver.hadamard(kernel*kernel))/size
++    means = solver.hadamard(details['spectrum'] * influence)/size
++    variance = np.sum((variances-means*means)/details['shots'][:,None],axis=0)
++    if jackknife:
++        prediction = np.pad(details['amplitudes'][None,:]*np.exp(-details['times'][:,None]*details['rates'][None,:]),((0,0),(1,0)),constant_values=1)
++        residual = details['spectrum'] - prediction
++        pseudo = solver.hadamard(influence*residual)/size
++        degrees = max(len(depths)-2,1)
++        empirical = np.sum(pseudo*pseudo,axis=0)*len(depths)/degrees
++        variance = np.maximum(variance, empirical)
++    variance = np.maximum(variance,1e-25)
++    ratio = raw/variance
++    order = np.argsort(-ratio)
++    cutoffs = (np.cumsum(raw[order])-1)/np.cumsum(variance[order])
++    feasible = np.flatnonzero(ratio[order]>cutoffs)
++    threshold = cutoffs[feasible[-1]]
++    result = np.maximum(raw-threshold*variance,0)
++    return result/result.sum()
++
++
++if __name__=='__main__':
++    for qubits in [6,10,14]:
++        for shots in [10000,1000000]:
++            for jitter, floor in [(0.,0.),(.04,0.),(0.,.008)]:
++                counts, depths, true = synthetic(qubits,37,shots=shots,jitter=jitter,floor=floor)
++                print('n',qubits,'shots',shots,'jitter',jitter,'floor',floor,flush=True)
++                for name, function in [('spectral',solver.reconstruct),('variance',variance_project),('jackknife',lambda counts,depths:variance_project(counts,depths,True))]:
++                    recovered=function(counts,depths)
++                    error=np.abs(recovered[1:]-true[1:]).sum()/true[1:].sum()
++                    print(name,round(error,5),'identity',round(recovered[0],6),flush=True)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python -u variance_projection.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+ succeeded in 34054ms:
+Success. Updated the following files:
+A variance_projection.py
+n 6 shots 10000 jitter 0.0 floor 0.0
+spectral 0.06184 identity 0.95233
+variance 0.1059 identity 0.951813
+jackknife 0.10716 identity 0.95188
+n 6 shots 10000 jitter 0.04 floor 0.0
+spectral 0.09866 identity 0.953984
+variance 0.14999 identity 0.953176
+jackknife 0.14633 identity 0.953287
+n 6 shots 10000 jitter 0.0 floor 0.008
+spectral 0.0745 identity 0.953358
+variance 0.11596 identity 0.952902
+jackknife 0.11728 identity 0.952986
+n 6 shots 1000000 jitter 0.0 floor 0.0
+spectral 0.01239 identity 0.952332
+variance 0.01293 identity 0.952317
+jackknife 0.01297 identity 0.952318
+n 6 shots 1000000 jitter 0.04 floor 0.0
+spectral 0.02912 identity 0.952613
+variance 0.03042 identity 0.952601
+jackknife 0.03076 identity 0.952599
+n 6 shots 1000000 jitter 0.0 floor 0.008
+spectral 0.02952 identity 0.953265
+variance 0.03169 identity 0.953251
+jackknife 0.03149 identity 0.953238
+n 10 shots 10000 jitter 0.0 floor 0.0
+spectral 0.15086 identity 0.929704
+variance 0.48611 identity 0.924479
+jackknife 0.49535 identity 0.925016
+n 10 shots 10000 jitter 0.04 floor 0.0
+spectral 0.10676 identity 0.93014
+variance 0.43251 identity 0.925202
+jackknife 0.42517 identity 0.925394
+n 10 shots 10000 jitter 0.0 floor 0.008
+spectral 0.15602 identity 0.930941
+variance 0.49302 identity 0.925763
+jackknife 0.49811 identity 0.926225
+n 10 shots 1000000 jitter 0.0 floor 0.0
+spectral 0.02763 identity 0.928548
+variance 0.04693 identity 0.928242
+jackknife 0.04717 identity 0.928272
+n 10 shots 1000000 jitter 0.04 floor 0.0
+spectral 0.05127 identity 0.929764
+variance 0.07706 identity 0.929455
+jackknife 0.07764 identity 0.928675
+n 10 shots 1000000 jitter 0.0 floor 0.008
+spectral 0.03945 identity 0.93028
+variance 0.06952 identity 0.929994
+jackknife 0.06895 identity 0.930018
+n 14 shots 10000 jitter 0.0 floor 0.0
+spectral 0.21991 identity 0.89946
+variance 1.55928 identity 0.874668
+jackknife 1.53201 identity 0.875907
+n 14 shots 10000 jitter 0.04 floor 0.0
+spectral 0.18978 identity 0.898507
+variance 1.9191 identity 0.862358
+jackknife 2.01644 identity 0.855034
+n 14 shots 10000 jitter 0.0 floor 0.008
+spectral 0.22139 identity 0.901314
+variance 1.63577 identity 0.875273
+jackknife 1.59757 identity 0.876196
+n 14 shots 1000000 jitter 0.0 floor 0.0
+spectral 0.04652 identity 0.898663
+variance 0.18305 identity 0.896702
+jackknife 0.17987 identity 0.896827
+n 14 shots 1000000 jitter 0.04 floor 0.0
+spectral 0.05236 identity 0.898031
+variance 0.17951 identity 0.896094
+jackknife 0.19267 identity 0.894442
+n 14 shots 1000000 jitter 0.0 floor 0.008
+spectral 0.05359 identity 0.900806
+variance 0.2083 identity 0.898942
+jackknife 0.20119 identity 0.897386
+
+**Calibrating global shot multipliers**
+
+I think we need to adjust the global shot multipliers using the fit residual sigma. This will help in avoiding overconfidence after assessing overdispersion. It seems like our current fit model for overdispersion is good, and the variance captured looks promising. So, it’s essential to refine these aspects for better accuracy moving forward. Let’s ensure we’re on the right path with these calibrations!
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: solver.py
+@@
+ import sys
++import warnings
+ import numpy as np
+@@
+     spectrum = hadamard(frequencies)
++    if size == 1:
++        return np.ones(1), np.zeros(1), {}
+     if len(np.unique(depths)) < 2:
+         return np.ones(size), np.full(size, np.inf), {}
+@@
+     shot_variance = np.maximum(1.0 - observed * observed, 1.0 / shots[:, None]) / shots[:, None]
+     strength = np.abs(observed) / np.sqrt(shot_variance)
++    depth_parity = np.remainder(np.rint(depths).astype(np.int64), 2)
++    alternating = np.zeros(size - 1, dtype=bool)
++    if np.any(depth_parity == 0) and np.any(depth_parity == 1):
++        even_index = np.argmax(np.where(depth_parity[:, None] == 0, strength, -1.0), axis=0)
++        odd_index = np.argmax(np.where(depth_parity[:, None] == 1, strength, -1.0), axis=0)
++        columns = np.arange(size - 1)
++        even_value, odd_value = observed[even_index, columns], observed[odd_index, columns]
++        alternating = ((even_value * odd_value < 0.0) & (strength[even_index, columns] > 6.0)
++                       & (strength[odd_index, columns] > 6.0)
++                       & (np.minimum(np.abs(even_value), np.abs(odd_value))
++                          > 0.04 * np.maximum(np.abs(even_value), np.abs(odd_value))))
++    phase = np.where((depth_parity[:, None] "'!= depth_parity[0]) & alternating[None, :], -1.0, 1.0)
++    observed *= phase
+@@
+-        import warnings
+         with warnings.catch_warnings():
+@@
+-    eigenvalues = np.exp(-rates)
++    eigenvalues = np.where(alternating, -1.0, 1.0) * np.exp(-rates)
+@@
+-               "influence": influence * signs[None, :], "variance": variance,
++               "influence": influence * signs[None, :] * phase, "variance": variance,
+@@
+-        value = eigenvalues[singleton] if np.isfinite(uncertainty[singleton]) else 0.99
++        value = eigenvalues[singleton] if np.isfinite(uncertainty[singleton]) else 1.0
+*** Add File: test_solver.py
++import unittest
++import numpy as np
++import solver
++
++
++class SolverTests(unittest.TestCase):
++    def test_hadamard(self):
++        random = np.random.default_rng(843)
++        for qubits in range(1, 8):
++            values = random.normal(size=(4, 1 << qubits))
++            np.testing.assert_allclose(solver.hadamard(solver.hadamard(values)) / (1 << qubits), values, atol=2e-14)
++
++    def test_spam_and_irregular_shots(self):
++        random = np.random.default_rng(811)
++        for qubits in [1, 3, 7]:
++            size = 1 << qubits
++            channel = random.dirichlet(np.ones(size)) * 0.06
++            channel[0] += 0.94
++            spam = random.dirichlet(np.ones(size)) * 0.3
++            spam[0] += 0.7
++            depths = np.array([0, 3, 9, 14, 27, 53])
++            rows = solver.hadamard(solver.hadamard(spam)[None, :] * solver.hadamard(channel)[None, :] ** depths[:, None]) / size
++            counts = np.round(rows * np.array([1e11, 3e11, 1.4e11, 8e10, 2e11, 1e11])[:, None])
++            recovered = solver.reconstruct(counts, depths)
++            np.testing.assert_allclose(recovered, channel, atol=1e-7)
++            np.testing.assert_allclose(solver.reconstruct(counts[[4, 0, 3, 5, 2, 1]], depths[[4, 0, 3, 5, 2, 1]]), recovered, atol=1e-12)
++
++    def test_signed_modes(self):
++        for channel in [np.array([0.2, 0.8]), np.array([0.9, 0.1])]:
++            for spam in [np.array([0.8, 0.2]), np.array([0.1, 0.9])]:
++                depths = np.array([0, 1, 3, 6, 8, 11])
++                rows = solver.hadamard(solver.hadamard(spam)[None, :] * solver.hadamard(channel)[None, :] ** depths[:, None]) / 2
++                recovered = solver.reconstruct(np.round(rows * 1e10), depths)
++                np.testing.assert_allclose(recovered, channel, atol=1e-7)
++
++    def test_categorical_information(self):
++        states = np.arange(8)
++        distribution = np.array([0.25 if int(state).bit_count() % 2 == 0 else 0.0 for state in states])
++        blocks = np.eye(3, dtype=np.uint8)
++        queries = np.array([[[1, 0, 0], [0, 1, 0], [0, 0, 1]],
++                            [[1, 0, 0], [0, 1, 0], [0, 0, 0]],
++                            [[1, 1, 0], [0, 0, 1], [0, 0, 0]]])
++        parents = np.zeros((3, 3), dtype=np.uint8)
++        correlations, information, distance = solver.diagnostics(distribution, blocks, queries, parents)
++        np.testing.assert_allclose(correlations, np.eye(3), atol=1e-12)
++        np.testing.assert_allclose(information, [np.log(2), 0, np.log(2)], atol=1e-12)
++        self.assertAlmostEqual(float(distance), np.sqrt(0.31127812445913283))
++        parents[2, :2] = 1
++        self.assertLess(solver.diagnostics(distribution, blocks, queries, parents)[2], 1e-7)
++        for state in [0, 7]:
++            correlations, information, distance = solver.diagnostics(np.eye(8)[state], blocks, queries, parents)
++            np.testing.assert_allclose(correlations, 0)
++            np.testing.assert_allclose(information, 0)
++            self.assertLess(distance, 1e-7)
++
++    def test_group_events(self):
++        distribution = np.array([0.7, 0.05, 0.03, 0.04, 0.06, 0.02, 0.03, 0.07])
++        blocks = np.array([[1, 1, 0], [0, 0, 1]])
++        correlations, information, distance = solver.diagnostics(distribution, blocks, np.zeros((0, 3, 3)), np.zeros((3, 3)))
++        mean_first, mean_second = 0.24, 0.18
++        covariance = 0.12 - mean_first * mean_second
++        expected = covariance / np.sqrt(mean_first * (1 - mean_first) * mean_second * (1 - mean_second))
++        self.assertAlmostEqual(correlations[0, 1], expected)
++        self.assertEqual(information.shape, (0,))
++
++    def test_empty_and_duplicate_depths(self):
++        rows = np.array([[100.0, 0.0], [100.0, 0.0], [100.0, 0.0], [0.0, 0.0]])
++        np.testing.assert_allclose(solver.reconstruct(rows, np.array([0, 0, 4, 10])), [1, 0])
++        np.testing.assert_allclose(solver.reconstruct(rows[:1], np.array([0])), [1, 0])
++
++
++if __name__ == '"'__main__':
++    unittest.main()
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python -m unittest -v test_solver.py
+python solver.py ../participant/input/example.npz example_output.npz
+python - <<'PY'
+import numpy as np
+output=np.load('example_output.npz')
+for key in output.files:
+ print(key,output[key])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+ succeeded in 2272ms:
+Success. Updated the following files:
+A test_solver.py
+M solver.py
+test_categorical_information (test_solver.SolverTests) ... ok
+test_empty_and_duplicate_depths (test_solver.SolverTests) ... ok
+test_group_events (test_solver.SolverTests) ... ok
+test_hadamard (test_solver.SolverTests) ... ok
+test_signed_modes (test_solver.SolverTests) ... ok
+test_spam_and_irregular_shots (test_solver.SolverTests) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.050s
+
+OK
+probabilities [9.65420680e-01 2.99755174e-03 1.95231319e-02 2.41196068e-04
+ 1.11496325e-02 1.34654300e-04 5.23003974e-04 1.01492117e-05]
+correlations [[1.         0.0223071  0.01670351]
+ [0.0223071  1.         0.0192463 ]
+ [0.01670351 0.0192463  1.        ]]
+conditional_information [8.36593386e-05 2.85896995e-04 2.85896995e-04 2.85896995e-04
+ 1.36495680e-04 2.20155019e-04 2.20155019e-04 2.31050959e-04
+ 1.47391621e-04 2.20155019e-04 2.20155019e-04 2.31050959e-04
+ 8.36593386e-05 2.85896995e-04 2.85896995e-04 2.20155019e-04]
+spatial_jsd 0.0
+
+codex
+The likelihood refinement was more sensitive to late floors; I’m retaining the robust spectral fit.
+
+Implemented mode-specific nuisance-amplitude fitting and weighted simplex reconstruction. Exact categorical CMI, group correlations, and DAG Jensen–Shannon distance pass analytic checks; final stress and packaging tests remain.
+  ✓ Inspect records and baseline assumptions
+  ✓ Develop robust channel reconstruction
+  ✓ Implement exact dependency diagnostics
+  → Validate accuracy, runtime, and packaging
+**Simplifying ridge regression**
+
+I'm considering using a simpler ridge regression approach to independent parameters in spectral space. It could be solved with augmented weights. The formula I’m thinking about involves minimizing the sum of squares of the differences between λ and r, plus another term that includes the prior, weighted by α. The prior independent condition adds another layer to the equation, making it a bit more complex, but I hope I can clarify it!
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: shrinkage.py
++import os
++os.environ['OPENBLAS_NUM_THREADS']='1'
++import numpy as np
++from scipy.optimize import minimize_scalar
++import solver
++from development import synthetic
++
++
++def reconstruct(counts,depths):
++    eigenvalues, variance, details=solver.fit_modes(counts,depths)
++    size=len(eigenvalues)
++    states=np.arange(size)
++    prior=np.ones(size)
++    order=np.zeros(size,dtype=int)
++    for qubit in range(size.bit_length()-1):
++        selected=(states & (1<<qubit))"'!=0
++        prior[selected]*=eigenvalues[1<<qubit]
++        order[selected]+=1
++    selected=(order>=2)&np.isfinite(variance)&(variance<.03**2)
++    difference=eigenvalues-prior
++    selected_variance=variance[selected]
++    selected_difference=difference[selected]
++    def objective(log_scale):
++        total_variance=selected_variance+np.exp(log_scale)
++        return np.mean(np.log(total_variance)+selected_difference**2/total_variance)
++    fit=minimize_scalar(objective,bounds=(-30,0),method='"'bounded')
++    tau=np.exp(fit.x)
++    shrink=tau/(variance+tau)
++    shrink[order<=1]=1
++    target=prior+shrink*(eigenvalues-prior)
++    weights=1/np.maximum(variance,1e-14)+1/tau
++    weights[order<=1]=1/np.maximum(variance[order<=1],1e-14)
++    weights[0]=0
++    weights/=np.max(weights)
++    probabilities=solver.simplex(solver.hadamard(target)/size)
++    extrapolated=probabilities.copy()
++    momentum=1.
++    for iteration in range(900):
++        gradient=solver.hadamard(weights*(solver.hadamard(extrapolated)-target))/size
++        updated=solver.simplex(extrapolated-gradient)
++        next_momentum=.5*(1+np.sqrt(1+4*momentum*momentum))
++        next_extrapolated=updated+(momentum-1)/next_momentum*(updated-probabilities)
++        if np.dot(extrapolated-updated,updated-probabilities)>0:
++            next_extrapolated=updated.copy(); next_momentum=1.
++        change=np.max(np.abs(updated-probabilities))
++        probabilities,extrapolated,momentum=updated,next_extrapolated,next_momentum
++        if iteration>40 and change<2e-11:break
++    return probabilities, tau
++
++
++def independent(qubits,seed,shots):
++    random=np.random.default_rng(seed)
++    size=1<<qubits
++    rates=np.zeros(size)
++    spam=np.zeros(size)
++    for qubit in range(qubits):
++        rates[1<<qubit]=random.uniform(.001,.014)
++        spam[1<<qubit]=random.uniform(.02,.16)
++    rates[0]=-rates.sum();spam[0]=-spam.sum()
++    modes=np.exp(solver.hadamard(rates));amplitudes=np.exp(solver.hadamard(spam))
++    true=solver.hadamard(modes)/size
++    depths=np.array([1,5,10,15,20,30,45,60,75,90,105])
++    counts=np.array([random.multinomial(shots,np.maximum(solver.hadamard(amplitudes*modes**depth)/size,0)) for depth in depths])
++    return counts,depths,true
++
++
++if __name__=='__main__':
++    for qubits in [6,10,14]:
++        for shots in [10000,1000000]:
++            for kind in ['independent','sparse','jitter','dense']:
++                if kind=='independent':counts,depths,true=independent(qubits,37,shots)
++                else:counts,depths,true=synthetic(qubits,37,shots=shots,jitter=.04 if kind=='jitter' else 0,sparse=kind"'!='"'dense')
++                original=solver.reconstruct(counts,depths)
++                shrunk,tau=reconstruct(counts,depths)
++                parents=np.zeros((qubits,qubits),dtype=np.uint8)
++                blocks=np.eye(qubits,dtype=np.uint8)
++                queries=np.zeros((0,3,qubits),dtype=np.uint8)
++                distances=[float(solver.diagnostics(distribution,blocks,queries,parents)[2]) for distribution in [true,original,shrunk]]
++                print('n',qubits,'shots',shots,'kind',kind,'errors',
++                      round(np.abs(original[1:]-true[1:]).sum()/true[1:].sum(),5),
++                      round(np.abs(shrunk[1:]-true[1:]).sum()/true[1:].sum(),5),
++                      'tau',round(tau,8),'JSD',np.round(distances,5),flush=True)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python -u shrinkage.py
+date -Iseconds" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+ succeeded in 78136ms:
+Success. Updated the following files:
+A shrinkage.py
+n 6 shots 10000 kind independent errors 0.0782 0.01513 tau 5e-08 JSD [0.      0.02477 0.0059 ]
+n 6 shots 10000 kind sparse errors 0.06184 0.06549 tau 5.438e-05 JSD [0.05055 0.0525  0.04952]
+n 6 shots 10000 kind jitter errors 0.09866 0.08289 tau 7.397e-05 JSD [0.05055 0.05584 0.05411]
+n 6 shots 10000 kind dense errors 0.15623 0.14542 tau 0.00088933 JSD [0.0969  0.09977 0.09838]
+n 6 shots 1000000 kind independent errors 0.00896 0.00126 tau 0.0 JSD [0.00e+00 6.73e-03 1.00e-05]
+n 6 shots 1000000 kind sparse errors 0.01239 0.01233 tau 6.783e-05 JSD [0.05055 0.05106 0.05106]
+n 6 shots 1000000 kind jitter errors 0.02912 0.02824 tau 7.647e-05 JSD [0.05055 0.05237 0.05232]
+n 6 shots 1000000 kind dense errors 0.02744 0.02711 tau 0.00090629 JSD [0.0969  0.09793 0.09791]
+n 10 shots 10000 kind independent errors 0.14499 0.01391 tau 0.0 JSD [      inf 3.683e-02 2.000e-05]
+n 10 shots 10000 kind sparse errors 0.15086 0.15042 tau 9.837e-05 JSD [0.06812 0.07865 0.0692 ]
+n 10 shots 10000 kind jitter errors 0.10676 0.12961 tau 0.00010362 JSD [0.06812 0.07397 0.07011]
+n 10 shots 10000 kind dense errors 0.24646 0.25002 tau 0.00235306 JSD [0.12944 0.1352  0.13538]
+n 10 shots 1000000 kind independent errors 0.01531 0.00181 tau 0.0 JSD [      inf 1.317e-02 8.000e-05]
+n 10 shots 1000000 kind sparse errors 0.02763 0.02873 tau 0.00011425 JSD [0.06812 0.06922 0.06924]
+n 10 shots 1000000 kind jitter errors 0.05127 0.04918 tau 0.00013461 JSD [0.06812 0.06992 0.06985]
+n 10 shots 1000000 kind dense errors 0.0651 0.06524 tau 0.00234098 JSD [0.12944 0.13088 0.13092]
+n 14 shots 10000 kind independent errors 0.13844 0.00807 tau 0.0 JSD [      inf 5.389e-02 2.000e-05]
+n 14 shots 10000 kind sparse errors 0.21991 0.20595 tau 0.00013033 JSD [    inf 0.10659 0.08427]
+n 14 shots 10000 kind jitter errors 0.18978 0.25556 tau 7.657e-05 JSD [    inf 0.09765 0.07335]
+n 14 shots 10000 kind dense errors 0.42949 0.36578 tau 0.00457065 JSD [0.14753 0.15795 0.16357]
+n 14 shots 1000000 kind independent errors 0.03534 0.00105 tau 0.0 JSD [      inf 2.699e-02 5.000e-05]
+n 14 shots 1000000 kind sparse errors 0.04652 0.0454 tau 0.00019936 JSD [    inf 0.0865  0.08657]
+n 14 shots 1000000 kind jitter errors 0.05236 0.05048 tau 0.00019452 JSD [    inf 0.08527 0.08547]
+n 14 shots 1000000 kind dense errors 0.14804 0.14727 tau 0.0043582 JSD [0.14753 0.1485  0.15002]
+2026-08-27T18:28:06-07:00
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: admm.py
++import os
++os.environ['OPENBLAS_NUM_THREADS']='1'
++import time
++import numpy as np
++import solver
++from development import synthetic
++
++
++def project(eigenvalues, uncertainty, cap=False):
++    size=len(eigenvalues)
++    good=np.isfinite(uncertainty[1:])
++    reference=np.median(uncertainty[1:][good])
++    weights=reference/(uncertainty+reference*.05) if cap else reference/np.maximum(uncertainty,1e-16)
++    weights[0]=0
++    probabilities=solver.simplex(solver.hadamard(eigenvalues)/size)
++    dual=np.zeros(size)
++    penalty=1.
++    for iteration in range(1800):
++        spectrum=solver.hadamard(probabilities-dual)
++        spectrum=(weights*eigenvalues+penalty*spectrum)/(weights+penalty)
++        unconstrained=solver.hadamard(spectrum)/size
++        relaxed=1.6*unconstrained-.6*probabilities
++        updated=solver.simplex(relaxed+dual)
++        dual+=relaxed-updated
++        primal_residual=unconstrained-updated
++        dual_residual=penalty*(updated-probabilities)
++        change=np.max(np.abs(updated-probabilities))
++        probabilities=updated
++        if iteration>40 and np.max(np.abs(primal_residual))<2e-10 and change<2e-10:
++            break
++        if iteration%25==24:
++            primal_norm=np.linalg.norm(primal_residual)
++            dual_norm=np.linalg.norm(dual_residual)
++            if primal_norm>10*dual_norm and penalty<1e4:
++                penalty*=2;dual/=2
++            elif dual_norm>10*primal_norm and penalty>1e-4:
++                penalty/=2;dual*=2
++    return probabilities,iteration
++
++
++if __name__=='__main__':
++    for qubits in [6,10,14]:
++        for shots in [10000,1000000]:
++            for jitter in [0.,.04]:
++                counts,depths,true=synthetic(qubits,37,shots=shots,jitter=jitter)
++                original=solver.reconstruct(counts,depths)
++                eigenvalues,variance,details=solver.fit_modes(counts,depths)
++                start=time.monotonic()
++                admm,iterations=project(eigenvalues,variance)
++                runtime=time.monotonic()-start
++                capped,capiterations=project(eigenvalues,variance,True)
++                blocks=np.eye(qubits,dtype=np.uint8)
++                parents=np.zeros((qubits,qubits),dtype=np.uint8)
++                queries=np.zeros((0,3,qubits),dtype=np.uint8)
++                true=np.maximum(true,0);true/=true.sum()
++                true_correlations=solver.diagnostics(true,blocks,queries,parents)[0]
++                errors=[np.abs(candidate[1:]-true[1:]).sum()/true[1:].sum() for candidate in [original,admm,capped]]
++                corerrors=[np.sqrt(np.mean((solver.diagnostics(candidate,blocks,queries,parents)[0]-true_correlations)**2)) for candidate in [original,admm,capped]]
++                print('n',qubits,'shots',shots,'jitter',jitter,'errors',np.round(errors,6),'corr_error',np.round(corerrors,6),
++                      'iters',iterations,capiterations,'runtime',round(runtime,3),flush=True)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python -u admm.py
+date -Iseconds" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+ succeeded in 49377ms:
+Success. Updated the following files:
+A admm.py
+n 6 shots 10000 jitter 0.0 errors [0.061839 0.061042 0.061839] corr_error [0.012725 0.012889 0.012725] iters 198 81 runtime 0.029
+n 6 shots 10000 jitter 0.04 errors [0.098658 0.09766  0.098658] corr_error [0.018579 0.018437 0.018579] iters 81 65 runtime 0.008
+n 6 shots 1000000 jitter 0.0 errors [0.012387 0.012378 0.012387] corr_error [0.002078 0.002076 0.002078] iters 72 41 runtime 0.007
+n 6 shots 1000000 jitter 0.04 errors [0.029122 0.029112 0.029122] corr_error [0.00821  0.008182 0.00821 ] iters 41 41 runtime 0.006
+n 10 shots 10000 jitter 0.0 errors [0.150858 0.14187  0.150858] corr_error [0.022661 0.020677 0.022661] iters 693 76 runtime 0.19
+n 10 shots 10000 jitter 0.04 errors [0.106758 0.104517 0.106758] corr_error [0.015355 0.016287 0.015355] iters 566 62 runtime 0.129
+n 10 shots 1000000 jitter 0.0 errors [0.027628 0.026906 0.027628] corr_error [0.001931 0.001694 0.001931] iters 245 60 runtime 0.058
+n 10 shots 1000000 jitter 0.04 errors [0.051274 0.050932 0.051274] corr_error [0.00545  0.005359 0.00545 ] iters 225 57 runtime 0.055
+n 14 shots 10000 jitter 0.0 errors [0.219906 0.189864 0.219906] corr_error [0.021931 0.017038 0.021931] iters 1605 81 runtime 3.945
+n 14 shots 10000 jitter 0.04 errors [0.189781 0.170604 0.189781] corr_error [0.020404 0.016708 0.020404] iters 1374 68 runtime 3.342
+n 14 shots 1000000 jitter 0.0 errors [0.046523 0.044554 0.046523] corr_error [0.002964 0.00217  0.002964] iters 732 53 runtime 1.766
+n 14 shots 1000000 jitter 0.04 errors [0.052357 0.051587 0.052357] corr_error [0.003727 0.003695 0.003727] iters 503 46 runtime 1.239
+2026-08-27T18:30:17-07:00
+
+codex
+Uncapped uncertainty weights improved most synthetic results. I’m validating that refinement.
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: solver.py
+@@
+     if not np.any(good):
+         return simplex(hadamard(prior_modes) / size)
+     reference_variance = np.median(uncertainty[1:][good])
+-    weights = reference_variance / (uncertainty + reference_variance * 0.05)
++    weights = reference_variance / np.maximum(uncertainty, 1e-16)
+     weights[0] = 0.0
+-    weights /= np.max(weights)
+     probabilities = simplex(raw)
+-    extrapolated = probabilities.copy()
+-    momentum = 1.0
+-    for iteration in range(700):
+-        difference = hadamard(extrapolated) - eigenvalues
+-        gradient = hadamard(weights * difference) / size
+-        updated = simplex(extrapolated - gradient)
+-        next_momentum = 0.5 * (1.0 + np.sqrt(1.0 + 4.0 * momentum * momentum))
+-        next_extrapolated = updated + (momentum - 1.0) / next_momentum * (updated - probabilities)
+-        if np.dot(extrapolated - updated, updated - probabilities) > 0.0:
+-            next_extrapolated = updated.copy()
+-            next_momentum = 1.0
++    dual = np.zeros(size)
++    penalty = 1.0
++    best_probabilities = probabilities.copy()
++    best_loss = np.sum(weights * (hadamard(probabilities) - eigenvalues) ** 2)
++    for iteration in range(2500):
++        spectrum = hadamard(probabilities - dual)
++        spectrum = (weights * eigenvalues + penalty * spectrum) / (weights + penalty)
++        unconstrained = hadamard(spectrum) / size
++        relaxed = 1.6 * unconstrained - 0.6 * probabilities
++        updated = simplex(relaxed + dual)
++        dual += relaxed - updated
++        primal_residual = unconstrained - updated
++        dual_residual = penalty * (updated - probabilities)
+         change = np.max(np.abs(updated - probabilities))
+-        probabilities, extrapolated, momentum = updated, next_extrapolated, next_momentum
+-        if iteration > 40 and change < 2e-11:
++        probabilities = updated
++        if iteration > 40 and np.max(np.abs(primal_residual)) < 2e-10 and change < 2e-10:
+             break
++        if iteration % 25 == 24:
++            loss = np.sum(weights * (hadamard(probabilities) - eigenvalues) ** 2)
++            if loss < best_loss:
++                best_loss = loss
++                best_probabilities = probabilities.copy()
++            primal_norm = np.linalg.norm(primal_residual)
++            dual_norm = np.linalg.norm(dual_residual)
++            if primal_norm > 10.0 * dual_norm and penalty < 1e4:
++                penalty *= 2.0
++                dual *= 0.5
++            elif dual_norm > 10.0 * primal_norm and penalty > 1e-4:
++                penalty *= 0.5
++                dual *= 2.0
++    loss = np.sum(weights * (hadamard(probabilities) - eigenvalues) ** 2)
++    if best_loss < loss:
++        probabilities = best_probabilities
+     return probabilities / probabilities.sum()
+*** Update File: test_solver.py
+@@
+     def test_empty_and_duplicate_depths(self):
+@@
+         np.testing.assert_allclose(solver.reconstruct(rows[:1], np.array([0])), [1, 0])
++
++    def test_missing_parent_configurations(self):
++        distribution = np.zeros(8)
++        distribution[[0, 7]] = 0.5
++        parents = np.zeros((3, 3), dtype=np.uint8)
++        parents[2, :2] = 1
++        result = solver.diagnostics(distribution, np.eye(3), np.zeros((0, 3, 3)), parents)
++        self.assertAlmostEqual(float(result[2]), np.sqrt(0.31127812445913283))
++
++    def test_non_topological_dag(self):
++        distribution = []
++        for state in range(8):
++            root, middle, leaf = (state >> 2) & 1, state & 1, (state >> 1) & 1
++            root_probability = 0.4 if root else 0.6
++            middle_probability = 0.8 if root else 0.1
++            leaf_probability = 0.7 if middle else 0.2
++            distribution.append(root_probability * (middle_probability if middle else 1 - middle_probability)
++                                * (leaf_probability if leaf else 1 - leaf_probability))
++        parents = np.zeros((3, 3), dtype=np.uint8)
++        parents[0, 2] = 1
++        parents[1, 0] = 1
++        result = solver.diagnostics(np.array(distribution), np.eye(3), np.zeros((0, 3, 3)), parents)
++        self.assertLess(result[2], 1e-7)
+*** Add File: README.md
++# Calibration-noise solver
++
++Run the self-contained submission with:
++
++"'```sh
++python solver.py INPUT.npz OUTPUT.npz
++```
++
++Only `solver.py` is required. It uses NumPy and SciPy, with no external data,
++trained parameters, or development-module imports.
++
++The solver transforms each shot-normalized acquisition into parity modes and
++fits a separate geometric decay and nuisance SPAM amplitude. It uses the
++actual depths and shot totals, robust residual weights, and a mode-dependent
++fitting window that excludes nearly vanished tails. Reliable alternating
++parities can identify negative channel eigenvalues. An uncertainty-weighted
++convex projection enforces a nonnegative, normalized one-cycle distribution.
++
++Group correlations use OR events, whereas conditional information uses full
++categorical bit-vector marginals. Conditional information is in nats. The
++spatial diagnostic constructs the complete normalized DAG distribution,
++including fair conditionals for absent parent configurations, and returns
++the base-two Jensen–Shannon distance.
++
++Validation:
++
++```sh
++python -m unittest -v test_solver.py
++python development.py
++```
++
++The development scripts generate their own synthetic channels. They are not
++needed for inference and are not part of the staged submission.
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python -m unittest -v test_solver.py
+OPENBLAS_NUM_THREADS=1 python -u development.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+ succeeded in 34624ms:
+Success. Updated the following files:
+A README.md
+M solver.py
+M test_solver.py
+test_categorical_information (test_solver.SolverTests) ... ok
+test_empty_and_duplicate_depths (test_solver.SolverTests) ... ok
+test_group_events (test_solver.SolverTests) ... ok
+test_hadamard (test_solver.SolverTests) ... ok
+test_missing_parent_configurations (test_solver.SolverTests) ... ok
+test_non_topological_dag (test_solver.SolverTests) ... ok
+test_signed_modes (test_solver.SolverTests) ... ok
+test_spam_and_irregular_shots (test_solver.SolverTests) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.043s
+
+OK
+n 3 jitter 0.0 floor 0.0 true identity 0.9759022839770721
+raw rel_L1 0.0026 identity 0.975872 negative_mass -0.0; simplex rel_L1 0.0026 identity 0.975872 negative_mass -0.0; weighted rel_L1 0.0026 identity 0.975872 negative_mass -0.0; seconds 0.013
+n 3 jitter 0.04 floor 0.0 true identity 0.9759022839770721
+raw rel_L1 0.01316 identity 0.976186 negative_mass -0.0; simplex rel_L1 0.01316 identity 0.976186 negative_mass -0.0; weighted rel_L1 0.01316 identity 0.976186 negative_mass -0.0; seconds 0.012
+n 3 jitter 0.0 floor 0.008 true identity 0.9759022839770721
+raw rel_L1 0.01984 identity 0.976352 negative_mass -0.0; simplex rel_L1 0.01984 identity 0.976352 negative_mass -0.0; weighted rel_L1 0.01984 identity 0.976352 negative_mass -0.0; seconds 0.015
+n 6 jitter 0.0 floor 0.0 true identity 0.9522307443048127
+raw rel_L1 0.0142 identity 0.952332 negative_mass 6e-05; simplex rel_L1 0.0126 identity 0.952331 negative_mass -0.0; weighted rel_L1 0.01238 identity 0.952332 negative_mass -0.0; seconds 0.027
+n 6 jitter 0.04 floor 0.0 true identity 0.9522307443048127
+raw rel_L1 0.03138 identity 0.952614 negative_mass 6e-05; simplex rel_L1 0.02976 identity 0.952613 negative_mass -0.0; weighted rel_L1 0.02911 identity 0.952613 negative_mass -0.0; seconds 0.028
+n 6 jitter 0.0 floor 0.008 true identity 0.9522307443048127
+raw rel_L1 0.03267 identity 0.953271 negative_mass 9e-05; simplex rel_L1 0.03059 identity 0.953269 negative_mass -0.0; weighted rel_L1 0.02946 identity 0.953265 negative_mass -0.0; seconds 0.027
+n 10 jitter 0.0 floor 0.0 true identity 0.9288245270336134
+raw rel_L1 0.07462 identity 0.928537 negative_mass 0.00174; simplex rel_L1 0.03323 identity 0.928531 negative_mass -0.0; weighted rel_L1 0.02691 identity 0.928548 negative_mass -0.0; seconds 0.168
+n 10 jitter 0.04 floor 0.0 true identity 0.9288245270336134
+raw rel_L1 0.10083 identity 0.92976 negative_mass 0.00188; simplex rel_L1 0.05544 identity 0.929753 negative_mass -0.0; weighted rel_L1 0.05093 identity 0.929765 negative_mass -0.0; seconds 0.144
+n 10 jitter 0.0 floor 0.008 true identity 0.9288245270336134
+raw rel_L1 0.08829 identity 0.930298 negative_mass 0.00178; simplex rel_L1 0.04575 identity 0.930292 negative_mass -0.0; weighted rel_L1 0.0391 identity 0.930278 negative_mass -0.0; seconds 0.1
+n 14 jitter 0.0 floor 0.0 true identity 0.8985980447957364
+raw rel_L1 0.30087 identity 0.898646 negative_mass 0.01288; simplex rel_L1 0.06141 identity 0.898633 negative_mass -0.0; weighted rel_L1 0.04455 identity 0.898657 negative_mass -0.0; seconds 2.515
+n 14 jitter 0.04 floor 0.0 true identity 0.8985980447957364
+raw rel_L1 0.30516 identity 0.898021 negative_mass 0.01309; simplex rel_L1 0.06208 identity 0.898008 negative_mass -0.0; weighted rel_L1 0.05159 identity 0.898032 negative_mass -0.0; seconds 1.769
+n 14 jitter 0.0 floor 0.008 true identity 0.8985980447957364
+raw rel_L1 0.31057 identity 0.90086 negative_mass 0.01306; simplex rel_L1 0.06888 identity 0.900848 negative_mass -0.0; weighted rel_L1 0.05189 identity 0.9008 negative_mass -0.0; seconds 2.891
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: solver.py
+@@
+         columns = np.arange(size - 1)
+         even_value, odd_value = observed[even_index, columns], observed[odd_index, columns]
++        early_limit = np.unique(depths)[1]
++        early_contrast = (depths[even_index] <= early_limit) & (depths[odd_index] <= early_limit)
+         alternating = ((even_value * odd_value < 0.0) & (strength[even_index, columns] > 6.0)
+                        & (strength[odd_index, columns] > 6.0)
+-                       & (np.minimum(np.abs(even_value), np.abs(odd_value))
+-                          > 0.04 * np.maximum(np.abs(even_value), np.abs(odd_value))))
++                       & (early_contrast | (np.minimum(np.abs(even_value), np.abs(odd_value))
++                                            > 0.04 * np.maximum(np.abs(even_value), np.abs(odd_value)))))
+*** Update File: test_solver.py
+@@
+-        for channel in [np.array([0.2, 0.8]), np.array([0.9, 0.1])]:
++        for channel in [np.array([0.2, 0.8]), np.array([0.9, 0.1]), np.array([0.49, 0.51])]:
+@@
+                 np.testing.assert_allclose(recovered, channel, atol=1e-7)
++
++    def test_late_nonexponential_tail(self):
++        channel = np.array([0.94, 0.015, 0.013, 0.006, 0.014, 0.003, 0.005, 0.004])
++        spam = np.array([0.70, 0.06, 0.05, 0.04, 0.07, 0.03, 0.03, 0.02])
++        depths = np.array([0, 1, 3, 8, 15, 30, 55, 85, 300, 500])
++        rows = solver.hadamard(solver.hadamard(spam)[None, :] * solver.hadamard(channel)[None, :] ** depths[:, None]) / 8
++        rows[-2:] = 0.9 * rows[-2:] + 0.1 * spam
++        recovered = solver.reconstruct(np.round(rows * 1e12), depths)
++        np.testing.assert_allclose(recovered, channel, atol=1e-7)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python -m unittest -v test_solver.py
+OPENBLAS_NUM_THREADS=1 python - <<'PY'
+import numpy as np
+from development import synthetic
+rng=np.random.default_rng(1960)
+qubits=14
+counts,depths,truth=synthetic(qubits,912,shots=10000,jitter=.04,floor=.008)
+blocks=np.zeros((7,qubits),dtype=np.uint8)
+for block in range(7):blocks[block,2*block:2*block+2]=1
+queries=np.zeros((64,3,qubits),dtype=np.uint8)
+for query in queries:
+ labels=rng.integers(0,4,size=qubits)
+ labels[rng.choice(qubits,2,replace=False)]=[0,1]
+ for part in range(3):query[part]=labels==part
+parents=np.zeros((qubits,qubits),dtype=np.uint8)
+ordering=rng.permutation(qubits)
+for index,child in enumerate(ordering):
+ if index:parents[child,rng.choice(ordering[:index],size=min(index,2),replace=False)]=1
+np.savez('stress_input.npz',counts=counts,depths=depths,n=qubits,blocks=blocks,conditional_queries=queries,parents=parents)
+np.savez('stress_truth.npz',probabilities=np.maximum(truth,0))
+PY
+/usr/bin/time -f 'elapsed=%e seconds; max_rss=%M KB' python -I solver.py stress_input.npz stress_output.npz
+python -I solver.py ../participant/input/example.npz example_output.npz
+python - <<'PY'
+import numpy as np
+for file in ['stress_output.npz','example_output.npz']:
+ data=np.load(file,allow_pickle=False)
+ print(file,{name:values.shape for name,values in data.items()})
+ assert all(np.all(np.isfinite(values)) for values in data.values())
+ assert np.all(data['probabilities']>=0) and abs(data['probabilities'].sum()-1)<1e-12
+ assert np.all(np.abs(data['correlations'])<=1+1e-12)
+ assert np.all(data['conditional_information']>=0)
+ assert 0<=data['spatial_jsd']<=1
+ print('identity',data['probabilities'][0],'CMI range',data['conditional_information'].min(),data['conditional_information'].max(),'JSD',float(data['spatial_jsd']))
+truth=np.load('stress_truth.npz')['probabilities'];estimate=np.load('stress_output.npz')['probabilities']
+print('stress nonidentity relative L1:',np.abs(truth[1:]-estimate[1:]).sum()/truth[1:].sum())
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+ succeeded in 43786ms:
+Success. Updated the following files:
+M solver.py
+M test_solver.py
+test_categorical_information (test_solver.SolverTests) ... ok
+test_empty_and_duplicate_depths (test_solver.SolverTests) ... ok
+test_group_events (test_solver.SolverTests) ... ok
+test_hadamard (test_solver.SolverTests) ... ok
+test_late_nonexponential_tail (test_solver.SolverTests) ... ok
+test_missing_parent_configurations (test_solver.SolverTests) ... ok
+test_non_topological_dag (test_solver.SolverTests) ... ok
+test_signed_modes (test_solver.SolverTests) ... FAIL
+test_spam_and_irregular_shots (test_solver.SolverTests) ... ok
+
+======================================================================
+FAIL: test_signed_modes (test_solver.SolverTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt/test_solver.py", line 34, in test_signed_modes
+    np.testing.assert_allclose(recovered, channel, atol=1e-7)
+  File "/usr/lib/python3/dist-packages/numpy/testing/_private/utils.py", line 1530, in assert_allclose
+    assert_array_compare(compare, actual, desired, err_msg=str(err_msg),
+  File "/usr/lib/python3/dist-packages/numpy/testing/_private/utils.py", line 844, in assert_array_compare
+    raise AssertionError(msg)
+AssertionError: 
+Not equal to tolerance rtol=1e-07, atol=1e-07
+
+Mismatched elements: 2 / 2 (100%)
+Max absolute difference: 0.51
+Max relative difference: 1.04081633
+ x: array([1., 0.])
+ y: array([0.49, 0.51])
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.046s
+
+FAILED (failures=1)
+elapsed=5.73 seconds; max_rss=86684 KB
+stress_output.npz {'probabilities': (16384,), 'correlations': (7, 7), 'conditional_information': (64,), 'spatial_jsd': ()}
+identity 0.8900004347651309 CMI range 0.00030839057422626936 0.032842785113755824 JSD 0.10071699659097352
+example_output.npz {'probabilities': (8,), 'correlations': (3, 3), 'conditional_information': (16,), 'spatial_jsd': ()}
+identity 0.9654206802786985 CMI range 8.365933864133701e-05 0.00028589699548714487 JSD 0.0
+stress nonidentity relative L1: 0.2284923377409203
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: solver.py
+@@
+     eigenvalues = np.where(alternating, -1.0, 1.0) * np.exp(-rates)
+     influence = eigenvalues[None, :] * weights * basis * centered / np.maximum(amplitudes * curvature, 1e-280)[None, :]
+     eigen_variance = np.sum(influence * influence * variance, axis=0)
+-    reliable = (np.sum(usable, axis=0) >= 2) & (curvature > 1e-20)
++    informative = window & (basis * amplitudes[None, :] > 3.0 * np.sqrt(variance))
++    first_informative = np.min(np.where(informative, times[:, None], np.inf), axis=0)
++    last_informative = np.max(np.where(informative, times[:, None], -np.inf), axis=0)
++    reliable = (last_informative > first_informative) & (curvature > 1e-20)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python -m unittest -v test_solver.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+ succeeded in 6548ms:
+Success. Updated the following files:
+M solver.py
+test_categorical_information (test_solver.SolverTests) ... ok
+test_empty_and_duplicate_depths (test_solver.SolverTests) ... ok
+test_group_events (test_solver.SolverTests) ... ok
+test_hadamard (test_solver.SolverTests) ... ok
+test_late_nonexponential_tail (test_solver.SolverTests) ... ok
+test_missing_parent_configurations (test_solver.SolverTests) ... ok
+test_non_topological_dag (test_solver.SolverTests) ... ok
+test_signed_modes (test_solver.SolverTests) ... ok
+test_spam_and_irregular_shots (test_solver.SolverTests) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.063s
+
+OK
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: solver.py
+@@
+     influence = eigenvalues[None, :] * weights * basis * centered / np.maximum(amplitudes * curvature, 1e-280)[None, :]
+     eigen_variance = np.sum(influence * influence * variance, axis=0)
+-    informative = window & (basis * amplitudes[None, :] > 3.0 * np.sqrt(variance))
+-    first_informative = np.min(np.where(informative, times[:, None], np.inf), axis=0)
+-    last_informative = np.max(np.where(informative, times[:, None], -np.inf), axis=0)
+-    reliable = (last_informative > first_informative) & (curvature > 1e-20)
++    amplitude_influence = weights * basis / norm[None, :] - mean_time[None, :] * weights * basis * centered / np.maximum(curvature, 1e-280)[None, :]
++    amplitude_variance = np.sum(amplitude_influence * amplitude_influence * variance, axis=0)
++    reliable = ((amplitudes > 3.0 * np.sqrt(amplitude_variance)) & (curvature > 1e-270)
++                & np.isfinite(eigen_variance) & (eigen_variance < 0.25))
+*** Update File: test_solver.py
+@@
+-        for channel in [np.array([0.2, 0.8]), np.array([0.9, 0.1]), np.array([0.49, 0.51])]:
++        for channel in [np.array([0.2, 0.8]), np.array([0.9, 0.1]), np.array([0.49, 0.51]), np.array([0.5, 0.5])]:
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python -m unittest -v test_solver.py
+/usr/bin/time -f 'elapsed=%e seconds; max_rss=%M KB' python -I solver.py stress_input.npz stress_output.npz
+python -I solver.py ../participant/input/example.npz example_output.npz" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+ succeeded in 13438ms:
+Success. Updated the following files:
+M solver.py
+M test_solver.py
+test_categorical_information (test_solver.SolverTests) ... ok
+test_empty_and_duplicate_depths (test_solver.SolverTests) ... ok
+test_group_events (test_solver.SolverTests) ... ok
+test_hadamard (test_solver.SolverTests) ... ok
+test_late_nonexponential_tail (test_solver.SolverTests) ... ok
+test_missing_parent_configurations (test_solver.SolverTests) ... ok
+test_non_topological_dag (test_solver.SolverTests) ... ok
+test_signed_modes (test_solver.SolverTests) ... ok
+test_spam_and_irregular_shots (test_solver.SolverTests) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.071s
+
+OK
+elapsed=6.56 seconds; max_rss=86696 KB
+
+codex
+All nine tests pass. The 14-qubit run used 6.6 seconds and 85 MiB; I’ll check the final artifacts.
+
+exec
+/bin/bash -lc "python - <<'PY'
+import ast
+from pathlib import Path
+import numpy as np
+source=Path('solver.py')
+module=ast.parse(source.read_text())
+imports=[]
+for node in ast.walk(module):
+ if isinstance(node,ast.Import):imports.extend(alias.name for alias in node.names)
+ if isinstance(node,ast.ImportFrom):imports.append(node.module)
+assert set(imports)<= {'os','sys','warnings','numpy','scipy.special'}
+for input_file,output_file in [('stress_input.npz','stress_output.npz'),('../participant/input/example.npz','example_output.npz')]:
+ with np.load(input_file,allow_pickle=False) as data, np.load(output_file,allow_pickle=False) as output:
+  assert set(output.files)=={'probabilities','correlations','conditional_information','spatial_jsd'}
+  assert output['probabilities'].shape==(data['counts'].shape[1],)
+  assert output['correlations'].shape==(len(data['blocks']),len(data['blocks']))
+  assert output['conditional_information'].shape==(len(data['conditional_queries']),)
+  assert output['spatial_jsd'].shape==()
+  assert all(np.isfinite(output[name]).all() for name in output.files)
+  assert (output['probabilities']>=0).all() and abs(output['probabilities'].sum()-1)<1e-12
+  assert (output['conditional_information']>=0).all()
+  assert (np.abs(output['correlations'])<=1).all()
+  assert 0<=output['spatial_jsd']<=1
+  print(output_file,'contract checks passed')
+print('Standalone solver:',source.resolve(),source.stat().st_size,'bytes')
+print('Imports:',', '.join(imports))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt
+ succeeded in 1987ms:
+stress_output.npz contract checks passed
+example_output.npz contract checks passed
+Standalone solver: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/efficient_learning_of_quantum_noise__1907_13022/concept_03_experiment/attempt/solver.py 15019 bytes
+Imports: os, sys, warnings, numpy, scipy.special
+
+Final standalone solver passes nine unit tests, the supplied example, synthetic reconstruction checks up to 14 qubits, and all output-contract checks. The full 14-qubit CLI stress run took 6.6 seconds and about 85 MiB.
+  ✓ Inspect records and baseline assumptions
+  ✓ Develop robust channel reconstruction
+  ✓ Implement exact dependency diagnostics
+  ✓ Validate accuracy, runtime, and packaging
+codex
+Implemented the self-contained solver at `../attempt/solver.py:1`.
+
+- Includes SPAM-robust channel recovery and all required diagnostics.
+- Passes 9 unit tests and example/stress output checks.
+- Full 14-qubit stress run: 6.6 seconds, approximately 85 MiB.
+
+Run with `python solver.py INPUT.npz OUTPUT.npz`.
+tokens used
+142,776
+Implemented the self-contained solver at `../attempt/solver.py:1`.
+
+- Includes SPAM-robust channel recovery and all required diagnostics.
+- Passes 9 unit tests and example/stress output checks.
+- Full 14-qubit stress run: 6.6 seconds, approximately 85 MiB.
+
+Run with `python solver.py INPUT.npz OUTPUT.npz`.
