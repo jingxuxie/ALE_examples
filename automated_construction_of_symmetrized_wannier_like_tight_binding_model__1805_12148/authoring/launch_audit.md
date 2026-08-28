@@ -1,0 +1,11 @@
+# Launch and calibration audit
+
+The first four process launches were interrupted approximately 694 seconds after launch because the parent misread an early log snapshot containing `Reading additional input from stdin...` as a continuing launch stall. Later logs and files showed that the agents had in fact started substantive work. This was a parent orchestration error, not a model failure. The parent corrected its progress message immediately after discovering the mistake.
+
+All four interrupted runs and their attempt directories are preserved under `authoring/tournament/interrupted_setup_01/` and each pilot's `private/interrupted_initial_attempt/`. They are excluded from tournament scores, counterexample discovery, and acceptance decisions. Their solutions are not exposed to replacement fresh agents. No performance conclusion is drawn from them.
+
+The replacement tournament gives each concept one clean, isolated, complete fresh run with the requested model and a 3,600-second cap. The orchestrator now explicitly closes child stdin. Both the interrupted overhead and the valid-run times are retained, rather than concealing extra launches. Four concepts—not additional concepts—were built.
+
+Before grading any participant output, a private-scorer audit found clipped score functions in pilots 02 and 03. These violated the user's non-saturating-scoring instruction. The scorers now use smooth reciprocal baseline-relative error, preserve raw errors, and do not clip valid errors or impose a tolerance plateau. Cases, reference arrays, component weights and physical thresholds are unchanged. Original calibration reports remain preserved; post-audit reference and weak-baseline reports are separately named. Pilot03's explicit public scoring paragraph is corrected before replacement fresh launches, and new participant hashes are captured.
+
+The shared evaluator sandbox was also audited: system BLAS alternatives are mounted; temporary-root mounts precede per-case mounts; submitted code runs with a scrubbed environment and no network or reference mounts; resource usage is measured inside the sandbox; entrypoint/output symlink escapes and nonregular/oversized outputs are rejected. These corrections are infrastructure validation, not difficulty ratchets.

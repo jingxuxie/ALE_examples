@@ -1,0 +1,2467 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a04604-56f7-7bb3-9251-efc30112c6c5
+--------
+user
+Read TASK.md and the supplied workspace/input artifacts. Solve the scientific programming task completely. Put your executable solve.py and any required local modules in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt. You have up to one hour. The participant tree is read-only; use your attempt directory for implementation and experiments. Do not use external sources or dependencies beyond the visible environment. Validate what you can and describe unresolved scientific limitations honestly. Do not stop at a plan or a placeholder.
+codex
+I’ll inspect the task and inputs, then implement and validate the solver.
+
+exec
+/bin/bash -lc 'pwd; ls -la; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 5861ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+total 16
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:57 .
+drwx------ 4 xuandong xuandong   80 Aug 27 18:39 ..
+-rw-rw-r-- 1 xuandong xuandong 1755 Aug 27 17:57 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:54 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 18:16 workspace
+# Transport through finite Wannier devices
+
+Extend the supplied bulk interpolation code into a sparse, open-device transport solver. Inputs contain complete long-range Si or InAs Wannier Hamiltonians, finite crystal cells, electrostatic gates, and two or three periodic leads. Return causal lead selfenergies, channel counts, lead-to-lead transmission, transmission eigenvalues, partition noise, and the Landauer–Büttiker conductance matrix.
+
+Implement `attempt/solve.py` with this interface:
+
+```text
+python attempt/solve.py --input CASE.npz --output RESULT.npz
+```
+
+The complete conventions and array shapes are in `workspace/SCHEMA.md`. `input/example.npz` is the single unlabeled smoke input. The existing `workspace/solve.py` only evaluates bulk bands; those are not transport answers. Copy the starting workspace into `attempt/`, then extend it. NumPy and SciPy are available; no transport library is provided.
+
+Retain every supplied hopping and use the specified lead interfaces and ordering. Inter-layer hopping can be singular. Do not assume invertible transfer matrices, nearest-neighbor primitive cells, two contacts, or that a total transmission determines its channel spectrum. Scored devices have roughly 7,000–12,000 orbitals; each process has a 90-second wall-time limit and a 1,024 MiB address-space limit, with single-threaded BLAS. Avoid dense device inverses.
+
+These are ideal finite cuts of actual bulk Wannier models, not experimentally calibrated surface devices. Scores measure continuous numerical error reduction relative to the existing bulk-only capability, balanced across materials and contact geometries. Write only your implementation and requested output; do not access author-only references or evaluation metadata.
+
+exec
+/bin/bash -lc 'find .. -name AGENTS.md -print; ls -lh workspace input; cat workspace/SCHEMA.md; cat workspace/solve.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 4153ms:
+input:
+total 36K
+-rw-rw-r-- 1 xuandong xuandong 35K Aug 27 18:05 example.npz
+
+workspace:
+total 32K
+-rw-rw-r-- 1 xuandong xuandong  12K Aug 27 18:16 LICENSE.TBmodels.txt
+-rw-rw-r-- 1 xuandong xuandong 1.3K Aug 27 18:15 PROVENANCE.md
+-rw-rw-r-- 1 xuandong xuandong 6.4K Aug 27 18:37 SCHEMA.md
+-rw-rw-r-- 1 xuandong xuandong  370 Aug 27 17:46 bulk.py
+-rw-rw-r-- 1 xuandong xuandong  773 Aug 27 17:47 solve.py
+# Array contract, version 1
+
+All inputs and outputs are NumPy NPZ archives loadable with `allow_pickle=False`. No object arrays. Energies and Hamiltonians use eV; the real-space cell uses angstrom. Reduced vectors are row vectors. The orbital basis is orthonormal and its order must not change. Spin, when present in a supplied Hamiltonian, is already included in the orbital index; do not multiply conductance by two.
+
+## Input
+
+| Key | Shape / type | Meaning |
+| --- | --- | --- |
+| `schema_version` | scalar integer `1` | Schema version |
+| `h_R` | `(nhop,3)` integer | Directed lattice translations, including zero |
+| `h_matrices` | `(nhop,norb,norb)` complex | **Full**, not half, Hamiltonian blocks; both conjugate directions are supplied |
+| `cell` | `(3,3)` real | Primitive lattice vectors as rows |
+| `orbital_positions` | `(norb,3)` real | Orbital centers in reduced primitive coordinates |
+| `cells` | `(ncell,3)` integer | All finite-device primitive-cell tags; no periodic identification |
+| `potential` | `(ncell,norb)` real | Additional onsite potential, in `cells` order |
+| `energies` | `(nenergy,)` real | Real scattering energies; use the retarded limit, not a user-chosen artificial broadening |
+| `lead_count` | scalar integer, 2 or 3 | Number of contacts |
+| `lead_cells_j` | `(ncell_j,3)` integer | Ordered principal-layer cells inside the finite device, constituting lead `j`'s interface |
+| `lead_period_j` | `(3,)` integer | Translation from that interface **outward** into the semi-infinite lead |
+| `lead_shift_j` | scalar real | Uniform onsite shift for the periodic lead |
+
+The integer `j` runs from zero to `lead_count-1`. Cases contain no family labels or solutions.
+
+## Finite geometry and lead convention
+
+For device cell tags `a,b` and orbitals `i,j`,
+
+```text
+H_device[(a,i),(b,j)] = H[b-a][i,j]
+                     + delta_ab delta_ij potential[a,i].
+```
+
+An absent translation has a zero block. Exclude a hopping if either cell is absent. Do not add a second conjugate to the full input blocks. Position `(a + orbital_positions[i]) @ cell` fixes the physical embedding; it does not add a Bloch phase to this real-space Hamiltonian. Gates are already evaluated at those positions in `potential`.
+
+For interface tags `q_a`, period `p`, and `n_j=ncell_j*norb`, flatten in **the supplied `lead_cells_j` order, then orbital order**. Define
+
+```text
+H0[(a,i),(b,j)] = H[q_b-q_a][i,j] + delta_ab delta_ij lead_shift
+B [(a,i),(b,j)] = H[q_b-q_a-p][i,j].
+```
+
+`B` is `H(outward layer, inward layer)`, not its adjoint. Layers are `q + m*p` for `m=0,1,...`; `m=0` is the already-present device interface and `m>=1` is the lead exterior. The input principal layers are large enough that only adjacent layers couple. They are deliberately not assumed minimal: `B` can have an exact nullspace without the physical lead being disconnected. Lead interfaces do not overlap, and every hopping between a device cell and that lead's exterior touches its stated interface. All other cut boundaries are open. Separate leads have no mutual coupling outside the device.
+
+Let the retarded surface Green function of layer `m=1` be `g`. In this convention,
+
+```text
+g = inverse((E+i0) I - H0 - B^dagger g B)
+Sigma = B^dagger g B
+Gamma = i (Sigma-Sigma^dagger) is positive semidefinite.
+```
+
+These equations specify the branch, not a required algorithm. A direct inverse of `B` is invalid for the provided singular leads. The requested selfenergy acts on the complete ordered `m=0` interface, including rows with no direct outward coupling.
+
+## Output
+
+Write every following key. Set `nlead=lead_count`, `nmax=max_j(n_j)`. All fields except `sigma_j` are real; `mode_counts` may be integer or numerically exact real. Additional keys are ignored.
+
+| Key | Shape | Definition |
+| --- | --- | --- |
+| `sigma_j` | `(nenergy,n_j,n_j)` complex | Retarded selfenergy in the ordered interface basis above |
+| `mode_counts` | `(nenergy,nlead)` | Number of incoming propagating channels in each lead |
+| `transmission` | `(nenergy,nlead,nlead)` | `T[out,in] = trace(S[out,in]^dagger S[out,in])`; diagonal entries are reflection probabilities summed over channels |
+| `channels` | `(nenergy,nlead,nlead,nmax)` | For `out != in`, squared singular values of the flux-normalized scattering block, descending, followed by zeros to `nmax`. Retain `min(N_out,N_in)` values, including true zeros. For `out == in`, the whole vector is zero by convention. |
+| `partition_noise` | `(nenergy,nlead,nlead)` | Off-diagonal `sum(tau*(1-tau))`; diagonal zero by convention |
+| `lb_conductance` | `(nenergy,nlead,nlead)` | `C[out,in] = delta_out,in N_in - T[out,in]`, in `e^2/h` units |
+
+For two terminals, `partition_noise[1,0]` is the dimensionless zero-temperature shot-noise factor. For three terminals, the specified pair factor corresponds to one biased injecting contact; it is **not** the complete multi-contact noise-correlation tensor. The full transmission/conductance matrices are required, including the side lead. Columns of `transmission` sum to the corresponding incoming mode count. The Landauer–Büttiker matrix has zero row and column sums for these coherent, current-conserving cases.
+
+The selfenergy tolerance does not authorize changing the model with a finite imaginary onsite term. Energies avoid exact mode thresholds. Normalization floors in scoring prevent near-zero noise or evanescent matrix entries from dominating; matching only transmission traces is insufficient to recover eigenchannels or noise.
+
+## Continuous score
+
+Each valid field has unbounded normalized error `||prediction-reference||_F / (||reference||_F + floor*sqrt(number_of_entries))`. Missing, invalid, nonfinite, or incorrectly shaped fields receive zero credit. Selfenergy errors are averaged over leads. The groups `(selfenergy, mode_counts, transmission, channels, partition_noise, lb_conductance)` have weights `(0.25,0.10,0.20,0.20,0.15,0.10)` and floors `(0.05,1.0,0.01,0.001,0.005,0.01)` respectively.
+
+Valid group score is `1/(1 + 9*error/max(baseline_error,1e-8))`, without clipping or a tolerance plateau. The calibration uses dimensionless unit errors for the missing transport capability; a separate zero-transport control is measured as a weak numerical baseline. The case score is the weighted group average. Family scores average their cases; the core score averages families equally and the worst-family score is reported separately. This is continuous error reduction, not a count of tolerance passes.
+"""Existing capability: bulk bands only. Device transport remains to be implemented."""
+
+import argparse
+
+import numpy as np
+
+from bulk import eigenvalues
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True)
+    parser.add_argument("--output", required=True)
+    arguments = parser.parse_args()
+    with np.load(arguments.input, allow_pickle=False) as archive:
+        case = {name: archive[name] for name in archive.files}
+    wavevectors = np.column_stack((np.linspace(-0.5, 0.5, 65), np.zeros((65, 2))))
+    bands = np.asarray([eigenvalues(case, wavevector) for wavevector in wavevectors])
+    np.savez_compressed(arguments.output, bulk_wavevectors=wavevectors, bulk_bands=bands)
+
+
+if __name__ == "__main__":
+    main()
+
+  → Inspect models and numerical constraints
+  • Implement causal singular-lead selfenergies
+  • Implement sparse multi-terminal scattering
+  • Validate physics and resource usage
+exec
+/bin/bash -lc "cat workspace/bulk.py workspace/PROVENANCE.md; ls -la ../attempt; python - <<'PY'
+import numpy as np, scipy, os
+print('versions',np.__version__,scipy.__version__)
+with np.load('input/example.npz',allow_pickle=False) as data:
+ for key in data.files:
+  val=data[key]
+  print(key,val.shape,val.dtype, 'range', (np.min(val.real),np.max(val.real)) if val.size else None)
+  if val.size<70: print(val)
+ print('hopping translations:',data['h_R'])
+ print('nonzero block entries',np.count_nonzero(data['h_matrices']),data['h_matrices'].size)
+ print('device bounds',data['cells'].min(0),data['cells'].max(0))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 5031ms:
+"""Bulk Fourier interpolation adapted from the historical Model.hamilton method."""
+
+import numpy as np
+
+
+def hamiltonian(case, reduced_k):
+    phases = np.exp(2j * np.pi * (case["h_R"] @ np.asarray(reduced_k)))
+    return np.einsum("r,rij->ij", phases, case["h_matrices"])
+
+
+def eigenvalues(case, reduced_k):
+    return np.linalg.eigvalsh(hamiltonian(case, reduced_k))
+# Starting code and input provenance
+
+`bulk.py` adapts the convention-2 `Model.hamilton` Fourier sum and eigenvalue evaluation from the public pre-supercell revision of TBmodels, commit `ab24b723e4b35dd08d86aa098a5cadeacab96e83`:
+
+<https://github.com/Z2PackDev/TBmodels/blob/ab24b723e4b35dd08d86aa098a5cadeacab96e83/tbmodels/_tb_model.py>
+
+The historical source stored one conjugate half; the NPZ contract instead contains both directions, so the adapter must not add another Hermitian conjugate. This is an honest capability-level starting point, not a claim that the complete historical package lacked every transport interface. No later geometry or transport implementation is included here.
+
+Real-material input data come from the official TBmodels examples/tests. Their hopping amplitudes are retained without fitting, randomization, or range truncation. Finite crystal cuts and additional real onsite gates define the devices specified in each input. The bundled numerical data are provided for this computation, not as experimental device predictions.
+
+The upstream Apache-2.0 license is retained as `LICENSE.TBmodels.txt`. The modified Fourier adapter uses the explicit full-Hamiltonian NPZ convention described above; it is not an unmodified historical module.
+total 4
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 27 18:39 .
+drwx------ 4 xuandong xuandong   80 Aug 27 18:39 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 18:39 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 18:39 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 18:39 .git
+versions 1.21.5 1.8.0
+h_R (189, 3) int64 range (-3, 3)
+h_matrices (189, 8, 8) complex128 range (-1.826621, 6.064249)
+cell (3, 3) float64 range (-2.6988, 2.6988)
+[[-2.6988  0.      2.6988]
+ [ 0.      2.6988  2.6988]
+ [-2.6988  2.6988  0.    ]]
+orbital_positions (8, 3) float64 range (0.0060679746554024305, 0.7439326496961612)
+[[0.08535249 0.74391712 0.08537316]
+ [0.08536001 0.08535213 0.08536136]
+ [0.08536071 0.08533944 0.74393265]
+ [0.74392479 0.08534613 0.08536816]
+ [0.66464221 0.00606797 0.664642  ]
+ [0.66463948 0.66462432 0.66465618]
+ [0.66464362 0.66463603 0.00608418]
+ [0.00607598 0.66462586 0.66465081]]
+schema_version () int64 range (1, 1)
+1
+cells (44, 3) int64 range (0, 21)
+lead_count () int64 range (2, 2)
+2
+lead_cells_0 (8, 3) int64 range (0, 3)
+[[0 0 0]
+ [0 1 0]
+ [1 0 0]
+ [1 1 0]
+ [2 0 0]
+ [2 1 0]
+ [3 0 0]
+ [3 1 0]]
+lead_period_0 (3,) int64 range (-4, 0)
+[-4  0  0]
+lead_shift_0 () float64 range (0.0, 0.0)
+0.0
+lead_cells_1 (8, 3) int64 range (0, 21)
+[[18  0  0]
+ [18  1  0]
+ [19  0  0]
+ [19  1  0]
+ [20  0  0]
+ [20  1  0]
+ [21  0  0]
+ [21  1  0]]
+lead_period_1 (3,) int64 range (0, 4)
+[4 0 0]
+lead_shift_1 () float64 range (0.0, 0.0)
+0.0
+potential (44, 8) float64 range (0.0, 0.45107712862081956)
+energies (1,) float64 range (6.753376925831288, 6.753376925831288)
+[6.75337693]
+hopping translations: [[-3 -1  2]
+ [-3  0  0]
+ [-3  0  1]
+ [-3  0  2]
+ [-3  1 -1]
+ [-3  1  0]
+ [-3  1  1]
+ [-3  1  2]
+ [-3  2 -1]
+ [-3  2  0]
+ [-3  2  1]
+ [-3  2  2]
+ [-2 -2  0]
+ [-2 -2  1]
+ [-2 -2  2]
+ [-2 -2  3]
+ [-2 -1 -1]
+ [-2 -1  0]
+ [-2 -1  1]
+ [-2 -1  2]
+ [-2 -1  3]
+ [-2  0 -2]
+ [-2  0 -1]
+ [-2  0  0]
+ [-2  0  1]
+ [-2  0  2]
+ [-2  0  3]
+ [-2  1 -2]
+ [-2  1 -1]
+ [-2  1  0]
+ [-2  1  1]
+ [-2  1  2]
+ [-2  1  3]
+ [-2  2 -2]
+ [-2  2 -1]
+ [-2  2  0]
+ [-2  2  1]
+ [-2  2  2]
+ [-2  3 -2]
+ [-2  3 -1]
+ [-2  3  0]
+ [-2  3  1]
+ [-1 -3  2]
+ [-1 -2 -1]
+ [-1 -2  0]
+ [-1 -2  1]
+ [-1 -2  2]
+ [-1 -2  3]
+ [-1 -1 -2]
+ [-1 -1 -1]
+ [-1 -1  0]
+ [-1 -1  1]
+ [-1 -1  2]
+ [-1 -1  3]
+ [-1  0 -2]
+ [-1  0 -1]
+ [-1  0  0]
+ [-1  0  1]
+ [-1  0  2]
+ [-1  0  3]
+ [-1  1 -3]
+ [-1  1 -2]
+ [-1  1 -1]
+ [-1  1  0]
+ [-1  1  1]
+ [-1  1  2]
+ [-1  1  3]
+ [-1  2 -2]
+ [-1  2 -1]
+ [-1  2  0]
+ [-1  2  1]
+ [-1  2  2]
+ [-1  3 -2]
+ [-1  3 -1]
+ [-1  3  0]
+ [-1  3  1]
+ [ 0 -3  0]
+ [ 0 -3  1]
+ [ 0 -3  2]
+ [ 0 -2 -2]
+ [ 0 -2 -1]
+ [ 0 -2  0]
+ [ 0 -2  1]
+ [ 0 -2  2]
+ [ 0 -2  3]
+ [ 0 -1 -2]
+ [ 0 -1 -1]
+ [ 0 -1  0]
+ [ 0 -1  1]
+ [ 0 -1  2]
+ [ 0 -1  3]
+ [ 0  0 -3]
+ [ 0  0 -2]
+ [ 0  0 -1]
+ [ 0  0  0]
+ [ 0  0  1]
+ [ 0  0  2]
+ [ 0  0  3]
+ [ 0  1 -3]
+ [ 0  1 -2]
+ [ 0  1 -1]
+ [ 0  1  0]
+ [ 0  1  1]
+ [ 0  1  2]
+ [ 0  2 -3]
+ [ 0  2 -2]
+ [ 0  2 -1]
+ [ 0  2  0]
+ [ 0  2  1]
+ [ 0  2  2]
+ [ 0  3 -2]
+ [ 0  3 -1]
+ [ 0  3  0]
+ [ 1 -3 -1]
+ [ 1 -3  0]
+ [ 1 -3  1]
+ [ 1 -3  2]
+ [ 1 -2 -2]
+ [ 1 -2 -1]
+ [ 1 -2  0]
+ [ 1 -2  1]
+ [ 1 -2  2]
+ [ 1 -1 -3]
+ [ 1 -1 -2]
+ [ 1 -1 -1]
+ [ 1 -1  0]
+ [ 1 -1  1]
+ [ 1 -1  2]
+ [ 1 -1  3]
+ [ 1  0 -3]
+ [ 1  0 -2]
+ [ 1  0 -1]
+ [ 1  0  0]
+ [ 1  0  1]
+ [ 1  0  2]
+ [ 1  1 -3]
+ [ 1  1 -2]
+ [ 1  1 -1]
+ [ 1  1  0]
+ [ 1  1  1]
+ [ 1  1  2]
+ [ 1  2 -3]
+ [ 1  2 -2]
+ [ 1  2 -1]
+ [ 1  2  0]
+ [ 1  2  1]
+ [ 1  3 -2]
+ [ 2 -3 -1]
+ [ 2 -3  0]
+ [ 2 -3  1]
+ [ 2 -3  2]
+ [ 2 -2 -2]
+ [ 2 -2 -1]
+ [ 2 -2  0]
+ [ 2 -2  1]
+ [ 2 -2  2]
+ [ 2 -1 -3]
+ [ 2 -1 -2]
+ [ 2 -1 -1]
+ [ 2 -1  0]
+ [ 2 -1  1]
+ [ 2 -1  2]
+ [ 2  0 -3]
+ [ 2  0 -2]
+ [ 2  0 -1]
+ [ 2  0  0]
+ [ 2  0  1]
+ [ 2  0  2]
+ [ 2  1 -3]
+ [ 2  1 -2]
+ [ 2  1 -1]
+ [ 2  1  0]
+ [ 2  1  1]
+ [ 2  2 -3]
+ [ 2  2 -2]
+ [ 2  2 -1]
+ [ 2  2  0]
+ [ 3 -2 -2]
+ [ 3 -2 -1]
+ [ 3 -2  0]
+ [ 3 -2  1]
+ [ 3 -1 -2]
+ [ 3 -1 -1]
+ [ 3 -1  0]
+ [ 3 -1  1]
+ [ 3  0 -2]
+ [ 3  0 -1]
+ [ 3  0  0]
+ [ 3  1 -2]]
+nonzero block entries 4560 12096
+device bounds [0 0 0] [21  1  0]
+
+exec
+/bin/bash -lc "cp workspace/* ../attempt/; command -v apply_patch; python - <<'PY'
+import numpy as np
+import scipy.linalg as la
+with np.load('input/example.npz') as case:
+ blocks=dict(zip(map(tuple,case['h_R']),case['h_matrices']))
+ for lead in range(int(case['lead_count'])):
+  tags=case[f'lead_cells_{lead}']; period=case[f'lead_period_{lead}']; count=len(tags); orb=case['h_matrices'].shape[1]
+  coupling=np.zeros((count,orb,count,orb),complex)
+  for ia,ta in enumerate(tags):
+   for ib,tb in enumerate(tags):
+    block=blocks.get(tuple(tb-ta-period))
+    if block is not None: coupling[ia,:,ib,:]=block
+  coupling=coupling.reshape(count*orb,count*orb)
+  values=la.svdvals(coupling)
+  print(lead,'coupling size',len(coupling),'nonzero rows/cols',np.count_nonzero(np.any(coupling"'!=0,1)),np.count_nonzero(np.any(coupling!=0,0)),'"'rank',np.count_nonzero(values>1e-12),'singular values',values)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+**Investigating numpy threads**
+
+I'm encountering unexpected overhead with many seconds related to numpy's default thread handling. I think I need to force environment threads before importing all scripts. The tools I'm using seem to take about 5 seconds, which feels excessive. Perhaps the slow performance is due to the /mnt filesystem. It's clear I need to ensure my computing outputs are reliable but figuring out how to optimize this is proving to be a bit of a challenge!
+ succeeded in 26023ms:
+/srv/home/xuandong/.codex/tmp/arg0/codex-arg0Op3P5n/apply_patch
+0 coupling size 64 nonzero rows/cols 37 37 rank 32 singular values [4.16883804e+00 3.50886275e+00 3.16978947e+00 2.40274298e+00
+ 2.35960083e+00 1.90787367e+00 9.75117399e-01 8.65606730e-01
+ 1.97388058e-01 8.82226521e-02 7.39260605e-02 5.62448905e-02
+ 4.20792870e-02 3.66518386e-02 1.96448200e-02 1.92363223e-02
+ 1.38959202e-02 1.26391127e-02 7.51489196e-03 6.13162167e-03
+ 5.82807412e-03 2.81217116e-03 1.52510719e-03 7.68102162e-04
+ 6.74316139e-04 2.55517209e-04 2.02022017e-04 7.03043680e-05
+ 4.79093005e-05 3.40300965e-06 1.06308455e-08 2.54578231e-12
+ 4.20246076e-18 2.85210332e-18 1.10716079e-18 1.02485841e-18
+ 1.34003825e-19 7.44670931e-35 1.28530412e-35 2.77082374e-51
+ 8.63205856e-52 1.45048461e-67 0.00000000e+00 0.00000000e+00
+ 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00
+ 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00
+ 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00
+ 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00
+ 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00]
+1 coupling size 64 nonzero rows/cols 37 37 rank 32 singular values [4.16883804e+00 3.50886275e+00 3.16978947e+00 2.40274298e+00
+ 2.35960083e+00 1.90787367e+00 9.75117399e-01 8.65606730e-01
+ 1.97388058e-01 8.82226521e-02 7.39260605e-02 5.62448905e-02
+ 4.20792870e-02 3.66518386e-02 1.96448200e-02 1.92363223e-02
+ 1.38959202e-02 1.26391127e-02 7.51489196e-03 6.13162167e-03
+ 5.82807412e-03 2.81217116e-03 1.52510719e-03 7.68102162e-04
+ 6.74316139e-04 2.55517209e-04 2.02022017e-04 7.03043680e-05
+ 4.79093005e-05 3.40300965e-06 1.06308455e-08 2.54578240e-12
+ 2.50996754e-18 1.51748749e-18 1.22183007e-18 5.46533031e-19
+ 2.78688354e-19 6.19235266e-35 9.69227750e-36 6.80005321e-51
+ 5.54517078e-52 4.09462440e-68 0.00000000e+00 0.00000000e+00
+ 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00
+ 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00
+ 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00
+ 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00
+ 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00]
+
+**Evaluating model parameters**
+
+I'm considering using adaptive reduction for leads, which involves extrapolating sigma to a real value. I think a tiny eta around 1e-8 might create finite error, close to 1e-7. There might be a Gamma threshold that could help with roundoff in subdominants. I'd want to truncate the final Gamma to physical channels while applying a rank threshold. However, I should be careful since the task explicitly says not to use a finite eta model.
+**Considering sparse finite assembly**
+
+I'm working on assembling sparse finite H efficiently through map cell neighboring. For a size of about 189 by 1500, it involves around 280k dictionary loops. I notice there are dense blocks, but the sparsity includes exact zeros that need retaining. Additionally, when looking at BSR blocks, I find that many zeros are present, with only around 37% being nonzero. It makes me think about the implications for performance and memory usage.
+codex
+The interfaces have singular coupling. I’ll handle that without inverting it.
+
+Inspected the schema and smoke model; the lead coupling has exact nullspaces and very small nonzero singular values.
+  ✓ Inspect models and numerical constraints
+  → Implement causal singular-lead selfenergies
+  • Implement sparse multi-terminal scattering
+  • Validate physics and resource usage
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import numpy as np, scipy.linalg as la, time
+with np.load('input/example.npz') as case:
+ blocks=dict(zip(map(tuple,case['h_R']),case['h_matrices'])); tags=case['lead_cells_0']; period=case['lead_period_0']; n=len(tags)*8
+ h0=np.zeros((len(tags),8,len(tags),8),complex); coupling=h0.copy()
+ for ia,ta in enumerate(tags):
+  for ib,tb in enumerate(tags):
+   h0[ia,:,ib,:]=blocks.get(tuple(tb-ta),np.zeros((8,8)))
+   coupling[ia,:,ib,:]=blocks.get(tuple(tb-ta-period),np.zeros((8,8)))
+ h0=h0.reshape(n,n); coupling=coupling.reshape(n,n); energy=case['energies'][0]
+ start=time.perf_counter()
+ aa=np.block([[energy*np.eye(n)-h0,-coupling],[np.eye(n),np.zeros((n,n))]])
+ bb=la.block_diag(coupling.conj().T,np.eye(n))
+ vals,vec=la.eig(aa,bb)
+ unit=np.flatnonzero(abs(abs(vals)-1)<1e-7)
+ phi=vec[n:,unit]; flux=-2*np.imag(np.einsum('ij,ij->j',phi.conj(),coupling.conj().T@phi)*vals[unit])
+ print('propagating', vals[unit],flux)
+ outward=vals[unit[flux>0]]
+ def select(alpha,beta):
+  vals=np.divide(alpha,beta,out=np.full_like(alpha,np.inf),where=abs(beta)>0)
+  result=abs(vals)<1-1e-7
+  if len(outward): result|=np.min(abs(vals[:,None]-outward[None,:]),axis=1)<1e-7
+  return result
+ aa,bb,alpha,beta,qq,zz=la.ordqz(aa,bb,sort=select,output='complex')
+ print('selected',np.count_nonzero(select(alpha,beta)),n)
+ f=la.solve(zz[n:,:n].T,zz[:n,:n].T).T
+ sigma=coupling.conj().T@f
+ residual=sigma-coupling.conj().T@la.solve(energy*np.eye(n)-h0-sigma,coupling)
+ gamma=1j*(sigma-sigma.conj().T)
+ print('time',time.perf_counter()-start,'norm',la.norm(sigma),'residual',la.norm(residual),'gamma eigenvalues',la.eigvalsh(gamma))
+ for eta in [1e-5,1e-7,1e-9,1e-11]:
+  bulk=(energy+1j*eta)*np.eye(n)-h0; surface=bulk.copy(); forward=coupling.conj().T.copy(); backward=coupling.copy()
+  for iteration in range(100):
+   inv_forback=la.solve(bulk,np.hstack((forward,backward)))
+   invfor,invback=inv_forback[:,:n],inv_forback[:,n:]
+   ab=forward@invback; ba=backward@invfor
+   surface-=ab; bulk-=ab+ba
+   forward=forward@invfor; backward=backward@invback
+   if max(la.norm(forward),la.norm(backward))<1e-13: break
+  sd=coupling.conj().T@la.solve(surface,coupling)
+  print('decim',eta,'iters',iteration,'error',la.norm(sd-sigma),'resid',la.norm(sd-coupling.conj().T@la.solve(energy*np.eye(n)-h0-sd,coupling)))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+**Evaluating tool latency**
+
+I need to consider the processing time since it seems everything has around a 5-second latency. But that’s okay! My plan is to choose QZ with reduced SVD for a speedier approach. I will ensure the results maintain their exactness. It’ll also be important to inspect the full QZ output and evaluate the rank quality thoroughly. Getting this right is crucial for accuracy, so I’ll make it a priority to review everything.
+ succeeded in 11950ms:
+propagating [-0.05647116-0.99840423j  0.69105094-0.72280606j  0.21122116-0.9774383j
+  0.69129311+0.72257445j -0.05430014+0.99852466j  0.21038957+0.97761763j] [-0.01519722  0.14960477  0.15237098 -0.14959972  0.01519678 -0.15243383]
+selected 64 64
+time 0.04102425399469212 norm 15.772771696381344 residual 6.060894438061804e-14 gamma eigenvalues [-1.92499948e-14 -5.81523492e-15 -3.40628030e-15 -1.92440705e-15
+ -1.09379235e-15 -6.00138935e-16 -2.95258127e-16 -1.95353513e-16
+ -6.55074738e-17 -4.75642707e-17 -2.28868716e-17 -8.95847217e-18
+ -5.40486573e-18 -3.42481077e-18 -2.09748592e-18 -1.14911342e-18
+ -2.58331092e-19 -4.81132020e-38 -1.75576650e-52 -3.24015843e-55
+ -3.84151128e-71  0.00000000e+00  0.00000000e+00  0.00000000e+00
+  0.00000000e+00  0.00000000e+00  0.00000000e+00  0.00000000e+00
+  0.00000000e+00  0.00000000e+00  0.00000000e+00  0.00000000e+00
+  0.00000000e+00  0.00000000e+00  0.00000000e+00  0.00000000e+00
+  0.00000000e+00  0.00000000e+00  0.00000000e+00  0.00000000e+00
+  0.00000000e+00  0.00000000e+00  0.00000000e+00  9.66398601e-36
+  6.95196326e-19  1.12038462e-18  2.93077951e-18  5.17679596e-18
+  9.14857235e-18  1.26164089e-17  2.49961026e-17  3.50789236e-17
+  7.78693809e-17  2.04711971e-16  2.55965097e-16  5.63970155e-16
+  8.10033159e-16  2.01232626e-15  4.24412941e-15  1.15112172e-14
+  2.03253927e-14  4.63589673e-01  3.68696179e+00  7.82115994e+00]
+decim 1e-05 iters 19 error 0.0002943960683339254 resid 0.00034169001580514806
+decim 1e-07 iters 26 error 2.9439620216548076e-06 resid 3.416895585086516e-06
+decim 1e-09 iters 33 error 2.9439762886163214e-08 resid 3.416931856309126e-08
+decim 1e-11 iters 39 error 2.9459360807995355e-10 resid 3.423892323663916e-10
+
+**Evaluating script output issues**
+
+I’m wondering why the scripts aren’t outputting. Could it be that the default bash login is causing a slowdown? Maybe the previous execution of Python is running on default 64 threads, which might be stealing CPU resources? I’m considering whether the first process is still running and affecting performance. It's quite a puzzle, and I want to figure this out so I can ensure everything is working smoothly!
+exec
+/bin/bash -c "ps -eo pid,etimes,pcpu,pmem,args | head -20; env | sort | rg 'THREAD|BLAS|PYTHON'; ls -lh ../attempt" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 3948ms:
+    PID ELAPSED %CPU %MEM COMMAND
+      1       2 25.5  0.0 /srv/home/xuandong/.codex/tmp/arg0/codex-arg0Op3P5n/codex-linux-sandbox --sandbox-policy-cwd /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant --command-cwd /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant --permission-profile {"type":"managed","file_system":{"type":"restricted","entries":[{"path":{"type":"path","path":"/srv/home/xuandong/.codex/packages"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/.codex/packages/standalone/releases/0.150.1-x86_64-unknown-linux-musl/bin/codex"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/.codex/tmp/arg0"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt"},"access":"write"},{"path":{"type":"path","path":"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant"},"access":"read"},{"path":{"type":"special","value":{"kind":"minimal"}},"access":"read"}]},"network":"restricted"} --apply-seccomp-then-exec -- /bin/bash -c ps -eo pid,etimes,pcpu,pmem,args | head -20; env | sort | rg 'THREAD|BLAS|PYTHON'; ls -lh ../attempt
+      2       0  0.0  0.0 /bin/bash -c ps -eo pid,etimes,pcpu,pmem,args | head -20; env | sort | rg 'THREAD|BLAS|PYTHON'; ls -lh ../attempt
+      3       0  0.0  0.0 ps -eo pid,etimes,pcpu,pmem,args
+      4       0  0.0  0.0 head -20
+CODEX_THREAD_ID=01a04604-56f7-7bb3-9251-efc30112c6c5
+CONDA_PYTHON_EXE=/home/xuandong/anaconda3/bin/python
+MKL_NUM_THREADS=1
+OMP_NUM_THREADS=1
+OPENBLAS_NUM_THREADS=1
+VSCODE_PYTHON_AUTOACTIVATE_GUARD=1
+total 32K
+-rw-rw-r-- 1 xuandong xuandong  12K Aug 27 18:40 LICENSE.TBmodels.txt
+-rw-rw-r-- 1 xuandong xuandong 1.3K Aug 27 18:40 PROVENANCE.md
+-rw-rw-r-- 1 xuandong xuandong 6.4K Aug 27 18:40 SCHEMA.md
+-rw-rw-r-- 1 xuandong xuandong  370 Aug 27 18:40 bulk.py
+-rw-rw-r-- 1 xuandong xuandong  773 Aug 27 18:40 solve.py
+
+**Evaluating stability and invertibility**
+
+I'm thinking through a mathematical problem involving K=U†gU, looking at nullspace and subspace X. I wonder if X is invertible and stable, particularly regarding zero modes when Y=0. Eigenvalue problems come into play with Cvu x=0 and Y=Cuu x, suggesting that X is possible. I question zero rows and consider if E is regular and if the setup is generic, but it seems like that's a "yes."
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -u - <<'PY'
+import numpy as np, scipy.linalg as la, time
+with np.load('input/example.npz') as case:
+ blocks=dict(zip(map(tuple,case['h_R']),case['h_matrices'])); tags=case['lead_cells_0']; period=case['lead_period_0']; n=len(tags)*8
+ h0=np.zeros((len(tags),8,len(tags),8),complex); coupling=h0.copy()
+ for ia,ta in enumerate(tags):
+  for ib,tb in enumerate(tags):
+   h0[ia,:,ib,:]=blocks.get(tuple(tb-ta),np.zeros((8,8)))
+   coupling[ia,:,ib,:]=blocks.get(tuple(tb-ta-period),np.zeros((8,8)))
+ h0=h0.reshape(n,n); coupling=coupling.reshape(n,n); energy=case['energies'][0]
+ rows=np.flatnonzero(np.any(coupling"'!=0,axis=1)); rank=len(rows)
+ uu=np.eye(n)[:,rows].astype(complex); vv=coupling[rows,:].conj().T
+ for col in range(rank):
+  norm=np.sqrt(la.norm(vv[:,col])); uu[:,col]*=norm; vv[:,col]/=norm
+ start=time.perf_counter()
+ resolvent=la.solve(energy*np.eye(n)-h0,np.hstack([uu,vv]))
+ au=resolvent[:,:rank]; av=resolvent[:,rank:]
+ cvu=vv.conj().T@au; cvv=vv.conj().T@av; cuu=uu.conj().T@au; cuv=uu.conj().T@av
+ aa=np.block([[cvu,np.zeros((rank,rank))],[-cuu,np.eye(rank)]]); bb=np.block([[np.eye(rank),-cvv],[np.zeros((rank,rank)),cuv]])
+ vals,vec=la.eig(aa,bb); unit=np.flatnonzero(abs(abs(vals)-1)<1e-7)
+ flux=-2*np.imag(np.einsum('"'ij,ij->j',vec[:rank,unit].conj(),vec[rank:,unit]))
+ print('propagating',vals[unit],flux)
+ outward=vals[unit[flux>0]]
+ def select(alpha,beta):
+  vals=np.divide(alpha,beta,out=np.full_like(alpha,np.inf),where=abs(beta)>0)
+  result=abs(vals)<1-1e-7
+  if len(outward): result|=np.min(abs(vals[:,None]-outward[None,:]),axis=1)<1e-7
+  return result
+ aa,bb,alpha,beta,qq,zz=la.ordqz(aa,bb,sort=select,output='complex')
+ print('selected',np.count_nonzero(select(alpha,beta)),rank)
+ kk=la.solve(zz[:rank,:rank].T,zz[rank:,:rank].T).T
+ sigma=vv@kk@vv.conj().T
+ residual=sigma-coupling.conj().T@la.solve(energy*np.eye(n)-h0-sigma,coupling)
+ print('time',time.perf_counter()-start,'norm',la.norm(sigma),'residual',la.norm(residual),'gamma max eigenvalues',la.eigvalsh(1j*(sigma-sigma.conj().T))[-8:])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 743ms:
+propagating [-0.05430014+0.99852466j  0.21038957+0.97761763j  0.69129311+0.72257445j
+  0.69105094-0.72280606j -0.05647116-0.99840423j  0.21122116-0.9774383j ] [ 0.0613223  -0.44864564 -0.28458937  0.28463285 -0.06132337  0.44854641]
+selected 37 37
+time 0.013728290039580315 norm 15.7727716963813 residual 5.0484454333803125e-14 gamma max eigenvalues [1.71404189e-16 3.73530718e-16 1.86540591e-15 2.92552485e-15
+ 1.55047306e-14 4.63589673e-01 3.68696179e+00 7.82115994e+00]
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python - <<'PY'
+import scipy.linalg as la, numpy as np
+print(la.get_lapack_funcs('tgsen',(np.ones((2,2),complex),)).__doc__)
+print(la.get_lapack_funcs('gges',(np.ones((2,2),complex),)).__doc__)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 636ms:
+as,bs,alpha,beta,qs,zs,m,pl,pr,dif,info = ztgsen(select,a,b,q,z,[ijob,wantq,wantz,lwork,liwork,overwrite_a,overwrite_b,overwrite_q,overwrite_z])
+
+Wrapper for ``ztgsen``.
+
+Parameters
+----------
+select : input rank-1 array('i') with bounds (n)
+a : input rank-2 array('D') with bounds (n,n)
+b : input rank-2 array('D') with bounds (n,n)
+q : input rank-2 array('D') with bounds (n,n)
+z : input rank-2 array('D') with bounds (n,n)
+
+Other Parameters
+----------------
+ijob : input int, optional
+    Default: 4
+wantq : input int, optional
+    Default: 1
+wantz : input int, optional
+    Default: 1
+overwrite_a : input int, optional
+    Default: 0
+overwrite_b : input int, optional
+    Default: 0
+overwrite_q : input int, optional
+    Default: 0
+overwrite_z : input int, optional
+    Default: 0
+lwork : input int, optional
+    Default: (ijob==0?1:n+2)
+liwork : input int, optional
+    Default: (ijob==0?1:n+2)
+
+Returns
+-------
+as : rank-2 array('D') with bounds (n,n) and a storage
+bs : rank-2 array('D') with bounds (n,n) and b storage
+alpha : rank-1 array('D') with bounds (n)
+beta : rank-1 array('D') with bounds (n)
+qs : rank-2 array('D') with bounds (n,n) and q storage
+zs : rank-2 array('D') with bounds (n,n) and z storage
+m : int
+pl : float
+pr : float
+dif : rank-1 array('d') with bounds (2)
+info : int
+
+a,b,sdim,alpha,beta,vsl,vsr,work,info = zgges(zselect,a,b,[jobvsl,jobvsr,sort_t,ldvsl,ldvsr,lwork,zselect_extra_args,overwrite_a,overwrite_b])
+
+Wrapper for ``zgges``.
+
+Parameters
+----------
+zselect : call-back function
+a : input rank-2 array('D') with bounds (lda,n)
+b : input rank-2 array('D') with bounds (ldb,n)
+
+Other Parameters
+----------------
+jobvsl : input int, optional
+    Default: 1
+jobvsr : input int, optional
+    Default: 1
+sort_t : input int, optional
+    Default: 0
+zselect_extra_args : input tuple, optional
+    Default: ()
+overwrite_a : input int, optional
+    Default: 0
+overwrite_b : input int, optional
+    Default: 0
+ldvsl : input int, optional
+    Default: ((jobvsl==1)?n:1)
+ldvsr : input int, optional
+    Default: ((jobvsr==1)?n:1)
+lwork : input int, optional
+    Default: max(2*n,1)
+
+Returns
+-------
+a : rank-2 array('D') with bounds (lda,n)
+b : rank-2 array('D') with bounds (ldb,n)
+sdim : int
+alpha : rank-1 array('D') with bounds (n)
+beta : rank-1 array('D') with bounds (n)
+vsl : rank-2 array('D') with bounds (ldvsl,n)
+vsr : rank-2 array('D') with bounds (ldvsr,n)
+work : rank-1 array('D') with bounds (MAX(lwork,1))
+info : int
+
+Notes
+-----
+Call-back functions::
+
+  def zselect(alpha,beta): return zselect
+  Required arguments:
+    alpha : input complex
+    beta : input complex
+  Return objects:
+    zselect : int
+
+
+**Checking the time frame**
+
+I see we have about 42 minutes? It looks like it started at around 18:39, but I should confirm the current time. If I'm understanding this right, I want to make sure I manage our time well. I wonder what I can accomplish in this 42-minute window. Maybe I should prioritize tasks or get organized to make the most out of this time! It's good to keep an eye on that kind of detail.
+exec
+/bin/bash -c 'date; ps -eo pid,etimes,pcpu,pmem,args | head -10' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 294ms:
+Thu Aug 27 18:43:33 PDT 2026
+    PID ELAPSED %CPU %MEM COMMAND
+      1       0  0.0  0.0 /srv/home/xuandong/.codex/tmp/arg0/codex-arg0Op3P5n/codex-linux-sandbox --sandbox-policy-cwd /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant --command-cwd /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant --permission-profile {"type":"managed","file_system":{"type":"restricted","entries":[{"path":{"type":"path","path":"/srv/home/xuandong/.codex/packages"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/.codex/packages/standalone/releases/0.150.1-x86_64-unknown-linux-musl/bin/codex"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/.codex/tmp/arg0"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt"},"access":"write"},{"path":{"type":"path","path":"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant"},"access":"read"},{"path":{"type":"special","value":{"kind":"minimal"}},"access":"read"}]},"network":"restricted"} --apply-seccomp-then-exec -- /bin/bash -c date; ps -eo pid,etimes,pcpu,pmem,args | head -10
+      2       0  0.0  0.0 /bin/bash -c date; ps -eo pid,etimes,pcpu,pmem,args | head -10
+      4       0  0.0  0.0 ps -eo pid,etimes,pcpu,pmem,args
+      5       0  0.0  0.0 head -10
+
+**Evaluating disconnected components**
+
+I’m thinking through the importance of avoiding isolated components in gaps. If there’s a singular state at point E, it doesn’t necessarily impact scattering. I want to ensure that when discussing E, I’m not just focusing on singular characteristics but considering how these components connect. I should explore tests regarding synthetic states at E to understand the implications of their decoupled nature. This approach feels crucial in ensuring clarity in the overall analysis.
+**Analyzing energy patterns**
+
+I’m noticing that while there are different energy inputs, the pattern remains the same. I should create a base operator by using -H combined with zero contact dense entries. I think it’s important to use scipy coo to merge zeros, which maintains explicit zeros and helps avoid any problems with copy accumulation. I want to ensure I'm clearly understanding this process to get it right!
+codex
+The real-energy prototype is causal and satisfies the surface equation.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Delete File: ../attempt/solve.py
+*** Add File: ../attempt/solve.py
++#"'!/usr/bin/env python3
++"""Sparse, coherent transport through finite full-hopping Wannier devices."""
++
++import os
++
++for variable in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
++                 "BLIS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS"):
++    os.environ[variable] = "1"
++
++import argparse
++
++import numpy as np
++
++from transport import solve_transport
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--input", required=True)
++    parser.add_argument("--output", required=True)
++    arguments = parser.parse_args()
++    with np.load(arguments.input, allow_pickle=False) as archive:
++        case = {name: archive[name] for name in archive.files}
++    result = solve_transport(case)
++    np.savez_compressed(arguments.output, **result)
++
++
++if __name__ == "__main__":
++    main()
+*** Add File: ../attempt/leads.py
++"""Real-axis outgoing subspaces for singular periodic lead couplings."""
++
++import warnings
++
++import numpy as np
++import scipy.linalg as la
++
++
++def _outgoing_subspace(pencil, metric, tolerance=1e-7):
++    """Keep decaying Schur vectors and positive-current propagating modes."""
++    first, second = pencil
++    half = first.shape[0] // 2
++
++    def decaying(alpha, beta):
++        return np.abs(alpha) < (1.0 - tolerance) * np.abs(beta)
++
++    schur_first, schur_second, alpha, beta, left, right = la.ordqz(
++        first, second, sort=decaying, output="complex", check_finite=False,
++        overwrite_a=True, overwrite_b=True)
++    decay_count = int(np.count_nonzero(decaying(alpha, beta)))
++    unit = np.abs(np.abs(alpha) - np.abs(beta)) <= tolerance * np.abs(beta)
++    unit &= np.abs(beta) > 0
++    propagating_count = int(np.count_nonzero(unit))
++    if 2 * decay_count + propagating_count != 2 * half:
++        raise la.LinAlgError("Unresolved reciprocal pairs in the lead pencil")
++    if not propagating_count:
++        return right[:, :half], 0
++
++    selected = np.asarray(decaying(alpha, beta) | unit, dtype=np.int32)
++    reorder = la.get_lapack_funcs("tgsen", (schur_first,))
++    reordered = reorder(
++        selected, schur_first, schur_second, left, right, ijob=0,
++        wantq=0, wantz=1, overwrite_a=1, overwrite_b=1,
++        overwrite_q=1, overwrite_z=1)
++    schur_first, schur_second, alpha, beta, left, right = reordered[:6]
++    if reordered[-1] != 0:
++        raise la.LinAlgError("Unable to separate propagating lead modes")
++
++    start, stop = decay_count, decay_count + propagating_count
++    values, vectors = la.eig(
++        schur_first[start:stop, start:stop],
++        schur_second[start:stop, start:stop], check_finite=False)
++    extension = np.empty((decay_count, propagating_count), dtype=complex)
++    for index, value in enumerate(values):
++        forcing = -(schur_first[:start, start:stop]
++                    - value * schur_second[:start, start:stop]) @ vectors[:, index]
++        extension[:, index] = la.solve_triangular(
++            schur_first[:start, :start] - value * schur_second[:start, :start],
++            forcing, check_finite=False)
++    modes = right[:, :start] @ extension + right[:, start:stop] @ vectors
++    modes /= np.linalg.norm(modes, axis=0)
++
++    unused = np.ones(propagating_count, dtype=bool)
++    outgoing = []
++    for index in range(propagating_count):
++        if not unused[index]:
++            continue
++        group = np.flatnonzero(unused & (np.abs(values - values[index]) < 1e-8))
++        unused[group] = False
++        group_modes = modes[:, group]
++        current = metric(group_modes)
++        velocities, rotation = la.eigh((current + current.conj().T) * 0.5,
++                                       check_finite=False)
++        outgoing.append(group_modes @ rotation[:, velocities > 0])
++    outgoing = np.hstack(outgoing)
++    mode_count = outgoing.shape[1]
++    if decay_count + mode_count != half:
++        raise la.LinAlgError("Unbalanced incoming and outgoing lead currents")
++    return np.hstack((right[:, :decay_count], outgoing)), mode_count
++
++
++class PeriodicLead:
++    """An ordered principal layer, compressed only at exactly zero couplings."""
++
++    def __init__(self, onsite, coupling):
++        self.onsite = np.asarray(onsite, dtype=complex)
++        self.coupling = np.asarray(coupling, dtype=complex)
++        self.size = len(onsite)
++        self.active = np.flatnonzero(np.any(coupling != 0, axis=0))
++        nonzero_rows = np.flatnonzero(np.any(coupling != 0, axis=1))
++        if len(nonzero_rows) <= len(self.active):
++            self.left_factor = np.eye(self.size, dtype=complex)[:, nonzero_rows]
++            self.right_factor = coupling[nonzero_rows, :].conj().T.copy()
++        else:
++            self.left_factor = coupling[:, self.active].copy()
++            self.right_factor = np.eye(self.size, dtype=complex)[:, self.active]
++        self.rank_bound = self.left_factor.shape[1]
++        if self.rank_bound:
++            scaling = np.sqrt(np.linalg.norm(self.right_factor, axis=0)
++                              / np.linalg.norm(self.left_factor, axis=0))
++            self.left_factor *= scaling
++            self.right_factor /= scaling
++        self.active_right = self.right_factor[self.active, :]
++        self.active_coupling = self.coupling[:, self.active]
++
++    def _compressed(self, energy):
++        rank = self.rank_bound
++        inverse_onsite = la.solve(
++            energy * np.eye(self.size) - self.onsite,
++            np.hstack((self.left_factor, self.right_factor)),
++            assume_a="her", check_finite=False)
++        inverse_left = inverse_onsite[:, :rank]
++        inverse_right = inverse_onsite[:, rank:]
++        left_adjoint = self.left_factor.conj().T
++        right_adjoint = self.right_factor.conj().T
++        left_left = left_adjoint @ inverse_left
++        left_right = left_adjoint @ inverse_right
++        right_left = right_adjoint @ inverse_left
++        right_right = right_adjoint @ inverse_right
++        first = np.block([[right_left, np.zeros((rank, rank))],
++                          [-left_left, np.eye(rank)]])
++        second = np.block([[np.eye(rank), -right_right],
++                           [np.zeros((rank, rank)), left_right]])
++
++        def metric(vectors):
++            product = vectors[:rank].conj().T @ vectors[rank:]
++            return 1j * (product - product.conj().T)
++
++        subspace, count = _outgoing_subspace((first, second), metric)
++        reduced_surface = la.solve(subspace[:rank].T, subspace[rank:].T,
++                                   check_finite=False).T
++        sigma = self.active_right @ reduced_surface @ self.active_right.conj().T
++        return sigma, count
++
++    def _uncompressed(self, energy):
++        size = self.size
++        identity = np.eye(size)
++        first = np.block([[energy * identity - self.onsite, -self.coupling],
++                          [identity, np.zeros((size, size))]])
++        second = la.block_diag(self.coupling.conj().T, identity)
++
++        def metric(vectors):
++            product = vectors[size:].conj().T @ self.coupling.conj().T @ vectors[:size]
++            return 1j * (product - product.conj().T)
++
++        subspace, count = _outgoing_subspace((first, second), metric)
++        transfer_active = la.solve(subspace[size:].T,
++                                   subspace[:size, :].T, check_finite=False).T
++        sigma = self.active_coupling.conj().T @ transfer_active[:, self.active]
++        return sigma, count
++
++    def _residual(self, energy, sigma):
++        operator = energy * np.eye(self.size, dtype=complex) - self.onsite
++        operator[np.ix_(self.active, self.active)] -= sigma
++        propagated = la.solve(operator, self.active_coupling, check_finite=False)
++        defect = sigma - self.active_coupling.conj().T @ propagated
++        return la.norm(defect) / max(1.0, la.norm(sigma))
++
++    def selfenergy(self, energy):
++        """Return the retarded selfenergy and a flux-channel factor of Gamma."""
++        if not self.rank_bound:
++            return np.zeros((0, 0), complex), np.zeros((0, 0), complex), 0
++        with warnings.catch_warnings():
++            warnings.simplefilter("error", la.LinAlgWarning)
++            try:
++                sigma, count = self._compressed(energy)
++                if self._residual(energy, sigma) > 2e-8:
++                    raise la.LinAlgError("Inaccurate compressed surface resolvent")
++            except (la.LinAlgError, la.LinAlgWarning, ValueError):
++                sigma, count = self._uncompressed(energy)
++        gamma = 1j * (sigma - sigma.conj().T)
++        strengths, vectors = la.eigh(gamma, check_finite=False)
++        if count:
++            factor = vectors[:, -count:] * np.sqrt(np.maximum(strengths[-count:], 0))
++        else:
++            factor = np.zeros((len(self.active), 0), complex)
++        sigma = 0.5 * (sigma + sigma.conj().T) - 0.5j * (factor @ factor.conj().T)
++        return sigma, factor, count
+*** Add File: ../attempt/transport.py
++"""Exact finite-cut assembly and sparse Fisher--Lee scattering."""
++
++import numpy as np
++import scipy.linalg as la
++import scipy.sparse as sp
++from scipy.sparse.linalg import splu
++
++from leads import PeriodicLead
++
++
++def hopping_dictionary(case):
++    blocks = {}
++    for translation, matrix in zip(case["h_R"], case["h_matrices"]):
++        key = tuple(translation)
++        if key in blocks:
++            blocks[key] = blocks[key] + matrix
++        else:
++            blocks[key] = matrix
++    return blocks
++
++
++def make_leads(case, blocks):
++    orbital_count = case["h_matrices"].shape[1]
++    cell_indices = {tuple(tag): index for index, tag in enumerate(case["cells"])}
++    leads, interfaces = [], []
++    for lead_index in range(int(case["lead_count"])):
++        tags = case[f"lead_cells_{lead_index}"]
++        period = case[f"lead_period_{lead_index}"]
++        shape = (len(tags), orbital_count, len(tags), orbital_count)
++        onsite, coupling = np.zeros(shape, complex), np.zeros(shape, complex)
++        for row, row_tag in enumerate(tags):
++            for column, column_tag in enumerate(tags):
++                onsite_block = blocks.get(tuple(column_tag - row_tag))
++                coupling_block = blocks.get(tuple(column_tag - row_tag - period))
++                if onsite_block is not None:
++                    onsite[row, :, column, :] = onsite_block
++                if coupling_block is not None:
++                    coupling[row, :, column, :] = coupling_block
++        size = len(tags) * orbital_count
++        onsite, coupling = onsite.reshape(size, size), coupling.reshape(size, size)
++        onsite.flat[::size + 1] += float(case[f"lead_shift_{lead_index}"])
++        lead = PeriodicLead(onsite, coupling)
++        interface = np.asarray([cell_indices[tuple(tag)] for tag in tags])
++        interface = (interface[:, None] * orbital_count + np.arange(orbital_count)).ravel()
++        leads.append(lead)
++        interfaces.append(interface[lead.active])
++    return leads, interfaces
++
++
++def device_operator(case, blocks, interfaces):
++    """Assemble every nonzero hopping, reserving dense contact subblocks."""
++    cells = case["cells"]
++    cell_count = len(cells)
++    orbital_count = case["h_matrices"].shape[1]
++    size = cell_count * orbital_count
++    padding = np.max(np.abs(case["h_R"]), axis=0)
++    extents = np.ptp(cells, axis=0) + 2 * padding + 1
++    strides = np.array([extents[1] * extents[2], extents[2], 1], dtype=np.int64)
++    keys = (cells - cells.min(axis=0) + padding) @ strides
++    order = np.argsort(keys)
++    sorted_keys = keys[order]
++    row_counts = np.ones((cell_count, orbital_count), dtype=np.int64)
++    connections = []
++    for translation, block in blocks.items():
++        targets = keys + np.asarray(translation) @ strides
++        positions = np.searchsorted(sorted_keys, targets)
++        positions = np.minimum(positions, cell_count - 1)
++        sources = np.flatnonzero(sorted_keys[positions] == targets)
++        destinations = order[positions[sources]]
++        row_counts[sources] += np.count_nonzero(block, axis=1)
++        connections.append((sources, destinations, block))
++    row_counts = row_counts.ravel()
++    for interface in interfaces:
++        row_counts[interface] += len(interface)
++    indptr = np.empty(size + 1, dtype=np.int64)
++    indptr[0] = 0
++    np.cumsum(row_counts, out=indptr[1:])
++    if indptr[-1] < np.iinfo(np.int32).max:
++        indptr = indptr.astype(np.int32)
++    values = np.empty(indptr[-1], dtype=complex)
++    columns = np.empty(indptr[-1], dtype=np.int32)
++    cursor = indptr[:-1].copy()
++    values[cursor] = -case["potential"].ravel()
++    columns[cursor] = np.arange(size)
++    cursor += 1
++    for sources, destinations, block in connections:
++        for orbital in range(orbital_count):
++            nonzero = np.flatnonzero(block[orbital] != 0)
++            rows = sources * orbital_count + orbital
++            locations = cursor[rows, None] + np.arange(len(nonzero))
++            values[locations] = -block[orbital, nonzero]
++            columns[locations] = destinations[:, None] * orbital_count + nonzero
++            cursor[rows] += len(nonzero)
++    for interface in interfaces:
++        locations = cursor[interface, None] + np.arange(len(interface))
++        columns[locations] = interface[None, :]
++        values[locations] = 0
++        cursor[interface] += len(interface)
++    operator = sp.csr_matrix((values, columns, indptr), shape=(size, size))
++    operator.sum_duplicates()
++    operator = operator.tocsc()
++    operator.sort_indices()
++    diagonal = np.empty(size, dtype=np.int64)
++    for column in range(size):
++        start, stop = operator.indptr[column:column + 2]
++        diagonal[column] = start + np.searchsorted(operator.indices[start:stop], column)
++    contacts = []
++    for interface in interfaces:
++        locations = np.empty((len(interface), len(interface)), dtype=np.int64)
++        for index, column in enumerate(interface):
++            start, stop = operator.indptr[column:column + 2]
++            locations[:, index] = start + np.searchsorted(operator.indices[start:stop], interface)
++        contacts.append(locations)
++    return operator, diagonal, contacts
++
++
++def solve_transport(case):
++    blocks = hopping_dictionary(case)
++    leads, interfaces = make_leads(case, blocks)
++    operator, diagonal, contact_locations = device_operator(case, blocks, interfaces)
++    base_values = operator.data.copy()
++    lead_count = len(leads)
++    energy_count = len(case["energies"])
++    maximum_size = max(lead.size for lead in leads)
++    shape = (energy_count, lead_count, lead_count)
++    result = {
++        "mode_counts": np.zeros((energy_count, lead_count), dtype=np.int64),
++        "transmission": np.zeros(shape),
++        "channels": np.zeros(shape + (maximum_size,)),
++        "partition_noise": np.zeros(shape),
++        "lb_conductance": np.zeros(shape),
++    }
++    for lead_index, lead in enumerate(leads):
++        result[f"sigma_{lead_index}"] = np.zeros((energy_count, lead.size, lead.size), complex)
++
++    for energy_index, energy in enumerate(case["energies"]):
++        operator.data[:] = base_values
++        operator.data[diagonal] += energy
++        factors = []
++        for lead_index, lead in enumerate(leads):
++            sigma, factor, count = lead.selfenergy(float(energy))
++            result[f"sigma_{lead_index}"][energy_index][np.ix_(lead.active, lead.active)] = sigma
++            result["mode_counts"][energy_index, lead_index] = count
++            operator.data[contact_locations[lead_index]] -= sigma
++            factors.append(factor)
++
++        counts = result["mode_counts"][energy_index]
++        offsets = np.r_[0, np.cumsum(counts)]
++        total_modes = int(offsets[-1])
++        if not total_modes:
++            continue
++        factorization = splu(operator, permc_spec="MMD_AT_PLUS_A", diag_pivot_thresh=0.01,
++                             options={"SymmetricMode": True})
++        scattering = np.eye(total_modes, dtype=complex)
++        batch_size = 32
++        for incoming, (interface, source_factor) in enumerate(zip(interfaces, factors)):
++            for start in range(0, counts[incoming], batch_size):
++                stop = min(start + batch_size, counts[incoming])
++                source = np.zeros((operator.shape[0], stop - start), dtype=complex, order="F")
++                source[interface] = source_factor[:, start:stop]
++                solution = factorization.solve(source)
++                columns = slice(offsets[incoming] + start, offsets[incoming] + stop)
++                for outgoing, (target, target_factor) in enumerate(zip(interfaces, factors)):
++                    rows = slice(offsets[outgoing], offsets[outgoing + 1])
++                    scattering[rows, columns] -= 1j * target_factor.conj().T @ solution[target]
++        del factorization
++        for outgoing in range(lead_count):
++            rows = slice(offsets[outgoing], offsets[outgoing + 1])
++            for incoming in range(lead_count):
++                columns = slice(offsets[incoming], offsets[incoming + 1])
++                scattering_block = scattering[rows, columns]
++                if outgoing == incoming:
++                    transmission = float(np.sum(np.abs(scattering_block) ** 2))
++                else:
++                    eigenvalues = np.clip(la.svdvals(scattering_block, check_finite=False) ** 2, 0, 1)
++                    result["channels"][energy_index, outgoing, incoming, :len(eigenvalues)] = eigenvalues
++                    result["partition_noise"][energy_index, outgoing, incoming] = np.sum(
++                        eigenvalues * (1 - eigenvalues))
++                    transmission = float(np.sum(eigenvalues))
++                result["transmission"][energy_index, outgoing, incoming] = transmission
++        result["lb_conductance"][energy_index] = np.diag(counts) - result["transmission"][energy_index]
++    return result
+*** End Patch
+PATCH
+chmod +x ../attempt/solve.py
+OPENBLAS_NUM_THREADS=1 python ../attempt/solve.py --input input/example.npz --output ../attempt/example_result.npz' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 781ms:
+Success. Updated the following files:
+A ../attempt/solve.py
+A ../attempt/leads.py
+A ../attempt/transport.py
+D ../attempt/solve.py
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python - <<'PY'
+import numpy as np, scipy.linalg as la, sys
+sys.path.insert(0,'../attempt')
+from transport import make_leads, hopping_dictionary, device_operator
+case=dict(np.load('input/example.npz')); result=dict(np.load('../attempt/example_result.npz'))
+for key in ['mode_counts','transmission','partition_noise','lb_conductance']:
+ print(key, result[key])
+print('channels',result['channels'][0,1,0,:8])
+print('current error',np.max(abs(result['transmission'].sum(1)-result['mode_counts'])), np.max(abs(result['lb_conductance'].sum(2))))
+blocks=hopping_dictionary(case); leads,interfaces=make_leads(case,blocks); operator,diagonal,contacts=device_operator(case,blocks,interfaces)
+orb=case['h_matrices'].shape[1]; cells=case['cells']; dense=np.zeros((len(cells),orb,len(cells),orb),complex)
+for row,rtag in enumerate(cells):
+ for col,ctag in enumerate(cells):
+  dense[row,:,col,:]=blocks.get(tuple(ctag-rtag),np.zeros((orb,orb)))
+dense=dense.reshape(operator.shape); dense[np.diag_indices_from(dense)]+=case['potential'].ravel()
+print('assembly error',la.norm(dense+operator.toarray()))
+energy=case['energies'][0]; factors=[]
+for index,lead in enumerate(leads):
+ sigma=result[f'sigma_{index}'][0]; gamma=1j*(sigma-sigma.conj().T)
+ print('lead',index,'dyson residual',lead._residual(energy,sigma[np.ix_(lead.active,lead.active)]),'causality',la.eigvalsh(gamma)[0])
+ local_sigma,factor,count=lead.selfenergy(energy); factors.append(factor)
+ dense[np.ix_(interfaces[index],interfaces[index])]+=local_sigma
+resolvent=la.inv(energy*np.eye(len(dense))-dense)
+trans=factors[1].conj().T@resolvent[np.ix_(interfaces[1],interfaces[0])]@factors[0]
+print('dense transmission check',la.svdvals(trans)**2)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 1668ms:
+mode_counts [[3 3]]
+transmission [[[1.04915048 1.95084952]
+  [1.95084952 1.04915048]]]
+partition_noise [[[0.         0.04679127]
+  [0.04679127 0.        ]]]
+lb_conductance [[[ 1.95084952 -1.95084952]
+  [-1.95084952  1.95084952]]]
+channels [9.99417746e-01 9.51431775e-01 1.95926531e-13 0.00000000e+00
+ 0.00000000e+00 0.00000000e+00 0.00000000e+00 0.00000000e+00]
+current error 2.3092638912203256e-14 2.375877272697835e-14
+assembly error 0.0
+lead 0 dyson residual 3.83010179816357e-15 causality -1.602372652698228e-15
+lead 1 dyson residual 3.1458071373324036e-15 causality -2.0800678029526814e-15
+dense transmission check [9.99417746e-01 9.51431775e-01 1.95926531e-13]
+
+Implemented real-energy generalized-Schur lead selfenergies and the sparse Fisher–Lee multi-contact solver; the supplied smoke input runs successfully.
+  ✓ Inspect models and numerical constraints
+  ✓ Implement causal singular-lead selfenergies
+  ✓ Implement sparse multi-terminal scattering
+  → Validate physics and resource usage
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -u - <<'PY'
+import sys,time,resource,numpy as np
+sys.path.insert(0,'../attempt')
+from transport import solve_transport
+resource.setrlimit(resource.RLIMIT_AS,(1024**3,1024**3))
+case=dict(np.load('input/example.npz'))
+case['cells']=np.asarray([(xx,yy,zz) for xx in range(100) for yy in range(5) for zz in range(3)])
+case['potential']=np.zeros((len(case['cells']),8))
+case['lead_cells_0']=case['cells'][case['cells'][:,0]<4]
+case['lead_cells_1']=case['cells'][case['cells'][:,0]>=96]
+case['lead_period_0']=np.array([-4,0,0]); case['lead_period_1']=np.array([4,0,0])
+print('large case:',len(case['cells'])*8,'orbitals, interfaces',len(case['lead_cells_0'])*8,flush=True)
+start=time.perf_counter(); result=solve_transport(case)
+print('wall',time.perf_counter()-start,'maxRSS MiB',resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024)
+print('modes',result['mode_counts'],'T',result['transmission'],'noise',result['partition_noise'])
+print('current error',np.max(abs(result['lb_conductance'].sum(1))),np.max(abs(result['lb_conductance'].sum(2))))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+codex
+The smoke case passes conservation checks. Next: edge cases and scale.
+
+ succeeded in 19177ms:
+large case: 12000 orbitals, interfaces 480
+wall 13.548352357989643 maxRSS MiB 386.02734375
+modes [[10 10]] T [[[1.01014481e-23 1.00000000e+01]
+  [1.00000000e+01 1.00092167e-23]]] noise [[[0.00000000e+00 7.13429316e-13]
+  [4.95381514e-13 0.00000000e+00]]]
+current error 7.140954494389007e-13 7.140954494389007e-13
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python -u - <<'PY'
+import numpy as np, sys, scipy.linalg as la
+sys.path.insert(0,'../attempt')
+from transport import solve_transport
+from leads import PeriodicLead
+
+def chain(onsite,hop,length=9,period=1):
+ orb=len(onsite); cells=np.asarray([(index,0,0) for index in range(length)])
+ return dict(schema_version=np.asarray(1),h_R=np.array([[-1,0,0],[0,0,0],[1,0,0]]),h_matrices=np.array([hop.conj().T,onsite,hop]),cell=np.eye(3),orbital_positions=np.zeros((orb,3)),cells=cells,potential=np.zeros((length,orb)),energies=np.array([0.,.4,3.]),lead_count=np.asarray(2),lead_cells_0=cells[:period],lead_cells_1=cells[-period:],lead_period_0=np.array([-period,0,0]),lead_period_1=np.array([period,0,0]),lead_shift_0=np.asarray(0.),lead_shift_1=np.asarray(0.))
+for period in [1,2,4]:
+ case=chain(np.zeros((1,1)),np.array([[-1.]]),period=period)
+ case['potential'][4]=.7
+ result=solve_transport(case)
+ expected=np.array([4/(4+.49),(4-.16)/(4-.16+.49),0])
+ print('scalar period',period,'modes',result['mode_counts'].T,'T error',np.max(abs(result['transmission'][:,1,0]-expected)),flush=True)
+case=chain(np.zeros((2,2)),np.diag([1j,-1j])); case['energies']=np.array([0.,.4,2.5])
+result=solve_transport(case)
+print('degenerate opposite velocities:',result['mode_counts'],result['transmission'][:,1,0])
+case=chain(np.diag([0.,4.]),np.diag([-1.,0.]),period=3); result=solve_transport(case)
+print('singular hopping',result['mode_counts'],result['transmission'][:,1,0])
+for size in [1,3,8,16]:
+ rng=np.random.default_rng(size); raw=rng.normal(size=(size,size))+1j*rng.normal(size=(size,size)); onsite=(raw+raw.conj().T)/size; coupling=rng.normal(size=(size,size))+1j*rng.normal(size=(size,size)); coupling/=np.sqrt(size)
+ if size>1: coupling[:size//2,:]=0
+ lead=PeriodicLead(onsite,coupling)
+ for energy in [-3.,0.,2.]:
+  sigma,factor,count=lead.selfenergy(energy)
+  print('random lead',size,energy,'modes',count,'residual',lead._residual(energy,sigma))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ exited 1 in 2075ms:
+Traceback (most recent call last):
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant/../attempt/leads.py", line 156, in selfenergy
+    sigma, count = self._compressed(energy)
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant/../attempt/leads.py", line 98, in _compressed
+    inverse_onsite = la.solve(
+  File "/usr/lib/python3/dist-packages/scipy/linalg/_basic.py", line 233, in solve
+    _solve_check(n, info)
+  File "/usr/lib/python3/dist-packages/scipy/linalg/_basic.py", line 29, in _solve_check
+    raise LinAlgError('Matrix is singular.')
+numpy.linalg.LinAlgError: Matrix is singular.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<stdin>", line 12, in <module>
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant/../attempt/transport.py", line 141, in solve_transport
+    sigma, factor, count = lead.selfenergy(float(energy))
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant/../attempt/leads.py", line 160, in selfenergy
+    sigma, count = self._uncompressed(energy)
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant/../attempt/leads.py", line 136, in _uncompressed
+    subspace, count = _outgoing_subspace((first, second), metric)
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant/../attempt/leads.py", line 47, in _outgoing_subspace
+    extension[:, index] = la.solve_triangular(
+  File "/usr/lib/python3/dist-packages/scipy/linalg/_basic.py", line 351, in solve_triangular
+    x, info = trtrs(a1, b1, overwrite_b=overwrite_b, lower=lower,
+ValueError: On entry to ZTRTRS parameter number 7 had an illegal value
+
+**Optimizing code structure**
+
+I need to write code without inline comments, but I should include docstrings for clarity. It’s important to retain licenses in all file copies without adding new headers. My focus will be on creating executable modules that are efficient. I should also optimize memory usage for base data copying and deal with any large overhead associated with the operator. Additionally, I need to consider resources when working with FactorLU.
+**Addressing coding issues**
+
+I’m noting that the "zero decay d0" and "solve_triangular" functions might run into problems if they encounter an empty state. It’s essential to include a guard clause to check for the decay count. If it’s zero, I need to handle the situation properly. I’m also thinking about using `np.zeros` to create shapes, but I should ensure it only fills when there are actual rows to populate. Hmm, I definitely need to patch this up!
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: ../attempt/leads.py
+@@
+-    for index, value in enumerate(values):
+-        forcing = -(schur_first[:start, start:stop]
+-                    - value * schur_second[:start, start:stop]) @ vectors[:, index]
+-        extension[:, index] = la.solve_triangular(
+-            schur_first[:start, :start] - value * schur_second[:start, :start],
+-            forcing, check_finite=False)
++    if decay_count:
++        for index, value in enumerate(values):
++            forcing = -(schur_first[:start, start:stop]
++                        - value * schur_second[:start, start:stop]) @ vectors[:, index]
++            extension[:, index] = la.solve_triangular(
++                schur_first[:start, :start] - value * schur_second[:start, :start],
++                forcing, check_finite=False)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python -u - <<'PY'
+import numpy as np, sys, scipy.linalg as la
+sys.path.insert(0,'../attempt')
+from transport import solve_transport
+from leads import PeriodicLead
+
+def chain(onsite,hop,length=9,period=1):
+ orb=len(onsite); cells=np.asarray([(index,0,0) for index in range(length)])
+ return dict(schema_version=np.asarray(1),h_R=np.array([[-1,0,0],[0,0,0],[1,0,0]]),h_matrices=np.array([hop.conj().T,onsite,hop]),cell=np.eye(3),orbital_positions=np.zeros((orb,3)),cells=cells,potential=np.zeros((length,orb)),energies=np.array([0.,.4,3.]),lead_count=np.asarray(2),lead_cells_0=cells[:period],lead_cells_1=cells[-period:],lead_period_0=np.array([-period,0,0]),lead_period_1=np.array([period,0,0]),lead_shift_0=np.asarray(0.),lead_shift_1=np.asarray(0.))
+for period in [1,2,4]:
+ case=chain(np.zeros((1,1)),np.array([[-1.]]),period=period)
+ case['potential'][4]=.7
+ result=solve_transport(case)
+ expected=np.array([4/(4+.49),(4-.16)/(4-.16+.49),0])
+ print('scalar period',period,'modes',result['mode_counts'].T,'T error',np.max(abs(result['transmission'][:,1,0]-expected)),flush=True)
+case=chain(np.zeros((2,2)),np.diag([1j,-1j])); case['energies']=np.array([0.,.4,2.5])
+result=solve_transport(case)
+print('degenerate opposite velocities:',result['mode_counts'],result['transmission'][:,1,0])
+case=chain(np.diag([0.,4.]),np.diag([-1.,0.]),period=3); result=solve_transport(case)
+print('singular hopping',result['mode_counts'],result['transmission'][:,1,0])
+for size in [1,3,8,16]:
+ rng=np.random.default_rng(size); raw=rng.normal(size=(size,size))+1j*rng.normal(size=(size,size)); onsite=(raw+raw.conj().T)/size; coupling=rng.normal(size=(size,size))+1j*rng.normal(size=(size,size)); coupling/=np.sqrt(size)
+ if size>1: coupling[:size//2,:]=0
+ lead=PeriodicLead(onsite,coupling)
+ for energy in [-3.,0.,2.]:
+  sigma,factor,count=lead.selfenergy(energy)
+  print('random lead',size,energy,'modes',count,'residual',lead._residual(energy,sigma))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 8088ms:
+Success. Updated the following files:
+M ../attempt/leads.py
+scalar period 1 modes [[1 1 0]
+ [1 1 0]] T error 6.661338147750939e-16
+scalar period 2 modes [[1 1 0]
+ [1 1 0]] T error 1.2212453270876722e-15
+scalar period 4 modes [[1 1 0]
+ [1 1 0]] T error 5.551115123125783e-16
+degenerate opposite velocities: [[2 2]
+ [2 2]
+ [0 0]] [2. 2. 0.]
+singular hopping [[1 1]
+ [1 1]
+ [0 0]] [1. 1. 0.]
+random lead 1 -3.0 modes 0 residual 1.1102230246251565e-16
+random lead 1 0.0 modes 1 residual 3.895356459800378e-16
+random lead 1 2.0 modes 1 residual 2.9775144248053746e-16
+random lead 3 -3.0 modes 1 residual 7.599043142535225e-16
+random lead 3 0.0 modes 1 residual 5.739226304049508e-15
+random lead 3 2.0 modes 0 residual 1.4378401276177358e-15
+random lead 8 -3.0 modes 1 residual 1.3369963570361219e-15
+random lead 8 0.0 modes 1 residual 6.1506702214471055e-15
+random lead 8 2.0 modes 2 residual 3.1434225439099075e-15
+random lead 16 -3.0 modes 0 residual 1.0798183352360374e-15
+random lead 16 0.0 modes 2 residual 5.1170404984903456e-14
+random lead 16 2.0 modes 3 residual 4.649734114681902e-15
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python -u - <<'PY'
+import numpy as np, sys, scipy.linalg as la, time,resource
+sys.path.insert(0,'../attempt')
+from transport import solve_transport
+cells=np.asarray([(index,0,0) for index in range(-5,6)]+[(0,index,0) for index in range(1,6)])
+case=dict(schema_version=np.asarray(1),h_R=np.array([[-1,0,0],[0,-1,0],[0,0,0],[0,1,0],[1,0,0]]),h_matrices=np.array([[[-1.]],[[-1.]],[[0.]],[[-1.]],[[-1.]]],complex),cell=np.eye(3),orbital_positions=np.zeros((1,3)),cells=cells,potential=np.zeros((len(cells),1)),energies=np.array([0.,.7]),lead_count=np.asarray(3))
+for index,(tag,period) in enumerate([((-5,0,0),(-1,0,0)),((5,0,0),(1,0,0)),((0,5,0),(0,1,0))]):
+ case[f'lead_cells_{index}']=np.asarray([tag]); case[f'lead_period_{index}']=np.asarray(period); case[f'lead_shift_{index}']=np.asarray(0.)
+result=solve_transport(case)
+print('analytic 3-way junction at E=0',result['transmission'][0], 'analytic error',np.max(abs(result['transmission'][0]-(np.ones((3,3))*4-np.eye(3)*3)/9)))
+case['lead_shift_2']=np.asarray(4.)
+result=solve_transport(case)
+print('closed side lead counts',result['mode_counts'],'current error',np.max(abs(result['lb_conductance'].sum(1))))
+resource.setrlimit(resource.RLIMIT_AS,(1024**3,1024**3))
+case=dict(np.load('input/example.npz'))
+case['cells']=np.asarray([(xx,yy,zz) for xx in range(120) for yy in range(3) for zz in range(2)]+[(xx,yy,zz) for xx in range(60,63) for yy in range(3,38) for zz in range(2)])
+case['potential']=np.broadcast_to(.3*np.exp(-((case['cells'][:,0,None]-60)/12)**2),(len(case['cells']),8)).copy()
+case['lead_cells_0']=case['cells'][case['cells'][:,0]<4]; case['lead_cells_1']=case['cells'][case['cells'][:,0]>=116]; case['lead_cells_2']=case['cells'][case['cells'][:,1]>=34]
+case['lead_period_0']=np.array([-4,0,0]); case['lead_period_1']=np.array([4,0,0]); case['lead_period_2']=np.array([0,4,0]); case['lead_shift_2']=np.asarray(.12); case['lead_count']=np.asarray(3); case['energies']=np.array([5.9,6.753376925831288,7.2])
+print('large 3-terminal',len(case['cells'])*8,'orbitals, 3 energies')
+start=time.perf_counter(); result=solve_transport(case)
+print('wall',time.perf_counter()-start,'maxRSS MiB',resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024)
+print('modes',result['mode_counts'],'transmission',result['transmission'])
+print('current error',np.max(abs(result['lb_conductance'].sum(1))),np.max(abs(result['lb_conductance'].sum(2))))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 16505ms:
+analytic 3-way junction at E=0 [[0.11111111 0.44444444 0.44444444]
+ [0.44444444 0.11111111 0.44444444]
+ [0.44444444 0.44444444 0.11111111]] analytic error 3.3306690738754696e-16
+closed side lead counts [[1 1 0]
+ [1 1 0]] current error 2.220446049250313e-16
+large 3-terminal 7440 orbitals, 3 energies
+wall 6.174167399993166 maxRSS MiB 171.7734375
+modes [[4 4 4]
+ [5 5 5]
+ [6 6 6]] transmission [[[1.55638894 1.75506942 0.68854164]
+  [1.75482266 1.42295212 0.82222522]
+  [0.68878839 0.82197846 2.48923315]]
+
+ [[2.63262186 1.69791959 0.66945855]
+  [1.69742766 2.28232188 1.02025046]
+  [0.66995048 1.01975852 3.31029099]]
+
+ [[2.13772167 2.52038811 1.34189022]
+  [2.52251348 1.66780385 1.80968267]
+  [1.33976485 1.81180804 2.84842711]]]
+current error 8.659739592076221e-14 8.071321389024888e-14
+
+exec
+/bin/bash -c "date; OPENBLAS_NUM_THREADS=1 python -u - <<'PY'
+import sys,time,resource,numpy as np
+sys.path.insert(0,'../attempt')
+from transport import solve_transport
+from leads import PeriodicLead
+resource.setrlimit(resource.RLIMIT_AS,(1024**3,1024**3))
+original=PeriodicLead.selfenergy
+
+def timed(self,energy):
+ start=time.perf_counter(); output=original(self,energy); print('lead',self.size,'rank bound',self.rank_bound,'modes',output[-1],'seconds',time.perf_counter()-start,flush=True); return output
+PeriodicLead.selfenergy=timed
+case=dict(np.load('input/example.npz')); case['cells']=np.asarray([(xx,yy,zz) for xx in range(60) for yy in range(6) for zz in range(4)]); case['potential']=np.zeros((len(case['cells']),8)); case['lead_cells_0']=case['cells'][case['cells'][:,0]<4]; case['lead_cells_1']=case['cells'][case['cells'][:,0]>=56]; case['lead_period_0']=np.array([-4,0,0]); case['lead_period_1']=np.array([4,0,0]); start=time.perf_counter()
+print('large wider case',len(case['cells'])*8,'orbitals')
+result=solve_transport(case)
+print('wall',time.perf_counter()-start,'maxRSS MiB',resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024)
+print('modes',result['mode_counts'],'transmission',result['transmission'])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 44116ms:
+Thu Aug 27 18:50:17 PDT 2026
+large wider case 11520 orbitals
+lead 768 rank bound 537 modes 10 seconds 18.506908531009685
+lead 768 rank bound 537 modes 10 seconds 18.094004875980318
+wall 42.286241698951926 maxRSS MiB 548.87890625
+modes [[10 10]] transmission [[[5.35348445e-24 1.00000000e+01]
+  [1.00000000e+01 6.45077410e-24]]]
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python -u - <<'PY'
+import numpy as np, scipy.linalg as la, sys
+sys.path.insert(0,'../attempt')
+from transport import solve_transport, hopping_dictionary, make_leads
+rng=np.random.default_rng(813); original=dict(np.load('input/example.npz')); reference=solve_transport(original); shuffled={key:value.copy() for key,value in original.items()}
+order=rng.permutation(len(shuffled['cells'])); shift=np.array([-103,81,-9]); shuffled['cells']=shuffled['cells'][order]+shift; shuffled['potential']=shuffled['potential'][order]; permutations=[]
+for index in range(int(shuffled['lead_count'])):
+ key=f'lead_cells_{index}'; permutation=rng.permutation(len(shuffled[key])); shuffled[key]=shuffled[key][permutation]+shift; permutations.append((permutation[:,None]*8+np.arange(8)).ravel())
+order=rng.permutation(len(shuffled['h_R'])); shuffled['h_R']=shuffled['h_R'][order]; shuffled['h_matrices']=shuffled['h_matrices'][order]; result=solve_transport(shuffled)
+for key in ['mode_counts','transmission','channels','partition_noise','lb_conductance']:
+ print('ordering invariance',key,np.max(abs(result[key]-reference[key])))
+for index,permutation in enumerate(permutations):
+ print('ordered sigma',index,np.max(abs(result[f'sigma_{index}'][0]-reference[f'sigma_{index}'][0][np.ix_(permutation,permutation)])))
+leads,_=make_leads(original,hopping_dictionary(original)); lead=leads[0]; sample=[]
+for momentum in np.linspace(-np.pi,np.pi,1025):
+ phase=np.exp(1j*momentum); sample.append(la.eigvalsh(lead.onsite+phase*lead.coupling.conj().T+phase.conjugate()*lead.coupling,check_finite=False))
+sample=np.asarray(sample)
+for energy in [-3.,0.,3.,6.,float(original['energies'][0]),8.,11.]:
+ sigma,factor,count=lead.selfenergy(energy); expected=np.count_nonzero((sample[:-1]<energy)&(sample[1:]>energy)); print('independent Bloch crossings',energy,count,expected)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 1011ms:
+ordering invariance mode_counts 0
+ordering invariance transmission 3.397282455352979e-14
+ordering invariance channels 5.440092820663267e-15
+ordering invariance partition_noise 5.134781488891349e-15
+ordering invariance lb_conductance 3.397282455352979e-14
+ordered sigma 0 4.744103493806689e-14
+ordered sigma 1 6.27822719000755e-14
+independent Bloch crossings -3.0 0 0
+independent Bloch crossings 0.0 0 0
+independent Bloch crossings 3.0 1 1
+independent Bloch crossings 6.0 2 2
+independent Bloch crossings 6.753376925831288 3 3
+independent Bloch crossings 8.0 2 2
+independent Bloch crossings 11.0 2 2
+
+**Inspecting structural rank bounds**
+
+It seems I'm thinking about structural rank and matrix rank. SVD usually helps maintain structural rank, yet there could be some algebraic zeros present, which might not be harmful if the vectors are small. I'm considering the effects of pencil noise and that extra dimensions may create issues, but possibly not if there are fewer dimensions. Also, I suspect that with a hopping pattern being sparse, the structural rank is often around n*0.5. I need to investigate further.
+codex
+Scale tests pass so far. I’ll reduce lead-solver cost further.
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python -u - <<'PY'
+import sys, numpy as np, scipy.linalg as la, scipy.sparse as sp, scipy.sparse.csgraph as graph,time
+sys.path.insert(0,'../attempt')
+from transport import make_leads,hopping_dictionary
+for width,height in [(2,1),(5,3),(6,4)]:
+ case=dict(np.load('input/example.npz')); case['cells']=np.asarray([(xx,yy,zz) for xx in range(12) for yy in range(width) for zz in range(height)]); case['lead_cells_0']=case['cells'][case['cells'][:,0]<4]; case['lead_cells_1']=case['cells'][case['cells'][:,0]>=8]
+ leads,_=make_leads(case,hopping_dictionary(case)); lead=leads[0]; begin=time.perf_counter(); singular=la.svdvals(lead.coupling); maximum=singular[0]; structural=graph.structural_rank(sp.csr_matrix(lead.coupling)); print('n',lead.size,'active',lead.rank_bound,'structural',structural,'svd rank eps/n/1e-12',*[np.count_nonzero(singular>cutoff) for cutoff in [maximum*np.finfo(float).eps,maximum*lead.size*np.finfo(float).eps,1e-12]],'svdsecs',time.perf_counter()-begin); print('tail around structural',singular[max(0,structural-8):structural+5])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 7803ms:
+n 64 active 37 structural 32 svd rank eps/n/1e-12 32 32 32 svdsecs 0.001133281970396638
+tail around structural [6.74316139e-04 2.55517209e-04 2.02022017e-04 7.03043680e-05
+ 4.79093005e-05 3.40300965e-06 1.06308455e-08 2.54578231e-12
+ 4.20246076e-18 2.85210332e-18 1.10716079e-18 1.02485841e-18
+ 1.34003825e-19]
+n 480 active 329 structural 250 svd rank eps/n/1e-12 250 250 250 svdsecs 0.04943914199247956
+tail around structural [2.25665030e-05 1.74506839e-05 1.22815853e-05 9.20181983e-06
+ 3.72799755e-06 1.08943150e-06 1.16656111e-07 5.49282804e-09
+ 1.62740862e-16 1.19591216e-16 1.13830715e-16 1.06917853e-16
+ 1.00489816e-16]
+n 768 active 537 structural 418 svd rank eps/n/1e-12 418 418 418 svdsecs 0.20680354099022225
+tail around structural [5.62712552e-06 2.65938571e-06 1.84830193e-06 1.74211348e-06
+ 6.16532150e-07 3.79866122e-07 2.96964146e-08 2.60568861e-11
+ 5.42165702e-16 4.55013465e-16 1.95763724e-16 1.80626466e-16
+ 1.66780619e-16]
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: ../attempt/leads.py
+@@
+ import numpy as np
+ import scipy.linalg as la
++import scipy.sparse as sp
++from scipy.sparse.csgraph import structural_rank
+@@
+-class PeriodicLead:
+-    \"\"\"An ordered principal layer, compressed only at exactly zero couplings.\"\"\"
++class PeriodicLead:
++    \"\"\"An ordered layer with exact-support and structural-nullspace reduction.\"\"\"
+@@
+         else:
+             self.left_factor = coupling[:, self.active].copy()
+             self.right_factor = np.eye(self.size, dtype=complex)[:, self.active]
+         self.rank_bound = self.left_factor.shape[1]
+-        if self.rank_bound:
++        support = coupling[np.ix_(nonzero_rows, self.active)]
++        structural_bound = structural_rank(sp.csr_matrix(support))
++        if structural_bound < self.rank_bound:
++            left, strengths, right = la.svd(support, full_matrices=False,
++                                            check_finite=False)
++            roots = np.sqrt(strengths[:structural_bound])
++            self.left_factor = np.zeros((self.size, structural_bound), complex)
++            self.right_factor = np.zeros((self.size, structural_bound), complex)
++            self.left_factor[nonzero_rows] = left[:, :structural_bound] * roots
++            self.right_factor[self.active] = right[:structural_bound].conj().T * roots
++            self.rank_bound = structural_bound
++        elif self.rank_bound:
+             scaling = np.sqrt(np.linalg.norm(self.right_factor, axis=0)
+                               / np.linalg.norm(self.left_factor, axis=0))
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python ../attempt/solve.py --input input/example.npz --output ../attempt/example_result.npz
+OPENBLAS_NUM_THREADS=1 python -u - <<'PY'
+import sys,time,resource,numpy as np
+sys.path.insert(0,'../attempt')
+from transport import solve_transport
+from leads import PeriodicLead
+resource.setrlimit(resource.RLIMIT_AS,(1024**3,1024**3))
+original=PeriodicLead.selfenergy
+
+def timed(self,energy):
+ start=time.perf_counter(); output=original(self,energy); print('lead',self.size,'rank bound',self.rank_bound,'modes',output[-1],'seconds',time.perf_counter()-start,flush=True); return output
+PeriodicLead.selfenergy=timed
+case=dict(np.load('input/example.npz')); case['cells']=np.asarray([(xx,yy,zz) for xx in range(60) for yy in range(6) for zz in range(4)]); case['potential']=np.zeros((len(case['cells']),8)); case['lead_cells_0']=case['cells'][case['cells'][:,0]<4]; case['lead_cells_1']=case['cells'][case['cells'][:,0]>=56]; case['lead_period_0']=np.array([-4,0,0]); case['lead_period_1']=np.array([4,0,0]); start=time.perf_counter()
+print('large wider case',len(case['cells'])*8,'orbitals')
+result=solve_transport(case)
+print('wall',time.perf_counter()-start,'maxRSS MiB',resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024)
+print('modes',result['mode_counts'],'transmission',result['transmission'])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 35546ms:
+Success. Updated the following files:
+M ../attempt/leads.py
+large wider case 11520 orbitals
+lead 768 rank bound 418 modes 10 seconds 10.176267001021188
+lead 768 rank bound 418 modes 10 seconds 10.549143093987368
+wall 26.652736914984416 maxRSS MiB 546.5546875
+modes [[10 10]] transmission [[[2.61128017e-24 1.00000000e+01]
+  [1.00000000e+01 3.80904472e-24]]]
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: ../attempt/leads.py
+@@
+-    schur_first, schur_second, alpha, beta, left, right = la.ordqz(
+-        first, second, sort=decaying, output=\"complex\", check_finite=False,
+-        overwrite_a=True, overwrite_b=True)
+-    decay_count = int(np.count_nonzero(decaying(alpha, beta)))
++    schur = la.get_lapack_funcs(\"gges\", (first, second))
++    workspace = schur(decaying, first, second, jobvsl=0, jobvsr=1,
++                      sort_t=1, lwork=-1)[-2]
++    decomposition = schur(
++        decaying, first, second, jobvsl=0, jobvsr=1, sort_t=1,
++        lwork=int(workspace[0].real), overwrite_a=1, overwrite_b=1)
++    schur_first, schur_second, decay_count, alpha, beta, unused_left, right = decomposition[:7]
++    if decomposition[-1] "'!= 0:
++        raise la.LinAlgError("Lead generalized Schur decomposition failed")
++    del unused_left
+@@
+     selected = np.asarray(decaying(alpha, beta) | unit, dtype=np.int32)
+     reorder = la.get_lapack_funcs("tgsen", (schur_first,))
++    left = np.empty_like(schur_first)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python ../attempt/solve.py --input input/example.npz --output ../attempt/example_result.npz
+OPENBLAS_NUM_THREADS=1 python -u - <<'"'PY'
+import sys,time,numpy as np
+sys.path.insert(0,'../attempt')
+from transport import make_leads,hopping_dictionary
+from leads import PeriodicLead
+case=dict(np.load('input/example.npz')); case['cells']=np.asarray([(xx,yy,zz) for xx in range(12) for yy in range(6) for zz in range(4)]); case['lead_cells_0']=case['cells'][case['cells'][:,0]<4]; case['lead_cells_1']=case['cells'][case['cells'][:,0]>=8]; leads,_=make_leads(case,hopping_dictionary(case))
+start=time.perf_counter(); sigma,factor,count=leads[0].selfenergy(float(case['energies'][0])); print('optimized 768-orbital lead',time.perf_counter()-start,'modes',count,'residual',leads[0]._residual(float(case['energies'][0]),sigma))
+print('zero coupling',PeriodicLead(np.eye(2),np.zeros((2,2))).selfenergy(0.))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 12540ms:
+Success. Updated the following files:
+M ../attempt/leads.py
+optimized 768-orbital lead 10.110147305997089 modes 10 residual 2.8086603309093405e-13
+zero coupling (array([], shape=(0, 0), dtype=complex128), array([], shape=(0, 0), dtype=complex128), 0)
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python -u - <<'PY'
+import numpy as np, scipy.linalg as la, sys
+sys.path.insert(0,'../attempt')
+from transport import make_leads,hopping_dictionary
+from leads import PeriodicLead
+
+def decimation(lead,energy,eta):
+ size=lead.size; bulk=(energy+1j*eta)*np.eye(size)-lead.onsite; surface=bulk.copy(); forward=lead.coupling.conj().T.copy(); backward=lead.coupling.copy()
+ for iteration in range(100):
+  solutions=la.solve(bulk,np.hstack((forward,backward)),check_finite=False); toward=solutions[:,:size]; away=solutions[:,size:]; surface_step=forward@away; bulk_step=backward@toward; surface-=surface_step; bulk-=surface_step+bulk_step; forward=forward@toward; backward=backward@away
+  if max(la.norm(forward),la.norm(backward))<1e-13: break
+ return lead.coupling.conj().T@la.solve(surface,lead.coupling,check_finite=False)
+case=dict(np.load('input/example.npz')); leads,_=make_leads(case,hopping_dictionary(case))
+for index,lead in enumerate(leads):
+ energy=float(case['energies'][0]); sigma,factor,count=lead.selfenergy(energy); coarse=decimation(lead,energy,1e-6); fine=decimation(lead,energy,5e-7); extrapolated=2*fine-coarse; expected=extrapolated[np.ix_(lead.active,lead.active)]; print('independent surface decimation lead',index,'relative extrapolated error',la.norm(sigma-expected)/la.norm(sigma))
+for seed in range(8):
+ generator=np.random.default_rng(seed); size=12; raw=generator.normal(size=(size,size))+1j*generator.normal(size=(size,size)); onsite=(raw+raw.conj().T)/size; coupling=(generator.normal(size=(size,size))+1j*generator.normal(size=(size,size)))/size; coupling[:4]=0; coupling[:,8:]=0; lead=PeriodicLead(onsite,coupling); sigma,factor,count=lead.selfenergy(.37); expected=(2*decimation(lead,.37,5e-7)-decimation(lead,.37,1e-6))[np.ix_(lead.active,lead.active)]; print('complex singular lead',seed,'channels',count,'relative error',la.norm(sigma-expected)/max(1,la.norm(sigma)))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 10885ms:
+independent surface decimation lead 0 relative extrapolated error 3.793344058799786e-12
+independent surface decimation lead 1 relative extrapolated error 3.78825401372153e-12
+complex singular lead 0 channels 1 relative error 2.3708502133049578e-09
+complex singular lead 1 channels 1 relative error 3.0386134812206136e-10
+complex singular lead 2 channels 2 relative error 1.697275496602364e-10
+complex singular lead 3 channels 2 relative error 6.276321051107775e-10
+complex singular lead 4 channels 2 relative error 2.7818491306737623e-07
+complex singular lead 5 channels 1 relative error 9.801076748486858e-10
+complex singular lead 6 channels 1 relative error 2.1071353716510963e-10
+complex singular lead 7 channels 1 relative error 1.9644232467018956e-10
+
+**Calculating timeframes**
+
+I'm trying to figure out the necessary time frame for my task. Right now, the most recent value I have is 2.8e-13, and I’m comparing it to an earlier value of about 6e-13. Okay, I need to run the test for 76 seconds, especially since one hour is approaching in about 18 minutes. I want to finish before 19:00. Let’s make sure I stay on track with this!
+exec
+/bin/bash -c "timeout 90s env OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -u - <<'PY'
+import sys,time,resource,numpy as np
+sys.path.insert(0,'../attempt')
+from transport import solve_transport
+resource.setrlimit(resource.RLIMIT_AS,(1024**3,1024**3))
+case=dict(np.load('input/example.npz')); case['cells']=np.asarray([(xx,yy,zz) for xx in range(60) for yy in range(6) for zz in range(4)]); case['potential']=np.broadcast_to(.25*np.exp(-((case['cells'][:,0,None]-30)/8)**2),(len(case['cells']),8)).copy(); case['lead_cells_0']=case['cells'][case['cells'][:,0]<4]; case['lead_cells_1']=case['cells'][case['cells'][:,0]>=56]; case['lead_period_0']=np.array([-4,0,0]); case['lead_period_1']=np.array([4,0,0]); case['energies']=np.array([6.45,6.753376925831288,7.05]); start=time.perf_counter()
+print('final stress benchmark: 11520 orbitals, 768-orbital interfaces, three energies',flush=True)
+result=solve_transport(case)
+print('seconds',time.perf_counter()-start,'peak MiB',resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024)
+print('modes',result['mode_counts'],'transmission',result['transmission'][:,1,0],'noise',result['partition_noise'][:,1,0])
+print('max row/column conservation errors',np.max(abs(result['lb_conductance'].sum(1))),np.max(abs(result['lb_conductance'].sum(2))))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python -u - <<'PY'
+import sys,numpy as np,scipy.linalg as la
+sys.path.insert(0,'../attempt')
+from leads import PeriodicLead
+from transport import solve_transport
+for onsite,coupling in [(np.zeros((1,1)),np.ones((1,1))),(np.zeros((2,2)),np.diag([1j,-1j])),(np.diag([0.,4.]),np.diag([-1.,0.]))]:
+ lead=PeriodicLead(onsite,coupling)
+ for energy in [0.,.4,3.]:
+  sigma,factor,count=lead.selfenergy(energy); print('final lead regression',len(onsite),energy,count,'gamma',la.eigvalsh(1j*(sigma-sigma.conj().T)))
+case=dict(np.load('input/example.npz')); result=solve_transport(case)
+assert set(result)=={'mode_counts','transmission','channels','partition_noise','lb_conductance','sigma_0','sigma_1'}
+assert all(np.isfinite(value).all() for value in result.values())
+assert result['channels'].shape==(1,2,2,64)
+assert np.max(abs(result['lb_conductance'].sum(1)))<1e-10
+assert np.max(abs(result['lb_conductance'].sum(2)))<1e-10
+print('final smoke',result['mode_counts'],result['transmission'][0,1,0],result['partition_noise'][0,1,0])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+ succeeded in 1351ms:
+final lead regression 1 0.0 1 gamma [2.]
+final lead regression 1 0.4 1 gamma [1.95959179]
+final lead regression 1 3.0 0 gamma [0.]
+final lead regression 2 0.0 2 gamma [2. 2.]
+final lead regression 2 0.4 2 gamma [1.95959179 1.95959179]
+final lead regression 2 3.0 0 gamma [0. 0.]
+final lead regression 2 0.0 1 gamma [2.]
+final lead regression 2 0.4 1 gamma [1.95959179]
+final lead regression 2 3.0 0 gamma [0.]
+final smoke [[3 3]] 1.9508495212621422 0.04679126726978184
+
+codex
+Analytic and ordering checks pass. The final stress test is running.
+
+apply patch
+patch: completed
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ded019485cc277ec4983f53b0faa6eb97cfb6108
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+@@ -0,0 +1,62 @@
++# Finite Wannier-device transport
++
++Run with the supplied NumPy/SciPy environment:
++
++```sh
++python solve.py --input CASE.npz --output RESULT.npz
++```
++
++The output contains all seven schema fields, including one ordered `sigma_j`
++array per contact. `example_result.npz` is the result for the supplied smoke
++input. The original bulk interpolator and its provenance/license are retained.
++
++## Numerical method
++
++- Assemble the finite Hamiltonian sparsely from every nonzero entry of every
++  full directed hopping block. Add the supplied orbital-resolved potential;
++  do not add conjugate blocks or embedding-dependent phases.
++- Construct the principal-layer onsite and outward-to-inward coupling exactly
++  in the specified interface order. No inverse of the coupling is used.
++- Factor the coupling as `B = U V†`. Exactly zero rows/columns are removed.
++  When the sparsity pattern proves additional rank deficiency, an SVD retains
++  the full structural-rank bound, including arbitrarily small nonzero singular
++  values. There is no hopping-magnitude cutoff or fitted Hamiltonian.
++- At each real energy, solve a reduced generalized-Schur pencil. Keep its
++  complete decaying invariant subspace, including zero-eigenvalue Jordan
++  structure. Resolve propagating modes by their outward current; diagonalize
++  the current form within degenerate momentum subspaces. Recover
++  `Sigma = V (U† g U) V†`. A full unreduced pencil is the fallback when the
++  isolated-layer resolvent is singular or the reduced Dyson residual is large.
++- Factor the positive, propagating part of `Gamma` as `W W†`, removing only
++  numerical anti-Hermitian residuals outside the independently counted channel
++  subspace. The selfenergy and device resolvent use real energy throughout:
++  there is no artificial imaginary onsite potential or finite broadening.
++- Factor the sparse open-device operator with SuperLU. Solve only for channel
++  source vectors, in bounded batches. Form `S = I - i W† G W`, its complete
++  terminal blocks, singular-value spectra, pair partition factors, and
++  Landauer–Büttiker matrix. The full device inverse is never formed.
++
++## Validation and scope
++
++The supplied smoke input gives three channels in each lead, transmission
++`1.950849521...`, and partition factor `0.046791269...`. Independent dense
++device calculations reproduce the transmission eigenvalues; an independently
++implemented surface-decimation extrapolation reproduces the selfenergies.
++Additional checks cover analytic scalar barriers, a three-terminal junction,
++singular and nonminimal principal layers, degenerate opposite-current modes,
++closed contacts, complex random leads, Bloch-band channel counting, and
++arbitrary device/interface ordering and lattice-origin changes. Current and
++Dyson residuals are generally around `1e-13` or smaller in these checks.
++
++Resource checks use larger finite cuts of the supplied Hamiltonian, including
++12,000 orbitals and a 7,440-orbital three-terminal device at three energies,
++under a 1,024 MiB address-space limit. These are self-consistency and analytic
++checks, not comparisons with unavailable labeled transport answers. No actual
++InAs input is supplied, so that material has not been independently validated.
++
++The model remains the specified coherent, ideal finite bulk cut, not a
++calibrated surface/device model. Exact mode thresholds, singular flat-band
++pencils, and exact surface-state poles can require separate limiting
++procedures; the implementation does not replace such singularities with a
++phenomenological broadening. Runtime and memory depend on interface size and
++sparse-factor fill, not only the total orbital count.
+
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ded019485cc277ec4983f53b0faa6eb97cfb6108
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+@@ -0,0 +1,62 @@
++# Finite Wannier-device transport
++
++Run with the supplied NumPy/SciPy environment:
++
++```sh
++python solve.py --input CASE.npz --output RESULT.npz
++```
++
++The output contains all seven schema fields, including one ordered `sigma_j`
++array per contact. `example_result.npz` is the result for the supplied smoke
++input. The original bulk interpolator and its provenance/license are retained.
++
++## Numerical method
++
++- Assemble the finite Hamiltonian sparsely from every nonzero entry of every
++  full directed hopping block. Add the supplied orbital-resolved potential;
++  do not add conjugate blocks or embedding-dependent phases.
++- Construct the principal-layer onsite and outward-to-inward coupling exactly
++  in the specified interface order. No inverse of the coupling is used.
++- Factor the coupling as `B = U V†`. Exactly zero rows/columns are removed.
++  When the sparsity pattern proves additional rank deficiency, an SVD retains
++  the full structural-rank bound, including arbitrarily small nonzero singular
++  values. There is no hopping-magnitude cutoff or fitted Hamiltonian.
++- At each real energy, solve a reduced generalized-Schur pencil. Keep its
++  complete decaying invariant subspace, including zero-eigenvalue Jordan
++  structure. Resolve propagating modes by their outward current; diagonalize
++  the current form within degenerate momentum subspaces. Recover
++  `Sigma = V (U† g U) V†`. A full unreduced pencil is the fallback when the
++  isolated-layer resolvent is singular or the reduced Dyson residual is large.
++- Factor the positive, propagating part of `Gamma` as `W W†`, removing only
++  numerical anti-Hermitian residuals outside the independently counted channel
++  subspace. The selfenergy and device resolvent use real energy throughout:
++  there is no artificial imaginary onsite potential or finite broadening.
++- Factor the sparse open-device operator with SuperLU. Solve only for channel
++  source vectors, in bounded batches. Form `S = I - i W† G W`, its complete
++  terminal blocks, singular-value spectra, pair partition factors, and
++  Landauer–Büttiker matrix. The full device inverse is never formed.
++
++## Validation and scope
++
++The supplied smoke input gives three channels in each lead, transmission
++`1.950849521...`, and partition factor `0.046791269...`. Independent dense
++device calculations reproduce the transmission eigenvalues; an independently
++implemented surface-decimation extrapolation reproduces the selfenergies.
++Additional checks cover analytic scalar barriers, a three-terminal junction,
++singular and nonminimal principal layers, degenerate opposite-current modes,
++closed contacts, complex random leads, Bloch-band channel counting, and
++arbitrary device/interface ordering and lattice-origin changes. Current and
++Dyson residuals are generally around `1e-13` or smaller in these checks.
++
++Resource checks use larger finite cuts of the supplied Hamiltonian, including
++12,000 orbitals and a 7,440-orbital three-terminal device at three energies,
++under a 1,024 MiB address-space limit. These are self-consistency and analytic
++checks, not comparisons with unavailable labeled transport answers. No actual
++InAs input is supplied, so that material has not been independently validated.
++
++The model remains the specified coherent, ideal finite bulk cut, not a
++calibrated surface/device model. Exact mode thresholds, singular flat-band
++pencils, and exact surface-state poles can require separate limiting
++procedures; the implementation does not replace such singularities with a
++phenomenological broadening. Runtime and memory depend on interface size and
++sparse-factor fill, not only the total orbital count.
+
+ succeeded in 76040ms:
+final stress benchmark: 11520 orbitals, 768-orbital interfaces, three energies
+seconds 75.04010808101157 peak MiB 538.296875
+modes [[10 10]
+ [10 10]
+ [11 11]] transmission [ 6.00072849  8.2028896  10.50436469] noise [0.00073498 0.16342535 0.37882323]
+max row/column conservation errors 1.3171685964152857e-12 8.36664071357518e-13
+
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ded019485cc277ec4983f53b0faa6eb97cfb6108
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+@@ -0,0 +1,62 @@
++# Finite Wannier-device transport
++
++Run with the supplied NumPy/SciPy environment:
++
++```sh
++python solve.py --input CASE.npz --output RESULT.npz
++```
++
++The output contains all seven schema fields, including one ordered `sigma_j`
++array per contact. `example_result.npz` is the result for the supplied smoke
++input. The original bulk interpolator and its provenance/license are retained.
++
++## Numerical method
++
++- Assemble the finite Hamiltonian sparsely from every nonzero entry of every
++  full directed hopping block. Add the supplied orbital-resolved potential;
++  do not add conjugate blocks or embedding-dependent phases.
++- Construct the principal-layer onsite and outward-to-inward coupling exactly
++  in the specified interface order. No inverse of the coupling is used.
++- Factor the coupling as `B = U V†`. Exactly zero rows/columns are removed.
++  When the sparsity pattern proves additional rank deficiency, an SVD retains
++  the full structural-rank bound, including arbitrarily small nonzero singular
++  values. There is no hopping-magnitude cutoff or fitted Hamiltonian.
++- At each real energy, solve a reduced generalized-Schur pencil. Keep its
++  complete decaying invariant subspace, including zero-eigenvalue Jordan
++  structure. Resolve propagating modes by their outward current; diagonalize
++  the current form within degenerate momentum subspaces. Recover
++  `Sigma = V (U† g U) V†`. A full unreduced pencil is the fallback when the
++  isolated-layer resolvent is singular or the reduced Dyson residual is large.
++- Factor the positive, propagating part of `Gamma` as `W W†`, removing only
++  numerical anti-Hermitian residuals outside the independently counted channel
++  subspace. The selfenergy and device resolvent use real energy throughout:
++  there is no artificial imaginary onsite potential or finite broadening.
++- Factor the sparse open-device operator with SuperLU. Solve only for channel
++  source vectors, in bounded batches. Form `S = I - i W† G W`, its complete
++  terminal blocks, singular-value spectra, pair partition factors, and
++  Landauer–Büttiker matrix. The full device inverse is never formed.
++
++## Validation and scope
++
++The supplied smoke input gives three channels in each lead, transmission
++`1.950849521...`, and partition factor `0.046791269...`. Independent dense
++device calculations reproduce the transmission eigenvalues; an independently
++implemented surface-decimation extrapolation reproduces the selfenergies.
++Additional checks cover analytic scalar barriers, a three-terminal junction,
++singular and nonminimal principal layers, degenerate opposite-current modes,
++closed contacts, complex random leads, Bloch-band channel counting, and
++arbitrary device/interface ordering and lattice-origin changes. Current and
++Dyson residuals are generally around `1e-13` or smaller in these checks.
++
++Resource checks use larger finite cuts of the supplied Hamiltonian, including
++12,000 orbitals and a 7,440-orbital three-terminal device at three energies,
++under a 1,024 MiB address-space limit. These are self-consistency and analytic
++checks, not comparisons with unavailable labeled transport answers. No actual
++InAs input is supplied, so that material has not been independently validated.
++
++The model remains the specified coherent, ideal finite bulk cut, not a
++calibrated surface/device model. Exact mode thresholds, singular flat-band
++pencils, and exact surface-state poles can require separate limiting
++procedures; the implementation does not replace such singularities with a
++phenomenological broadening. Runtime and memory depend on interface size and
++sparse-factor fill, not only the total orbital count.
+
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ded019485cc277ec4983f53b0faa6eb97cfb6108
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+@@ -0,0 +1,62 @@
++# Finite Wannier-device transport
++
++Run with the supplied NumPy/SciPy environment:
++
++```sh
++python solve.py --input CASE.npz --output RESULT.npz
++```
++
++The output contains all seven schema fields, including one ordered `sigma_j`
++array per contact. `example_result.npz` is the result for the supplied smoke
++input. The original bulk interpolator and its provenance/license are retained.
++
++## Numerical method
++
++- Assemble the finite Hamiltonian sparsely from every nonzero entry of every
++  full directed hopping block. Add the supplied orbital-resolved potential;
++  do not add conjugate blocks or embedding-dependent phases.
++- Construct the principal-layer onsite and outward-to-inward coupling exactly
++  in the specified interface order. No inverse of the coupling is used.
++- Factor the coupling as `B = U V†`. Exactly zero rows/columns are removed.
++  When the sparsity pattern proves additional rank deficiency, an SVD retains
++  the full structural-rank bound, including arbitrarily small nonzero singular
++  values. There is no hopping-magnitude cutoff or fitted Hamiltonian.
++- At each real energy, solve a reduced generalized-Schur pencil. Keep its
++  complete decaying invariant subspace, including zero-eigenvalue Jordan
++  structure. Resolve propagating modes by their outward current; diagonalize
++  the current form within degenerate momentum subspaces. Recover
++  `Sigma = V (U† g U) V†`. A full unreduced pencil is the fallback when the
++  isolated-layer resolvent is singular or the reduced Dyson residual is large.
++- Factor the positive, propagating part of `Gamma` as `W W†`, removing only
++  numerical anti-Hermitian residuals outside the independently counted channel
++  subspace. The selfenergy and device resolvent use real energy throughout:
++  there is no artificial imaginary onsite potential or finite broadening.
++- Factor the sparse open-device operator with SuperLU. Solve only for channel
++  source vectors, in bounded batches. Form `S = I - i W† G W`, its complete
++  terminal blocks, singular-value spectra, pair partition factors, and
++  Landauer–Büttiker matrix. The full device inverse is never formed.
++
++## Validation and scope
++
++The supplied smoke input gives three channels in each lead, transmission
++`1.950849521...`, and partition factor `0.046791269...`. Independent dense
++device calculations reproduce the transmission eigenvalues; an independently
++implemented surface-decimation extrapolation reproduces the selfenergies.
++Additional checks cover analytic scalar barriers, a three-terminal junction,
++singular and nonminimal principal layers, degenerate opposite-current modes,
++closed contacts, complex random leads, Bloch-band channel counting, and
++arbitrary device/interface ordering and lattice-origin changes. Current and
++Dyson residuals are generally around `1e-13` or smaller in these checks.
++
++Resource checks use larger finite cuts of the supplied Hamiltonian, including
++12,000 orbitals and a 7,440-orbital three-terminal device at three energies,
++under a 1,024 MiB address-space limit. These are self-consistency and analytic
++checks, not comparisons with unavailable labeled transport answers. No actual
++InAs input is supplied, so that material has not been independently validated.
++
++The model remains the specified coherent, ideal finite bulk cut, not a
++calibrated surface/device model. Exact mode thresholds, singular flat-band
++pencils, and exact surface-state poles can require separate limiting
++procedures; the implementation does not replace such singularities with a
++phenomenological broadening. Runtime and memory depend on interface size and
++sparse-factor fill, not only the total orbital count.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: ../attempt/README.md
+@@
+-The output contains all seven schema fields, including one ordered "'`sigma_j`
++The output contains all required schema fields, including one ordered `sigma_j`
+@@
+-`1.950849521...`, and partition factor `0.046791269...`. Independent dense
++`1.95084952`, and partition factor `0.04679127`. Independent dense
+@@
+ 12,000 orbitals and a 7,440-orbital three-terminal device at three energies,
+-under a 1,024 MiB address-space limit. These are self-consistency and analytic
+-checks, not comparisons with unavailable labeled transport answers. No actual
+-InAs input is supplied, so that material has not been independently validated.
++under a 1,024 MiB address-space limit. A further 11,520-orbital gated device
++with 768-orbital interfaces and three energies completed in 75.0 seconds with
++538.3 MiB peak resident memory, under both a 90-second timeout and the address
++limit; its largest current-conservation defect was `1.4e-12`. These are
++self-consistency and analytic checks, not comparisons with unavailable labeled
++transport answers. No actual InAs input is supplied, so that material has not
++been independently validated.
+*** End Patch
+PATCH
+python -B ../attempt/solve.py --input input/example.npz --output ../attempt/example_result.npz
+ls -lh ../attempt/*.py ../attempt/*.npz ../attempt/README.md
+nl -ba ../attempt/solve.py | head -35
+OPENBLAS_NUM_THREADS=1 python -B - <<'"'PY'
+import numpy as np
+with np.load('../attempt/example_result.npz',allow_pickle=False) as result:
+ for key in result.files:
+  print(key,result[key].shape,'finite',np.isfinite(result[key]).all())
+ print('T',repr(result['transmission'][0,1,0]),'noise',repr(result['partition_noise'][0,1,0]))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/participant
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ded019485cc277ec4983f53b0faa6eb97cfb6108
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+@@ -0,0 +1,62 @@
++# Finite Wannier-device transport
++
++Run with the supplied NumPy/SciPy environment:
++
++```sh
++python solve.py --input CASE.npz --output RESULT.npz
++```
++
++The output contains all seven schema fields, including one ordered `sigma_j`
++array per contact. `example_result.npz` is the result for the supplied smoke
++input. The original bulk interpolator and its provenance/license are retained.
++
++## Numerical method
++
++- Assemble the finite Hamiltonian sparsely from every nonzero entry of every
++  full directed hopping block. Add the supplied orbital-resolved potential;
++  do not add conjugate blocks or embedding-dependent phases.
++- Construct the principal-layer onsite and outward-to-inward coupling exactly
++  in the specified interface order. No inverse of the coupling is used.
++- Factor the coupling as `B = U V†`. Exactly zero rows/columns are removed.
++  When the sparsity pattern proves additional rank deficiency, an SVD retains
++  the full structural-rank bound, including arbitrarily small nonzero singular
++  values. There is no hopping-magnitude cutoff or fitted Hamiltonian.
++- At each real energy, solve a reduced generalized-Schur pencil. Keep its
++  complete decaying invariant subspace, including zero-eigenvalue Jordan
++  structure. Resolve propagating modes by their outward current; diagonalize
++  the current form within degenerate momentum subspaces. Recover
++  `Sigma = V (U† g U) V†`. A full unreduced pencil is the fallback when the
++  isolated-layer resolvent is singular or the reduced Dyson residual is large.
++- Factor the positive, propagating part of `Gamma` as `W W†`, removing only
++  numerical anti-Hermitian residuals outside the independently counted channel
++  subspace. The selfenergy and device resolvent use real energy throughout:
++  there is no artificial imaginary onsite potential or finite broadening.
++- Factor the sparse open-device operator with SuperLU. Solve only for channel
++  source vectors, in bounded batches. Form `S = I - i W† G W`, its complete
++  terminal blocks, singular-value spectra, pair partition factors, and
++  Landauer–Büttiker matrix. The full device inverse is never formed.
++
++## Validation and scope
++
++The supplied smoke input gives three channels in each lead, transmission
++`1.950849521...`, and partition factor `0.046791269...`. Independent dense
++device calculations reproduce the transmission eigenvalues; an independently
++implemented surface-decimation extrapolation reproduces the selfenergies.
++Additional checks cover analytic scalar barriers, a three-terminal junction,
++singular and nonminimal principal layers, degenerate opposite-current modes,
++closed contacts, complex random leads, Bloch-band channel counting, and
++arbitrary device/interface ordering and lattice-origin changes. Current and
++Dyson residuals are generally around `1e-13` or smaller in these checks.
++
++Resource checks use larger finite cuts of the supplied Hamiltonian, including
++12,000 orbitals and a 7,440-orbital three-terminal device at three energies,
++under a 1,024 MiB address-space limit. These are self-consistency and analytic
++checks, not comparisons with unavailable labeled transport answers. No actual
++InAs input is supplied, so that material has not been independently validated.
++
++The model remains the specified coherent, ideal finite bulk cut, not a
++calibrated surface/device model. Exact mode thresholds, singular flat-band
++pencils, and exact surface-state poles can require separate limiting
++procedures; the implementation does not replace such singularities with a
++phenomenological broadening. Runtime and memory depend on interface size and
++sparse-factor fill, not only the total orbital count.
+
+ succeeded in 1380ms:
+Success. Updated the following files:
+M ../attempt/README.md
+-rw-rw-r-- 1 xuandong xuandong 3.8K Aug 27 18:57 ../attempt/README.md
+-rw-rw-r-- 1 xuandong xuandong  370 Aug 27 18:40 ../attempt/bulk.py
+-rw-rw-r-- 1 xuandong xuandong  44K Aug 27 18:57 ../attempt/example_result.npz
+-rw-rw-r-- 1 xuandong xuandong 9.0K Aug 27 18:53 ../attempt/leads.py
+-rwxrwxr-x 1 xuandong xuandong  851 Aug 27 18:46 ../attempt/solve.py
+-rw-rw-r-- 1 xuandong xuandong 8.7K Aug 27 18:46 ../attempt/transport.py
+     1	#!/usr/bin/env python3
+     2	"""Sparse, coherent transport through finite full-hopping Wannier devices."""
+     3	
+     4	import os
+     5	
+     6	for variable in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
+     7	                 "BLIS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS"):
+     8	    os.environ[variable] = "1"
+     9	
+    10	import argparse
+    11	
+    12	import numpy as np
+    13	
+    14	from transport import solve_transport
+    15	
+    16	
+    17	def main():
+    18	    parser = argparse.ArgumentParser(description=__doc__)
+    19	    parser.add_argument("--input", required=True)
+    20	    parser.add_argument("--output", required=True)
+    21	    arguments = parser.parse_args()
+    22	    with np.load(arguments.input, allow_pickle=False) as archive:
+    23	        case = {name: archive[name] for name in archive.files}
+    24	    result = solve_transport(case)
+    25	    np.savez_compressed(arguments.output, **result)
+    26	
+    27	
+    28	if __name__ == "__main__":
+    29	    main()
+mode_counts (1, 2) finite True
+transmission (1, 2, 2) finite True
+channels (1, 2, 2, 64) finite True
+partition_noise (1, 2, 2) finite True
+lb_conductance (1, 2, 2) finite True
+sigma_0 (1, 64, 64) finite True
+sigma_1 (1, 64, 64) finite True
+T 1.9508495212621422 noise 0.04679126726978184
+
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ded019485cc277ec4983f53b0faa6eb97cfb6108
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+@@ -0,0 +1,62 @@
++# Finite Wannier-device transport
++
++Run with the supplied NumPy/SciPy environment:
++
++```sh
++python solve.py --input CASE.npz --output RESULT.npz
++```
++
++The output contains all seven schema fields, including one ordered `sigma_j`
++array per contact. `example_result.npz` is the result for the supplied smoke
++input. The original bulk interpolator and its provenance/license are retained.
++
++## Numerical method
++
++- Assemble the finite Hamiltonian sparsely from every nonzero entry of every
++  full directed hopping block. Add the supplied orbital-resolved potential;
++  do not add conjugate blocks or embedding-dependent phases.
++- Construct the principal-layer onsite and outward-to-inward coupling exactly
++  in the specified interface order. No inverse of the coupling is used.
++- Factor the coupling as `B = U V†`. Exactly zero rows/columns are removed.
++  When the sparsity pattern proves additional rank deficiency, an SVD retains
++  the full structural-rank bound, including arbitrarily small nonzero singular
++  values. There is no hopping-magnitude cutoff or fitted Hamiltonian.
++- At each real energy, solve a reduced generalized-Schur pencil. Keep its
++  complete decaying invariant subspace, including zero-eigenvalue Jordan
++  structure. Resolve propagating modes by their outward current; diagonalize
++  the current form within degenerate momentum subspaces. Recover
++  `Sigma = V (U† g U) V†`. A full unreduced pencil is the fallback when the
++  isolated-layer resolvent is singular or the reduced Dyson residual is large.
++- Factor the positive, propagating part of `Gamma` as `W W†`, removing only
++  numerical anti-Hermitian residuals outside the independently counted channel
++  subspace. The selfenergy and device resolvent use real energy throughout:
++  there is no artificial imaginary onsite potential or finite broadening.
++- Factor the sparse open-device operator with SuperLU. Solve only for channel
++  source vectors, in bounded batches. Form `S = I - i W† G W`, its complete
++  terminal blocks, singular-value spectra, pair partition factors, and
++  Landauer–Büttiker matrix. The full device inverse is never formed.
++
++## Validation and scope
++
++The supplied smoke input gives three channels in each lead, transmission
++`1.950849521...`, and partition factor `0.046791269...`. Independent dense
++device calculations reproduce the transmission eigenvalues; an independently
++implemented surface-decimation extrapolation reproduces the selfenergies.
++Additional checks cover analytic scalar barriers, a three-terminal junction,
++singular and nonminimal principal layers, degenerate opposite-current modes,
++closed contacts, complex random leads, Bloch-band channel counting, and
++arbitrary device/interface ordering and lattice-origin changes. Current and
++Dyson residuals are generally around `1e-13` or smaller in these checks.
++
++Resource checks use larger finite cuts of the supplied Hamiltonian, including
++12,000 orbitals and a 7,440-orbital three-terminal device at three energies,
++under a 1,024 MiB address-space limit. These are self-consistency and analytic
++checks, not comparisons with unavailable labeled transport answers. No actual
++InAs input is supplied, so that material has not been independently validated.
++
++The model remains the specified coherent, ideal finite bulk cut, not a
++calibrated surface/device model. Exact mode thresholds, singular flat-band
++pencils, and exact surface-state poles can require separate limiting
++procedures; the implementation does not replace such singularities with a
++phenomenological broadening. Runtime and memory depend on interface size and
++sparse-factor fill, not only the total orbital count.
+
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ded019485cc277ec4983f53b0faa6eb97cfb6108
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+@@ -0,0 +1,62 @@
++# Finite Wannier-device transport
++
++Run with the supplied NumPy/SciPy environment:
++
++```sh
++python solve.py --input CASE.npz --output RESULT.npz
++```
++
++The output contains all seven schema fields, including one ordered `sigma_j`
++array per contact. `example_result.npz` is the result for the supplied smoke
++input. The original bulk interpolator and its provenance/license are retained.
++
++## Numerical method
++
++- Assemble the finite Hamiltonian sparsely from every nonzero entry of every
++  full directed hopping block. Add the supplied orbital-resolved potential;
++  do not add conjugate blocks or embedding-dependent phases.
++- Construct the principal-layer onsite and outward-to-inward coupling exactly
++  in the specified interface order. No inverse of the coupling is used.
++- Factor the coupling as `B = U V†`. Exactly zero rows/columns are removed.
++  When the sparsity pattern proves additional rank deficiency, an SVD retains
++  the full structural-rank bound, including arbitrarily small nonzero singular
++  values. There is no hopping-magnitude cutoff or fitted Hamiltonian.
++- At each real energy, solve a reduced generalized-Schur pencil. Keep its
++  complete decaying invariant subspace, including zero-eigenvalue Jordan
++  structure. Resolve propagating modes by their outward current; diagonalize
++  the current form within degenerate momentum subspaces. Recover
++  `Sigma = V (U† g U) V†`. A full unreduced pencil is the fallback when the
++  isolated-layer resolvent is singular or the reduced Dyson residual is large.
++- Factor the positive, propagating part of `Gamma` as `W W†`, removing only
++  numerical anti-Hermitian residuals outside the independently counted channel
++  subspace. The selfenergy and device resolvent use real energy throughout:
++  there is no artificial imaginary onsite potential or finite broadening.
++- Factor the sparse open-device operator with SuperLU. Solve only for channel
++  source vectors, in bounded batches. Form `S = I - i W† G W`, its complete
++  terminal blocks, singular-value spectra, pair partition factors, and
++  Landauer–Büttiker matrix. The full device inverse is never formed.
++
++## Validation and scope
++
++The supplied smoke input gives three channels in each lead, transmission
++`1.950849521...`, and partition factor `0.046791269...`. Independent dense
++device calculations reproduce the transmission eigenvalues; an independently
++implemented surface-decimation extrapolation reproduces the selfenergies.
++Additional checks cover analytic scalar barriers, a three-terminal junction,
++singular and nonminimal principal layers, degenerate opposite-current modes,
++closed contacts, complex random leads, Bloch-band channel counting, and
++arbitrary device/interface ordering and lattice-origin changes. Current and
++Dyson residuals are generally around `1e-13` or smaller in these checks.
++
++Resource checks use larger finite cuts of the supplied Hamiltonian, including
++12,000 orbitals and a 7,440-orbital three-terminal device at three energies,
++under a 1,024 MiB address-space limit. These are self-consistency and analytic
++checks, not comparisons with unavailable labeled transport answers. No actual
++InAs input is supplied, so that material has not been independently validated.
++
++The model remains the specified coherent, ideal finite bulk cut, not a
++calibrated surface/device model. Exact mode thresholds, singular flat-band
++pencils, and exact surface-state poles can require separate limiting
++procedures; the implementation does not replace such singularities with a
++phenomenological broadening. Runtime and memory depend on interface size and
++sparse-factor fill, not only the total orbital count.
+
+codex
+The stress test met both limits; validation is complete.
+
+Validated smoke outputs against dense scattering and independent surface decimation; checked analytic barriers/junctions, singular and degenerate leads, mode counts, ordering invariance, and large supplied-model cuts. The final 11,520-orbital, three-energy run completed in 75.0 s under a 90 s timeout and 1,024 MiB address-space limit, with 538.3 MiB peak RSS and conservation errors below 1.4e-12.
+  ✓ Inspect models and numerical constraints
+  ✓ Implement causal singular-lead selfenergies
+  ✓ Implement sparse multi-terminal scattering
+  ✓ Validate physics and resource usage
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ded019485cc277ec4983f53b0faa6eb97cfb6108
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+@@ -0,0 +1,62 @@
++# Finite Wannier-device transport
++
++Run with the supplied NumPy/SciPy environment:
++
++```sh
++python solve.py --input CASE.npz --output RESULT.npz
++```
++
++The output contains all seven schema fields, including one ordered `sigma_j`
++array per contact. `example_result.npz` is the result for the supplied smoke
++input. The original bulk interpolator and its provenance/license are retained.
++
++## Numerical method
++
++- Assemble the finite Hamiltonian sparsely from every nonzero entry of every
++  full directed hopping block. Add the supplied orbital-resolved potential;
++  do not add conjugate blocks or embedding-dependent phases.
++- Construct the principal-layer onsite and outward-to-inward coupling exactly
++  in the specified interface order. No inverse of the coupling is used.
++- Factor the coupling as `B = U V†`. Exactly zero rows/columns are removed.
++  When the sparsity pattern proves additional rank deficiency, an SVD retains
++  the full structural-rank bound, including arbitrarily small nonzero singular
++  values. There is no hopping-magnitude cutoff or fitted Hamiltonian.
++- At each real energy, solve a reduced generalized-Schur pencil. Keep its
++  complete decaying invariant subspace, including zero-eigenvalue Jordan
++  structure. Resolve propagating modes by their outward current; diagonalize
++  the current form within degenerate momentum subspaces. Recover
++  `Sigma = V (U† g U) V†`. A full unreduced pencil is the fallback when the
++  isolated-layer resolvent is singular or the reduced Dyson residual is large.
++- Factor the positive, propagating part of `Gamma` as `W W†`, removing only
++  numerical anti-Hermitian residuals outside the independently counted channel
++  subspace. The selfenergy and device resolvent use real energy throughout:
++  there is no artificial imaginary onsite potential or finite broadening.
++- Factor the sparse open-device operator with SuperLU. Solve only for channel
++  source vectors, in bounded batches. Form `S = I - i W† G W`, its complete
++  terminal blocks, singular-value spectra, pair partition factors, and
++  Landauer–Büttiker matrix. The full device inverse is never formed.
++
++## Validation and scope
++
++The supplied smoke input gives three channels in each lead, transmission
++`1.950849521...`, and partition factor `0.046791269...`. Independent dense
++device calculations reproduce the transmission eigenvalues; an independently
++implemented surface-decimation extrapolation reproduces the selfenergies.
++Additional checks cover analytic scalar barriers, a three-terminal junction,
++singular and nonminimal principal layers, degenerate opposite-current modes,
++closed contacts, complex random leads, Bloch-band channel counting, and
++arbitrary device/interface ordering and lattice-origin changes. Current and
++Dyson residuals are generally around `1e-13` or smaller in these checks.
++
++Resource checks use larger finite cuts of the supplied Hamiltonian, including
++12,000 orbitals and a 7,440-orbital three-terminal device at three energies,
++under a 1,024 MiB address-space limit. These are self-consistency and analytic
++checks, not comparisons with unavailable labeled transport answers. No actual
++InAs input is supplied, so that material has not been independently validated.
++
++The model remains the specified coherent, ideal finite bulk cut, not a
++calibrated surface/device model. Exact mode thresholds, singular flat-band
++pencils, and exact surface-state poles can require separate limiting
++procedures; the implementation does not replace such singularities with a
++phenomenological broadening. Runtime and memory depend on interface size and
++sparse-factor fill, not only the total orbital count.
+
+codex
+Implemented executable `../attempt/solve.py:1` and required modules, producing every requested transport field without a dense device inverse or artificial broadening.
+
+- Smoke result: 3 channels per lead, transmission **1.95084952**, partition noise **0.04679127**.
+- Validated analytic two-/three-terminal cases, singular leads, ordering invariance, and independent numerical calculations.
+- Stress test: **11,520 orbitals, three energies, 75.0 seconds, 538.3 MiB peak memory**, within both limits; conservation error below **1.4×10⁻¹²**.
+
+Methods and limitations are documented in `../attempt/README.md:1`. Actual InAs data were unavailable for independent validation; exact thresholds and singular surface poles remain limitations.
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ded019485cc277ec4983f53b0faa6eb97cfb6108
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/03_device_transport/attempt/README.md
+@@ -0,0 +1,62 @@
++# Finite Wannier-device transport
++
++Run with the supplied NumPy/SciPy environment:
++
++```sh
++python solve.py --input CASE.npz --output RESULT.npz
++```
++
++The output contains all seven schema fields, including one ordered `sigma_j`
++array per contact. `example_result.npz` is the result for the supplied smoke
++input. The original bulk interpolator and its provenance/license are retained.
++
++## Numerical method
++
++- Assemble the finite Hamiltonian sparsely from every nonzero entry of every
++  full directed hopping block. Add the supplied orbital-resolved potential;
++  do not add conjugate blocks or embedding-dependent phases.
++- Construct the principal-layer onsite and outward-to-inward coupling exactly
++  in the specified interface order. No inverse of the coupling is used.
++- Factor the coupling as `B = U V†`. Exactly zero rows/columns are removed.
++  When the sparsity pattern proves additional rank deficiency, an SVD retains
++  the full structural-rank bound, including arbitrarily small nonzero singular
++  values. There is no hopping-magnitude cutoff or fitted Hamiltonian.
++- At each real energy, solve a reduced generalized-Schur pencil. Keep its
++  complete decaying invariant subspace, including zero-eigenvalue Jordan
++  structure. Resolve propagating modes by their outward current; diagonalize
++  the current form within degenerate momentum subspaces. Recover
++  `Sigma = V (U† g U) V†`. A full unreduced pencil is the fallback when the
++  isolated-layer resolvent is singular or the reduced Dyson residual is large.
++- Factor the positive, propagating part of `Gamma` as `W W†`, removing only
++  numerical anti-Hermitian residuals outside the independently counted channel
++  subspace. The selfenergy and device resolvent use real energy throughout:
++  there is no artificial imaginary onsite potential or finite broadening.
++- Factor the sparse open-device operator with SuperLU. Solve only for channel
++  source vectors, in bounded batches. Form `S = I - i W† G W`, its complete
++  terminal blocks, singular-value spectra, pair partition factors, and
++  Landauer–Büttiker matrix. The full device inverse is never formed.
++
++## Validation and scope
++
++The supplied smoke input gives three channels in each lead, transmission
++`1.950849521...`, and partition factor `0.046791269...`. Independent dense
++device calculations reproduce the transmission eigenvalues; an independently
++implemented surface-decimation extrapolation reproduces the selfenergies.
++Additional checks cover analytic scalar barriers, a three-terminal junction,
++singular and nonminimal principal layers, degenerate opposite-current modes,
++closed contacts, complex random leads, Bloch-band channel counting, and
++arbitrary device/interface ordering and lattice-origin changes. Current and
++Dyson residuals are generally around `1e-13` or smaller in these checks.
++
++Resource checks use larger finite cuts of the supplied Hamiltonian, including
++12,000 orbitals and a 7,440-orbital three-terminal device at three energies,
++under a 1,024 MiB address-space limit. These are self-consistency and analytic
++checks, not comparisons with unavailable labeled transport answers. No actual
++InAs input is supplied, so that material has not been independently validated.
++
++The model remains the specified coherent, ideal finite bulk cut, not a
++calibrated surface/device model. Exact mode thresholds, singular flat-band
++pencils, and exact surface-state poles can require separate limiting
++procedures; the implementation does not replace such singularities with a
++phenomenological broadening. Runtime and memory depend on interface size and
++sparse-factor fill, not only the total orbital count.
+
+tokens used
+102,565
+Implemented executable `../attempt/solve.py:1` and required modules, producing every requested transport field without a dense device inverse or artificial broadening.
+
+- Smoke result: 3 channels per lead, transmission **1.95084952**, partition noise **0.04679127**.
+- Validated analytic two-/three-terminal cases, singular leads, ordering invariance, and independent numerical calculations.
+- Stress test: **11,520 orbitals, three energies, 75.0 seconds, 538.3 MiB peak memory**, within both limits; conservation error below **1.4×10⁻¹²**.
+
+Methods and limitations are documented in `../attempt/README.md:1`. Actual InAs data were unavailable for independent validation; exact thresholds and singular surface poles remain limitations.

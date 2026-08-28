@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+
+import copy
+
+from matplotlib import pyplot
+import wannierberri as wberri
+import wannierberri.calculators as calculators
+import numpy as np
+from wannierberri.system import System_R
+from wannierberri.system.interpolate import SystemInterpolator
+
+
+seedname = "../../tests/data/Fe_sym_Wannier90/Fe_sym"
+wandata = wberri.WannierData.from_w90_files(seedname,
+                                            files=['mmn', 'eig', 'chk', 'spn'],)
+system0 = System_R.from_wannierdata(wandata, berry=True, spin=True)
+
+system_raw = copy.deepcopy(system0)
+
+system0.symmetrize(
+    proj=['Fe:sp3d2;t2g'],
+    atom_name=['Fe'],
+    positions=np.array([[0, 0, 0]]),
+    magmom=[[0., 0., -2.31]],
+    soc=True,
+)
+
+system1 = copy.deepcopy(system0)
+
+system0.symmetrize(
+    proj=['Fe:sp3d2;t2g'],
+    atom_name=['Fe'],
+    positions=np.array([[0, 0, 0]]),
+    magmom=[[0., 0., 0]],
+    soc=True,
+)
+
+interpolator = SystemInterpolator(system0, system1)
+
+tabulators = {"Energy": calculators.tabulate.Energy(),
+              "berry": calculators.tabulate.BerryCurvature(),
+              "spin": calculators.tabulate.Spin(),
+             }
+
+tab_all_path = calculators.TabulatorAll(
+    tabulators,
+    ibands=np.arange(0, 18),
+    mode="path"
+)
+
+path = wberri.Path(system=system0,
+                 nodes=[
+                     [0.0000, 0.0000, 0.0000],  # G
+                     [0.500, -0.5000, -0.5000],  # H
+                     [0.7500, 0.2500, -0.2500],  # P
+                     [0.5000, 0.0000, -0.5000],  # N
+                     [0.0000, 0.0000, 0.000]],  # G
+                 labels=["G", "H", "P", "N", "G"],
+    length=200)   # length [ Ang] ~= 2*pi/dk
+
+
+# all_alpha =  np.arange(-0.5, 2.01, 0.5)
+all_alpha = np.arange(0, 2.01, 0.5)
+n_alpha = len(all_alpha)
+fig_spin, axes_spin = pyplot.subplots(1, n_alpha, figsize=(4 * n_alpha, 5))
+fig_berry, axes_berry = pyplot.subplots(1, n_alpha, figsize=(4 * n_alpha, 5))
+for i, alpha in enumerate(all_alpha):
+    if alpha < 0:
+        new_system = system0
+    elif alpha > 1.6:
+        new_system = system_raw
+    elif alpha > 1:
+        new_system = system1
+    else:
+        new_system = interpolator.interpolate(alpha)
+    result = wberri.run(new_system,
+                  grid=path,
+                  calculators={"tab": tab_all_path},
+                  print_Kpoints=False)
+
+    parameters_plot = dict(Eshift=18,
+              Emin=-5, Emax=5,
+              iband=None,
+              mode="fatband",
+              fatfactor=20,
+              cut_k=False,
+              close_fig=False,
+              show_fig=False,
+    )
+    result.results["tab"].plot_path_fat(path,
+              quantity="spin",
+              component="z",
+                axes=axes_spin[i],
+        **parameters_plot
+    )
+    result.results["tab"].plot_path_fat(path,
+              quantity="berry",
+              component="z",
+            axes=axes_berry[i],
+        **parameters_plot
+    )
+
+    axes_spin[i].set_title(f"alpha={alpha}")
+    axes_berry[i].set_title(f"alpha={alpha}")
+
+
+fig_spin.savefig("Fe_spin.png")
+fig_berry.savefig("Fe_berry.png")

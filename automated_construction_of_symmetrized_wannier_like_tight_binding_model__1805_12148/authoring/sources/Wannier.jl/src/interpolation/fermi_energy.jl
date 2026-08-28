@@ -1,0 +1,428 @@
+import Base.Broadcast.broadcastable
+using Roots
+using SpecialFunctions: erf
+
+abstract type SmearingFunction end
+
+Base.Broadcast.broadcastable(S::SmearingFunction) = Ref(S)
+
+struct FermiDiracSmearing <: SmearingFunction end
+
+occupation(x, ::FermiDiracSmearing) = 1 / (1 + exp(x))
+
+struct ColdSmearing <: SmearingFunction end
+
+function occupation(x::T, ::ColdSmearing) where {T}
+    return (
+        -erf(x + 1 / sqrt(T(2))) / 2 +
+            1 / sqrt(2 * T(π)) * exp(-(-x - 1 / sqrt(T(2)))^2) +
+            1 / T(2)
+    )
+end
+
+struct NoneSmearing <: SmearingFunction end
+
+occupation(x, ::NoneSmearing) = x > 0 ? zero(x) : one(x)
+
+default_occupation_prefactor() = 2
+
+@doc raw"""
+Compute occupation given eigenvalues and Fermi energy.
+
+# Arguments
+- `eigenvalues`: eigenvalues in eV
+- `εF`: Fermi energy in eV
+
+# Keyword arguments
+- `kBT`: temperature in the same unit as `E`, i.e., $k_B T$ in eV
+- `prefactor`: 1 for collinear calculation, 2 for spinless
+"""
+function occupation(
+        eigenvalues::AbstractVector,
+        εF::Real,
+        kBT::Real,
+        smearing::SmearingFunction;
+        prefactor::Real = default_occupation_prefactor(),
+    )
+    T = promote_type(eltype(eltype(eigenvalues)), typeof(εF), typeof(kBT))
+    inv_kBT = iszero(kBT) ? T(Inf) : 1 / kBT
+
+    occ = map(eigenvalues) do εk
+        prefactor * occupation.((εk .- εF) .* inv_kBT, smearing)
+    end
+    return occ
+end
+
+"""
+    $(SIGNATURES)
+
+Compute number of electrons with given density of states and Fermi energy.
+
+# Arguments
+- `energy`: Vector of energy, in eV unit
+- `dos`: density of states on energy grid, in states/eV unit
+- `εF`: Fermi energy, in eV unit
+
+# Keyword arguments
+- `tol_energy`: tolerance on Fermi energy
+
+# Return
+- `n_electrons`: number of electrons
+"""
+function compute_n_electrons(
+        energy::AbstractVector, dos::AbstractVector, εF::Real; tol_energy::Real = 5.0e-3
+    )
+    dE = energy[2] - energy[1]
+    cum_dos = cumsum(dos) * dE
+
+    idx = argmin(abs.(energy .- εF))
+    err = energy[idx] - εF
+    if abs(err) > tol_energy
+        error("Fermi energy not found in energy grid: err = $err")
+    end
+
+    return cum_dos[idx]
+end
+
+function default_kweights(eigenvalues::AbstractVector)
+    return fill(1 / length(eigenvalues), length(eigenvalues))
+end
+
+function compute_n_electrons(
+        occupation::AbstractVector, kweights = default_kweights(occupation)
+    )
+    return sum(kweights .* sum.(occupation))
+end
+
+"""
+    $(SIGNATURES)
+
+Compute Fermi energy with given density of states and number of electrons.
+
+# Arguments
+- `energy`: Vector of energy, in eV unit
+- `dos`: density of states on energy grid, in states/eV unit
+- `n_electrons`: number of electrons
+
+# Keyword arguments
+- `tol_n_electrons`: tolerance on number of electrons
+
+# Return
+- `εF`: Fermi energy, in eV unit
+"""
+function compute_fermi_energy(
+        energy::AbstractVector,
+        dos::AbstractVector,
+        n_electrons::Real;
+        tol_n_electrons::Real = 1.0e-5,
+    )
+    dE = energy[2] - energy[1]
+    cum_dos = cumsum(dos) * dE
+
+    idx = argmin(abs.(cum_dos .- n_electrons))
+    err = cum_dos[idx] - n_electrons
+    if abs(err) > tol_n_electrons
+        error("n_electrons not found in the cumulative DOS: err = $err")
+    end
+
+    return energy[idx]
+end
+
+function compute_fermi_energy(
+        eigenvalues::AbstractVector,
+        n_electrons::Real,
+        kBT::Real,
+        smearing::SmearingFunction;
+        prefactor::Real = default_occupation_prefactor(),
+        kweights = default_kweights(eigenvalues),
+        tol_n_electrons::Real = 1.0e-6,
+    )
+    # Get rough bounds to bracket εF
+    min_ε = minimum(minimum, eigenvalues) - 1
+    max_ε = maximum(maximum, eigenvalues) + 1
+
+    excess(εF) = begin
+        occ = occupation(eigenvalues, εF, kBT, smearing; prefactor)
+        compute_n_electrons(occ, kweights) - n_electrons
+    end
+    @assert excess(min_ε) <= 0 <= excess(max_ε) "Fermi energy not bracketed $(excess(min_ε)) $(excess(max_ε))"
+
+    εF = Roots.find_zero(excess, (min_ε, max_ε), Roots.Bisection(); atol = tol_n_electrons)
+    Δn_elec = excess(εF)
+    abs(Δn_elec) > tol_n_electrons &&
+        error("Failed to find Fermi energy within tolerance, Δn_elec = $Δn_elec")
+
+    return εF
+end
+
+struct Kvoxel{T, VT <: AbstractVector{T}}
+    """fractional coordinates of kpoint"""
+    point::VT
+
+    """length of the kvoxel along three dimensions"""
+    dv::VT
+
+    """weight of the kpoint"""
+    weight::T
+end
+
+struct AdaptiveKgrid{KV <: Kvoxel, VT}
+    kvoxels::Vector{KV}
+    vals::Vector{VT}
+end
+
+Base.length(ag::AdaptiveKgrid) = length(ag.kvoxels)
+
+function occupation(
+        adpt_grid::AdaptiveKgrid,
+        εF::Real,
+        kBT::Real,
+        smearing::SmearingFunction;
+        prefactor::Real = default_occupation_prefactor(),
+    )
+    T = promote_type(eltype(adpt_grid.vals), typeof(εF), typeof(kBT))
+    inv_kBT = iszero(kBT) ? T(Inf) : 1 / kBT
+
+    occ = map(adpt_grid.vals) do εk
+        prefactor * occupation.((εk .- εF) .* inv_kBT, smearing)
+    end
+    return occ
+end
+
+default_kweights(adpt_grid::AdaptiveKgrid) = [kv.weight for kv in adpt_grid.kvoxels]
+
+"""
+Refine the kgrid by splitting the kvoxels into subvoxels.
+
+# Arguments
+- `ag`: `AdaptiveKgrid`
+- `iks`: indices of kvoxels to be refined
+
+# Keyword arguments
+- `n_subvoxels`: number of subvoxels along each dimension. 2 -> split into 8 subvoxels
+- `axes`: which axes to refine, e.g., `[true, true, false]` only refine the first two axes
+"""
+function refine!(
+        ag::AdaptiveKgrid,
+        iks::AbstractVector,
+        interp::Function;
+        n_subvoxels = 2,
+        axes::AbstractVector = [true, true, true],
+    )
+    new_kvoxels = eltype(ag.kvoxels)[]
+
+    # split the current kvoxel into 8 sub kvoxels, so 7 new kvoxels are added
+    range_subs = 0:(n_subvoxels - 1)
+    range_subs1 = axes[1] ? range_subs : [0]
+    range_subs2 = axes[2] ? range_subs : [0]
+    range_subs3 = axes[3] ? range_subs : [0]
+    add_points = [
+        Vec3(i, j, k) for i in range_subs1 for j in range_subs2 for k in range_subs3
+    ]
+    deleteat!(add_points, 1)
+    n_subs = Vec3(length.([range_subs1, range_subs2, range_subs3]))
+
+    for ik in iks
+        # split the current kvoxel into 8 sub kvoxels
+        vx0 = ag.kvoxels[ik]
+        voxel = Kvoxel(vx0.point, vx0.dv ./ n_subs, vx0.weight / prod(n_subs))
+        ag.kvoxels[ik] = voxel
+        sub_voxels = map(add_points) do pt
+            Kvoxel(voxel.point + pt .* voxel.dv, voxel.dv, voxel.weight)
+        end
+        append!(new_kvoxels, sub_voxels)
+    end
+
+    new_vals = interp([v.point for v in new_kvoxels])
+    append!(ag.kvoxels, new_kvoxels)
+    append!(ag.vals, new_vals)
+    return nothing
+end
+
+"""
+The input kpoints should be in fractional coordinates, uniformally spaced, and
+do not contain periodically repeated points (i.e., if 0 is included, then 1
+should be excluded).
+"""
+function AdaptiveKgrid(kpoints::AbstractVector, eigenvalues::AbstractVector)
+    kgrid = guess_kgrid_size(kpoints)
+    dv = Vec3(1 ./ kgrid)
+    kweight = default_kweights(eigenvalues)[1]
+    kvoxels = map(kpoints) do kpt
+        Kvoxel(kpt, dv, kweight)
+    end
+    return AdaptiveKgrid(kvoxels, eigenvalues)
+end
+
+"""
+Compute Fermi energy by recursively refining the kgrid when interpolating the Hamiltonian.
+
+# Return
+- `εF`: Fermi energy
+"""
+function compute_fermi_energy(
+        kgrid::AbstractVector,
+        interp::HamiltonianInterpolator,
+        n_electrons::Real,
+        kBT::Real,
+        smearing::SmearingFunction;
+        kwargs...,
+    )
+    kpoints = get_kpoints(kgrid)
+    eigenvals, _ = interp(kpoints)
+    adpt_kgrid = AdaptiveKgrid(kpoints, eigenvals)
+    return compute_fermi_energy!(adpt_kgrid, interp, n_electrons, kBT, smearing; kwargs...)
+end
+
+@doc raw"""
+Compute Fermi energy by recursively refining the kgrid when interpolating the Hamiltonian.
+
+# Arguments
+- `adpt_kgrid`: on input, usually a uniformally-spaced kpoint grid and its eigenvalues;
+    on output, it is modified and contains the refined kgrid and eigenvalues.
+- `interp`: interpolator for Hamiltonian
+- `n_electrons`: number of electrons
+- `kBT`: smearing with in eV
+- `smearing`: type of Smearing
+- `prefactor`: the prefactor before the occupation function, 2 for no-spin system,
+    1 for spin-orbit calculation
+
+# Keyword arguments
+- `tol_n_electrons`: the tolerance on number of electrons in the bisection method
+- `tol_εF`: the convergence tolerance for Fermi energy
+- `max_refine`: the max number of iterations for refining kgrid
+- `width_εF`: the search range for eigenvalues. If the eigenvalue ``\varepsilon_{n\mathbf{k}}``
+    is inside the energy range `[εF - width_εF, εF + width_εF]`, the kpoint
+    will be refined
+
+# Return
+- `εF`: Fermi energy
+"""
+function compute_fermi_energy!(
+        adpt_kgrid::AdaptiveKgrid,
+        interp::HamiltonianInterpolator,
+        n_electrons::Real,
+        kBT::Real,
+        smearing::SmearingFunction;
+        prefactor::Real = default_occupation_prefactor(),
+        tol_n_electrons::Real = 1.0e-6,
+        tol_εF::Real = 5.0e-3,
+        max_refine::Integer = 10,
+        width_εF::Real = 0.5,
+        axes::AbstractVector = [true, true, true],
+    )
+    # the initial guessing Fermi energy
+    εF = compute_fermi_energy(
+        adpt_kgrid.vals,
+        n_electrons,
+        kBT,
+        smearing;
+        prefactor,
+        kweights = default_kweights(adpt_kgrid),
+        tol_n_electrons,
+    )
+    @printf("εF on input kgrid   : %15.9f eV, n_kpoints = %8d\n", εF, length(adpt_kgrid))
+
+    εF_prev = εF - 1
+    iter = 1
+    while abs(εF - εF_prev) > tol_εF && iter <= max_refine
+        refine_iks = filter(1:length(adpt_kgrid)) do ik
+            any(abs.(adpt_kgrid.vals[ik] .- εF) .<= width_εF)
+        end
+        if isempty(refine_iks)
+            @printf("No kpoint to refine at iteration %3d, stopping refinement.\n", iter)
+            break
+        end
+        # alternate between even and odd refinement, so it works for the
+        # K/K' point of graphene as well
+        # I should iterate odd grid 1st, otherwise it seems the graphene
+        # case could still stuck at wrong εF with [8, 8, 1] kgrid
+        n_subvoxels = iter % 2 == 0 ? 2 : 3
+        refine!(adpt_kgrid, refine_iks, x -> interp(x)[1]; n_subvoxels, axes)
+
+        εF_prev = εF
+        εF = compute_fermi_energy(
+            adpt_kgrid.vals,
+            n_electrons,
+            kBT,
+            smearing;
+            prefactor,
+            kweights = default_kweights(adpt_kgrid),
+            tol_n_electrons,
+        )
+        # gradually reduce width_εF to save computation
+        ΔεF = εF - εF_prev
+        @printf(
+            "εF at iteration %3d : %15.9f eV, n_kpoints = %8d, ΔεF = %16.9e eV\n",
+            iter,
+            εF,
+            length(adpt_kgrid),
+            ΔεF,
+        )
+        iter += 1
+        # After 10 iters, the width is mutiplied by 0.8^10 ≈ 0.107
+        width_εF *= 0.8
+        # Set next search range according to ΔεF, but probably this is too small
+        # width_εF = min(width_εF, abs(ΔεF) * 5)
+    end
+    return εF
+end
+
+"""
+Find the valence band maximum.
+
+# Arguments
+- `eigenvalues`: eigenvalues
+- `εF`: Fermi energy
+
+# Return
+- `vbm`: valence band maximum
+- `ik`: index of kpoint for the vbm
+- `n`: index of band for the vbm
+"""
+function find_vbm(eigenvalues::AbstractVector, εF::Real)
+    # convert to a n_bands x n_kpoints matrix
+    E = reduce(hcat, eigenvalues)
+    # mask the conduction bands
+    E[E .> εF] .= -Inf
+    n, ik = argmax(E).I
+    vbm = E[n, ik]
+    return vbm, ik, n
+end
+
+"""
+Find the conduction band minimum.
+
+# Arguments
+- `eigenvalues`: eigenvalues
+- `εF`: Fermi energy
+
+# Return
+- `cbm`: conduction band minimum
+- `ik`: index of kpoint for the cbm
+- `n`: index of band for the cbm
+"""
+function find_cbm(eigenvalues::AbstractVector, εF::Real)
+    # convert to a n_bands x n_kpoints matrix
+    E = reduce(hcat, eigenvalues)
+    # mask the valence bands
+    E[E .< εF] .= Inf
+    n, ik = argmin(E).I
+    cbm = E[n, ik]
+    return cbm, ik, n
+end
+
+"""
+Find VBM and CBM.
+
+To get the indices of kpoints and bands, use [`find_vbm`](@ref) and [`find_cbm`](@ref).
+
+# Return
+- `vbm`: valence band maximum
+- `cbm`: conduction band minimum
+"""
+function find_vbm_cbm(eigenvalues::AbstractVector, εF::Real)
+    vbm = Wannier.find_vbm(eigenvalues, εF)[1]
+    cbm = Wannier.find_cbm(eigenvalues, εF)[1]
+    return vbm, cbm
+end

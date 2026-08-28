@@ -1,0 +1,141 @@
+from functools import cached_property
+import numpy as np
+from ..utility import alpha_A, beta_A
+from .data_K import Data_K
+from ..system.system_R import System_R
+
+
+class Data_K_R(Data_K, System_R):
+    """ The Data_K class for systems defined by R-space matrix elements (Wannier/TB)"""
+
+    def __init__(self, system, **parameters):
+        super().__init__(system, **parameters)
+
+        if system.rvec is not None:
+            self.rvec = system.rvec.copy()
+            self.rvec.set_fft_R_to_k(NK=self.NKFFT, num_wann=self.num_wann,
+                                fftlib=self.fftlib,
+                                dK=self.dK, k_list=self.k_list)
+
+        self._bar_quantities = {}
+        self._covariant_quantities = {}
+        self._XX_R = {}
+
+    @cached_property
+    def HH_K(self):
+        return self.rvec.R_to_k(self.Ham_R, hermitian=True)
+
+    def get_R_mat(self, key):
+        # print(f"data_k : get_R_mat({key})")
+        memoize_R = ['Ham', 'AA', 'OO', 'BB', 'CC', 'CCab', 'GG', 'soc', 'rotAA', 'FF']
+        if self.has_R_mat(key):
+            return self._XX_R[key]
+        else:
+            if key == 'rotAA':
+                res = self.rotAA()
+            elif key == 'rotAAab':
+                res = self.rotAAab()
+            elif key == 'CCab_antisym':
+                res = self.CCab_antisym_R()
+            else:
+                X_R = self.system.get_R_mat(key)
+                res = self.rvec.apply_expdK(X_R)
+            if key in memoize_R:
+                self.set_R_mat(key, res)
+        return res
+
+
+    def rotAA(self):
+        # We do not multiply by expdK, because it is already accounted in AA_R
+        rotAA = self.rvec.derivative(self.get_R_mat('AA'))
+        return rotAA[:, :, :, beta_A, alpha_A] - rotAA[:, :, :, alpha_A, beta_A]
+
+    def rotAAab(self):
+        # We do not multiply by expdK, because it is already accounted in AA_R
+        rotAA = self.rotAA()
+        rotAAab = np.zeros(rotAA.shape + (3,), dtype=complex)
+        rotAAab[:, :, :, alpha_A, beta_A] = -0.5j * rotAA
+        rotAAab[:, :, :, beta_A, alpha_A] = 0.5j * rotAA
+        return rotAAab
+
+
+    def CCab_antisym_R(self):
+        CCab = np.zeros((self.rvec.nRvec, self.num_wann, self.num_wann, 3, 3), dtype=complex)
+        CCab[:, :, :, alpha_A, beta_A] = -0.5j * self.get_R_mat('CC')
+        CCab[:, :, :, beta_A, alpha_A] = 0.5j * self.get_R_mat('CC')
+        return CCab
+
+
+    def Xbar(self, name, der=0):
+        key = (name, der)
+        if key not in self._bar_quantities:
+            # print(f"data_k : Xbar({name}, der={der}) has OO : {self.system.has_R_mat('OO')} has_GG : {self.system.has_R_mat('GG')}")
+            if name == 'GG' and not self.system.has_R_mat('GG'):
+                print("data_k : using FF to get GG")
+                res = self.Xbar('FF', der=der)
+                res = 0.5 * (res + res.swapaxes(3, 4))
+                res = 0.5 * (res + res.swapaxes(1, 2).conj())
+            elif name == 'OO' and not self.system.has_R_mat('OO'):
+                # print("data_k : using FF to get OO")
+                res = self.Xbar('FF', der=der)
+                res = 1j * (res[:, :, :, alpha_A, beta_A] - res[:, :, :, beta_A, alpha_A])
+                res = 0.5 * (res + res.swapaxes(1, 2).conj())
+            else:
+                res = self._R_to_k_H(
+                    self.get_R_mat(name).copy(),
+                    der=der,
+                    hermitian=(name in ['AA', 'SS', 'OO', 'rotAA', ]))
+            self._bar_quantities[key] = res
+        return self._bar_quantities[key]
+
+    def _R_to_k_H(self, XX_R, der=0, hermitian=True):
+        """ converts from real-space matrix elements in Wannier gauge to
+            k-space quantities in k-space.
+            der [=0] - defines the order of comma-derivative
+            hermitian [=True] - consider the matrix hermitian
+            WARNING: the input matrix is destroyed, use np.copy to preserve it"""
+        return self._rotate((self.rvec.R_to_k(XX_R, hermitian=hermitian, der=der))[self.select_K])
+
+    @cached_property
+    def expdK_corners_tetra(self):
+        vertices = self.Kpoint.vertices_fullBZ
+        # we omit the wcc phases here, because they do not affect the energies
+        return np.exp(2j * np.pi * self.rvec.iRvec.dot(vertices.T)).T
+
+
+    def E_K_corners_tetra(self):
+        _ = self.E_K  # to ensure that the bands are selected
+        expdK = self.expdK_corners_tetra
+        _Ecorners = np.zeros((self.nk, 4, self.num_wann), dtype=float)
+        for iv, _exp in enumerate(expdK):
+            _Ham_R = self.Ham_R[:, :, :] * _exp[:, None, None]
+            _HH_K = self.rvec.R_to_k(_Ham_R, hermitian=True)
+            _Ecorners[:, iv, :] = np.linalg.eigvalsh(_HH_K)
+        self.select_bands(_Ecorners)
+        Ecorners = np.zeros((self.nk_selected, 4, self.nb_selected), dtype=float)
+        for iv, _exp in enumerate(expdK):
+            Ecorners[:, iv, :] = _Ecorners[:, iv, :][self.select_K, :][:, self.select_B]
+        Ecorners = self.phonon_freq_from_square(Ecorners)
+        return Ecorners
+
+    @cached_property
+    def expdK_corners_parallel(self):
+        dK2 = self.Kpoint.dK_fullBZ / 2
+        # we omit the wcc phases here, because they do not affect the energies
+        expdK = np.exp(2j * np.pi * self.rvec.iRvec * dK2[None, :])
+        return np.array([1. / expdK, expdK])
+
+    def E_K_corners_parallel(self):
+        _ = self.E_K  # to ensure that the bands are selected
+        expdK = self.expdK_corners_parallel
+        Ecorners = np.zeros((self.nk_selected, 2, 2, 2, self.nb_selected), dtype=float)
+        for ix in 0, 1:
+            for iy in 0, 1:
+                for iz in 0, 1:
+                    _expdK = expdK[ix, :, 0] * expdK[iy, :, 1] * expdK[iz, :, 2]
+                    _Ham_R = self.Ham_R[:, :, :] * _expdK[:, None, None]
+                    _HH_K = self.rvec.R_to_k(_Ham_R, hermitian=True)
+                    E = np.linalg.eigvalsh(_HH_K)
+                    Ecorners[:, ix, iy, iz, :] = E[self.select_K, :][:, self.select_B]
+        Ecorners = self.phonon_freq_from_square(Ecorners)
+        return Ecorners

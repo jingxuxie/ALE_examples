@@ -1,0 +1,2214 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a04604-56f4-7b22-9e1b-0dbd5ca37ef4
+--------
+user
+Read TASK.md and the supplied workspace/input artifacts. Solve the scientific programming task completely. Put your executable solve.py and any required local modules in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt. You have up to one hour. The participant tree is read-only; use your attempt directory for implementation and experiments. Do not use external sources or dependencies beyond the visible environment. Validate what you can and describe unresolved scientific limitations honestly. Do not stop at a plan or a placeholder.
+codex
+I’ll read the task and inputs, then implement and validate in the attempt directory.
+
+exec
+/bin/bash -lc 'pwd; ls -la; cat TASK.md; find .. -name AGENTS.md -print' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/participant
+ succeeded in 9018ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/participant
+total 16
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:56 .
+drwx------ 4 xuandong xuandong   80 Aug 27 18:39 ..
+-rw-rw-r-- 1 xuandong xuandong  976 Aug 27 17:29 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:58 input
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 27 17:58 workspace
+# Gauge-resolved low-energy models
+
+Extend the supplied full-space model exporter into a reliable low-energy exporter. Recover an admissible standard basis and construct the Hermitian quasi-degenerate effective Hamiltonian through cubic order, together with its weak-field Zeeman tensor, from the supplied electronic-structure matrices.
+
+Deliver `solve.py` in the attempt directory. It must accept `--input CASE.npz --output RESULT.npz`. The array contract and conventions are in `workspace/CONTRACT.md`; `workspace/legacy_export.py` is the projection-only starting point. Evaluation uses unseen bulk and monolayer calculations, target subspaces and equivalent coordinate/gauge conventions. Accuracy of basis recovery, remote-band corrections and magnetic response is scored separately. Use all supplied remote bands. NumPy and SciPy are available; no network or external reference packages are required. Each case has a 180-second, 8-GiB process budget with one BLAS thread.
+
+exec
+/bin/bash -lc 'ls -la workspace input; cat workspace/CONTRACT.md; cat workspace/legacy_export.py; rg --files workspace input' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/participant
+ succeeded in 3876ms:
+input:
+total 29056
+drwxrwxr-x 2 xuandong xuandong     4096 Aug 27 17:58 .
+drwxrwxr-x 4 xuandong xuandong     4096 Aug 27 17:56 ..
+-rw-rw-r-- 1 xuandong xuandong    35144 Aug 27 17:58 DATA_LICENSE.txt
+-rw-rw-r-- 1 xuandong xuandong 29707063 Aug 27 17:58 smoke.npz
+
+workspace:
+total 20
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 27 17:58 .
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:56 ..
+-rw-rw-r-- 1 xuandong xuandong 3867 Aug 27 17:30 CONTRACT.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:58 __pycache__
+-rw-rw-r-- 1 xuandong xuandong 1013 Aug 27 17:31 legacy_export.py
+# Interface
+
+Input is a NumPy NPZ archive, loaded with `allow_pickle=False`.
+
+| Key | Shape | Meaning |
+|---|---|---|
+| `energy` | `(n,)` | Full-space band energies in eV, in the supplied eigenbasis. |
+| `momentum` | `(3,n,n)` | Hermitian generalized momentum matrices in atomic units, including spin-orbit terms. |
+| `spin` | `(3,d,d)` | Pauli-spin matrices projected onto the selected bands, not bare abstract Pauli matrices. |
+| `target` | `(d,)` | Zero-based full-space band indices, in the order used by spin and representations. |
+| `dft_repr` | `(g,d,d)` | Numerical unitary parts of symmetry corepresentations in the selected input basis. |
+| `standard_repr` | `(g,d,d)` | Desired unitary parts of the same generators. |
+| `antiunitary` | `(g,)` | Whether a generator includes complex conjugation. |
+| `cart_rotation` | `(g,3,3)` | Spatial part of each generator; an antiunitary generator also reverses momentum. |
+| `order` | scalar integer | Requested expansion order, either 2 or 3. |
+
+Return a complex-valued NPZ containing `U`, `H0`, `H1`, `H2`, `H3`, `G`:
+
+- `U` has shape `(d,d)` and maps standard-basis coordinates into input-basis coordinates. It is unitary and satisfies `D_input @ U = U @ D_standard` for unitary generators and `D_input @ U.conj() = U @ D_standard` for antiunitary generators. Numerical representation noise is expected. No particular residual gauge or overall phase is preferred.
+- `H0`, `H1`, `H2`, `H3` have shapes `(d,d)`, `(d,d,3)`, `(d,d,3,3)`, `(d,d,3,3,3)`. They are the standard-basis tensors of the canonical Hermitian Löwdin effective Hamiltonian for the selected subspace. Use the near-identity block-unitary convention whose diagonal blocks are Hermitian, not an energy-dependent Schur complement. Cartesian derivative indices in `H2` and `H3` are fully symmetric. For order 2 return an all-zero `H3`.
+- With Cartesian `q` in inverse Angstrom, the effective Hamiltonian is `H0 + sum_a H1[...,a]*q[a] + sum_ab H2[...,a,b]*q[a]*q[b] + sum_abc H3[...,a,b,c]*q[a]*q[b]*q[c]`. These are coefficients, not raw derivatives: there are no extra factorials. Both diagonal and mixed Cartesian tensor entries are returned, not only independent monomials.
+- The full-space unperturbed problem is `diag(energy)`; its linear term is `(2*c/bohr) * sum_a momentum[a]*q[a]`, and its quadratic term is `c*dot(q,q)*I`, where `c=3.809982208629016` eV Angstrom squared and `bohr=0.52917721067` Angstrom. Do not truncate the remote space or insert empirical fits.
+- `G` has shape `(d,d,3)` and is defined by `H_Z = mu_B * sum_a G[...,a]*B[a]`. Include both the projected spin and the orbital contribution from virtual transitions, consistently with the same Hermitian Löwdin reduction to second order in momentum. The electron convention uses the covariant-wavevector commutator `[q_a,q_b] = -i*(mu_B/c)*epsilon_abc*B_c`. This fixes the sign and normalization without an electron-charge ambiguity.
+
+All matrix tensors are in the returned standard basis. Individual tensor comparisons allow any admissible residual gauge by using the submitted `U`; matching a single privileged basis choice is not required. Basis admissibility, quadratic corrections, cubic corrections and Zeeman response each contribute to the core score; zeroth/first-order export, Hermiticity and consistency are checked too. The raw numerical tensors are requested, without additionally projecting away the small symmetry violations in the electronic-structure data. Full datasets have 600–800 bands and target dimensions 2–4. A target may contain several distinct energies; denominators within the retained space are not remote-band denominators.
+
+`input/smoke.npz` is an unlabeled real-data smoke input. Running the legacy exporter checks the file interface, not scientific correctness. Hidden materials and raw reference outputs are intentionally not supplied.
+import argparse
+import numpy as np
+
+
+def export(case):
+    selected = case['target']
+    dimension = len(selected)
+    result = {
+        'U': np.eye(dimension, dtype=complex),
+        'H0': np.diag(case['energy'][selected]).astype(complex),
+        'H1': np.stack([matrix[np.ix_(selected, selected)] for matrix in case['momentum']], axis=-1) * (2 * 3.809982208629016 / 0.52917721067),
+        'H2': np.einsum('ij,ab->ijab', np.eye(dimension), np.eye(3)).astype(complex) * 3.809982208629016,
+        'H3': np.zeros((dimension, dimension, 3, 3, 3), dtype=complex),
+        'G': np.moveaxis(case['spin'], 0, -1).astype(complex),
+    }
+    return result
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', required=True)
+    parser.add_argument('--output', required=True)
+    arguments = parser.parse_args()
+    with np.load(arguments.input, allow_pickle=False) as archive:
+        result = export(dict(archive))
+    np.savez_compressed(arguments.output, **result)
+input/DATA_LICENSE.txt
+input/smoke.npz
+workspace/__pycache__/legacy_export.cpython-310.pyc
+workspace/CONTRACT.md
+workspace/legacy_export.py
+
+  → Inspect data and derive reduction formulas
+  • Implement basis recovery and effective tensors
+  • Validate synthetic cases and smoke input
+  • Document usage and scientific limitations
+exec
+/bin/bash -lc "python - <<'PY'
+import numpy as np
+with np.load('input/smoke.npz',allow_pickle=False) as data:
+ for key in data.files:
+  value=data[key]
+  print(key,value.shape,value.dtype)
+  if value.size < 150: print(value)
+ energy=data['energy']; target=data['target']; remote=np.setdiff1d(np.arange(len(energy)),target)
+ print('energy range:',energy.min(),energy.max())
+ print('selected energies:',energy[target])
+ print('smallest P-Q energy gaps:',np.min(np.abs(energy[target,None]-energy[remote]),axis=1))
+ for key in ('dft_repr','standard_repr'):
+  value=data[key]
+  print(key,'unitarity errors',np.linalg.norm(value @ value.conj().transpose(0,2,1)-np.eye(len(target)),axis=(1,2)))
+ print('momentum Hermiticity error',np.max(np.abs(data['momentum']-data['momentum'].conj().transpose(0,2,1))))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/participant
+ succeeded in 9864ms:
+energy (800,) float64
+momentum (3, 800, 800) complex128
+spin (3, 2, 2) complex128
+[[[-1.51231e-05+1.44653e-18j -6.11976e-01-7.88519e-01j]
+  [-6.11976e-01+7.88519e-01j  1.51972e-05+1.95953e-20j]]
+
+ [[-7.44141e-06+1.07135e-20j -7.88519e-01+6.11976e-01j]
+  [-7.88519e-01-6.11976e-01j  7.42883e-06+6.71377e-21j]]
+
+ [[ 9.93555e-01-1.50734e-17j -1.51715e-05-7.44149e-06j]
+  [-1.51715e-05+7.44149e-06j -9.99965e-01-4.26274e-18j]]]
+target (2,) int64
+[24 25]
+dft_repr (3, 2, 2) complex128
+[[[-1.00000e+00-6.61178e-11j  0.00000e+00+0.00000e+00j]
+  [ 0.00000e+00+0.00000e+00j  5.00000e-01-8.66025e-01j]]
+
+ [[ 9.78933e-17-1.00000e+00j  0.00000e+00+0.00000e+00j]
+  [ 0.00000e+00+0.00000e+00j -1.14901e-16+1.00000e+00j]]
+
+ [[ 8.30263e-01-5.57372e-01j  0.00000e+00+0.00000e+00j]
+  [ 0.00000e+00+0.00000e+00j  7.45983e-01+6.65965e-01j]]]
+standard_repr (3, 2, 2) complex128
+[[[-1. +0.j         0. +0.j       ]
+  [ 0. +0.j         0.5-0.8660254j]]
+
+ [[ 0. -1.j         0. +0.j       ]
+  [ 0. +0.j         0. +1.j       ]]
+
+ [[-1. +0.j         0. +0.j       ]
+  [ 0. +0.j         0.5+0.8660254j]]]
+antiunitary (3,) bool
+[False False  True]
+cart_rotation (3, 3, 3) float64
+[[[-0.5       -0.8660254  0.       ]
+  [ 0.8660254 -0.5        0.       ]
+  [ 0.         0.         1.       ]]
+
+ [[ 1.         0.         0.       ]
+  [ 0.         1.         0.       ]
+  [ 0.         0.        -1.       ]]
+
+ [[-1.         0.         0.       ]
+  [ 0.         1.         0.       ]
+  [ 0.         0.         1.       ]]]
+order () int64
+3
+energy range: -63.764925 70.030376
+selected energies: [-3.018235 -2.834061]
+smallest P-Q energy gaps: [1.50476  1.320586]
+dft_repr unitarity errors [6.99375000e-07 0.00000000e+00 1.96335723e-07]
+standard_repr unitarity errors [1.11022302e-16 0.00000000e+00 1.11022302e-16]
+momentum Hermiticity error 1.867796e-15
+
+**Considering basis solver implementation**
+
+I’m thinking about implementing a basis solver that uses real nullspace candidates and SVD. I want to select thresholds based on the maximum absolute value and the largest gap, but I should be cautious about not using a threshold that might lead us astray. It’s crucial to make deterministic candidates for all \( k \leq N \) and consider using four random combinations for projection. Let’s explore this further!
+codex
+The contract requires remote-band corrections, not just projection. I’ve derived the cubic reduction and will check it against exact block diagonalization.
+
+exec
+/bin/bash -lc "ls -la /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt; python - <<'PY'
+import numpy, scipy, sys
+print('Python:',sys.version)
+print('NumPy:',numpy.__version__)
+print('SciPy:',scipy.__version__)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/participant
+ succeeded in 15024ms:
+total 4
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 27 18:41 .
+drwx------ 4 xuandong xuandong   80 Aug 27 18:41 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 18:41 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 18:41 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 18:41 .git
+Python: 3.10.12 (main, Jun 22 2026, 18:55:27) [GCC 11.4.0]
+NumPy: 1.21.5
+SciPy: 1.8.0
+
+**Considering test file strategy**
+
+I’m thinking we shouldn’t add a permanent test file. Instead, I could run it via a Python heredoc and use optional JSON for artifacts validation, along with a README. A temporary file like `_validate.py` could be useful to run tests and then delete it afterwards since it’s not for the final repo. I should also produce a markdown for mathematical derivation and execute my synthetic experiment with `python - <<'PY'`. No new tests needed for the final version!
+Inspected all supplied artifacts and derived the canonical cubic and commutator-based Zeeman terms, including nondegenerate retained energies.
+  ✓ Inspect data and derive reduction formulas
+  → Implement basis recovery and effective tensors
+  • Validate synthetic cases and smoke input
+  • Document usage and scientific limitations
+codex
+I’ll implement basis recovery and the full remote-band corrections now.
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/solve.py
++#"'!/usr/bin/env python3
++"""Gauge-resolved canonical Hermitian low-energy and weak-field exporter."""
++
++import argparse
++from itertools import permutations
++
++import numpy as np
++from scipy.linalg import expm
++from scipy.optimize import least_squares
++
++
++KINETIC = 3.809982208629016
++BOHR = 0.52917721067
++VELOCITY = 2.0 * KINETIC / BOHR
++
++
++def _real_vector(matrix):
++    return np.concatenate((matrix.real.ravel(), matrix.imag.ravel()))
++
++
++def _complex_matrix(vector, dimension):
++    size = dimension * dimension
++    return (vector[:size] + 1j * vector[size:]).reshape(dimension, dimension)
++
++
++def _polar(matrix):
++    left, _, right = np.linalg.svd(matrix)
++    return left @ right
++
++
++def _hermitian_generators(dimension):
++    generators = []
++    for row in range(dimension):
++        diagonal = np.zeros((dimension, dimension), dtype=complex)
++        diagonal[row, row] = 1.0
++        generators.append(diagonal)
++        for column in range(row + 1, dimension):
++            symmetric = np.zeros_like(diagonal)
++            symmetric[row, column] = symmetric[column, row] = 1.0 / np.sqrt(2.0)
++            antisymmetric = np.zeros_like(diagonal)
++            antisymmetric[row, column] = 1j / np.sqrt(2.0)
++            antisymmetric[column, row] = -1j / np.sqrt(2.0)
++            generators.extend((symmetric, antisymmetric))
++    return np.asarray(generators)
++
++
++def recover_basis(input_repr, standard_repr, antiunitary):
++    """Find a unitary intertwiner, allowing reducible and noisy corepresentations.
++
++    Antiunitary intertwining is real-linear rather than complex-linear. Polar
++    factors of invertible exact intertwiners are themselves intertwiners. Small
++    singular-vector subspaces provide seeds without assuming a kernel dimension;
++    constrained least squares then accommodates representation rounding errors.
++    """
++    dimension = input_repr.shape[-1]
++    identity = np.eye(dimension, dtype=complex)
++    if len(input_repr) == 0:
++        return identity
++
++    def residual(matrix):
++        transformed = np.where(antiunitary[:, None, None], matrix.conj(), matrix)
++        return _real_vector(input_repr @ transformed - matrix @ standard_repr)
++
++    identity_residual = residual(identity)
++    exact_tolerance = 1e-12 * max(1.0, np.sqrt(len(input_repr) * dimension))
++    if np.linalg.norm(identity_residual) <= exact_tolerance:
++        return identity
++
++    matrix_units = np.eye(dimension * dimension).reshape(-1, dimension, dimension)
++    real_units = np.concatenate((matrix_units, 1j * matrix_units))
++    operator = np.column_stack([residual(unit) for unit in real_units])
++    _, _, right = np.linalg.svd(operator, full_matrices=False)
++    small_modes = right[::-1].T
++    identity_vector = _real_vector(identity)
++    random = np.random.default_rng(1847)
++    candidates = [(float(identity_residual @ identity_residual), identity)]
++
++    for count in range(1, small_modes.shape[1] + 1):
++        subspace = small_modes[:, :count]
++        coefficients = [subspace.T @ identity_vector]
++        coefficients.extend(random.normal(size=count) for _ in range(4))
++        for coefficient in coefficients:
++            vector = subspace @ coefficient
++            if np.linalg.norm(vector) < 1e-14:
++                continue
++            candidate = _polar(_complex_matrix(vector, dimension))
++            error = residual(candidate)
++            score = float(error @ error)
++            if score <= exact_tolerance**2:
++                return candidate
++            candidates.append((score, candidate))
++
++    candidates.sort(key=lambda candidate: candidate[0])
++    best_score, best_basis = candidates[0]
++    generators = _hermitian_generators(dimension)
++    for _, initial in candidates[:3]:
++        def parameterized_basis(parameters):
++            hermitian = np.tensordot(parameters, generators, axes=(0, 0))
++            return initial @ expm(1j * hermitian)
++
++        solution = least_squares(
++            lambda parameters: residual(parameterized_basis(parameters)),
++            np.zeros(dimension * dimension),
++            jac="3-point",
++            ftol=5e-13,
++            xtol=5e-13,
++            gtol=5e-13,
++            max_nfev=100,
++        )
++        candidate = parameterized_basis(solution.x)
++        error = residual(candidate)
++        score = float(error @ error)
++        if score < best_score:
++            best_score, best_basis = score, candidate
++        if best_score <= exact_tolerance**2:
++            break
++    return _polar(best_basis)
++
++
++def _hermitize(tensor):
++    return 0.5 * (tensor + tensor.swapaxes(-1, -2).conj())
++
++
++def _standard_tensor(tensor, basis):
++    """Transform matrix indices, then move leading Cartesian indices to the end."""
++    transformed = _hermitize(basis.conj().T @ tensor @ basis)
++    return np.moveaxis(transformed, (-2, -1), (0, 1)).astype(complex, copy=False)
++
++
++def export(case):
++    """Return U, H0 through H3, and G in the NPZ contract'"'s conventions.\"\"\"
++    energy = np.asarray(case[\"energy\"], dtype=float)
++    momentum = np.asarray(case[\"momentum\"], dtype=complex)
++    selected = np.asarray(case[\"target\"], dtype=int)
++    spin = np.asarray(case[\"spin\"], dtype=complex)
++    input_repr = np.asarray(case[\"dft_repr\"], dtype=complex)
++    standard_repr = np.asarray(case[\"standard_repr\"], dtype=complex)
++    antiunitary = np.asarray(case[\"antiunitary\"], dtype=bool)
++    order = int(np.asarray(case[\"order\"]).item())
++    dimension = len(selected)
++    bands = len(energy)
++
++    if energy.ndim "'!= 1 or momentum.shape != (3, bands, bands):
++        raise ValueError("energy and momentum have incompatible shapes")
++    if selected.ndim != 1 or dimension == 0:
++        raise ValueError("target must be a nonempty one-dimensional array")
++    if len(np.unique(selected)) != dimension or np.any((selected < 0) | (selected >= bands)):
++        raise ValueError("target must contain distinct valid band indices")
++    if spin.shape != (3, dimension, dimension):
++        raise ValueError("spin must use the target basis and have shape (3,d,d)")
++    if input_repr.shape != (len(antiunitary), dimension, dimension):
++        raise ValueError("dft_repr must have shape (g,d,d)")
++    if standard_repr.shape != input_repr.shape or antiunitary.ndim != 1:
++        raise ValueError("incompatible symmetry generator arrays")
++    if order not in (2, 3):
++        raise ValueError("order must be 2 or 3")
++    for name, array in (("energy", energy), ("momentum", momentum), ("spin", spin),
++                        ("dft_repr", input_repr), ("standard_repr", standard_repr)):
++        if not np.all(np.isfinite(array)):
++            raise ValueError(f"{name} contains nonfinite entries")
++
++    basis = recover_basis(input_repr, standard_repr, antiunitary)
++    remote_mask = np.ones(bands, dtype=bool)
++    remote_mask[selected] = False
++    remote = np.flatnonzero(remote_mask)
++    gaps = energy[selected][None, :] - energy[remote][:, None]
++    if np.any(gaps == 0.0):
++        raise ValueError("A target band is degenerate with a remote band; enlarge the target space")
++    inverse_gaps = 1.0 / gaps
++
++    linear_pp = VELOCITY * momentum[:, selected[:, None], selected[None, :]]
++    linear_qp = VELOCITY * momentum[:, remote[:, None], selected[None, :]]
++    linear_pq = VELOCITY * momentum[:, selected[:, None], remote[None, :]]
++    wave_first = linear_qp * inverse_gaps[None, :, :]
++
++    ordered_second = 0.5 * (
++        np.einsum("aim,bmj->abij", linear_pq, wave_first, optimize=True)
++        + np.einsum("ami,bmj->abij", wave_first.conj(), linear_qp, optimize=True)
++    )
++    quadratic = 0.5 * (ordered_second + ordered_second.swapaxes(0, 1))
++    quadratic += KINETIC * np.einsum("ab,ij->abij", np.eye(3), np.eye(dimension))
++
++    zeeman = spin.copy()
++    for axis, (first, second) in enumerate(((1, 2), (2, 0), (0, 1))):
++        zeeman[axis] -= 0.5j / KINETIC * (
++            ordered_second[first, second] - ordered_second[second, first]
++        )
++
++    cubic = np.zeros((3, 3, 3, dimension, dimension), dtype=complex)
++    if order == 3 and len(remote):
++        wave_second = np.empty((3, 3, len(remote), dimension), dtype=complex)
++        for first in range(3):
++            linear_qq = VELOCITY * momentum[first][np.ix_(remote, remote)]
++            for second in range(3):
++                wave_second[first, second] = inverse_gaps * (
++                    linear_qq @ wave_first[second] - wave_first[first] @ linear_pp[second]
++                )
++        directed_cubic = _hermitize(
++            np.einsum("aim,bcmj->abcij", linear_pq, wave_second, optimize=True)
++        )
++        for permutation in permutations(range(3)):
++            cubic += directed_cubic.transpose(permutation + (3, 4)) / 6.0
++
++    return {
++        "U": basis,
++        "H0": _standard_tensor(np.diag(energy[selected]), basis),
++        "H1": _standard_tensor(linear_pp, basis),
++        "H2": _standard_tensor(quadratic, basis),
++        "H3": _standard_tensor(cubic, basis),
++        "G": _standard_tensor(zeeman, basis),
++    }
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--input", required=True, help="input case NPZ")
++    parser.add_argument("--output", required=True, help="output tensor NPZ")
++    arguments = parser.parse_args()
++    with np.load(arguments.input, allow_pickle=False) as archive:
++        result = export(archive)
++    with open(arguments.output, "wb") as output:
++        np.savez_compressed(output, **result)
++
++
++if __name__ == "__main__":
++    main()
+*** End Patch
+PATCH
+chmod +x /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/solve.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/participant
+ succeeded in 1064ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/solve.py
+
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 /usr/bin/time -f 'elapsed=%e seconds peak_memory=%M KiB' ./solve.py --input ../participant/input/smoke.npz --output smoke_result.npz" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import numpy as np
+from scipy.linalg import eigh
+from solve import export, KINETIC, VELOCITY
+random=np.random.default_rng(621)
+def hermitian(size):
+ matrix=random.normal(size=(size,size))+1j*random.normal(size=(size,size))
+ return (matrix+matrix.conj().T)/2
+bands=9
+selected=np.array([6,1,4,2])
+energy=np.array([-4.5,-0.3,0.7,-3.4,-1.1,3.2,0.0,4.1,5.3])
+linear=np.array([hermitian(bands) for _ in range(3)])
+case=dict(energy=energy,momentum=linear/VELOCITY,spin=np.array([hermitian(4) for _ in range(3)]),target=selected,dft_repr=np.eye(4)[None],standard_repr=np.eye(4)[None],antiunitary=np.array([False]),cart_rotation=np.eye(3)[None],order=np.array(3))
+result=export(case)
+direction=np.array([.43,-.38,.62]); direction/=np.linalg.norm(direction)
+first=np.einsum('ija,a->ij',result['H1'],direction)
+second=np.einsum('ijab,a,b->ij',result['H2'],direction,direction)
+third=np.einsum('ijabc,a,b,c->ij',result['H3'],direction,direction,direction)
+errors=[]
+for magnitude in [0.04,0.02,0.01,0.005]:
+ full=np.diag(energy)+magnitude*np.einsum('a,aij->ij',direction,linear)+KINETIC*magnitude**2*np.eye(bands)
+ eigenvalues,eigenvectors=eigh(full)
+ overlap_weights=np.sum(np.abs(eigenvectors[selected,:])**2,axis=0)
+ keep=np.argsort(overlap_weights)[-len(selected):]
+ vectors=eigenvectors[:,keep]
+ overlap=vectors[selected,:]
+ left,_,right=np.linalg.svd(overlap)
+ unitary=left@right
+ canonical=unitary@np.diag(eigenvalues[keep])@unitary.conj().T
+ quadratic=result['H0']+magnitude*first+magnitude**2*second
+ cubic=quadratic+magnitude**3*third
+ errors.append(np.linalg.norm(canonical-cubic))
+ print('q=%.4f, quadratic error=%.9g, cubic error=%.9g, cubic error/q"'^4=%.9g'"'%(magnitude,np.linalg.norm(canonical-quadratic),errors[-1],errors[-1]/magnitude**4))
+print('cubic error reduction ratios:',np.array(errors[:-1])/errors[1:])
+assert np.all((np.array(errors[:-1])/errors[1:])>14)
+for key in ['H0','H1','H2','H3','G']:
+ assert np.max(np.abs(result[key]-result[key].swapaxes(0,1).conj()))<1e-12
+assert np.max(np.abs(result['H2']-result['H2'].swapaxes(2,3)))<1e-12
+assert np.max(np.abs(result['H3']-result['H3'].swapaxes(2,3)))<1e-12
+assert np.max(np.abs(result['H3']-result['H3'].swapaxes(3,4)))<1e-12
+case['order']=np.array(2)
+second_order=export(case)
+assert np.max(np.abs(second_order['H3']))==0
+for key in ['H0','H1','H2','G']:
+ assert np.max(np.abs(result[key]-second_order[key]))==0
+print('Hermiticity, Cartesian symmetry, order-2 consistency: PASS')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt
+ succeeded in 9634ms:
+q=0.0400, quadratic error=0.00019130877, cubic error=5.44899578e-06, cubic error/q^4=2.12851398
+q=0.0200, quadratic error=2.37592842e-05, cubic error=3.41626481e-07, cubic error/q^4=2.13516551
+q=0.0100, quadratic error=2.96006973e-06, cubic error=2.13783866e-08, cubic error/q^4=2.13783866
+q=0.0050, quadratic error=3.69388899e-07, cubic error=1.33687811e-09, cubic error/q^4=2.13900498
+cubic error reduction ratios: [15.95015632 15.97999361 15.99127578]
+Hermiticity, Cartesian symmetry, order-2 consistency: PASS
+
+ succeeded in 10302ms:
+elapsed=1.07 seconds peak_memory=110288 KiB
+
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import time
+import numpy as np
+from solve import recover_basis
+random=np.random.default_rng(781)
+def unitary(dimension):
+ matrix=random.normal(size=(dimension,dimension))+1j*random.normal(size=(dimension,dimension))
+ left,_,right=np.linalg.svd(matrix)
+ return left@right
+def residual(given,standard,anti,basis):
+ return np.linalg.norm(given@np.where(anti[:,None,None],basis.conj(),basis)-basis@standard)
+scenarios=[]
+for dimension in (1,2,3,4):
+ scenarios.append(('generic',np.array([unitary(dimension) for _ in range(3)]),np.array([False,False,True])))
+ scenarios.append(('unitary_only',np.array([unitary(dimension)]),np.array([False])))
+ scenarios.append(('real_structure',np.eye(dimension)[None].astype(complex),np.array([True])))
+ diagonal=np.diag(np.exp(1j*np.linspace(.2,2.3,dimension)))
+ anti_diagonal=np.diag(np.exp(1j*np.linspace(-.6,1.8,dimension)))
+ scenarios.append(('distinct_characters',np.array([diagonal,anti_diagonal]),np.array([False,True])))
+for dimension in (2,4):
+ time_reversal=np.kron(np.eye(dimension//2),np.array([[0,1],[-1,0]]))
+ scenarios.append(('kramers_only',time_reversal[None].astype(complex),np.array([True])))
+ first=np.kron(np.eye(dimension//2),np.diag([1j,-1j]))
+ second=np.kron(np.eye(dimension//2),1j*np.array([[0,1],[1,0]]))
+ scenarios.append(('repeated_spinor',np.array([first,second,time_reversal]),np.array([False,False,True])))
+start=time.perf_counter(); maximum_exact=0.; maximum_relative=0.; maximum_unitarity=0.
+for name,standard,anti in scenarios:
+ dimension=standard.shape[-1]
+ known=unitary(dimension)
+ given=np.array([known@matrix@(known.T if is_anti else known.conj().T) for matrix,is_anti in zip(standard,anti)])
+ for noise in (0.,1e-6,1e-3):
+  noisy=given+noise*(random.normal(size=given.shape)+1j*random.normal(size=given.shape))
+  basis=recover_basis(noisy,standard,anti)
+  error=residual(noisy,standard,anti,basis)
+  known_error=residual(noisy,standard,anti,known)
+  unitarity=np.linalg.norm(basis.conj().T@basis-np.eye(dimension))
+  maximum_unitarity=max(maximum_unitarity,unitarity)
+  if noise==0:
+   maximum_exact=max(maximum_exact,error)
+   assert error<1e-10,(name,dimension,noise,error)
+  else:
+   maximum_relative=max(maximum_relative,error/known_error)
+   assert error<known_error*(1+1e-7)+1e-11,(name,dimension,noise,error,known_error)
+  assert unitarity<1e-12
+ print('%-20s d=%d: exact, 1e-6 noise, 1e-3 noise PASS'%(name,dimension))
+print('elapsed:',time.perf_counter()-start)
+print('maximum exact residual:',maximum_exact)
+print('maximum recovered/noisy-known residual ratio:',maximum_relative)
+print('maximum unitarity error:',maximum_unitarity)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt
+**Evaluating input processing**
+
+I’m thinking about the d1 input dimension, which is pretty straightforward in terms of data type, but I still need to handle it properly. There's no need for cart_rotation parsing since the contract expects all arrays, and we don't need the cart here. I want to mention that the basis maintains internal structure and axes. I’m wondering whether to use anti-momentum reversal or not. It seems like I can compute the smoke residual and norms output without it.
+ succeeded in 7330ms:
+generic              d=1: exact, 1e-6 noise, 1e-3 noise PASS
+unitary_only         d=1: exact, 1e-6 noise, 1e-3 noise PASS
+real_structure       d=1: exact, 1e-6 noise, 1e-3 noise PASS
+distinct_characters  d=1: exact, 1e-6 noise, 1e-3 noise PASS
+generic              d=2: exact, 1e-6 noise, 1e-3 noise PASS
+unitary_only         d=2: exact, 1e-6 noise, 1e-3 noise PASS
+real_structure       d=2: exact, 1e-6 noise, 1e-3 noise PASS
+distinct_characters  d=2: exact, 1e-6 noise, 1e-3 noise PASS
+generic              d=3: exact, 1e-6 noise, 1e-3 noise PASS
+unitary_only         d=3: exact, 1e-6 noise, 1e-3 noise PASS
+real_structure       d=3: exact, 1e-6 noise, 1e-3 noise PASS
+distinct_characters  d=3: exact, 1e-6 noise, 1e-3 noise PASS
+generic              d=4: exact, 1e-6 noise, 1e-3 noise PASS
+unitary_only         d=4: exact, 1e-6 noise, 1e-3 noise PASS
+real_structure       d=4: exact, 1e-6 noise, 1e-3 noise PASS
+distinct_characters  d=4: exact, 1e-6 noise, 1e-3 noise PASS
+kramers_only         d=2: exact, 1e-6 noise, 1e-3 noise PASS
+repeated_spinor      d=2: exact, 1e-6 noise, 1e-3 noise PASS
+kramers_only         d=4: exact, 1e-6 noise, 1e-3 noise PASS
+repeated_spinor      d=4: exact, 1e-6 noise, 1e-3 noise PASS
+elapsed: 2.872816974995658
+maximum exact residual: 2.5624275447869745e-14
+maximum recovered/noisy-known residual ratio: 1.000000000025413
+maximum unitarity error: 2.987135389686402e-15
+
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import numpy as np
+from solve import KINETIC
+with np.load('../participant/input/smoke.npz',allow_pickle=False) as case, np.load('smoke_result.npz',allow_pickle=False) as result:
+ basis=result['U']; anti=case['antiunitary']; dimension=len(case['target'])
+ residual=case['dft_repr']@np.where(anti[:,None,None],basis.conj(),basis)-basis@case['standard_repr']
+ print('basis =',basis)
+ print('symmetry residual by generator:',np.linalg.norm(residual,axis=(1,2)))
+ print('unitarity residual:',np.linalg.norm(basis.conj().T@basis-np.eye(dimension)))
+ for key in result.files:
+  tensor=result[key]
+  print(key,'shape',tensor.shape,'dtype',tensor.dtype,'norm',np.linalg.norm(tensor),'finite',np.all(np.isfinite(tensor)))
+  if key"'!='"'U':print('  Hermiticity:',np.max(np.abs(tensor-tensor.swapaxes(0,1).conj())))
+ print('H2 symmetry:',np.max(np.abs(result['H2']-result['H2'].swapaxes(2,3))))
+ print('H3 symmetry:',max(np.max(np.abs(result['H3']-result['H3'].swapaxes(2,3))),np.max(np.abs(result['H3']-result['H3'].swapaxes(3,4)))))
+ print('G =',result['G'])
+ print('quadratic remote correction norm:',np.linalg.norm(result['H2']-KINETIC*np.einsum('ij,ab->ijab',np.eye(dimension),np.eye(3))))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt
+ succeeded in 4669ms:
+basis = [[-0.29132206-0.95662504j  0.        +0.j        ]
+ [ 0.        +0.j         -0.98735356+0.15853375j]]
+symmetry residual by generator: [4.03784444e-07 1.57009246e-16 9.81678565e-08]
+unitarity residual: 0.0
+U shape (2, 2) dtype complex128 norm 1.4142135623730951 finite True
+H0 shape (2, 2) dtype complex128 norm 4.140246884781873 finite True
+  Hermiticity: 0.0
+H1 shape (2, 2, 3) dtype complex128 norm 2.9991557588595838e-05 finite True
+  Hermiticity: 0.0
+H2 shape (2, 2, 3, 3) dtype complex128 norm 7.950046974464248 finite True
+  Hermiticity: 0.0
+H3 shape (2, 2, 3, 3, 3) dtype complex128 norm 20.06865535740674 finite True
+  Hermiticity: 0.0
+G shape (2, 2, 3) dtype complex128 norm 5.566748682081165 finite True
+  Hermiticity: 0.0
+H2 symmetry: 0.0
+H3 symmetry: 1.7763568394002505e-15
+G = [[[ 4.38573267e-06+0.00000000e+00j -1.75416741e-05+0.00000000e+00j
+   -2.33356702e+00+0.00000000e+00j]
+  [-9.11125976e-01+5.26065136e-01j  5.26080490e-01+9.11127972e-01j
+   -1.06787101e-04-3.65847769e-05j]]
+
+ [[-9.11125976e-01-5.26065136e-01j  5.26080490e-01-9.11127972e-01j
+   -1.06787101e-04+3.65847769e-05j]
+  [-7.24122367e-06+0.00000000e+00j  9.14601632e-06+0.00000000e+00j
+   -4.59516441e+00+0.00000000e+00j]]]
+quadratic remote correction norm: 15.943429545944669
+
+codex
+The cubic error scales as expected, and gauge tests pass. I’ll now check Zeeman signs and coordinate covariance.
+
+Implemented the complete exporter. Initial exact-block-diagonalization, noisy-corepresentation, tensor-symmetry, and 800-band smoke checks pass.
+  ✓ Inspect data and derive reduction formulas
+  ✓ Implement basis recovery and effective tensors
+  → Validate synthetic cases and smoke input
+  • Document usage and scientific limitations
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import numpy as np
+from scipy.linalg import eigh
+from solve import KINETIC, VELOCITY
+with np.load('../participant/input/smoke.npz',allow_pickle=False) as case, np.load('smoke_result.npz',allow_pickle=False) as result:
+ energy=case['energy']; momentum=case['momentum']; selected=case['target']; basis=result['U']
+ direction=np.array([0.57,-0.72,0.39]); direction/=np.linalg.norm(direction)
+ first=np.einsum('ija,a->ij',result['H1'],direction)
+ second=np.einsum('ijab,a,b->ij',result['H2'],direction,direction)
+ third=np.einsum('ijabc,a,b,c->ij',result['H3'],direction,direction,direction)
+ errors=[]
+ for magnitude in (0.016,0.008,0.004,0.002):
+  full=np.diag(energy)+magnitude*VELOCITY*np.einsum('a,aij->ij',direction,momentum)+KINETIC*magnitude**2*np.eye(len(energy))
+  eigenvalues,eigenvectors=eigh(full)
+  overlap_weights=np.sum(np.abs(eigenvectors[selected,:])**2,axis=0)
+  keep=np.argsort(overlap_weights)[-len(selected):]
+  overlap=eigenvectors[selected,:][:,keep]
+  left,_,right=np.linalg.svd(overlap)
+  polar=left@right
+  exact=basis.conj().T@polar@np.diag(eigenvalues[keep])@polar.conj().T@basis
+  approximation=result['H0']+magnitude*first+magnitude**2*second+magnitude**3*third
+  error=np.linalg.norm(exact-approximation)
+  errors.append(error)
+  print('q=%g, cubic error=%.10g eV, error/q"'^4=%.10g'"'%(magnitude,error,error/magnitude**4))
+ print('smoke cubic error reduction ratios:',np.array(errors[:-1])/errors[1:])
+ assert np.all(np.array(errors[:-1])/errors[1:]>14)
+ print('800-band exact canonical comparison: PASS')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import numpy as np
+from scipy.linalg import eigh
+from solve import export, KINETIC, VELOCITY
+random=np.random.default_rng(8472)
+def hermitian(dimension):
+ matrix=random.normal(size=(dimension,dimension))+1j*random.normal(size=(dimension,dimension))
+ return (matrix+matrix.conj().T)/2
+def case_for(energy,linear,selected):
+ dimension=len(selected)
+ return dict(energy=np.array(energy),momentum=np.array(linear)/VELOCITY,target=np.array(selected),spin=np.zeros((3,dimension,dimension),complex),dft_repr=np.eye(dimension)[None].astype(complex),standard_repr=np.eye(dimension)[None].astype(complex),antiunitary=np.array([False]),cart_rotation=np.eye(3)[None],order=np.array(3))
+gap=2.7; coupling=1.4
+pauli_x=np.array([[0,1],[1,0]],complex)
+pauli_y=np.array([[0,-1j],[1j,0]],complex)
+case=case_for([0,gap],[coupling*pauli_x,coupling*pauli_y,np.zeros((2,2))],[0])
+result=export(case)
+expected=-coupling**2/(KINETIC*gap)
+print('Dirac orbital Gz:',result['G'][0,0,2],'; expected:',expected)
+assert abs(result['G'][0,0,2]-expected)<1e-14
+assert np.max(np.abs(result['G'][...,0:2]))<1e-14
+size=10
+lowering=np.diag(np.sqrt(np.arange(1,size)),1)
+errors=[]
+for magnitude in (.02,.01,.005):
+ qx=magnitude*(lowering+lowering.T)
+ qy=1j*magnitude*(lowering-lowering.T)
+ q_squared=qx@qx+qy@qy
+ field_in_mu_b_units=2*KINETIC*magnitude**2
+ full=np.kron(np.diag([0,gap]),np.eye(size))+coupling*np.kron(pauli_x,qx)+coupling*np.kron(pauli_y,qy)+KINETIC*np.kron(np.eye(2),q_squared)
+ eigenvalues,eigenvectors=eigh(full)
+ exact=eigenvalues[np.argmax(np.abs(eigenvectors[0,:])**2)]
+ quadratic_shift=result['H2'][0,0,0,0]*q_squared[0,0]
+ predicted=quadratic_shift+result['G'][0,0,2]*field_in_mu_b_units
+ error=abs(exact-predicted)
+ errors.append(error)
+ print('oscillator kappa=%g: error=%g, error/kappa"'^4=%g'"'%(magnitude,error,error/magnitude**4))
+assert np.all(np.array(errors[:-1])/errors[1:]>15)
+case=case_for([-3.2,.2,1.1,4.2,-1.7,5.4,6.1],[hermitian(7) for _ in range(3)],[4,1,2])
+case['spin']=np.array([hermitian(3) for _ in range(3)])
+result=export(case)
+for parity in (1,-1):
+ rotation,_=np.linalg.qr(random.normal(size=(3,3)))
+ rotation[0]*=parity/np.linalg.det(rotation)
+ rotated=dict(case)
+ rotated['momentum']=np.einsum('ab,bij->aij',rotation,case['momentum'])
+ rotated['spin']=parity*np.einsum('ab,bij->aij',rotation,case['spin'])
+ rotated['cart_rotation']=rotation@case['cart_rotation']@rotation.T
+ transformed=export(rotated)
+ expected_tensors={
+  'H0':result['H0'],
+  'H1':np.einsum('ab,ijb->ija',rotation,result['H1']),
+  'H2':np.einsum('ab,cd,ijbd->ijac',rotation,rotation,result['H2']),
+  'H3':np.einsum('ab,cd,ef,ijbdf->ijace',rotation,rotation,rotation,result['H3']),
+  'G':parity*np.einsum('ab,ijb->ija',rotation,result['G']),
+ }
+ errors={key:np.max(np.abs(transformed[key]-value)) for key,value in expected_tensors.items()}
+ print('Cartesian covariance, det=%+d:'%parity,errors)
+ assert max(errors.values())<1e-12
+all_case=case_for([-.2,.5],[hermitian(2) for _ in range(3)],[1,0])
+all_result=export(all_case)
+assert np.max(np.abs(all_result['H3']))==0
+assert np.max(np.abs(all_result['H2']-KINETIC*np.einsum('ij,ab->ijab',np.eye(2),np.eye(3))))==0
+print('Zeeman sign/normalization, proper/improper coordinate covariance, empty remote space: PASS')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt
+ succeeded in 3116ms:
+Dirac orbital Gz: (-0.19053262880908386+0j) ; expected: -0.19053262880908384
+oscillator kappa=0.02: error=3.1123e-06, error/kappa^4=19.4519
+oscillator kappa=0.01: error=1.94973e-07, error/kappa^4=19.4973
+oscillator kappa=0.005: error=1.21929e-08, error/kappa^4=19.5087
+Cartesian covariance, det=+1: {'H0': 0.0, 'H1': 2.2887833992611187e-16, 'H2': 2.6645352591003757e-15, 'H3': 9.155133597044475e-16, 'G': 2.2887833992611187e-16}
+Cartesian covariance, det=-1: {'H0': 0.0, 'H1': 4.440892098500626e-16, 'H2': 2.220446049250313e-15, 'H3': 1.1102230246251565e-15, 'G': 4.440892098500626e-16}
+Zeeman sign/normalization, proper/improper coordinate covariance, empty remote space: PASS
+
+ succeeded in 4915ms:
+q=0.016, cubic error=2.461580569e-06 eV, error/q^4=37.56073867
+q=0.008, cubic error=1.567733012e-07 eV, error/q^4=38.27473174
+q=0.004, cubic error=9.88613328e-09 eV, error/q^4=38.61770813
+q=0.002, cubic error=6.205919557e-10 eV, error/q^4=38.78699723
+smoke cubic error reduction ratios: [15.70152921 15.85789881 15.93016666]
+800-band exact canonical comparison: PASS
+
+**Evaluating coefficients and testing**
+
+I’m analyzing the coefficient derived from the equation 2H0`/2t². It looks like there's an error of about 1e-5 at t=1e-3, which might be due to large coefficients. If I decrease it by half, it yields roughly a quarter unless there's round-off error. This gives me a good boundary for my analysis. I plan to conduct the last tests using the tool in parallel while utilizing an extra 400mb of memory.
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import numpy as np
+from solve import export, VELOCITY
+random=np.random.default_rng(48926)
+def hermitian(dimension):
+ matrix=random.normal(size=(dimension,dimension))+1j*random.normal(size=(dimension,dimension))
+ return (matrix+matrix.conj().T)/2
+def unitary(dimension):
+ left,_,right=np.linalg.svd(random.normal(size=(dimension,dimension))+1j*random.normal(size=(dimension,dimension)))
+ return left@right
+selected=np.array([6,0,9,3]); bands=12; dimension=4
+energy=np.array([.2,-2.,-2.,.2,3.,3.,.2,5.,5.,.2,7.,7.])
+known=unitary(dimension)
+standard=np.array([unitary(dimension) for _ in range(3)])
+anti=np.array([False,True,False])
+given=np.array([known@matrix@(known.T if is_anti else known.conj().T) for matrix,is_anti in zip(standard,anti)])
+case=dict(energy=energy,momentum=np.array([hermitian(bands) for _ in range(3)])/VELOCITY,spin=np.array([hermitian(dimension) for _ in range(3)]),target=selected,dft_repr=given,standard_repr=standard,antiunitary=anti,cart_rotation=np.tile(np.eye(3),(3,1,1)),order=np.array(3))
+result=export(case)
+full_gauge=np.zeros((bands,bands),complex)
+for value in np.unique(energy):
+ block=np.flatnonzero(energy==value)
+ full_gauge[np.ix_(block,block)]=unitary(len(block))
+retained_gauge=full_gauge[np.ix_(selected,selected)]
+changed=dict(case)
+changed['momentum']=full_gauge.conj().T@case['momentum']@full_gauge
+changed['spin']=retained_gauge.conj().T@case['spin']@retained_gauge
+changed['dft_repr']=np.array([retained_gauge.conj().T@matrix@(retained_gauge.conj() if is_anti else retained_gauge) for matrix,is_anti in zip(given,anti)])
+changed_result=export(changed)
+errors={key:np.max(np.abs(changed_result[key]-result[key])) for key in ['H0','H1','H2','H3','G']}
+print('Degenerate full-space unitary gauge covariance:',errors)
+assert max(errors.values())<1e-11
+permutation=random.permutation(bands)
+changed=dict(case)
+changed['energy']=energy[permutation]
+changed['momentum']=case['momentum'][:,permutation[:,None],permutation[None,:]]
+changed['target']=np.argsort(permutation)[selected]
+changed_result=export(changed)
+errors={key:np.max(np.abs(changed_result[key]-result[key])) for key in ['H0','H1','H2','H3','G']}
+print('Full-band ordering covariance:',errors)
+assert max(errors.values())<1e-11
+permutation=np.array([2,0,3,1])
+changed=dict(case)
+changed['target']=selected[permutation]
+changed['spin']=case['spin'][:,permutation[:,None],permutation[None,:]]
+changed['dft_repr']=case['dft_repr'][:,permutation[:,None],permutation[None,:]]
+changed_result=export(changed)
+errors={key:np.max(np.abs(changed_result[key]-result[key])) for key in ['H0','H1','H2','H3','G']}
+print('Target ordering covariance:',errors)
+assert max(errors.values())<1e-11
+print('All gauge and band-order covariance checks: PASS')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import numpy as np
+from scipy.linalg import eigh
+from solve import export, KINETIC, VELOCITY
+random=np.random.default_rng(8437)
+def hermitian(dimension):
+ matrix=random.normal(size=(dimension,dimension))+1j*random.normal(size=(dimension,dimension))
+ return (matrix+matrix.conj().T)/2
+bands=5; dimension=2; levels=7
+energy=np.array([-3.,.1,4.,.8,6.])
+selected=np.array([3,1])
+linear=np.array([hermitian(bands) for _ in range(3)])
+case=dict(energy=energy,momentum=linear/VELOCITY,target=selected,spin=np.zeros((3,dimension,dimension),complex),dft_repr=np.eye(dimension)[None].astype(complex),standard_repr=np.eye(dimension)[None].astype(complex),antiunitary=np.array([False]),cart_rotation=np.eye(3)[None],order=np.array(3))
+result=export(case)
+lowering=np.diag(np.sqrt(np.arange(1,levels)),1)
+wavevectors=[lowering+lowering.T,1j*(lowering-lowering.T),np.zeros((levels,levels))]
+unperturbed=np.kron(np.diag(energy),np.eye(levels))
+perturbation=sum(np.kron(linear[axis],wavevectors[axis]) for axis in range(3))
+kinetic=KINETIC*np.kron(np.eye(bands),sum(matrix@matrix for matrix in wavevectors))
+retained=np.array([band*levels+level for band in selected for level in range(levels)])
+low_levels=np.array([band*levels+level for band in range(dimension) for level in range(levels-1)])
+zeroth=unperturbed[np.ix_(retained,retained)]
+predicted=sum(np.kron(result['H2'][...,first,second],wavevectors[first]@wavevectors[second]) for first in range(3) for second in range(3))+2*KINETIC*np.kron(result['G'][...,2],np.eye(levels))
+def exact(magnitude):
+ full=unperturbed+magnitude*perturbation+magnitude**2*kinetic
+ eigenvalues,eigenvectors=eigh(full)
+ weights=np.sum(np.abs(eigenvectors[retained,:])**2,axis=0)
+ keep=np.argsort(weights)[-len(retained):]
+ overlap=eigenvectors[retained,:][:,keep]
+ left,_,right=np.linalg.svd(overlap)
+ polar=left@right
+ return polar@np.diag(eigenvalues[keep])@polar.conj().T
+errors=[]
+for magnitude in (.004,.002,.001):
+ observed=(exact(magnitude)+exact(-magnitude)-2*zeroth)/(2*magnitude**2)
+ error=np.linalg.norm((observed-predicted)[np.ix_(low_levels,low_levels)])
+ errors.append(error)
+ print('multiband oscillator q=%g, H2+Zeeman coefficient error=%g'%(magnitude,error))
+print('error reduction ratios:',np.array(errors[:-1])/errors[1:])
+assert np.all(np.array(errors[:-1])/errors[1:]>3.9)
+print('Nondegenerate-target Zeeman tensor versus exact oscillator reduction: PASS')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt
+ succeeded in 9648ms:
+Degenerate full-space unitary gauge covariance: {'H0': 1.1102230246251565e-16, 'H1': 2.220446049250313e-15, 'H2': 4.440892098500626e-15, 'H3': 5.950836838078908e-15, 'G': 2.3400435931584245e-15}
+Full-band ordering covariance: {'H0': 0.0, 'H1': 0.0, 'H2': 5.551115123125783e-16, 'H3': 8.881784197001252e-16, 'G': 2.2887833992611187e-16}
+Target ordering covariance: {'H0': 1.6653345369377348e-16, 'H1': 4.440892098500626e-15, 'H2': 2.837048893407221e-15, 'H3': 8.44061612104073e-15, 'G': 2.6852712547870858e-15}
+All gauge and band-order covariance checks: PASS
+
+ succeeded in 9675ms:
+multiband oscillator q=0.004, H2+Zeeman coefficient error=0.00521202
+multiband oscillator q=0.002, H2+Zeeman coefficient error=0.00130311
+multiband oscillator q=0.001, H2+Zeeman coefficient error=0.000325783
+error reduction ratios: [3.99967203 3.99994305]
+Nondegenerate-target Zeeman tensor versus exact oscillator reduction: PASS
+
+**Analyzing symmetries and calculations**
+
+I'm considering how to sum symmetries using the function `sum`, focusing on permutations and potential cancellations in the H3 derivative symmetry near zero. There may be some small errors, which is something I need to monitor. I recall using a near-identity block-unitary convention with Hermitian diagonal blocks. This relates to gauge recovery and energy block mixing constraints. I think I’ll compute the first canonical input eigenbasis for the rotation of U.
+codex
+The 800-band cubic check and Zeeman sign tests pass. I’ll document the formulas, validation, and limits.
+
+apply patch
+patch: completed
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a5924e1d282d8ffcab441f2ff54f5f180e3fc405
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+@@ -0,0 +1,150 @@
++# Gauge-resolved low-energy exporter
++
++Run with the supplied Python environment (NumPy and SciPy):
++
++```sh
++./solve.py --input ../participant/input/smoke.npz --output result.npz
++```
++
++`solve.py` is executable and self-contained. It also exposes `export(case)` for
++an NPZ archive or a dictionary of arrays. The output contains exactly the six
++complex128 arrays `U`, `H0`, `H1`, `H2`, `H3`, and `G` in the supplied contract.
++All remote bands are used. No electronic-structure data are fitted, filtered,
++or averaged over symmetry operations. Cartesian axes remain the supplied axes;
++`cart_rotation` is not needed to compute the internal-basis intertwiner or the
++Cartesian tensors.
++
++## Basis recovery
++
++The unitary and antiunitary intertwining equations are assembled as one
++**real-linear** system in the real and imaginary parts of `U`. Candidate
++intertwiners are obtained from its smallest-singular-value subspaces. Considering
++multiple subspace dimensions avoids assuming irreducibility or a particular
++residual gauge. The polar factor of an invertible exact intertwiner is a unitary
++intertwiner, also for antiunitary generators.
++
++The best polar candidates are refined by least squares with the exactly unitary
++parameterization `U_initial exp(i K)`, where `K` is Hermitian. This permits
++rounded numerical representations without assuming that the equations have an
++exact solution. Only representation arrays enter this fit, not Hamiltonian or
++spin data. All physical tensors are subsequently transformed by `U† H U`.
++
++## Canonical reduction
++
++The following formulas apply in the supplied target eigenbasis, before the final
++change of basis. Let `P` denote the retained bands and `Q` all other bands. Define
++
++```text
++c   = 3.809982208629016 eV Angstrom^2
++v_a = (2 c / bohr) momentum[a]
++A_a = P v_a P
++C_a = Q v_a P
++B_a = Q v_a Q
++D_ri = 1 / (E_i - E_r),   i in P, r in Q
++```
++
++Using elementwise multiplication `*` only in the formulas containing `D`, the
++first two wave-operator coefficients are
++
++```text
++X_a  = D * C_a
++X_ab = D * (B_a X_b - X_a A_b).
++```
++
++They follow from the invariant-subspace Riccati equation. The canonical embedding
++is `[I; X] (I + X†X)^(-1/2)`, whose retained diagonal block is Hermitian positive.
++Expanding its Hermitian Hamiltonian through cubic order gives
++
++```text
++R_ab   = (C_a† X_b + X_a† C_b) / 2
++H0     = diag(E_P)
++H1_a   = A_a
++H2_ab  = c delta_ab I + Sym_ab R_ab
++H3_abc = Sym_abc Herm(C_a† X_bc).
++```
++
++Here `Herm(M) = (M + M†)/2` and `Sym` is the average over Cartesian permutations,
++not the sum. These are polynomial coefficients, with no extra factorials.
++For example, an off-diagonal quadratic coefficient occurs twice in the full
++Cartesian contraction. The `-X_a A_b` term supplies the retained-space
++normalization/folded contribution; omitting it would not give the canonical
++Hermitian cubic Hamiltonian. No denominator between two retained energies is
++introduced. The common free-electron quadratic term is proportional to the
++full-space identity and produces no additional cubic term. For order 2, `H3`
++is exactly zero.
++
++## Magnetic response
++
++The ordered coefficient `R_ab`, before Cartesian symmetrization, retains the
++information lost when the wavevectors are assumed to commute. The specified
++electron commutator gives
++
++```text
++G_gamma = spin[gamma] - i/(2 c) sum_ab epsilon_abgamma R_ab.
++```
++
++In particular, `G_z = spin[z] - i (R_xy - R_yx)/(2 c)`. Since the contract uses
++`H_Z = mu_B G.B` and supplies projected Pauli-spin matrices, the spin contribution
++is added with coefficient one. There is no extra factor of two. This formula
++uses only the remote space and has the same pairwise Hermitian energy
++denominators as `H2`. It also transforms as an axial vector under a reflection.
++
++## Validation performed
++
++- **Supplied 800-band smoke input:** the command completed in 1.07 seconds with
++  approximately 108 MiB peak resident memory, with one BLAS thread. All output
++  arrays have the required shapes, complex dtype, and finite entries.
++- **Smoke basis:** unitarity error was zero at printed precision; generator
++  residual norms were `4.04e-7`, `1.57e-16`, and `9.82e-8`, consistent with the
++  input representation rounding. Matrix Hermiticity was exact at printed
++  precision; Cartesian permutation differences were at most `1.78e-15`.
++- **Independent exact canonical reduction of the smoke Hamiltonian:** selected
++  exact eigenvectors were aligned by the polar factor of their retained block.
++  Along an oblique direction, halving `|q|` from `0.016` to `0.002` inverse
++  Angstrom reduced the cubic model error by factors `15.70`, `15.86`, and
++  `15.93`, approaching the expected fourth-order factor of 16. The final
++  matrix error was `6.21e-10` eV.
++- **Synthetic nondegenerate four-band target:** comparison with independent
++  exact canonical block diagonalization gave error reduction factors `15.95`,
++  `15.98`, and `15.99`. This checks the cubic normalization terms without
++  assuming equal target energies. Order-2 export agreed in all lower-order
++  arrays and returned an exactly zero cubic tensor.
++- **60 basis-recovery cases:** dimensions 1 through 4, unitary-only generators,
++  antiunitary real structures, Kramers structures, repeated spinor irreps,
++  distinct characters, and generic constraints were checked with exact data
++  and noise amplitudes `1e-6` and `1e-3`. Maximum exact intertwining error was
++  `2.57e-14`; maximum unitarity error was `2.99e-15`. Noisy fitted residuals
++  were no larger than those of the known generating basis, to numerical
++  precision.
++- **Zeeman sign and normalization:** for a two-band Dirac model with coupling
++  `lambda` and remote gap `Delta`, the solver gives
++  `G_z = -lambda^2/(c Delta)` for the lower band with zero supplied spin.
++  Direct diagonalization with noncommuting oscillator wavevectors confirmed
++  the predicted weak-field energy shift, with the remaining error quadratic
++  in field.
++- Proper and improper Cartesian-coordinate changes reproduced the expected
++  polar Hamiltonian tensors and axial magnetic tensor to below `3e-15`.
++  Empty remote space was also checked.
++
++These are numerical and analytic consistency checks, not comparisons with
++unavailable labeled material-reference tensors. `smoke_result.npz` is the
++generated output for the supplied smoke case.
++
++## Scientific limits
++
++The expansion is local in wavevector and weak field. Its useful range depends
++on the remote gaps and matrix elements; it is not a globally accurate band
++interpolation. The requested constant `G` does not include wavevector-dependent
++magnetic terms or higher powers of field.
++
++A target exactly degenerate with an excluded band has no nonsingular reduction
++of this type; the exporter raises an error rather than regularizing a zero gap.
++Small nonzero gaps are used without modification, but can greatly restrict the
++validity range and worsen numerical conditioning. Degeneracies entirely inside
++the target or entirely inside the remote space are allowed.
++
++Inconsistent representation data need not admit an exact admissible basis; the
++returned basis then minimizes the representation residual numerically. No
++material-specific accuracy beyond the supplied matrices, no convergence in the
++number of electronic-structure bands beyond those supplied, and no behavior on
++unseen labeled cases can be established from the unlabeled smoke input alone.
+
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a5924e1d282d8ffcab441f2ff54f5f180e3fc405
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+@@ -0,0 +1,150 @@
++# Gauge-resolved low-energy exporter
++
++Run with the supplied Python environment (NumPy and SciPy):
++
++```sh
++./solve.py --input ../participant/input/smoke.npz --output result.npz
++```
++
++`solve.py` is executable and self-contained. It also exposes `export(case)` for
++an NPZ archive or a dictionary of arrays. The output contains exactly the six
++complex128 arrays `U`, `H0`, `H1`, `H2`, `H3`, and `G` in the supplied contract.
++All remote bands are used. No electronic-structure data are fitted, filtered,
++or averaged over symmetry operations. Cartesian axes remain the supplied axes;
++`cart_rotation` is not needed to compute the internal-basis intertwiner or the
++Cartesian tensors.
++
++## Basis recovery
++
++The unitary and antiunitary intertwining equations are assembled as one
++**real-linear** system in the real and imaginary parts of `U`. Candidate
++intertwiners are obtained from its smallest-singular-value subspaces. Considering
++multiple subspace dimensions avoids assuming irreducibility or a particular
++residual gauge. The polar factor of an invertible exact intertwiner is a unitary
++intertwiner, also for antiunitary generators.
++
++The best polar candidates are refined by least squares with the exactly unitary
++parameterization `U_initial exp(i K)`, where `K` is Hermitian. This permits
++rounded numerical representations without assuming that the equations have an
++exact solution. Only representation arrays enter this fit, not Hamiltonian or
++spin data. All physical tensors are subsequently transformed by `U† H U`.
++
++## Canonical reduction
++
++The following formulas apply in the supplied target eigenbasis, before the final
++change of basis. Let `P` denote the retained bands and `Q` all other bands. Define
++
++```text
++c   = 3.809982208629016 eV Angstrom^2
++v_a = (2 c / bohr) momentum[a]
++A_a = P v_a P
++C_a = Q v_a P
++B_a = Q v_a Q
++D_ri = 1 / (E_i - E_r),   i in P, r in Q
++```
++
++Using elementwise multiplication `*` only in the formulas containing `D`, the
++first two wave-operator coefficients are
++
++```text
++X_a  = D * C_a
++X_ab = D * (B_a X_b - X_a A_b).
++```
++
++They follow from the invariant-subspace Riccati equation. The canonical embedding
++is `[I; X] (I + X†X)^(-1/2)`, whose retained diagonal block is Hermitian positive.
++Expanding its Hermitian Hamiltonian through cubic order gives
++
++```text
++R_ab   = (C_a† X_b + X_a† C_b) / 2
++H0     = diag(E_P)
++H1_a   = A_a
++H2_ab  = c delta_ab I + Sym_ab R_ab
++H3_abc = Sym_abc Herm(C_a† X_bc).
++```
++
++Here `Herm(M) = (M + M†)/2` and `Sym` is the average over Cartesian permutations,
++not the sum. These are polynomial coefficients, with no extra factorials.
++For example, an off-diagonal quadratic coefficient occurs twice in the full
++Cartesian contraction. The `-X_a A_b` term supplies the retained-space
++normalization/folded contribution; omitting it would not give the canonical
++Hermitian cubic Hamiltonian. No denominator between two retained energies is
++introduced. The common free-electron quadratic term is proportional to the
++full-space identity and produces no additional cubic term. For order 2, `H3`
++is exactly zero.
++
++## Magnetic response
++
++The ordered coefficient `R_ab`, before Cartesian symmetrization, retains the
++information lost when the wavevectors are assumed to commute. The specified
++electron commutator gives
++
++```text
++G_gamma = spin[gamma] - i/(2 c) sum_ab epsilon_abgamma R_ab.
++```
++
++In particular, `G_z = spin[z] - i (R_xy - R_yx)/(2 c)`. Since the contract uses
++`H_Z = mu_B G.B` and supplies projected Pauli-spin matrices, the spin contribution
++is added with coefficient one. There is no extra factor of two. This formula
++uses only the remote space and has the same pairwise Hermitian energy
++denominators as `H2`. It also transforms as an axial vector under a reflection.
++
++## Validation performed
++
++- **Supplied 800-band smoke input:** the command completed in 1.07 seconds with
++  approximately 108 MiB peak resident memory, with one BLAS thread. All output
++  arrays have the required shapes, complex dtype, and finite entries.
++- **Smoke basis:** unitarity error was zero at printed precision; generator
++  residual norms were `4.04e-7`, `1.57e-16`, and `9.82e-8`, consistent with the
++  input representation rounding. Matrix Hermiticity was exact at printed
++  precision; Cartesian permutation differences were at most `1.78e-15`.
++- **Independent exact canonical reduction of the smoke Hamiltonian:** selected
++  exact eigenvectors were aligned by the polar factor of their retained block.
++  Along an oblique direction, halving `|q|` from `0.016` to `0.002` inverse
++  Angstrom reduced the cubic model error by factors `15.70`, `15.86`, and
++  `15.93`, approaching the expected fourth-order factor of 16. The final
++  matrix error was `6.21e-10` eV.
++- **Synthetic nondegenerate four-band target:** comparison with independent
++  exact canonical block diagonalization gave error reduction factors `15.95`,
++  `15.98`, and `15.99`. This checks the cubic normalization terms without
++  assuming equal target energies. Order-2 export agreed in all lower-order
++  arrays and returned an exactly zero cubic tensor.
++- **60 basis-recovery cases:** dimensions 1 through 4, unitary-only generators,
++  antiunitary real structures, Kramers structures, repeated spinor irreps,
++  distinct characters, and generic constraints were checked with exact data
++  and noise amplitudes `1e-6` and `1e-3`. Maximum exact intertwining error was
++  `2.57e-14`; maximum unitarity error was `2.99e-15`. Noisy fitted residuals
++  were no larger than those of the known generating basis, to numerical
++  precision.
++- **Zeeman sign and normalization:** for a two-band Dirac model with coupling
++  `lambda` and remote gap `Delta`, the solver gives
++  `G_z = -lambda^2/(c Delta)` for the lower band with zero supplied spin.
++  Direct diagonalization with noncommuting oscillator wavevectors confirmed
++  the predicted weak-field energy shift, with the remaining error quadratic
++  in field.
++- Proper and improper Cartesian-coordinate changes reproduced the expected
++  polar Hamiltonian tensors and axial magnetic tensor to below `3e-15`.
++  Empty remote space was also checked.
++
++These are numerical and analytic consistency checks, not comparisons with
++unavailable labeled material-reference tensors. `smoke_result.npz` is the
++generated output for the supplied smoke case.
++
++## Scientific limits
++
++The expansion is local in wavevector and weak field. Its useful range depends
++on the remote gaps and matrix elements; it is not a globally accurate band
++interpolation. The requested constant `G` does not include wavevector-dependent
++magnetic terms or higher powers of field.
++
++A target exactly degenerate with an excluded band has no nonsingular reduction
++of this type; the exporter raises an error rather than regularizing a zero gap.
++Small nonzero gaps are used without modification, but can greatly restrict the
++validity range and worsen numerical conditioning. Degeneracies entirely inside
++the target or entirely inside the remote space are allowed.
++
++Inconsistent representation data need not admit an exact admissible basis; the
++returned basis then minimizes the representation residual numerically. No
++material-specific accuracy beyond the supplied matrices, no convergence in the
++number of electronic-structure bands beyond those supplied, and no behavior on
++unseen labeled cases can be established from the unlabeled smoke input alone.
+
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a5924e1d282d8ffcab441f2ff54f5f180e3fc405
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+@@ -0,0 +1,150 @@
++# Gauge-resolved low-energy exporter
++
++Run with the supplied Python environment (NumPy and SciPy):
++
++```sh
++./solve.py --input ../participant/input/smoke.npz --output result.npz
++```
++
++`solve.py` is executable and self-contained. It also exposes `export(case)` for
++an NPZ archive or a dictionary of arrays. The output contains exactly the six
++complex128 arrays `U`, `H0`, `H1`, `H2`, `H3`, and `G` in the supplied contract.
++All remote bands are used. No electronic-structure data are fitted, filtered,
++or averaged over symmetry operations. Cartesian axes remain the supplied axes;
++`cart_rotation` is not needed to compute the internal-basis intertwiner or the
++Cartesian tensors.
++
++## Basis recovery
++
++The unitary and antiunitary intertwining equations are assembled as one
++**real-linear** system in the real and imaginary parts of `U`. Candidate
++intertwiners are obtained from its smallest-singular-value subspaces. Considering
++multiple subspace dimensions avoids assuming irreducibility or a particular
++residual gauge. The polar factor of an invertible exact intertwiner is a unitary
++intertwiner, also for antiunitary generators.
++
++The best polar candidates are refined by least squares with the exactly unitary
++parameterization `U_initial exp(i K)`, where `K` is Hermitian. This permits
++rounded numerical representations without assuming that the equations have an
++exact solution. Only representation arrays enter this fit, not Hamiltonian or
++spin data. All physical tensors are subsequently transformed by `U† H U`.
++
++## Canonical reduction
++
++The following formulas apply in the supplied target eigenbasis, before the final
++change of basis. Let `P` denote the retained bands and `Q` all other bands. Define
++
++```text
++c   = 3.809982208629016 eV Angstrom^2
++v_a = (2 c / bohr) momentum[a]
++A_a = P v_a P
++C_a = Q v_a P
++B_a = Q v_a Q
++D_ri = 1 / (E_i - E_r),   i in P, r in Q
++```
++
++Using elementwise multiplication `*` only in the formulas containing `D`, the
++first two wave-operator coefficients are
++
++```text
++X_a  = D * C_a
++X_ab = D * (B_a X_b - X_a A_b).
++```
++
++They follow from the invariant-subspace Riccati equation. The canonical embedding
++is `[I; X] (I + X†X)^(-1/2)`, whose retained diagonal block is Hermitian positive.
++Expanding its Hermitian Hamiltonian through cubic order gives
++
++```text
++R_ab   = (C_a† X_b + X_a† C_b) / 2
++H0     = diag(E_P)
++H1_a   = A_a
++H2_ab  = c delta_ab I + Sym_ab R_ab
++H3_abc = Sym_abc Herm(C_a† X_bc).
++```
++
++Here `Herm(M) = (M + M†)/2` and `Sym` is the average over Cartesian permutations,
++not the sum. These are polynomial coefficients, with no extra factorials.
++For example, an off-diagonal quadratic coefficient occurs twice in the full
++Cartesian contraction. The `-X_a A_b` term supplies the retained-space
++normalization/folded contribution; omitting it would not give the canonical
++Hermitian cubic Hamiltonian. No denominator between two retained energies is
++introduced. The common free-electron quadratic term is proportional to the
++full-space identity and produces no additional cubic term. For order 2, `H3`
++is exactly zero.
++
++## Magnetic response
++
++The ordered coefficient `R_ab`, before Cartesian symmetrization, retains the
++information lost when the wavevectors are assumed to commute. The specified
++electron commutator gives
++
++```text
++G_gamma = spin[gamma] - i/(2 c) sum_ab epsilon_abgamma R_ab.
++```
++
++In particular, `G_z = spin[z] - i (R_xy - R_yx)/(2 c)`. Since the contract uses
++`H_Z = mu_B G.B` and supplies projected Pauli-spin matrices, the spin contribution
++is added with coefficient one. There is no extra factor of two. This formula
++uses only the remote space and has the same pairwise Hermitian energy
++denominators as `H2`. It also transforms as an axial vector under a reflection.
++
++## Validation performed
++
++- **Supplied 800-band smoke input:** the command completed in 1.07 seconds with
++  approximately 108 MiB peak resident memory, with one BLAS thread. All output
++  arrays have the required shapes, complex dtype, and finite entries.
++- **Smoke basis:** unitarity error was zero at printed precision; generator
++  residual norms were `4.04e-7`, `1.57e-16`, and `9.82e-8`, consistent with the
++  input representation rounding. Matrix Hermiticity was exact at printed
++  precision; Cartesian permutation differences were at most `1.78e-15`.
++- **Independent exact canonical reduction of the smoke Hamiltonian:** selected
++  exact eigenvectors were aligned by the polar factor of their retained block.
++  Along an oblique direction, halving `|q|` from `0.016` to `0.002` inverse
++  Angstrom reduced the cubic model error by factors `15.70`, `15.86`, and
++  `15.93`, approaching the expected fourth-order factor of 16. The final
++  matrix error was `6.21e-10` eV.
++- **Synthetic nondegenerate four-band target:** comparison with independent
++  exact canonical block diagonalization gave error reduction factors `15.95`,
++  `15.98`, and `15.99`. This checks the cubic normalization terms without
++  assuming equal target energies. Order-2 export agreed in all lower-order
++  arrays and returned an exactly zero cubic tensor.
++- **60 basis-recovery cases:** dimensions 1 through 4, unitary-only generators,
++  antiunitary real structures, Kramers structures, repeated spinor irreps,
++  distinct characters, and generic constraints were checked with exact data
++  and noise amplitudes `1e-6` and `1e-3`. Maximum exact intertwining error was
++  `2.57e-14`; maximum unitarity error was `2.99e-15`. Noisy fitted residuals
++  were no larger than those of the known generating basis, to numerical
++  precision.
++- **Zeeman sign and normalization:** for a two-band Dirac model with coupling
++  `lambda` and remote gap `Delta`, the solver gives
++  `G_z = -lambda^2/(c Delta)` for the lower band with zero supplied spin.
++  Direct diagonalization with noncommuting oscillator wavevectors confirmed
++  the predicted weak-field energy shift, with the remaining error quadratic
++  in field.
++- Proper and improper Cartesian-coordinate changes reproduced the expected
++  polar Hamiltonian tensors and axial magnetic tensor to below `3e-15`.
++  Empty remote space was also checked.
++
++These are numerical and analytic consistency checks, not comparisons with
++unavailable labeled material-reference tensors. `smoke_result.npz` is the
++generated output for the supplied smoke case.
++
++## Scientific limits
++
++The expansion is local in wavevector and weak field. Its useful range depends
++on the remote gaps and matrix elements; it is not a globally accurate band
++interpolation. The requested constant `G` does not include wavevector-dependent
++magnetic terms or higher powers of field.
++
++A target exactly degenerate with an excluded band has no nonsingular reduction
++of this type; the exporter raises an error rather than regularizing a zero gap.
++Small nonzero gaps are used without modification, but can greatly restrict the
++validity range and worsen numerical conditioning. Degeneracies entirely inside
++the target or entirely inside the remote space are allowed.
++
++Inconsistent representation data need not admit an exact admissible basis; the
++returned basis then minimizes the representation residual numerically. No
++material-specific accuracy beyond the supplied matrices, no convergence in the
++number of electronic-structure bands beyond those supplied, and no behavior on
++unseen labeled cases can be established from the unlabeled smoke input alone.
+
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a5924e1d282d8ffcab441f2ff54f5f180e3fc405
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+@@ -0,0 +1,150 @@
++# Gauge-resolved low-energy exporter
++
++Run with the supplied Python environment (NumPy and SciPy):
++
++```sh
++./solve.py --input ../participant/input/smoke.npz --output result.npz
++```
++
++`solve.py` is executable and self-contained. It also exposes `export(case)` for
++an NPZ archive or a dictionary of arrays. The output contains exactly the six
++complex128 arrays `U`, `H0`, `H1`, `H2`, `H3`, and `G` in the supplied contract.
++All remote bands are used. No electronic-structure data are fitted, filtered,
++or averaged over symmetry operations. Cartesian axes remain the supplied axes;
++`cart_rotation` is not needed to compute the internal-basis intertwiner or the
++Cartesian tensors.
++
++## Basis recovery
++
++The unitary and antiunitary intertwining equations are assembled as one
++**real-linear** system in the real and imaginary parts of `U`. Candidate
++intertwiners are obtained from its smallest-singular-value subspaces. Considering
++multiple subspace dimensions avoids assuming irreducibility or a particular
++residual gauge. The polar factor of an invertible exact intertwiner is a unitary
++intertwiner, also for antiunitary generators.
++
++The best polar candidates are refined by least squares with the exactly unitary
++parameterization `U_initial exp(i K)`, where `K` is Hermitian. This permits
++rounded numerical representations without assuming that the equations have an
++exact solution. Only representation arrays enter this fit, not Hamiltonian or
++spin data. All physical tensors are subsequently transformed by `U† H U`.
++
++## Canonical reduction
++
++The following formulas apply in the supplied target eigenbasis, before the final
++change of basis. Let `P` denote the retained bands and `Q` all other bands. Define
++
++```text
++c   = 3.809982208629016 eV Angstrom^2
++v_a = (2 c / bohr) momentum[a]
++A_a = P v_a P
++C_a = Q v_a P
++B_a = Q v_a Q
++D_ri = 1 / (E_i - E_r),   i in P, r in Q
++```
++
++Using elementwise multiplication `*` only in the formulas containing `D`, the
++first two wave-operator coefficients are
++
++```text
++X_a  = D * C_a
++X_ab = D * (B_a X_b - X_a A_b).
++```
++
++They follow from the invariant-subspace Riccati equation. The canonical embedding
++is `[I; X] (I + X†X)^(-1/2)`, whose retained diagonal block is Hermitian positive.
++Expanding its Hermitian Hamiltonian through cubic order gives
++
++```text
++R_ab   = (C_a† X_b + X_a† C_b) / 2
++H0     = diag(E_P)
++H1_a   = A_a
++H2_ab  = c delta_ab I + Sym_ab R_ab
++H3_abc = Sym_abc Herm(C_a† X_bc).
++```
++
++Here `Herm(M) = (M + M†)/2` and `Sym` is the average over Cartesian permutations,
++not the sum. These are polynomial coefficients, with no extra factorials.
++For example, an off-diagonal quadratic coefficient occurs twice in the full
++Cartesian contraction. The `-X_a A_b` term supplies the retained-space
++normalization/folded contribution; omitting it would not give the canonical
++Hermitian cubic Hamiltonian. No denominator between two retained energies is
++introduced. The common free-electron quadratic term is proportional to the
++full-space identity and produces no additional cubic term. For order 2, `H3`
++is exactly zero.
++
++## Magnetic response
++
++The ordered coefficient `R_ab`, before Cartesian symmetrization, retains the
++information lost when the wavevectors are assumed to commute. The specified
++electron commutator gives
++
++```text
++G_gamma = spin[gamma] - i/(2 c) sum_ab epsilon_abgamma R_ab.
++```
++
++In particular, `G_z = spin[z] - i (R_xy - R_yx)/(2 c)`. Since the contract uses
++`H_Z = mu_B G.B` and supplies projected Pauli-spin matrices, the spin contribution
++is added with coefficient one. There is no extra factor of two. This formula
++uses only the remote space and has the same pairwise Hermitian energy
++denominators as `H2`. It also transforms as an axial vector under a reflection.
++
++## Validation performed
++
++- **Supplied 800-band smoke input:** the command completed in 1.07 seconds with
++  approximately 108 MiB peak resident memory, with one BLAS thread. All output
++  arrays have the required shapes, complex dtype, and finite entries.
++- **Smoke basis:** unitarity error was zero at printed precision; generator
++  residual norms were `4.04e-7`, `1.57e-16`, and `9.82e-8`, consistent with the
++  input representation rounding. Matrix Hermiticity was exact at printed
++  precision; Cartesian permutation differences were at most `1.78e-15`.
++- **Independent exact canonical reduction of the smoke Hamiltonian:** selected
++  exact eigenvectors were aligned by the polar factor of their retained block.
++  Along an oblique direction, halving `|q|` from `0.016` to `0.002` inverse
++  Angstrom reduced the cubic model error by factors `15.70`, `15.86`, and
++  `15.93`, approaching the expected fourth-order factor of 16. The final
++  matrix error was `6.21e-10` eV.
++- **Synthetic nondegenerate four-band target:** comparison with independent
++  exact canonical block diagonalization gave error reduction factors `15.95`,
++  `15.98`, and `15.99`. This checks the cubic normalization terms without
++  assuming equal target energies. Order-2 export agreed in all lower-order
++  arrays and returned an exactly zero cubic tensor.
++- **60 basis-recovery cases:** dimensions 1 through 4, unitary-only generators,
++  antiunitary real structures, Kramers structures, repeated spinor irreps,
++  distinct characters, and generic constraints were checked with exact data
++  and noise amplitudes `1e-6` and `1e-3`. Maximum exact intertwining error was
++  `2.57e-14`; maximum unitarity error was `2.99e-15`. Noisy fitted residuals
++  were no larger than those of the known generating basis, to numerical
++  precision.
++- **Zeeman sign and normalization:** for a two-band Dirac model with coupling
++  `lambda` and remote gap `Delta`, the solver gives
++  `G_z = -lambda^2/(c Delta)` for the lower band with zero supplied spin.
++  Direct diagonalization with noncommuting oscillator wavevectors confirmed
++  the predicted weak-field energy shift, with the remaining error quadratic
++  in field.
++- Proper and improper Cartesian-coordinate changes reproduced the expected
++  polar Hamiltonian tensors and axial magnetic tensor to below `3e-15`.
++  Empty remote space was also checked.
++
++These are numerical and analytic consistency checks, not comparisons with
++unavailable labeled material-reference tensors. `smoke_result.npz` is the
++generated output for the supplied smoke case.
++
++## Scientific limits
++
++The expansion is local in wavevector and weak field. Its useful range depends
++on the remote gaps and matrix elements; it is not a globally accurate band
++interpolation. The requested constant `G` does not include wavevector-dependent
++magnetic terms or higher powers of field.
++
++A target exactly degenerate with an excluded band has no nonsingular reduction
++of this type; the exporter raises an error rather than regularizing a zero gap.
++Small nonzero gaps are used without modification, but can greatly restrict the
++validity range and worsen numerical conditioning. Degeneracies entirely inside
++the target or entirely inside the remote space are allowed.
++
++Inconsistent representation data need not admit an exact admissible basis; the
++returned basis then minimizes the representation residual numerically. No
++material-specific accuracy beyond the supplied matrices, no convergence in the
++number of electronic-structure bands beyond those supplied, and no behavior on
++unseen labeled cases can be established from the unlabeled smoke input alone.
+
+**Evaluating remote configurations**
+
+I'm looking at the remote configurations and the reciprocal divide without warnings. It seems the einsum is optimizing for dimensions correctly, and the test has passed, which is great. However, I'm dealing with an unsorted target that has advanced handling and loops, and I've hit a target duplicate error. I need to manage the broadband spectra effectively, especially since I can't use external sources beyond scipy and numpy, which is important to remember.
+All physics and covariance checks pass, including exact 800-band canonical reduction and independent noncommuting-wavevector Zeeman checks. Finishing the validation record and usage documentation.
+  ✓ Inspect data and derive reduction formulas
+  ✓ Implement basis recovery and effective tensors
+  ✓ Validate synthetic cases and smoke input
+  → Document usage and scientific limitations
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a5924e1d282d8ffcab441f2ff54f5f180e3fc405
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+@@ -0,0 +1,150 @@
++# Gauge-resolved low-energy exporter
++
++Run with the supplied Python environment (NumPy and SciPy):
++
++```sh
++./solve.py --input ../participant/input/smoke.npz --output result.npz
++```
++
++`solve.py` is executable and self-contained. It also exposes `export(case)` for
++an NPZ archive or a dictionary of arrays. The output contains exactly the six
++complex128 arrays `U`, `H0`, `H1`, `H2`, `H3`, and `G` in the supplied contract.
++All remote bands are used. No electronic-structure data are fitted, filtered,
++or averaged over symmetry operations. Cartesian axes remain the supplied axes;
++`cart_rotation` is not needed to compute the internal-basis intertwiner or the
++Cartesian tensors.
++
++## Basis recovery
++
++The unitary and antiunitary intertwining equations are assembled as one
++**real-linear** system in the real and imaginary parts of `U`. Candidate
++intertwiners are obtained from its smallest-singular-value subspaces. Considering
++multiple subspace dimensions avoids assuming irreducibility or a particular
++residual gauge. The polar factor of an invertible exact intertwiner is a unitary
++intertwiner, also for antiunitary generators.
++
++The best polar candidates are refined by least squares with the exactly unitary
++parameterization `U_initial exp(i K)`, where `K` is Hermitian. This permits
++rounded numerical representations without assuming that the equations have an
++exact solution. Only representation arrays enter this fit, not Hamiltonian or
++spin data. All physical tensors are subsequently transformed by `U† H U`.
++
++## Canonical reduction
++
++The following formulas apply in the supplied target eigenbasis, before the final
++change of basis. Let `P` denote the retained bands and `Q` all other bands. Define
++
++```text
++c   = 3.809982208629016 eV Angstrom^2
++v_a = (2 c / bohr) momentum[a]
++A_a = P v_a P
++C_a = Q v_a P
++B_a = Q v_a Q
++D_ri = 1 / (E_i - E_r),   i in P, r in Q
++```
++
++Using elementwise multiplication `*` only in the formulas containing `D`, the
++first two wave-operator coefficients are
++
++```text
++X_a  = D * C_a
++X_ab = D * (B_a X_b - X_a A_b).
++```
++
++They follow from the invariant-subspace Riccati equation. The canonical embedding
++is `[I; X] (I + X†X)^(-1/2)`, whose retained diagonal block is Hermitian positive.
++Expanding its Hermitian Hamiltonian through cubic order gives
++
++```text
++R_ab   = (C_a† X_b + X_a† C_b) / 2
++H0     = diag(E_P)
++H1_a   = A_a
++H2_ab  = c delta_ab I + Sym_ab R_ab
++H3_abc = Sym_abc Herm(C_a† X_bc).
++```
++
++Here `Herm(M) = (M + M†)/2` and `Sym` is the average over Cartesian permutations,
++not the sum. These are polynomial coefficients, with no extra factorials.
++For example, an off-diagonal quadratic coefficient occurs twice in the full
++Cartesian contraction. The `-X_a A_b` term supplies the retained-space
++normalization/folded contribution; omitting it would not give the canonical
++Hermitian cubic Hamiltonian. No denominator between two retained energies is
++introduced. The common free-electron quadratic term is proportional to the
++full-space identity and produces no additional cubic term. For order 2, `H3`
++is exactly zero.
++
++## Magnetic response
++
++The ordered coefficient `R_ab`, before Cartesian symmetrization, retains the
++information lost when the wavevectors are assumed to commute. The specified
++electron commutator gives
++
++```text
++G_gamma = spin[gamma] - i/(2 c) sum_ab epsilon_abgamma R_ab.
++```
++
++In particular, `G_z = spin[z] - i (R_xy - R_yx)/(2 c)`. Since the contract uses
++`H_Z = mu_B G.B` and supplies projected Pauli-spin matrices, the spin contribution
++is added with coefficient one. There is no extra factor of two. This formula
++uses only the remote space and has the same pairwise Hermitian energy
++denominators as `H2`. It also transforms as an axial vector under a reflection.
++
++## Validation performed
++
++- **Supplied 800-band smoke input:** the command completed in 1.07 seconds with
++  approximately 108 MiB peak resident memory, with one BLAS thread. All output
++  arrays have the required shapes, complex dtype, and finite entries.
++- **Smoke basis:** unitarity error was zero at printed precision; generator
++  residual norms were `4.04e-7`, `1.57e-16`, and `9.82e-8`, consistent with the
++  input representation rounding. Matrix Hermiticity was exact at printed
++  precision; Cartesian permutation differences were at most `1.78e-15`.
++- **Independent exact canonical reduction of the smoke Hamiltonian:** selected
++  exact eigenvectors were aligned by the polar factor of their retained block.
++  Along an oblique direction, halving `|q|` from `0.016` to `0.002` inverse
++  Angstrom reduced the cubic model error by factors `15.70`, `15.86`, and
++  `15.93`, approaching the expected fourth-order factor of 16. The final
++  matrix error was `6.21e-10` eV.
++- **Synthetic nondegenerate four-band target:** comparison with independent
++  exact canonical block diagonalization gave error reduction factors `15.95`,
++  `15.98`, and `15.99`. This checks the cubic normalization terms without
++  assuming equal target energies. Order-2 export agreed in all lower-order
++  arrays and returned an exactly zero cubic tensor.
++- **60 basis-recovery cases:** dimensions 1 through 4, unitary-only generators,
++  antiunitary real structures, Kramers structures, repeated spinor irreps,
++  distinct characters, and generic constraints were checked with exact data
++  and noise amplitudes `1e-6` and `1e-3`. Maximum exact intertwining error was
++  `2.57e-14`; maximum unitarity error was `2.99e-15`. Noisy fitted residuals
++  were no larger than those of the known generating basis, to numerical
++  precision.
++- **Zeeman sign and normalization:** for a two-band Dirac model with coupling
++  `lambda` and remote gap `Delta`, the solver gives
++  `G_z = -lambda^2/(c Delta)` for the lower band with zero supplied spin.
++  Direct diagonalization with noncommuting oscillator wavevectors confirmed
++  the predicted weak-field energy shift, with the remaining error quadratic
++  in field.
++- Proper and improper Cartesian-coordinate changes reproduced the expected
++  polar Hamiltonian tensors and axial magnetic tensor to below `3e-15`.
++  Empty remote space was also checked.
++
++These are numerical and analytic consistency checks, not comparisons with
++unavailable labeled material-reference tensors. `smoke_result.npz` is the
++generated output for the supplied smoke case.
++
++## Scientific limits
++
++The expansion is local in wavevector and weak field. Its useful range depends
++on the remote gaps and matrix elements; it is not a globally accurate band
++interpolation. The requested constant `G` does not include wavevector-dependent
++magnetic terms or higher powers of field.
++
++A target exactly degenerate with an excluded band has no nonsingular reduction
++of this type; the exporter raises an error rather than regularizing a zero gap.
++Small nonzero gaps are used without modification, but can greatly restrict the
++validity range and worsen numerical conditioning. Degeneracies entirely inside
++the target or entirely inside the remote space are allowed.
++
++Inconsistent representation data need not admit an exact admissible basis; the
++returned basis then minimizes the representation residual numerically. No
++material-specific accuracy beyond the supplied matrices, no convergence in the
++number of electronic-structure bands beyond those supplied, and no behavior on
++unseen labeled cases can be established from the unlabeled smoke input alone.
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+@@
+   Direct diagonalization with noncommuting oscillator wavevectors confirmed
+   the predicted weak-field energy shift, with the remaining error quadratic
+   in field.
++- **Quasi-degenerate Zeeman check:** a separate five-band oscillator model
++  with two distinct retained energies reproduced "'`H2` plus the orbital `G`.
++  Centered finite differences of the exact canonical Hamiltonian approached
++  the predicted quadratic coefficient with error reduction factors `3.99967`
++  and `3.99994` when the wavevector scale was halved.
+ - Proper and improper Cartesian-coordinate changes reproduced the expected
+   polar Hamiltonian tensors and axial magnetic tensor to below `3e-15`.
+-  Empty remote space was also checked.
++  Unitary gauge changes within degenerate target and remote spaces, full-band
++  permutations, and target-order permutations agreed to below `9e-15`.
++  Empty remote space was also checked.
+*** End Patch
+PATCH
+python -m py_compile solve.py
+ls -lh solve.py README.md smoke_result.npz
+rg -n '"'"'^def (recover_basis|export|main)|''^##'"' solve.py README.md" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt
+ succeeded in 528ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+-rw-rw-r-- 1 xuandong xuandong 7.7K Aug 27 18:51 README.md
+-rw-rw-r-- 1 xuandong xuandong 2.2K Aug 27 18:45 smoke_result.npz
+-rwxrwxr-x 1 xuandong xuandong 9.2K Aug 27 18:44 solve.py
+README.md:17:## Basis recovery
+README.md:32:## Canonical reduction
+README.md:76:## Magnetic response
+README.md:92:## Validation performed
+README.md:140:## Scientific limits
+solve.py:47:def recover_basis(input_repr, standard_repr, antiunitary):
+solve.py:130:def export(case):
+solve.py:214:def main():
+
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a5924e1d282d8ffcab441f2ff54f5f180e3fc405
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+@@ -0,0 +1,150 @@
++# Gauge-resolved low-energy exporter
++
++Run with the supplied Python environment (NumPy and SciPy):
++
++```sh
++./solve.py --input ../participant/input/smoke.npz --output result.npz
++```
++
++`solve.py` is executable and self-contained. It also exposes `export(case)` for
++an NPZ archive or a dictionary of arrays. The output contains exactly the six
++complex128 arrays `U`, `H0`, `H1`, `H2`, `H3`, and `G` in the supplied contract.
++All remote bands are used. No electronic-structure data are fitted, filtered,
++or averaged over symmetry operations. Cartesian axes remain the supplied axes;
++`cart_rotation` is not needed to compute the internal-basis intertwiner or the
++Cartesian tensors.
++
++## Basis recovery
++
++The unitary and antiunitary intertwining equations are assembled as one
++**real-linear** system in the real and imaginary parts of `U`. Candidate
++intertwiners are obtained from its smallest-singular-value subspaces. Considering
++multiple subspace dimensions avoids assuming irreducibility or a particular
++residual gauge. The polar factor of an invertible exact intertwiner is a unitary
++intertwiner, also for antiunitary generators.
++
++The best polar candidates are refined by least squares with the exactly unitary
++parameterization `U_initial exp(i K)`, where `K` is Hermitian. This permits
++rounded numerical representations without assuming that the equations have an
++exact solution. Only representation arrays enter this fit, not Hamiltonian or
++spin data. All physical tensors are subsequently transformed by `U† H U`.
++
++## Canonical reduction
++
++The following formulas apply in the supplied target eigenbasis, before the final
++change of basis. Let `P` denote the retained bands and `Q` all other bands. Define
++
++```text
++c   = 3.809982208629016 eV Angstrom^2
++v_a = (2 c / bohr) momentum[a]
++A_a = P v_a P
++C_a = Q v_a P
++B_a = Q v_a Q
++D_ri = 1 / (E_i - E_r),   i in P, r in Q
++```
++
++Using elementwise multiplication `*` only in the formulas containing `D`, the
++first two wave-operator coefficients are
++
++```text
++X_a  = D * C_a
++X_ab = D * (B_a X_b - X_a A_b).
++```
++
++They follow from the invariant-subspace Riccati equation. The canonical embedding
++is `[I; X] (I + X†X)^(-1/2)`, whose retained diagonal block is Hermitian positive.
++Expanding its Hermitian Hamiltonian through cubic order gives
++
++```text
++R_ab   = (C_a† X_b + X_a† C_b) / 2
++H0     = diag(E_P)
++H1_a   = A_a
++H2_ab  = c delta_ab I + Sym_ab R_ab
++H3_abc = Sym_abc Herm(C_a† X_bc).
++```
++
++Here `Herm(M) = (M + M†)/2` and `Sym` is the average over Cartesian permutations,
++not the sum. These are polynomial coefficients, with no extra factorials.
++For example, an off-diagonal quadratic coefficient occurs twice in the full
++Cartesian contraction. The `-X_a A_b` term supplies the retained-space
++normalization/folded contribution; omitting it would not give the canonical
++Hermitian cubic Hamiltonian. No denominator between two retained energies is
++introduced. The common free-electron quadratic term is proportional to the
++full-space identity and produces no additional cubic term. For order 2, `H3`
++is exactly zero.
++
++## Magnetic response
++
++The ordered coefficient `R_ab`, before Cartesian symmetrization, retains the
++information lost when the wavevectors are assumed to commute. The specified
++electron commutator gives
++
++```text
++G_gamma = spin[gamma] - i/(2 c) sum_ab epsilon_abgamma R_ab.
++```
++
++In particular, `G_z = spin[z] - i (R_xy - R_yx)/(2 c)`. Since the contract uses
++`H_Z = mu_B G.B` and supplies projected Pauli-spin matrices, the spin contribution
++is added with coefficient one. There is no extra factor of two. This formula
++uses only the remote space and has the same pairwise Hermitian energy
++denominators as `H2`. It also transforms as an axial vector under a reflection.
++
++## Validation performed
++
++- **Supplied 800-band smoke input:** the command completed in 1.07 seconds with
++  approximately 108 MiB peak resident memory, with one BLAS thread. All output
++  arrays have the required shapes, complex dtype, and finite entries.
++- **Smoke basis:** unitarity error was zero at printed precision; generator
++  residual norms were `4.04e-7`, `1.57e-16`, and `9.82e-8`, consistent with the
++  input representation rounding. Matrix Hermiticity was exact at printed
++  precision; Cartesian permutation differences were at most `1.78e-15`.
++- **Independent exact canonical reduction of the smoke Hamiltonian:** selected
++  exact eigenvectors were aligned by the polar factor of their retained block.
++  Along an oblique direction, halving `|q|` from `0.016` to `0.002` inverse
++  Angstrom reduced the cubic model error by factors `15.70`, `15.86`, and
++  `15.93`, approaching the expected fourth-order factor of 16. The final
++  matrix error was `6.21e-10` eV.
++- **Synthetic nondegenerate four-band target:** comparison with independent
++  exact canonical block diagonalization gave error reduction factors `15.95`,
++  `15.98`, and `15.99`. This checks the cubic normalization terms without
++  assuming equal target energies. Order-2 export agreed in all lower-order
++  arrays and returned an exactly zero cubic tensor.
++- **60 basis-recovery cases:** dimensions 1 through 4, unitary-only generators,
++  antiunitary real structures, Kramers structures, repeated spinor irreps,
++  distinct characters, and generic constraints were checked with exact data
++  and noise amplitudes `1e-6` and `1e-3`. Maximum exact intertwining error was
++  `2.57e-14`; maximum unitarity error was `2.99e-15`. Noisy fitted residuals
++  were no larger than those of the known generating basis, to numerical
++  precision.
++- **Zeeman sign and normalization:** for a two-band Dirac model with coupling
++  `lambda` and remote gap `Delta`, the solver gives
++  `G_z = -lambda^2/(c Delta)` for the lower band with zero supplied spin.
++  Direct diagonalization with noncommuting oscillator wavevectors confirmed
++  the predicted weak-field energy shift, with the remaining error quadratic
++  in field.
++- Proper and improper Cartesian-coordinate changes reproduced the expected
++  polar Hamiltonian tensors and axial magnetic tensor to below `3e-15`.
++  Empty remote space was also checked.
++
++These are numerical and analytic consistency checks, not comparisons with
++unavailable labeled material-reference tensors. `smoke_result.npz` is the
++generated output for the supplied smoke case.
++
++## Scientific limits
++
++The expansion is local in wavevector and weak field. Its useful range depends
++on the remote gaps and matrix elements; it is not a globally accurate band
++interpolation. The requested constant `G` does not include wavevector-dependent
++magnetic terms or higher powers of field.
++
++A target exactly degenerate with an excluded band has no nonsingular reduction
++of this type; the exporter raises an error rather than regularizing a zero gap.
++Small nonzero gaps are used without modification, but can greatly restrict the
++validity range and worsen numerical conditioning. Degeneracies entirely inside
++the target or entirely inside the remote space are allowed.
++
++Inconsistent representation data need not admit an exact admissible basis; the
++returned basis then minimizes the representation residual numerically. No
++material-specific accuracy beyond the supplied matrices, no convergence in the
++number of electronic-structure bands beyond those supplied, and no behavior on
++unseen labeled cases can be established from the unlabeled smoke input alone.
+
+Delivered the executable self-contained solver, smoke output, and documentation of formulas, measured validation results, and scientific limitations. Syntax compilation also passes.
+  ✓ Inspect data and derive reduction formulas
+  ✓ Implement basis recovery and effective tensors
+  ✓ Validate synthetic cases and smoke input
+  ✓ Document usage and scientific limitations
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a5924e1d282d8ffcab441f2ff54f5f180e3fc405
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+@@ -0,0 +1,150 @@
++# Gauge-resolved low-energy exporter
++
++Run with the supplied Python environment (NumPy and SciPy):
++
++```sh
++./solve.py --input ../participant/input/smoke.npz --output result.npz
++```
++
++`solve.py` is executable and self-contained. It also exposes `export(case)` for
++an NPZ archive or a dictionary of arrays. The output contains exactly the six
++complex128 arrays `U`, `H0`, `H1`, `H2`, `H3`, and `G` in the supplied contract.
++All remote bands are used. No electronic-structure data are fitted, filtered,
++or averaged over symmetry operations. Cartesian axes remain the supplied axes;
++`cart_rotation` is not needed to compute the internal-basis intertwiner or the
++Cartesian tensors.
++
++## Basis recovery
++
++The unitary and antiunitary intertwining equations are assembled as one
++**real-linear** system in the real and imaginary parts of `U`. Candidate
++intertwiners are obtained from its smallest-singular-value subspaces. Considering
++multiple subspace dimensions avoids assuming irreducibility or a particular
++residual gauge. The polar factor of an invertible exact intertwiner is a unitary
++intertwiner, also for antiunitary generators.
++
++The best polar candidates are refined by least squares with the exactly unitary
++parameterization `U_initial exp(i K)`, where `K` is Hermitian. This permits
++rounded numerical representations without assuming that the equations have an
++exact solution. Only representation arrays enter this fit, not Hamiltonian or
++spin data. All physical tensors are subsequently transformed by `U† H U`.
++
++## Canonical reduction
++
++The following formulas apply in the supplied target eigenbasis, before the final
++change of basis. Let `P` denote the retained bands and `Q` all other bands. Define
++
++```text
++c   = 3.809982208629016 eV Angstrom^2
++v_a = (2 c / bohr) momentum[a]
++A_a = P v_a P
++C_a = Q v_a P
++B_a = Q v_a Q
++D_ri = 1 / (E_i - E_r),   i in P, r in Q
++```
++
++Using elementwise multiplication `*` only in the formulas containing `D`, the
++first two wave-operator coefficients are
++
++```text
++X_a  = D * C_a
++X_ab = D * (B_a X_b - X_a A_b).
++```
++
++They follow from the invariant-subspace Riccati equation. The canonical embedding
++is `[I; X] (I + X†X)^(-1/2)`, whose retained diagonal block is Hermitian positive.
++Expanding its Hermitian Hamiltonian through cubic order gives
++
++```text
++R_ab   = (C_a† X_b + X_a† C_b) / 2
++H0     = diag(E_P)
++H1_a   = A_a
++H2_ab  = c delta_ab I + Sym_ab R_ab
++H3_abc = Sym_abc Herm(C_a† X_bc).
++```
++
++Here `Herm(M) = (M + M†)/2` and `Sym` is the average over Cartesian permutations,
++not the sum. These are polynomial coefficients, with no extra factorials.
++For example, an off-diagonal quadratic coefficient occurs twice in the full
++Cartesian contraction. The `-X_a A_b` term supplies the retained-space
++normalization/folded contribution; omitting it would not give the canonical
++Hermitian cubic Hamiltonian. No denominator between two retained energies is
++introduced. The common free-electron quadratic term is proportional to the
++full-space identity and produces no additional cubic term. For order 2, `H3`
++is exactly zero.
++
++## Magnetic response
++
++The ordered coefficient `R_ab`, before Cartesian symmetrization, retains the
++information lost when the wavevectors are assumed to commute. The specified
++electron commutator gives
++
++```text
++G_gamma = spin[gamma] - i/(2 c) sum_ab epsilon_abgamma R_ab.
++```
++
++In particular, `G_z = spin[z] - i (R_xy - R_yx)/(2 c)`. Since the contract uses
++`H_Z = mu_B G.B` and supplies projected Pauli-spin matrices, the spin contribution
++is added with coefficient one. There is no extra factor of two. This formula
++uses only the remote space and has the same pairwise Hermitian energy
++denominators as `H2`. It also transforms as an axial vector under a reflection.
++
++## Validation performed
++
++- **Supplied 800-band smoke input:** the command completed in 1.07 seconds with
++  approximately 108 MiB peak resident memory, with one BLAS thread. All output
++  arrays have the required shapes, complex dtype, and finite entries.
++- **Smoke basis:** unitarity error was zero at printed precision; generator
++  residual norms were `4.04e-7`, `1.57e-16`, and `9.82e-8`, consistent with the
++  input representation rounding. Matrix Hermiticity was exact at printed
++  precision; Cartesian permutation differences were at most `1.78e-15`.
++- **Independent exact canonical reduction of the smoke Hamiltonian:** selected
++  exact eigenvectors were aligned by the polar factor of their retained block.
++  Along an oblique direction, halving `|q|` from `0.016` to `0.002` inverse
++  Angstrom reduced the cubic model error by factors `15.70`, `15.86`, and
++  `15.93`, approaching the expected fourth-order factor of 16. The final
++  matrix error was `6.21e-10` eV.
++- **Synthetic nondegenerate four-band target:** comparison with independent
++  exact canonical block diagonalization gave error reduction factors `15.95`,
++  `15.98`, and `15.99`. This checks the cubic normalization terms without
++  assuming equal target energies. Order-2 export agreed in all lower-order
++  arrays and returned an exactly zero cubic tensor.
++- **60 basis-recovery cases:** dimensions 1 through 4, unitary-only generators,
++  antiunitary real structures, Kramers structures, repeated spinor irreps,
++  distinct characters, and generic constraints were checked with exact data
++  and noise amplitudes `1e-6` and `1e-3`. Maximum exact intertwining error was
++  `2.57e-14`; maximum unitarity error was `2.99e-15`. Noisy fitted residuals
++  were no larger than those of the known generating basis, to numerical
++  precision.
++- **Zeeman sign and normalization:** for a two-band Dirac model with coupling
++  `lambda` and remote gap `Delta`, the solver gives
++  `G_z = -lambda^2/(c Delta)` for the lower band with zero supplied spin.
++  Direct diagonalization with noncommuting oscillator wavevectors confirmed
++  the predicted weak-field energy shift, with the remaining error quadratic
++  in field.
++- Proper and improper Cartesian-coordinate changes reproduced the expected
++  polar Hamiltonian tensors and axial magnetic tensor to below `3e-15`.
++  Empty remote space was also checked.
++
++These are numerical and analytic consistency checks, not comparisons with
++unavailable labeled material-reference tensors. `smoke_result.npz` is the
++generated output for the supplied smoke case.
++
++## Scientific limits
++
++The expansion is local in wavevector and weak field. Its useful range depends
++on the remote gaps and matrix elements; it is not a globally accurate band
++interpolation. The requested constant `G` does not include wavevector-dependent
++magnetic terms or higher powers of field.
++
++A target exactly degenerate with an excluded band has no nonsingular reduction
++of this type; the exporter raises an error rather than regularizing a zero gap.
++Small nonzero gaps are used without modification, but can greatly restrict the
++validity range and worsen numerical conditioning. Degeneracies entirely inside
++the target or entirely inside the remote space are allowed.
++
++Inconsistent representation data need not admit an exact admissible basis; the
++returned basis then minimizes the representation residual numerically. No
++material-specific accuracy beyond the supplied matrices, no convergence in the
++number of electronic-structure bands beyond those supplied, and no behavior on
++unseen labeled cases can be established from the unlabeled smoke input alone.
+
+codex
+Implemented executable `../attempt/solve.py:1`, including basis recovery, canonical cubic Löwdin tensors using all remote bands, and spin-plus-orbital Zeeman response.
+
+```sh
+../attempt/solve.py --input CASE.npz --output RESULT.npz
+```
+
+Validation passed: 800-band smoke run in 1.07 seconds/~108 MiB, expected fourth-order truncation scaling, 60 gauge-recovery cases, Zeeman sign/normalization, and coordinate/gauge covariance.
+
+Formulas, validation results, and limitations are documented in `../attempt/README.md:1`. Exact target–remote degeneracies are rejected; labeled material-reference outputs were unavailable.
+diff --git a/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..a5924e1d282d8ffcab441f2ff54f5f180e3fc405
+--- /dev/null
++++ b/tasks_v3/automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/pilots/04_effective_physics/attempt/README.md
+@@ -0,0 +1,150 @@
++# Gauge-resolved low-energy exporter
++
++Run with the supplied Python environment (NumPy and SciPy):
++
++```sh
++./solve.py --input ../participant/input/smoke.npz --output result.npz
++```
++
++`solve.py` is executable and self-contained. It also exposes `export(case)` for
++an NPZ archive or a dictionary of arrays. The output contains exactly the six
++complex128 arrays `U`, `H0`, `H1`, `H2`, `H3`, and `G` in the supplied contract.
++All remote bands are used. No electronic-structure data are fitted, filtered,
++or averaged over symmetry operations. Cartesian axes remain the supplied axes;
++`cart_rotation` is not needed to compute the internal-basis intertwiner or the
++Cartesian tensors.
++
++## Basis recovery
++
++The unitary and antiunitary intertwining equations are assembled as one
++**real-linear** system in the real and imaginary parts of `U`. Candidate
++intertwiners are obtained from its smallest-singular-value subspaces. Considering
++multiple subspace dimensions avoids assuming irreducibility or a particular
++residual gauge. The polar factor of an invertible exact intertwiner is a unitary
++intertwiner, also for antiunitary generators.
++
++The best polar candidates are refined by least squares with the exactly unitary
++parameterization `U_initial exp(i K)`, where `K` is Hermitian. This permits
++rounded numerical representations without assuming that the equations have an
++exact solution. Only representation arrays enter this fit, not Hamiltonian or
++spin data. All physical tensors are subsequently transformed by `U† H U`.
++
++## Canonical reduction
++
++The following formulas apply in the supplied target eigenbasis, before the final
++change of basis. Let `P` denote the retained bands and `Q` all other bands. Define
++
++```text
++c   = 3.809982208629016 eV Angstrom^2
++v_a = (2 c / bohr) momentum[a]
++A_a = P v_a P
++C_a = Q v_a P
++B_a = Q v_a Q
++D_ri = 1 / (E_i - E_r),   i in P, r in Q
++```
++
++Using elementwise multiplication `*` only in the formulas containing `D`, the
++first two wave-operator coefficients are
++
++```text
++X_a  = D * C_a
++X_ab = D * (B_a X_b - X_a A_b).
++```
++
++They follow from the invariant-subspace Riccati equation. The canonical embedding
++is `[I; X] (I + X†X)^(-1/2)`, whose retained diagonal block is Hermitian positive.
++Expanding its Hermitian Hamiltonian through cubic order gives
++
++```text
++R_ab   = (C_a† X_b + X_a† C_b) / 2
++H0     = diag(E_P)
++H1_a   = A_a
++H2_ab  = c delta_ab I + Sym_ab R_ab
++H3_abc = Sym_abc Herm(C_a† X_bc).
++```
++
++Here `Herm(M) = (M + M†)/2` and `Sym` is the average over Cartesian permutations,
++not the sum. These are polynomial coefficients, with no extra factorials.
++For example, an off-diagonal quadratic coefficient occurs twice in the full
++Cartesian contraction. The `-X_a A_b` term supplies the retained-space
++normalization/folded contribution; omitting it would not give the canonical
++Hermitian cubic Hamiltonian. No denominator between two retained energies is
++introduced. The common free-electron quadratic term is proportional to the
++full-space identity and produces no additional cubic term. For order 2, `H3`
++is exactly zero.
++
++## Magnetic response
++
++The ordered coefficient `R_ab`, before Cartesian symmetrization, retains the
++information lost when the wavevectors are assumed to commute. The specified
++electron commutator gives
++
++```text
++G_gamma = spin[gamma] - i/(2 c) sum_ab epsilon_abgamma R_ab.
++```
++
++In particular, `G_z = spin[z] - i (R_xy - R_yx)/(2 c)`. Since the contract uses
++`H_Z = mu_B G.B` and supplies projected Pauli-spin matrices, the spin contribution
++is added with coefficient one. There is no extra factor of two. This formula
++uses only the remote space and has the same pairwise Hermitian energy
++denominators as `H2`. It also transforms as an axial vector under a reflection.
++
++## Validation performed
++
++- **Supplied 800-band smoke input:** the command completed in 1.07 seconds with
++  approximately 108 MiB peak resident memory, with one BLAS thread. All output
++  arrays have the required shapes, complex dtype, and finite entries.
++- **Smoke basis:** unitarity error was zero at printed precision; generator
++  residual norms were `4.04e-7`, `1.57e-16`, and `9.82e-8`, consistent with the
++  input representation rounding. Matrix Hermiticity was exact at printed
++  precision; Cartesian permutation differences were at most `1.78e-15`.
++- **Independent exact canonical reduction of the smoke Hamiltonian:** selected
++  exact eigenvectors were aligned by the polar factor of their retained block.
++  Along an oblique direction, halving `|q|` from `0.016` to `0.002` inverse
++  Angstrom reduced the cubic model error by factors `15.70`, `15.86`, and
++  `15.93`, approaching the expected fourth-order factor of 16. The final
++  matrix error was `6.21e-10` eV.
++- **Synthetic nondegenerate four-band target:** comparison with independent
++  exact canonical block diagonalization gave error reduction factors `15.95`,
++  `15.98`, and `15.99`. This checks the cubic normalization terms without
++  assuming equal target energies. Order-2 export agreed in all lower-order
++  arrays and returned an exactly zero cubic tensor.
++- **60 basis-recovery cases:** dimensions 1 through 4, unitary-only generators,
++  antiunitary real structures, Kramers structures, repeated spinor irreps,
++  distinct characters, and generic constraints were checked with exact data
++  and noise amplitudes `1e-6` and `1e-3`. Maximum exact intertwining error was
++  `2.57e-14`; maximum unitarity error was `2.99e-15`. Noisy fitted residuals
++  were no larger than those of the known generating basis, to numerical
++  precision.
++- **Zeeman sign and normalization:** for a two-band Dirac model with coupling
++  `lambda` and remote gap `Delta`, the solver gives
++  `G_z = -lambda^2/(c Delta)` for the lower band with zero supplied spin.
++  Direct diagonalization with noncommuting oscillator wavevectors confirmed
++  the predicted weak-field energy shift, with the remaining error quadratic
++  in field.
++- Proper and improper Cartesian-coordinate changes reproduced the expected
++  polar Hamiltonian tensors and axial magnetic tensor to below `3e-15`.
++  Empty remote space was also checked.
++
++These are numerical and analytic consistency checks, not comparisons with
++unavailable labeled material-reference tensors. `smoke_result.npz` is the
++generated output for the supplied smoke case.
++
++## Scientific limits
++
++The expansion is local in wavevector and weak field. Its useful range depends
++on the remote gaps and matrix elements; it is not a globally accurate band
++interpolation. The requested constant `G` does not include wavevector-dependent
++magnetic terms or higher powers of field.
++
++A target exactly degenerate with an excluded band has no nonsingular reduction
++of this type; the exporter raises an error rather than regularizing a zero gap.
++Small nonzero gaps are used without modification, but can greatly restrict the
++validity range and worsen numerical conditioning. Degeneracies entirely inside
++the target or entirely inside the remote space are allowed.
++
++Inconsistent representation data need not admit an exact admissible basis; the
++returned basis then minimizes the representation residual numerically. No
++material-specific accuracy beyond the supplied matrices, no convergence in the
++number of electronic-structure bands beyond those supplied, and no behavior on
++unseen labeled cases can be established from the unlabeled smoke input alone.
+
+tokens used
+68,780
+Implemented executable `../attempt/solve.py:1`, including basis recovery, canonical cubic Löwdin tensors using all remote bands, and spin-plus-orbital Zeeman response.
+
+```sh
+../attempt/solve.py --input CASE.npz --output RESULT.npz
+```
+
+Validation passed: 800-band smoke run in 1.07 seconds/~108 MiB, expected fourth-order truncation scaling, 60 gauge-recovery cases, Zeeman sign/normalization, and coordinate/gauge covariance.
+
+Formulas, validation results, and limitations are documented in `../attempt/README.md:1`. Exact target–remote degeneracies are rejected; labeled material-reference outputs were unavailable.

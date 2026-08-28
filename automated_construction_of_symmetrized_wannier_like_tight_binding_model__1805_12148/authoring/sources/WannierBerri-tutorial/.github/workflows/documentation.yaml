@@ -1,0 +1,30 @@
+name: Docs
+on: [push, pull_request, workflow_dispatch]
+permissions:
+    contents: write
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip' # caching pip dependencies
+      - name: Install dependencies
+        run: |
+          sudo apt-get install pandoc
+          pip install -r requirements.txt
+      - name: Sphinx build
+        run: |
+          sphinx-build doc  _build
+          echo "tutorial.wannier-berri.org" > _build/CNAME
+          touch _build/.nojekyll
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v4
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        with:
+          publish_branch: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: _build/
+          force_orphan: true 

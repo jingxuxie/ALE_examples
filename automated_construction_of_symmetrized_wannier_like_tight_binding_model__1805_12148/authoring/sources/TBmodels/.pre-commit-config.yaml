@@ -1,0 +1,41 @@
+repos:
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v2.38.0
+    hooks:
+      - id: pyupgrade
+        args: [--py38-plus]
+
+  - repo: https://github.com/psf/black
+    rev: 22.8.0
+    hooks:
+      - id: black
+
+  - repo: local
+    hooks:
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        exclude: "^(doc/)|(examples/)|(playground/)|(utils/)"
+
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: python
+        types: [python]
+        #args: [--scripts-are-modules]
+        require_serial: true
+        exclude: "^(doc/)|(examples/)|(playground/)"
+        args: []
+
+      - id: interpolate-workflows
+        name: Interpolate Github workflows
+        entry: python ./utils/interpolate_yaml_anchors.py
+        language: system
+        files: |
+          (?x)^(
+            .github/(.)*|
+            utils/interpolate_yaml_anchors.py
+          )$
+        pass_filenames: false
