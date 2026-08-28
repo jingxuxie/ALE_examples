@@ -1,0 +1,89 @@
+<!--
+   Copyright (c) 2003-2010 Matthias Troyer (troyer@ethz.ch)
+    
+   Distributed under the Boost Software License, Version 1.0.
+   (See accompanying file LICENSE_1_0.txt or copy at
+   http://www.boost.org/LICENSE_1_0.txt)
+  -->
+
+<MODELS>
+  <SITEBASIS name="fermion">
+  <QUANTUMNUMBER name="Nup" min="0" max="1" type="fermionic"/>
+  <QUANTUMNUMBER name="Ndown" min="0" max="1" type="fermionic"/>
+  <OPERATOR name="Splus" matrixelement="1">
+    <CHANGE quantumnumber="Ndown" change="-1"/>
+    <CHANGE quantumnumber="Nup" change="1"/>
+  </OPERATOR>
+  <OPERATOR name="Sminus" matrixelement="1">
+    <CHANGE quantumnumber="Nup" change="-1"/>
+    <CHANGE quantumnumber="Ndown" change="+1"/>
+  </OPERATOR>
+  <OPERATOR name="Sz" matrixelement="(Nup-Ndown)/2"/>
+  <OPERATOR name="Nup" matrixelement="Nup"/>
+  <OPERATOR name="Ndown" matrixelement="Ndown"/>
+  <OPERATOR name="c_down" matrixelement="1">
+    <CHANGE quantumnumber="Ndown" change="-1"/>
+  </OPERATOR>
+  <OPERATOR name="cdag_down" matrixelement="1">
+    <CHANGE quantumnumber="Ndown" change="1"/>
+  </OPERATOR>
+  <OPERATOR name="c_up" matrixelement="1">
+    <CHANGE quantumnumber="Nup" change="-1"/>
+  </OPERATOR>
+  <OPERATOR name="cdag_up" matrixelement="1">
+    <CHANGE quantumnumber="Nup" change="1"/>
+  </OPERATOR>
+  <OPERATOR name="n" matrixelement="Nup+Ndown"/>
+  <OPERATOR name="n_up" matrixelement="Nup"/>
+  <OPERATOR name="n_down" matrixelement="Ndown"/>
+  <OPERATOR name="double_occupancy" matrixelement="Nup*Ndown"/>
+</SITEBASIS>
+
+<BASIS name="fermion">
+  <SITEBASIS ref="fermion"/>
+  <CONSTRAINT quantumnumber="Nup" value="Nup_total"/>
+  <CONSTRAINT quantumnumber="Ndown" value="Ndown_total"/>
+</BASIS>
+
+<BONDOPERATOR name="field_du" source="x" target="y">
+  c_down(x)*c_up(y)
+</BONDOPERATOR>
+<BONDOPERATOR name="field_ud" source="x" target="y">
+  c_up(x)*c_down(y)
+</BONDOPERATOR>
+<BONDOPERATOR name="fielddag_du" source="x" target="y">
+  cdag_down(x)*cdag_up(y)
+</BONDOPERATOR>
+<BONDOPERATOR name="fielddag_ud" source="x" target="y">
+  cdag_up(x)*cdag_down(y)
+</BONDOPERATOR>
+
+<BONDOPERATOR name="fermion_hop" source="x" target="y">
+  cdag_up(x)*c_up(y)+cdag_up(y)*c_up(x)+cdag_down(x)*c_down(y)+cdag_down(y)*c_down(x)
+</BONDOPERATOR>
+
+<HAMILTONIAN name="fermion Hubbard">
+  <PARAMETER name="mu" default="0"/>
+  <PARAMETER name="t" default="1"/>
+  <PARAMETER name="V" default="0"/>
+  <PARAMETER name="t'" default="0"/>
+  <PARAMETER name="V'" default="0"/>
+  <PARAMETER name="U" default="0"/>
+  <PARAMETER name="t0" default="t"/>
+  <PARAMETER name="t1" default="t'"/>
+  <PARAMETER name="V0" default="V"/>
+  <PARAMETER name="V1" default="V'"/>
+  <BASIS ref="fermion"/>
+  <SITETERM site="i">
+    <PARAMETER name="mu#" default="mu"/>
+    <PARAMETER name="U#" default="U"/>
+    -mu#*n(i)+U#*n_up(i)*n_down(i)
+  </SITETERM> 
+  <BONDTERM source="i" target="j">
+    <PARAMETER name="t#" default="0"/>
+    <PARAMETER name="V#" default="0"/>
+    -t#*fermion_hop(i,j) + V#*n(i)*n(j)
+  </BONDTERM>
+</HAMILTONIAN>
+
+</MODELS>

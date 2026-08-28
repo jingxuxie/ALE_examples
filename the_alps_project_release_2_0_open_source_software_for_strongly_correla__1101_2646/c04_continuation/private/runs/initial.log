@@ -1,0 +1,1489 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/c04_continuation/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a045cc-35ae-76c2-9614-ad435e62e037
+--------
+user
+Work autonomously for up to one hour to solve the mission in TASK.md. Read the interface contract and inspect the supplied workspace. The task directory is read-only. Put your complete implementation, tests, and all scratch work in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/c04_continuation/attempt. Your required entry point is /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/c04_continuation/attempt/solve.py. Do not stop at a plan or explanation: implement and test the strongest general solution you can. You have only this task directory and your empty attempt directory, plus installed system runtimes. Do not use network access, outside artifacts, or other agents.
+codex
+I’ll read the contract, inspect the workspace, then implement and test.
+
+exec
+/bin/bash -lc 'pwd && ls -la && find .. -name AGENTS.md -print && cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/c04_continuation/participant
+**Considering slow shell login**
+
+I’m noticing that the shell login is slower than expected. I’m not sure what’s causing it, but it could be related to several factors, like network issues or resource overload. I want to explore various potential reasons, such as loaded configurations or external scripts that might be running at login. I’ll try to methodically check through each aspect to identify the issue and improve the situation.  Let’s see what could be causing this lag!
+exec
+/bin/bash -c 'pwd; ls -la; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/c04_continuation/participant
+exec
+/bin/bash -c 'echo ready' in /
+ succeeded in 56286ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/c04_continuation/participant
+total 16
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:26 .
+drwx------ 4 xuandong xuandong   80 Aug 27 17:39 ..
+-rw-rw-r-- 1 xuandong xuandong  463 Aug 27 17:26 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:26 input
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 27 17:26 workspace
+# Matrix spectral reconstruction
+
+Extend the supplied scalar baseline into a reliable matrix-valued imaginary-frequency reconstruction service. Preserve orbital coherence, retarded causality, and Dyson consistency for both discrete impurity spectra and dispersive bands.
+
+Deliver `solve.py` in the designated attempt directory. Follow `input/CONTRACT.md`. The evaluator supplies unseen inputs; do not specialize to the example. Only numerical outputs are scored.
+
+exec
+/bin/bash -c 'cat input/CONTRACT.md; find workspace input -maxdepth 3 -type f -print; ls -la ../attempt' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/c04_continuation/participant
+ succeeded in 12078ms:
+ready
+
+ succeeded in 32395ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/c04_continuation/participant
+total 16
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:26 .
+drwx------ 4 xuandong xuandong   80 Aug 27 17:40 ..
+-rw-rw-r-- 1 xuandong xuandong  463 Aug 27 17:26 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:26 input
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 27 17:26 workspace
+# Matrix spectral reconstruction
+
+Extend the supplied scalar baseline into a reliable matrix-valued imaginary-frequency reconstruction service. Preserve orbital coherence, retarded causality, and Dyson consistency for both discrete impurity spectra and dispersive bands.
+
+Deliver `solve.py` in the designated attempt directory. Follow `input/CONTRACT.md`. The evaluator supplies unseen inputs; do not specialize to the example. Only numerical outputs are scored.
+
+**Considering optimization**
+
+I think it's important to optimize tool overhead for better efficiency. I wonder what specific strategies I could use to reduce any unnecessary load that might slow things down. Maybe I should look into streamlining processes or making certain calls more effective. It's interesting to think about how minor adjustments could lead to significant improvements overall. I'll keep exploring this to find the best possible ways to enhance performance!
+ succeeded in 40592ms:
+# Interface
+
+Run `python solve.py --input request.json --output result.json` offline. Python 3, NumPy, SciPy, mpmath, and a C++ compiler are available. Runtime allowance: 120 seconds per case, one CPU thread, 2 GiB resident memory. A request is independent of other requests.
+
+Complex arrays are encoded as `{"real": nested_list, "imag": nested_list}`. Input fields:
+- `iw`: positive imaginary-frequency ordinates, strictly increasing. `G_iw` has shape `(len(iw), orbitals, orbitals)`.
+- `moments`: coefficients M0, M1, M2 in `G(z)=M0/z+M1/z**2+M2/z**3+...`. M0 is the identity.
+- `h0`: Hermitian matrix defining the bare propagator `G0(z)=(z I-h0)^(-1)`.
+- `omega`: real frequencies where reconstruction is requested, and positive `eta` defining `z=omega+i*eta`.
+- `support`: an interval containing the spectral support. `absolute_data_error` bounds numerical error in each supplied complex datum; it is not an independently sampled error bar.
+
+Return `G_retarded` and `Sigma_retarded` in the same complex encoding, each of shape `(len(omega), orbitals, orbitals)`. They represent the full matrices, not their elementwise imaginary parts. The self-energy convention is `Sigma(z)=z I-h0-G(z)^(-1)`. The spectral matrix is `-(G-G.conj().T)/(2j*pi)` at each frequency, and must be positive semidefinite. Conjugation/transposition must not be confused with taking the imaginary part entrywise.
+
+Cases include 2–4 orbitals, noncommuting orbital mixing, finite bath spectra, and smooth tight-binding bands; 60–180 imaginary frequencies, and 161–401 real frequencies. Data are given in arbitrary fixed orbital bases. Finite and continuous spectra need not admit the same useful approximation order. The example is unlabeled and is only an I/O check.
+
+Scoring separately measures the full propagator, off-diagonal coherence, self-energy, and negative spectral weight. Errors are normalized against the supplied weak baseline and compared continuously with independently computed reference values. Correctness on one branch does not compensate for failing another; per-family and worst-family results are reported. The submitted program never receives the generating Hamiltonian, reference arrays, or family labels.
+workspace/solve.py
+workspace/__pycache__/solve.cpython-310.pyc
+input/CONTRACT.md
+input/example.json
+total 4
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 27 17:40 .
+drwx------ 4 xuandong xuandong   80 Aug 27 17:40 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 17:40 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 17:40 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 17:40 .git
+
+exec
+/bin/bash -c "cat workspace/solve.py; python -c 'import json,numpy as np; d=json.load(open(\"input/example.json\")); print(\"\\nEXAMPLE\"); [(print(k,np.shape(v[\"real\"]) if isinstance(v,dict) else (v if np.size(v)<10 else (np.shape(v),v[:4],v[-4:])))) for k,v in d.items()]; print(\"moments\", d[\"moments\"]); print(\"h0\",d[\"h0\"]); print(\"G first\", {k:v[:2] for k,v in d[\"G_iw\"].items()})'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/c04_continuation/participant
+  → Inspect contract and scalar baseline
+  • Develop stable matrix continuation methods
+  • Benchmark synthetic discrete and continuous spectra
+  • Finalize solver and validate interface
+**Considering matrix structures**
+
+I need to explore creating a continuous branch with rational complex poles, focusing on spectral grid regularization. There's an idea here about leveraging a tight-binding band type that isn't well-known yet. People mention that smooth tight-binding bands usually correspond to a one-dimensional chain matrix. I wonder if I could apply a similar concept to a matrix Jacobi tail and transform it into a matrix Bethe instead. That sounds intriguing!
+ succeeded in 32294ms:
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+
+
+def unpack(value):
+    return np.asarray(value["real"]) + 1j * np.asarray(value["imag"])
+
+
+def pack(value):
+    return {"real": value.real.tolist(), "imag": value.imag.tolist()}
+
+
+def solve(request):
+    first_moment = unpack(request["moments"][1])
+    bare = unpack(request["h0"])
+    dimension = len(bare)
+    frequencies = np.asarray(request["omega"]) + 1j * request["eta"]
+    diagonal = np.diag(np.diag(first_moment))
+    green = np.linalg.inv(frequencies[:, None, None] * np.eye(dimension) - diagonal)
+    sigma = frequencies[:, None, None] * np.eye(dimension) - bare - np.linalg.inv(green)
+    return {"G_retarded": pack(green), "Sigma_retarded": pack(sigma)}
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True)
+    parser.add_argument("--output", required=True)
+    arguments = parser.parse_args()
+    Path(arguments.output).write_text(json.dumps(solve(json.loads(Path(arguments.input).read_text()))))
+
+EXAMPLE
+iw ((112,), [0.10471975511965977, 0.3141592653589793, 0.5235987755982988, 0.7330382858376184], [187.134202398832, 200.53833105414844, 214.98965726066152, 230.48818101837114])
+G_iw (112, 2, 2)
+moments [{'real': [[1.0000000000000004, -6.418476861114186e-17], [-6.418476861114186e-17, 0.9999999999999999]], 'imag': [[0.0, -2.2551405187698492e-17], [2.2551405187698492e-17, 0.0]]}, {'real': [[-1.2160671665683342, 0.01617146434986643], [0.01617146434986643, 0.7751680875419354]], 'imag': [[0.0, -0.23827740395240468], [0.23827740395240468, 0.0]]}, {'real': [[1.759371732788307, 0.019009841792063976], [0.019009841792063976, 0.9069060053828444]], 'imag': [[0.0, -0.04699967257856984], [0.04699967257856984, 0.0]]}]
+h0 (2, 2)
+omega ((241,), [-3.6, -3.5700000000000003, -3.54, -3.5100000000000002], [3.5100000000000002, 3.5400000000000005, 3.5700000000000007, 3.6])
+eta 0.15
+support [-2.818074689183831, 2.89032675417852]
+absolute_data_error 2e-13
+moments [{'real': [[1.0000000000000004, -6.418476861114186e-17], [-6.418476861114186e-17, 0.9999999999999999]], 'imag': [[0.0, -2.2551405187698492e-17], [2.2551405187698492e-17, 0.0]]}, {'real': [[-1.2160671665683342, 0.01617146434986643], [0.01617146434986643, 0.7751680875419354]], 'imag': [[0.0, -0.23827740395240468], [0.23827740395240468, 0.0]]}, {'real': [[1.759371732788307, 0.019009841792063976], [0.019009841792063976, 0.9069060053828444]], 'imag': [[0.0, -0.04699967257856984], [0.04699967257856984, 0.0]]}]
+h0 {'real': [[-1.2160671665683334, 0.01617146434986639], [0.016171464349866382, 0.7751680875419357]], 'imag': [[-4.336808689942018e-19, -0.23827740395240454], [0.23827740395240457, 0.0]]}
+G first {'real': [[[0.8133897629665209, 0.27790900231995647], [-0.002266034942279671, -0.3819108057616062]], [[0.6994580503765521, 0.11140621075626146], [-0.06148125800725622, -0.7044750559595381]]], 'imag': [[[-0.1437672265572729, 0.24629956045860335], [-0.47696055943057813, -0.5395767556749568]], [[-0.2324040849586159, 0.12818704037556056], [-0.284511074881742, -0.6105046547523685]]]}
+
+**Considering experimental setup**
+
+I’m thinking about creating an experimental Python file using `apply_patch`. To start, I need to import the environment thread limits first. It seems like I’ll require a long terminal session to run the scripts since the tools might take around 60 seconds to start, with each command potentially adding another 60 seconds of overhead. This means I need to plan for longer execution times!
+codex
+The baseline discards coherence. I’ll test matrix rational continuations.
+
+  ✓ Inspect contract and scalar baseline
+  → Develop stable matrix continuation methods
+  • Benchmark synthetic discrete and continuous spectra
+  • Finalize solver and validate interface
+exec
+/bin/bash -c 'bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/c04_continuation/attempt
+**Evaluating complex models**
+
+I'm working through the complexities of denominator weights and coefficients, noting that there's no symmetry required due to upper continuations with lower poles. I'm thinking about how finite data can exploit a real spectral model. I want to figure out how to determine a causal rational approximation, which might involve evaluating dense ω at a small eta and calculating negative eigenvalues. Also, I'll need to fit errors and choose rank based on residuals for accurate noise support.
+**Analyzing time constraints**
+
+I see we have about 49 minutes, but the current time is a bit unclear. I need to streamline my analysis and begin working on the file. Each tool has an initial latency of around 60 seconds, but since the process is sequential, I could speed things up. I’m wondering if I can send a patch while we wait for the shell to be ready. Yes, stdin can write the command before the queue starts up!
+**Exploring AAA stabilization methods**
+
+I'm thinking about how to stabilize AAA using least squares barycentric weights to denoise data in physics. The weighted least squares method helps reduce bias, and I’ve noticed that greedy polynomial samples can lead to weird oscillations when samples are at high iw. Bootstrap techniques seem to work well by choosing subsets and averaging for better results while flagging unphysical data. I’ll also consider averaging Padé approximants to improve outcomes while ensuring stability in the global denominator.
+**Optimizing q function**
+
+I need to pair conformal q better and introduce a weighted error to improve results. Enforcing symmetry in q helps ensure real coefficients and precise moments. The rational in q varies branch support, broadening naturally. I can adapt endpoints to fit estimated extremes and refine interval support to minimize singularities. It seems like optimizing bounds could reduce fitting error, especially with the flexible AAA, using continuous endpoints from rational models to yield a smoother function.
+**Refining spectrum analysis**
+
+I'm considering the general spectrum with multiple internal edges. I want to apply a rational Loewner approach for optimizing endpoints based on the last singular value. This could enhance the band branch edges, though I need to approach it carefully due to the complexity of multiple dimensions. Using quadratic algebraic approximants like Hermite-Padé could help fit matrix entries while preserving shared branch polynomials. I'll aim for a robust negative outcome to ensure causality while working towards an exact Dyson self-energy.
+**Analyzing spectral properties**
+
+I'm examining the pointwise spectral PSD while keeping the real part unaltered. It's not physically analytical globally, but it shows local causality. The task involves ensuring positive G and Dyson consistency for retarded causality. By projecting the loss matrix Σ to minimize eigenvalues, I can improve stability. G can be expressed in terms of PSD inverse, addressing the causality condition. However, I need to manage input rotations carefully while prioritizing self-energy fits, especially when dealing with real target issues.
+**Analyzing mathematical models**
+
+I’m working on ensuring the consistency of the original G model. It seems that I should be looking at finite model versions and comparing poles, specifically the AAA paired outputs, which yield different roots. I think using LS residues and poles should help me fit all source moments simultaneously. Nonlinear energies need optimizing, and it’s important to clip residues after fitting to assess them correctly, especially since some poles might cause negative residues. Fitting errors are a concern too, particularly with higher counts of poles.
+**Evaluating fitting methods**
+
+I’m considering how to enforce that the distance (d) equals the constant (c) without having a constant itself. Once that's clear, I can relocate to fit the final residues using least squares with fixed-point constraints. I also need to think about how the pole weights have uncertainty tied to their widths. My goal is to improve the acceptance of the fitting after this process. There's a lot to keep in mind!
+**Figuring out mathematical components**
+
+I'm looking to fit a specific denominator and numerator data related to high-frequency analysis. I want to ensure I enforce Taylor expansions with the proper rational Bary nodes that involve infinite rows. It seems I'm trying to avoid near-zero errors by maintaining a constant behavior in my calculations. Also, I need to consider constraints and manage noise that might come from the weighted supports in my high-frequency data. Finally, I need to perform some tests to confirm everything.
+codex
+Tests favor separate treatments for poles and bands. I’m adding moment constraints and causality checks.
+
+**Examining data recovery**
+
+I’m thinking about the weights used in recovery. It seems like using weights equal to the square root of the inverse weights could be a modest choice. I also want to account for absolute noise, although it’s not random real data—it varies across frequencies. To manage high-frequency cancellations, I might need to use a cutoff. It could be helpful to look at actual derivatives and analyze sample residuals along with the bound of the number of poles.
+**Planning optimization strategy**
+
+I've got about 49 minutes left, which I think is enough time to execute a simpler task. The goal is to optimize how we analyze finite residues and work with nonlinear unbounded roots while avoiding noise. I plan to use rank 1 factorization for accuracy and ensure we're managing the output effectively to prevent overload. I also need to focus on the normalized error while managing matrix shapes and weight prioritization, paying attention to all the necessary details to keep computations efficient.
+**Creating matrix transformations**
+
+I'm focusing on creating a flattened Hermitian basis for the support matrix. This involves ensuring the matrix coefficients are real, which will help satisfy the relationship between the negative and positive components of the Loewner transformation. I'll construct paired support to transform columns accordingly, organizing the rows to stack real and imaginary parts. I'm aiming for minimal SVD weights while converting functions into Hermitian coefficients effectively, ensuring smooth transitions for all values by maintaining the correct basis array structure.
+Matrix rational fits work well; synthetic tests now guide model selection and causal safeguards.
+  ✓ Inspect contract and scalar baseline
+  ✓ Develop stable matrix continuation methods
+  → Benchmark synthetic discrete and continuous spectra
+  • Finalize solver and validate interface
+codex
+Finite-pole recovery is highly accurate. I’m stress-testing band reconstruction.
+
+**Evaluating SVD Approach**
+
+I’m considering using SVD with the Hermitian transformation for positive weights. The idea is to ensure the selection data is exclusively positive. I’m using the real-valued stack from SciPy, but I remember that the row order doesn’t really matter. It seems I should focus on how these transformations relate to my needs. Let’s think about this to make sure I’ve got the details right!
+**Analyzing model stability**
+
+I’m considering how the shared matrix signal looks good, but it seems like qmodelsfit near the origin creates instability near a circle if η is small. That’s not ideal! I need to think about a fallback to causalLoewner; it might be better than just discarding it if a model isn't available. It’s important to have reliable options lined up for this situation! Let's keep refining this approach.
+**Evaluating dynamics and scores**
+
+I’m trying to figure out if the Σ dynamic physical mass is greater than 1 or if there’s a small loss that's positive. I think I need to assemble the components discretely and check for any significant discrepancies in the main score reference. I should run tests to see if the loss could be allowed at around 1e-8. It's a bit tricky, but I'll keep looking into it to clarify!
+codex
+Band estimates improved with inferred spectral edges; causality checks pass.
+
+exec
+/bin/bash -c 'tail -n 8 bandfit.log; date; wc -l continuation.py solve.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/c04_continuation/attempt
+ succeeded in 36471ms:
+BANDRESULT band 3 1 0.014403809643273605 0.23879403367248048 [0.041098501202829554, 0.04572611145190223, 0.011094763255056104] 0.1753732689539902
+BANDRESULT band 3 2 5.94801360243593e-15 4.705692596447023e-14 [5.088401911386141e-14, 5.783070191005766e-14, 0.011378413098588419] 0.362239086010959
+BANDRESULT band2 1 1 0.13810454134930644 1.7619477492268814 [0.5282940844832618, 0.445082527257258, 0.026543467385967183] 2.2781270599807613
+BANDRESULT band2 1 2 1.0173820451480044e-14 2.2271706777841988e-13 [5.6666832095433794e-14, 4.4137673821721756e-14, 0.026902026231491676] 10.102070848981384
+BANDRESULT band2 2 1 0.12686940606902122 2.001766641584044 [0.42524647093371093, 0.6572895134216196, 0.009587490118331167] 10.043842607992701
+BANDRESULT band2 2 2 0.019112325659110172 1.015938673479207 [0.40180519527535546, 0.5315377311112814, 0.009117489127987115] 10.030065856000874
+BANDRESULT band2 3 1 0.017106557366547807 0.04528490036177829 [0.15151084029328737, 0.16762924625569395, 0.015171957694293097] 0.19562114897416905
+BANDRESULT band2 3 2 7.232478730758051e-15 1.2235361486061294e-14 [9.960876274691155e-14, 9.79279044927771e-14, 0.016055755484477366] 0.39906347799114883
+Thu Aug 27 18:01:51 PDT 2026
+  359 continuation.py
+   51 solve.py
+  410 total
+
+**Resolving model issues**
+
+It looks like I'm encountering a model wave mismatch error, which is a bit concerning. I need to address the global error, which seems to indicate there might be an issue with the parameters. I should queue the stress files and ensure the metadata is updated after the unit tests, which may not be complete yet. I want to make sure everything is functioning correctly before proceeding further. Let's figure this out!
+codex
+I’m validating band refinements against every supplied imaginary-frequency sample.
+
+codex
+Block realization now recovers larger baths accurately. Final regression checks remain.
+
+Discrete, continuous, noisy, and two-dimensional synthetic cases are benchmarked; finalizing regression coverage and the CLI deliverable.
+  ✓ Inspect contract and scalar baseline
+  ✓ Develop stable matrix continuation methods
+  ✓ Benchmark synthetic discrete and continuous spectra
+  → Finalize solver and validate interface
+**Reflection on time and tasks**
+
+I’ve got about 12.5 minutes left, and I think I can finish early. The user mentioned a solution that works autonomously for up to an hour, which seems efficient. I feel like we’ve done well so far, so I don’t want to waste the remaining time on unnecessary tasks.
+
+It sounds like all eight tests passed, and I’ll want to ensure everything is stable. There are thoughts about some additional testing and metrics, but I’m wondering if it's worth it to spend time on that when the main goals are already fulfilled.
+codex
+Eight regression tests pass, including the larger-bath case.
+
+The final solver passes all eight regression tests, syntax checks, broader synthetic stress tests, and the supplied example from the read-only task working directory.
+  ✓ Inspect contract and scalar baseline
+  ✓ Develop stable matrix continuation methods
+  ✓ Benchmark synthetic discrete and continuous spectra
+  ✓ Finalize solver and validate interface
+ succeeded in 2907798ms:
+pwd
+which apply_patch
+bash: cannot set terminal process group (1): Inappropriate ioctl for device
+bash: no job control in this shell
+bash-5.1$ pwd
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/c04_continuation/attempt
+bash-5.1$ which apply_patch
+/srv/home/xuandong/.codex/tmp/arg0/codex-arg0ITqyc3/apply_patch
+bash-5.1$ apply_patch <<'PATCH'
+> *** Begin Patch
+> *** Add File: research.py
+> +import os
+> +os.environ['OPENBLAS_NUM_THREADS'] = '1'
+> +os.environ['OMP_NUM_THREADS'] = '1'
+> +import json
+> +import time
+> +import numpy as np
+> +import scipy.linalg as la
+> +
+> +
+> +def unpack(value):
+> +    return np.asarray(value['real']) + 1j * np.asarray(value['imag'])
+> +
+> +
+> +def aaa(nodes, values, tolerance=1e-12, maximum=40, paired=False):
+> +    original_shape = values.shape[1:]
+> +    values = values.reshape(len(nodes), -1)
+> +    selected = []
+> +    residual = values - np.mean(values, axis=0)
+> +    history = []
+> +    for order in range(maximum):
+> +        errors = la.norm(residual, axis=1)
+> +        errors[selected] = -1
+> +        pivot = int(np.argmax(errors))
+> +        selected.append(pivot)
+> +        if paired:
+> +            partner = (pivot + len(nodes)//2) % len(nodes)
+> +            selected.append(partner)
+> +        remaining = np.setdiff1d(np.arange(len(nodes)), selected)
+> +        basis = 1 / (nodes[remaining, None] - nodes[selected][None, :])
+> <values[selected].T[None, :, :]) * basis[:, None, :]
+> +        loewner = loewner.reshape(-1, len(selected))
+> <d(loewner, full_matrices=False, check_finite=False)
+> +        weights = right[-1].conj()
+> +        numerator = basis @ (weights[:, None] * values[selected])
+> +        denominator = basis @ weights
+i> +        fit = numerator / denominator[:, None]
+> +        residual = np.zeros_like(values)
+> +        residual[remaining] = values[remaining] - fit
+> +        error = np.max(la.norm(residual, axis=1))
+> <ights.copy(), error, singular[-1], original_shape))
+> +        if error <= tolerance:
+> +            break
+> +    return history
+> +
+> +
+> +def evaluate(model, points):
+> +    nodes, values, weights, error, singular, shape = model
+> +    basis = 1 / (points[:, None] - nodes[None, :])
+> < weights)[:, None]).reshape((len(points),) + shape)
+> +
+> +
+> +def poles(model):
+> +    nodes, values, weights, error, singular, shape = model
+> +    matrix = np.zeros((len(nodes)+1, len(nodes)+1), complex)
+> +    matrix[0, 1:] = weights
+> +    matrix[1:, 0] = 1
+> +    matrix[1:, 1:] = np.diag(nodes)
+> +    metric = np.eye(len(nodes)+1)
+> +    metric[0, 0] = 0
+> +    roots = la.eigvals(matrix, metric)
+> +    return roots[np.isfinite(roots)]
+> +
+> +
+> +def hermitian(matrix):
+> +    return (matrix + matrix.conj().swapaxes(-1, -2))/2
+> +
+.p> +
+y > +def green_from_spectrum(points, energies, residues):
+> < None]-energies[None, :]), residues, optimize=True)
+> +
+> +
+> +def generated(kind, seed=1, dimension=3, error=2e-13, eta=.12):
+> +    rng = np.random.default_rng(seed)
+> +    def random_matrix(size):
+> <l(size=(size,size))+1j*rng.normal(size=(size,size))
+> +    if kind == 'finite':
+> +        total = dimension + 8 + seed % 6
+> +        bare = hermitian(random_matrix(dimension))*.5
+> <al-dimension) + rng.normal(size=total-dimension)*.1
+> +        coupling = random_matrix(total)[:dimension, dimension:]*.18
+> <[bare,coupling],[coupling.conj().T,np.diag(bath)]])
+> +        energies, vectors = la.eigh(hamiltonian)
+> <', vectors[:dimension], vectors[:dimension].conj())
+> +    else:
+> +        count = 4096
+> +        phase = np.exp(2j*np.pi*np.arange(count)/count)
+> +        bare = hermitian(random_matrix(dimension))*.5
+> +        if kind == 'band':
+> +            hopping = random_matrix(dimension)*.22 + np.eye(dimension)*.45
+> +            second = random_matrix(dimension)*.025
+> +        elif kind == 'scalarband':
+> <random_matrix(dimension))*.2 + np.eye(dimension)*.5
+> +            second = np.zeros_like(hopping)
+> +        else:
+> +            hopping = random_matrix(dimension)*.2
+> +            second = random_matrix(dimension)*.12
+> <opping + phase.conj()[:,None,None]*hopping.conj().T
+> <cond + phase.conj()[:,None,None]**2*second.conj().T
+> +        energies, vectors = np.linalg.eigh(hamiltonian)
+> <ctors.conj()).reshape(-1,dimension,dimension)/count
+> +        energies = energies.ravel()
+> <, energies**order, residues) for order in range(3)]
+> <i/30*(2*np.arange(60)+1), np.geomspace(13,230,52)])
+> +    omega = np.linspace(min(energies)-.6, max(energies)+.6,241)
+> +    data = green_from_spectrum(1j*iw, energies, residues)
+> <e=data.shape)+1j*rng.uniform(-1,1,size=data.shape))
+> +    target = green_from_spectrum(omega+1j*eta, energies, residues)
+> <.15,max(energies)+.15], error=error, target=target)
+> +
+> +
+> +def metrics(prediction, case):
+> +    target = case['target']
+> +    points = case['omega']+1j*case['eta']
+> +    dimension = len(case['bare'])
+> <p.eye(dimension)-case['bare']-np.linalg.inv(target)
+> <e(dimension)-case['bare']-np.linalg.inv(prediction)
+> +    spectral = -(prediction-prediction.conj().swapaxes(-1,-2))/(2j)
+> +    negativity = np.min(np.linalg.eigvalsh(spectral))
+> <arget)/max(la.norm(sigma_target),1e-10),negativity]
+> +
+> +
+> +def benchmark():
+> +    for kind in ['finite','scalarband','band','band2']:
+> +        case = generated(kind)
+> +        print('\n',kind, flush=True)
+> +        for paired in [False,True]:
+> +            nodes = 1j*case['iw']
+> +            values = case['data']
+> +            if paired:
+> +                nodes = np.r_[nodes,nodes.conj()]
+> <concatenate([values,values.conj().swapaxes(-1,-2)])
+> <es,values,tolerance=1e-12,maximum=28,paired=paired)
+> +            for model in history:
+> +                if len(model[0]) < 6:
+> +                    continue
+> +                prediction = evaluate(model,case['omega']+1j*case['eta'])
+> <el),3) if model is history[-1] else '', flush=True)
+> +
+> +
+> +if __name__ == '__main__':
+> +    benchmark()
+> *** End Patch
+> PATCH
+Success. Updated the following files:
+A research.py
+bash-5.1$ OPENBLAS_NUM_THREADS=1 python research.py > research.log 2>&1
+bash-5.1$ stty -echo
+bash-5.1$ 
+ finite
+False 6 fit 0.0038 metrics ['0.37', '1.01', '-0.984'] poles 
+False 7 fit 0.00077 metrics ['0.514', '0.999', '-5.15'] poles 
+False 8 fit 0.00017 metrics ['0.393', '1.09', '-1.93'] poles 
+False 9 fit 3.6e-05 metrics ['0.525', '1.59', '-4.25'] poles 
+False 10 fit 7.4e-06 metrics ['0.185', '1.04', '-0.156'] poles 
+False 11 fit 6.7e-07 metrics ['0.173', '0.489', '-0.112'] poles 
+False 12 fit 1.8e-07 metrics ['0.114', '0.391', '-0.126'] poles 
+False 13 fit 1.5e-13 metrics ['3.78e-07', '1.42e-06', '0.00853'] poles [-2.691+0.j  2.531-0.j -1.977+0.j  1.94 -0.j -1.422-0.j -0.884+0.j
+  1.111+0.j  0.925+0.j -0.218+0.j  0.021+0.j  0.659+0.j  0.436-0.j]
+True 6 fit 0.044 metrics ['0.526', '1.03', '-0.0933'] poles 
+True 8 fit 0.0057 metrics ['0.377', '1.13', '0.00818'] poles 
+True 10 fit 0.00062 metrics ['0.148', '0.721', '-0.00936'] poles 
+True 12 fit 9.8e-05 metrics ['0.15', '0.739', '-0.412'] poles 
+True 14 fit 2.9e-12 metrics ['4.43e-09', '1.96e-08', '0.00853'] poles 
+True 16 fit 1.9e-12 metrics ['2.69e-09', '1.48e-08', '0.00853'] poles 
+True 18 fit 6.6e-13 metrics ['2.82e-09', '1.39e-08', '0.00853'] poles [-2.691-0.000e+00j  2.531-0.000e+00j -0.192+2.410e+00j -0.193-2.410e+00j
+ -1.977+0.000e+00j  1.94 -0.000e+00j  0.116-1.673e+00j  0.117+1.673e+00j
+ -1.422-0.000e+00j -0.884+0.000e+00j  1.111+0.000e+00j  0.925-0.000e+00j
+  0.659+0.000e+00j  0.436-0.000e+00j -0.218-0.000e+00j  0.061-2.000e-03j
+  0.021-0.000e+00j]
+
+ scalarband
+False 6 fit 0.0014 metrics ['0.517', '0.49', '-0.983'] poles 
+False 7 fit 6.3e-05 metrics ['0.286', '0.301', '-0.575'] poles 
+False 8 fit 9.3e-06 metrics ['0.113', '0.142', '0.0126'] poles 
+False 9 fit 1.3e-06 metrics ['0.0683', '0.0874', '0.0163'] poles 
+False 10 fit 1.5e-07 metrics ['0.0659', '0.0945', '0.0163'] poles 
+False 11 fit 1.6e-08 metrics ['0.0339', '0.035', '0.0161'] poles 
+False 12 fit 1.1e-09 metrics ['0.034', '0.0452', '0.0161'] poles 
+False 13 fit 1.6e-11 metrics ['0.018', '0.0232', '0.0162'] poles 
+False 14 fit 1e-12 metrics ['0.0124', '0.0163', '0.0162'] poles [ 2.205-0.028j  1.814-0.166j -1.621-0.022j  1.45 -0.063j  1.155-0.504j
+ -1.363-0.127j -0.52 -0.687j -1.031-0.272j -0.989-0.025j  0.352-0.768j
+  0.252-0.126j  0.243-0.015j  0.275-0.017j]
+True 6 fit 0.054 metrics ['0.693', '0.837', '0.00255'] poles 
+True 8 fit 0.004 metrics ['0.501', '0.878', '0.0174'] poles 
+True 10 fit 0.0006 metrics ['0.296', '0.478', '-0.0382'] poles 
+True 12 fit 4.7e-05 metrics ['0.245', '0.413', '0.0162'] poles 
+True 14 fit 1.2e-06 metrics ['0.159', '0.246', '0.0161'] poles 
+True 16 fit 2.1e-08 metrics ['0.122', '0.2', '0.0161'] poles 
+True 18 fit 3.9e-10 metrics ['0.0951', '0.157', '0.0162'] poles 
+True 20 fit 3.4e-11 metrics ['0.0586', '0.0982', '0.0162'] poles 
+True 22 fit 6.3e-13 metrics ['0.0585', '0.103', '0.0162'] poles [ 2.227-0.j  2.012-0.j -1.631-0.j  1.691-0.j -1.486-0.j -1.263-0.j
+  1.394-0.j -1.058-0.j -0.906-0.j  1.095-0.j  1.031-0.j -0.685-0.j
+  0.801+0.j -0.446-0.j  0.525+0.j -0.234-0.j -0.071-0.j  0.331-0.j
+  0.051-0.j  0.259-0.j  0.182-0.j]
+
+ band
+False 6 fit 0.0027 metrics ['0.964', '1.1', '-4.7'] poles 
+False 7 fit 0.00035 metrics ['0.376', '0.275', '-0.00575'] poles 
+False 8 fit 6.5e-05 metrics ['0.255', '0.198', '0.017'] poles 
+False 9 fit 6e-06 metrics ['0.188', '0.138', '0.0194'] poles 
+False 10 fit 1e-06 metrics ['0.0966', '0.0629', '0.0215'] poles 
+False 11 fit 8e-08 metrics ['0.0673', '0.0466', '0.021'] poles 
+False 12 fit 8.1e-09 metrics ['0.0416', '0.0275', '0.0212'] poles 
+False 13 fit 4.2e-10 metrics ['0.0552', '0.0315', '0.0209'] poles 
+False 14 fit 6.6e-11 metrics ['0.0465', '0.0325', '0.021'] poles 
+False 15 fit 3e-11 metrics ['0.0332', '0.0285', '0.021'] poles 
+False 16 fit 5.6e-13 metrics ['0.0293', '0.026', '0.021'] poles [ 2.22 +0.008j  2.115-0.02j  -1.634+0.004j -1.514-0.022j  1.741-0.071j
+ -1.206-0.095j -1.017-0.077j -0.69 -0.304j  1.354-0.031j  1.075-0.226j
+ -0.19 -0.404j  0.569-0.337j  0.073-0.199j  0.018-0.017j  0.424-0.039j]
+True 6 fit 0.07 metrics ['0.973', '0.634', '0.021'] poles 
+True 8 fit 0.018 metrics ['0.793', '0.595', '0.0229'] poles 
+True 10 fit 0.00076 metrics ['0.401', '0.366', '0.0202'] poles 
+True 12 fit 0.00024 metrics ['0.326', '0.268', '0.0211'] poles 
+True 14 fit 3.5e-06 metrics ['0.214', '0.181', '0.0211'] poles 
+True 16 fit 2.7e-07 metrics ['0.152', '0.141', '0.0209'] poles 
+True 18 fit 2e-08 metrics ['0.12', '0.102', '0.021'] poles 
+True 20 fit 6.6e-10 metrics ['0.0912', '0.0857', '0.021'] poles 
+True 22 fit 1.4e-11 metrics ['0.0684', '0.0669', '0.021'] poles 
+True 24 fit 4.7e-13 metrics ['0.0496', '0.0511', '0.021'] poles [ 2.206e+00+0.j  2.143e+00-0.j  1.944e+00+0.j  1.640e+00+0.j
+ -1.645e+00+0.j -1.555e+00+0.j -1.379e+00+0.j  1.354e+00+0.j
+  1.169e+00+0.j -1.170e+00+0.j  9.000e-01+0.j -9.940e-01+0.j
+ -8.070e-01+0.j  6.420e-01+0.j -5.950e-01+0.j -3.910e-01-0.j
+  4.560e-01+0.j  3.220e-01+0.j -2.170e-01-0.j  1.760e-01+0.j
+  6.500e-02+0.j -1.000e-03-0.j -8.500e-02-0.j]
+
+ band2
+False 6 fit 0.0019 metrics ['0.322', '0.201', '0.0257'] poles 
+False 7 fit 0.00052 metrics ['0.38', '0.324', '-0.025'] poles 
+False 8 fit 4e-05 metrics ['0.277', '0.23', '0.02'] poles 
+False 9 fit 8.1e-06 metrics ['0.205', '0.146', '0.0272'] poles 
+False 10 fit 1.4e-06 metrics ['0.146', '0.199', '0.0267'] poles 
+False 11 fit 8.2e-08 metrics ['1.03', '0.418', '-7.84'] poles 
+False 12 fit 4.2e-09 metrics ['0.0698', '0.0497', '0.0269'] poles 
+False 13 fit 9.6e-10 metrics ['0.0627', '0.0388', '0.0269'] poles 
+False 14 fit 3.8e-11 metrics ['0.0769', '0.0503', '0.0269'] poles 
+False 15 fit 9.7e-13 metrics ['0.0374', '0.0215', '0.0269'] poles [ 1.868-0.005j  1.676-0.015j  1.401-0.021j  1.148-0.01j  -0.929-0.004j
+ -0.735+0.003j -0.668+0.043j -0.401-0.167j -0.445+0.002j -0.021-0.243j
+  0.561-0.019j  0.266-0.135j  0.367-0.041j  0.031-0.008j]
+True 6 fit 0.052 metrics ['0.585', '0.4', '0.0307'] poles 
+True 8 fit 0.017 metrics ['0.573', '0.752', '-0.0534'] poles 
+True 10 fit 0.00084 metrics ['0.331', '0.312', '0.027'] poles 
+True 12 fit 0.00015 metrics ['0.219', '0.167', '0.0267'] poles 
+True 14 fit 2.6e-06 metrics ['0.185', '0.106', '0.0268'] poles 
+True 16 fit 2.3e-07 metrics ['0.131', '0.0913', '0.0268'] poles 
+True 18 fit 1.3e-08 metrics ['0.0798', '0.0544', '0.0269'] poles 
+True 20 fit 4.3e-11 metrics ['0.0284', '0.0183', '0.0269'] poles 
+True 22 fit 3.6e-12 metrics ['0.0217', '0.0173', '0.0269'] poles 
+True 24 fit 5.1e-13 metrics ['0.0272', '0.0205', '0.0269'] poles [ 1.914-0.j     1.852-0.j     1.676-0.j     1.444+0.j     1.25 -0.j
+  1.118+0.j    -0.942+0.j    -0.885-0.j    -0.777+0.j    -0.667-0.009j
+ -0.667+0.009j -0.558-0.j     0.516-0.18j   0.516+0.18j   0.573-0.j
+  0.44 +0.j    -0.393-0.j     0.327-0.j    -0.243-0.j     0.175-0.j
+  0.054-0.j     0.015-0.j    -0.092-0.j   ]
+bash-5.1$ Thu Aug 27 17:44:03 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A transform_tests.py
+bash-5.1$ bash-5.1$ 
+ finite
+sigma 8 fit 9.6e-05 metrics ['0.159', '0.353', '0.00805']
+sigma 9 fit 4.3e-05 metrics ['0.113', '0.335', '0.00813']
+sigma 10 fit 7.5e-11 metrics ['9.58e-07', '3.1e-06', '0.00853']
+sigma 11 fit 1.6e-10 metrics ['3.2e-06', '1.22e-05', '0.00853']
+sigma 12 fit 2.1e-10 metrics ['4.12e-08', '1.31e-07', '0.00853']
+sigma 13 fit 7.9e-11 metrics ['4.2e-08', '1.45e-07', '0.00853']
+sigma 14 fit 1.5e-10 metrics ['5.5e-08', '1.72e-07', '0.00853']
+sigma 15 fit 1.8e-10 metrics ['5.26e-08', '1.75e-07', '0.00853']
+sigma 16 fit 6e-10 metrics ['5.04e-08', '1.67e-07', '0.00853']
+sigma 17 fit 2.4e-10 metrics ['4.98e-08', '1.67e-07', '0.00853']
+sigma 18 fit 3.7e-10 metrics ['4.89e-08', '1.7e-07', '0.00853']
+sigma 19 fit 2.1e-10 metrics ['4.82e-08', '1.66e-07', '0.00853']
+sigma 20 fit 1.1e-10 metrics ['4.24e-08', '1.33e-07', '0.00853']
+sigma 21 fit 5.3e-11 metrics ['3.68e-08', '1.17e-07', '0.00853']
+sigma 22 fit 1e-10 metrics ['3.84e-08', '1.25e-07', '0.00853']
+sigma 23 fit 4.7e-11 metrics ['3.89e-08', '1.01e-07', '0.00853']
+map 8 fit 0.016 metrics ['0.368', '1.08', '-0.573']
+map 10 fit 0.0096 metrics ['0.453', '0.893', '-0.887']
+map 12 fit 0.0021 metrics ['0.324', '0.802', '-0.226']
+map 14 fit 7.7e-05 metrics ['0.221', '0.617', '-0.0375']
+map 16 fit 1.6e-05 metrics ['0.294', '0.745', '-2.7']
+map 18 fit 9.4e-07 metrics ['0.303', '0.79', '-0.604']
+map 20 fit 1.7e-07 metrics ['0.112', '0.496', '-0.0269']
+map 22 fit 8e-09 metrics ['0.164', '0.654', '-0.475']
+map 24 fit 3.8e-10 metrics ['0.0698', '0.153', '-0.0444']
+map 26 fit 1.7e-13 metrics ['7.19e-05', '0.000194', '0.00853']
+sigmamap 8 fit 0.03 metrics ['0.347', '0.598', '-0.0279']
+sigmamap 10 fit 0.007 metrics ['0.376', '0.658', '-2.12']
+sigmamap 12 fit 0.00062 metrics ['0.233', '0.796', '-1.33']
+sigmamap 14 fit 7.7e-05 metrics ['0.151', '0.412', '-0.0179']
+sigmamap 16 fit 1.9e-05 metrics ['0.102', '0.304', '-0.0626']
+sigmamap 18 fit 1.1e-06 metrics ['0.185', '0.459', '-0.222']
+sigmamap 20 fit 8.3e-11 metrics ['1e-05', '4.2e-05', '0.00853']
+sigmamap 22 fit 2.7e-10 metrics ['7.6e-06', '2e-05', '0.00853']
+sigmamap 24 fit 7.1e-11 metrics ['4.52e-06', '1.53e-05', '0.00853']
+sigmamap 26 fit 4.8e-11 metrics ['5.44e-06', '2.09e-05', '0.00853']
+sigmamap 28 fit 3.8e-11 metrics ['5.91e-06', '2.06e-05', '0.00853']
+sigmamap 30 fit 1.4e-10 metrics ['3.16e-05', '0.000113', '0.00853']
+sigmamap 32 fit 2.2e-10 metrics ['9.6e-05', '0.00046', '0.00853']
+sigmamap 34 fit 3.3e-11 metrics ['3.8e-07', '9.38e-07', '0.00853']
+sigmamap 36 fit 9.2e-11 metrics ['3.61e-07', '9.52e-07', '0.00853']
+sigmamap 38 fit 5e-11 metrics ['3.51e-07', '9.72e-07', '0.00853']
+sigmamap 40 fit 9.5e-11 metrics ['3.54e-07', '9.98e-07', '0.00853']
+sigmamap 42 fit 7.2e-11 metrics ['3.43e-07', '9.25e-07', '0.00853']
+sigmamap 44 fit 7.4e-11 metrics ['3.43e-07', '9.21e-07', '0.00853']
+sigmamap 46 fit 1.6e-10 metrics ['3.44e-07', '9.48e-07', '0.00853']
+
+ scalarband
+sigma 8 fit 4.4e-06 metrics ['0.043', '0.0418', '0.0162']
+sigma 9 fit 4.5e-07 metrics ['0.0297', '0.0343', '0.0162']
+sigma 10 fit 6.5e-08 metrics ['0.0319', '0.0369', '0.0162']
+sigma 11 fit 7.2e-09 metrics ['0.0111', '0.00883', '0.0161']
+sigma 12 fit 2.8e-08 metrics ['0.0114', '0.00922', '0.0161']
+sigma 13 fit 8.4e-09 metrics ['0.0119', '0.0102', '0.0161']
+sigma 14 fit 5.7e-09 metrics ['0.0122', '0.0107', '0.0161']
+sigma 15 fit 5.9e-09 metrics ['0.0125', '0.0114', '0.0161']
+sigma 16 fit 5.9e-09 metrics ['0.0141', '0.0146', '0.0162']
+sigma 17 fit 1.4e-08 metrics ['0.0182', '0.0228', '0.0162']
+sigma 18 fit 1.2e-08 metrics ['0.0214', '0.03', '0.0162']
+sigma 19 fit 5.5e-09 metrics ['0.011', '0.00934', '0.0161']
+sigma 20 fit 1.8e-08 metrics ['0.011', '0.00936', '0.0161']
+sigma 21 fit 6.8e-09 metrics ['0.0109', '0.00927', '0.0161']
+sigma 22 fit 4.5e-09 metrics ['0.0109', '0.00924', '0.0161']
+sigma 23 fit 4.5e-09 metrics ['0.0112', '0.0102', '0.0161']
+map 8 fit 0.0052 metrics ['0.181', '0.262', '-0.322']
+map 10 fit 0.00063 metrics ['0.128', '0.162', '-0.209']
+map 12 fit 1e-05 metrics ['0.0724', '0.0813', '-0.0596']
+map 14 fit 1.8e-06 metrics ['0.0335', '0.0397', '-0.00828']
+map 16 fit 4.6e-08 metrics ['0.0262', '0.0216', '0.0161']
+map 18 fit 5.3e-10 metrics ['0.00946', '0.00925', '0.0161']
+map 20 fit 9.5e-12 metrics ['0.00616', '0.006', '0.0162']
+map 22 fit 4.9e-12 metrics ['0.00819', '0.0114', '0.0162']
+map 24 fit 2.6e-12 metrics ['0.00594', '0.00824', '0.0162']
+map 26 fit 4.5e-12 metrics ['0.00594', '0.00825', '0.0162']
+map 28 fit 4.2e-12 metrics ['0.00594', '0.00826', '0.0162']
+map 30 fit 4.9e-12 metrics ['0.00594', '0.00826', '0.0162']
+map 32 fit 1.7e-12 metrics ['0.00594', '0.00828', '0.0162']
+map 34 fit 2.6e-12 metrics ['0.00593', '0.00829', '0.0162']
+map 36 fit 3.3e-12 metrics ['0.0059', '0.00827', '0.0162']
+map 38 fit 1.1e-11 metrics ['0.00589', '0.00829', '0.0162']
+map 40 fit 2.6e-12 metrics ['0.00589', '0.00828', '0.0162']
+map 42 fit 2e-12 metrics ['0.00589', '0.00829', '0.0162']
+map 44 fit 1.5e-12 metrics ['0.00589', '0.00829', '0.0162']
+map 46 fit 1.2e-12 metrics ['0.00589', '0.0083', '0.0162']
+sigmamap 8 fit 0.0021 metrics ['0.0735', '0.0681', '0.0161']
+sigmamap 10 fit 0.00032 metrics ['0.0526', '0.0506', '0.0162']
+sigmamap 12 fit 5.1e-06 metrics ['0.0246', '0.0222', '0.0161']
+sigmamap 14 fit 3.2e-07 metrics ['0.0126', '0.00927', '0.0161']
+sigmamap 16 fit 3.8e-08 metrics ['0.00877', '0.00652', '0.0162']
+sigmamap 18 fit 6.4e-09 metrics ['0.0075', '0.00546', '0.0162']
+sigmamap 20 fit 1.5e-08 metrics ['0.00743', '0.00544', '0.0162']
+sigmamap 22 fit 2.4e-08 metrics ['0.0066', '0.00498', '0.0162']
+sigmamap 24 fit 4.9e-09 metrics ['0.006', '0.00428', '0.0162']
+sigmamap 26 fit 3e-09 metrics ['0.00591', '0.00417', '0.0162']
+sigmamap 28 fit 3.1e-09 metrics ['0.00583', '0.00408', '0.0162']
+sigmamap 30 fit 2.7e-09 metrics ['0.00581', '0.00405', '0.0162']
+sigmamap 32 fit 2.2e-09 metrics ['0.00581', '0.00406', '0.0162']
+sigmamap 34 fit 2.6e-09 metrics ['0.00581', '0.00406', '0.0162']
+sigmamap 36 fit 5.3e-09 metrics ['0.0058', '0.00405', '0.0162']
+sigmamap 38 fit 8.1e-09 metrics ['0.00579', '0.00404', '0.0162']
+sigmamap 40 fit 6e-09 metrics ['0.00578', '0.00403', '0.0162']
+sigmamap 42 fit 1.8e-08 metrics ['0.00577', '0.00402', '0.0162']
+sigmamap 44 fit 3.9e-09 metrics ['0.00571', '0.00396', '0.0162']
+sigmamap 46 fit 3.4e-09 metrics ['0.00569', '0.00393', '0.0162']
+
+ band
+sigma 8 fit 1.2e-05 metrics ['0.111', '0.0929', '0.0216']
+sigma 9 fit 5.1e-06 metrics ['0.109', '0.0976', '0.0211']
+sigma 10 fit 2.6e-07 metrics ['0.0461', '0.0338', '0.0211']
+sigma 11 fit 2.1e-08 metrics ['0.0286', '0.0219', '0.0211']
+sigma 12 fit 2.9e-09 metrics ['0.0177', '0.015', '0.021']
+sigma 13 fit 2.9e-10 metrics ['0.0219', '0.0215', '0.021']
+sigma 14 fit 5.1e-11 metrics ['0.0318', '0.0342', '0.021']
+sigma 15 fit 2.7e-10 metrics ['0.0115', '0.00872', '0.021']
+sigma 16 fit 3.1e-10 metrics ['0.0115', '0.00872', '0.021']
+sigma 17 fit 1.3e-10 metrics ['0.0116', '0.00878', '0.021']
+sigma 18 fit 9.6e-11 metrics ['0.0116', '0.00875', '0.021']
+sigma 19 fit 7.3e-11 metrics ['0.0114', '0.0086', '0.021']
+sigma 20 fit 5.4e-11 metrics ['0.0114', '0.00852', '0.021']
+sigma 21 fit 6.5e-11 metrics ['0.0114', '0.00848', '0.021']
+sigma 22 fit 7.4e-11 metrics ['0.0113', '0.00847', '0.021']
+sigma 23 fit 6.9e-11 metrics ['0.0112', '0.00835', '0.021']
+map 8 fit 0.0088 metrics ['0.418', '0.289', '-0.426']
+map 10 fit 0.0012 metrics ['0.2', '0.131', '-0.0655']
+map 12 fit 0.00012 metrics ['0.169', '0.127', '0.0113']
+map 14 fit 1.1e-05 metrics ['0.128', '0.0795', '0.0214']
+map 16 fit 6.4e-07 metrics ['0.0572', '0.0354', '0.021']
+map 18 fit 2.6e-08 metrics ['0.0276', '0.021', '0.0211']
+map 20 fit 1.3e-09 metrics ['0.0202', '0.0118', '0.021']
+map 22 fit 1.6e-10 metrics ['0.0257', '0.0198', '0.021']
+map 24 fit 9.6e-12 metrics ['0.0127', '0.0094', '0.021']
+map 26 fit 7.8e-13 metrics ['0.00938', '0.00674', '0.021']
+sigmamap 8 fit 0.0063 metrics ['0.15', '0.112', '0.021']
+sigmamap 10 fit 0.00049 metrics ['0.111', '0.0685', '0.0211']
+sigmamap 12 fit 0.0001 metrics ['0.111', '0.0509', '-0.0109']
+sigmamap 14 fit 6e-06 metrics ['0.0471', '0.0333', '0.021']
+sigmamap 16 fit 4.1e-07 metrics ['0.0304', '0.019', '0.021']
+sigmamap 18 fit 1.8e-08 metrics ['0.0143', '0.00982', '0.021']
+sigmamap 20 fit 1.8e-09 metrics ['0.00816', '0.00588', '0.021']
+sigmamap 22 fit 1.8e-10 metrics ['0.00612', '0.00359', '0.021']
+sigmamap 24 fit 1.8e-10 metrics ['0.00677', '0.00456', '0.021']
+sigmamap 26 fit 5.3e-10 metrics ['0.00673', '0.00462', '0.021']
+sigmamap 28 fit 2.7e-10 metrics ['0.00673', '0.00463', '0.021']
+sigmamap 30 fit 6e-10 metrics ['0.00672', '0.00462', '0.021']
+sigmamap 32 fit 2.9e-10 metrics ['0.00672', '0.00461', '0.021']
+sigmamap 34 fit 1.3e-10 metrics ['0.00673', '0.00463', '0.021']
+sigmamap 36 fit 1.5e-10 metrics ['0.00675', '0.00466', '0.021']
+sigmamap 38 fit 1.3e-10 metrics ['0.00675', '0.00465', '0.021']
+sigmamap 40 fit 8e-11 metrics ['0.0067', '0.00463', '0.021']
+sigmamap 42 fit 1.2e-10 metrics ['0.00674', '0.0046', '0.021']
+sigmamap 44 fit 3.2e-10 metrics ['0.00672', '0.00463', '0.021']
+sigmamap 46 fit 1.9e-10 metrics ['0.00672', '0.00463', '0.021']
+
+ band2
+sigma 8 fit 2.2e-05 metrics ['0.1', '0.0905', '0.027']
+sigma 9 fit 2.1e-06 metrics ['0.472', '0.162', '-3.64']
+sigma 10 fit 2e-07 metrics ['0.286', '0.315', '-0.0413']
+sigma 11 fit 1.6e-08 metrics ['0.143', '0.0533', '0.0269']
+sigma 12 fit 1.2e-09 metrics ['0.0554', '0.0398', '0.0269']
+sigma 13 fit 2e-10 metrics ['0.0344', '0.0298', '0.0269']
+sigma 14 fit 9.5e-11 metrics ['0.0203', '0.0139', '0.0269']
+sigma 15 fit 6.1e-10 metrics ['0.018', '0.0144', '0.0269']
+sigma 16 fit 1.5e-10 metrics ['0.0174', '0.0138', '0.0269']
+sigma 17 fit 1.2e-10 metrics ['0.0172', '0.0136', '0.0269']
+sigma 18 fit 2.8e-10 metrics ['0.017', '0.0131', '0.0269']
+sigma 19 fit 1.6e-10 metrics ['0.017', '0.0131', '0.0269']
+sigma 20 fit 1.5e-10 metrics ['0.0169', '0.013', '0.0269']
+sigma 21 fit 5.1e-10 metrics ['0.0166', '0.0127', '0.0269']
+sigma 22 fit 7.3e-11 metrics ['0.0164', '0.0126', '0.0269']
+sigma 23 fit 1.2e-10 metrics ['0.0167', '0.013', '0.0269']
+map 8 fit 0.012 metrics ['0.398', '0.699', '-3.35']
+map 10 fit 0.0019 metrics ['0.223', '0.329', '-0.0423']
+map 12 fit 5.6e-05 metrics ['0.147', '0.149', '0.0269']
+map 14 fit 2.7e-05 metrics ['0.168', '0.372', '0.0267']
+map 16 fit 1.4e-06 metrics ['0.124', '0.139', '-0.0267']
+map 18 fit 3.8e-08 metrics ['0.0877', '0.0644', '0.0269']
+map 20 fit 1.1e-09 metrics ['0.0588', '0.0382', '0.0269']
+map 22 fit 3.6e-11 metrics ['0.105', '0.0386', '0.0269']
+map 24 fit 2e-12 metrics ['0.0171', '0.0147', '0.0269']
+map 26 fit 1.7e-12 metrics ['0.019', '0.0132', '0.0269']
+map 28 fit 9.6e-13 metrics ['0.0184', '0.0124', '0.0269']
+sigmamap 8 fit 0.011 metrics ['0.525', '0.274', '-0.587']
+sigmamap 10 fit 0.00093 metrics ['0.178', '0.164', '0.0272']
+sigmamap 12 fit 7.2e-05 metrics ['0.531', '0.427', '-1.91']
+sigmamap 14 fit 6.7e-05 metrics ['0.101', '0.0848', '0.0271']
+sigmamap 16 fit 3.7e-07 metrics ['0.0942', '0.083', '0.0269']
+sigmamap 18 fit 2.4e-08 metrics ['0.0508', '0.0426', '0.0269']
+sigmamap 20 fit 6.5e-10 metrics ['0.0266', '0.0223', '0.0269']
+sigmamap 22 fit 1.5e-10 metrics ['0.0423', '0.0316', '0.0269']
+sigmamap 24 fit 1.2e-10 metrics ['0.0103', '0.00844', '0.0269']
+sigmamap 26 fit 8.8e-11 metrics ['0.0103', '0.00848', '0.0269']
+sigmamap 28 fit 1.4e-10 metrics ['0.0103', '0.00848', '0.0269']
+sigmamap 30 fit 2.2e-10 metrics ['0.0103', '0.00847', '0.0269']
+sigmamap 32 fit 3.6e-10 metrics ['0.0103', '0.00845', '0.0269']
+sigmamap 34 fit 2.3e-10 metrics ['0.0104', '0.00852', '0.0269']
+sigmamap 36 fit 2.6e-10 metrics ['0.0104', '0.00852', '0.0269']
+sigmamap 38 fit 1.2e-10 metrics ['0.0104', '0.00851', '0.0269']
+sigmamap 40 fit 1.1e-10 metrics ['0.0104', '0.00853', '0.0269']
+sigmamap 42 fit 1.4e-10 metrics ['0.0104', '0.00853', '0.0269']
+sigmamap 44 fit 8e-11 metrics ['0.0104', '0.00854', '0.0269']
+sigmamap 46 fit 9e-11 metrics ['0.0104', '0.00856', '0.0269']
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A vectorfit.py
+M research.py
+bash-5.1$ bash-5.1$ 
+ finite
+raw 11 aaa fit 6.695311407839876e-07
+0 fit 7.9e-06 metrics ['0.114', '0.423', '0.00529']
+1 fit 9.04e-06 metrics ['0.122', '0.436', '0.00245']
+2 fit 9.01e-06 metrics ['0.122', '0.436', '0.00313']
+3 fit 9.02e-06 metrics ['0.122', '0.436', '0.00313']
+4 fit 9.02e-06 metrics ['0.122', '0.436', '0.00313']
+5 fit 9.02e-06 metrics ['0.122', '0.436', '0.00313']
+6 fit 9.02e-06 metrics ['0.122', '0.436', '0.00313']
+7 fit 9.02e-06 metrics ['0.122', '0.436', '0.00313']
+raw 12 aaa fit 1.8146358750331735e-07
+0 fit 1.83e-06 metrics ['0.1', '0.507', '-0.00981']
+1 fit 1.86e-06 metrics ['0.103', '0.578', '-0.0113']
+2 fit 1.86e-06 metrics ['0.103', '0.579', '-0.0113']
+3 fit 1.86e-06 metrics ['0.103', '0.579', '-0.0113']
+4 fit 1.86e-06 metrics ['0.103', '0.579', '-0.0113']
+5 fit 1.86e-06 metrics ['0.103', '0.579', '-0.0113']
+6 fit 1.86e-06 metrics ['0.103', '0.579', '-0.0113']
+7 fit 1.86e-06 metrics ['0.103', '0.579', '-0.0113']
+raw 13 aaa fit 1.4835474990676708e-13
+0 fit 1.94e-13 metrics ['1.01e-07', '2.1e-07', '0.00853']
+1 fit 1.94e-13 metrics ['1.01e-07', '2.1e-07', '0.00853']
+2 fit 1.93e-13 metrics ['1.01e-07', '2.1e-07', '0.00853']
+3 fit 1.94e-13 metrics ['1.01e-07', '2.1e-07', '0.00853']
+4 fit 1.94e-13 metrics ['1.01e-07', '2.11e-07', '0.00853']
+5 fit 1.94e-13 metrics ['1.01e-07', '2.11e-07', '0.00853']
+6 fit 1.94e-13 metrics ['1.01e-07', '2.1e-07', '0.00853']
+7 fit 1.94e-13 metrics ['1.01e-07', '2.1e-07', '0.00853']
+sigma 8 aaa fit 2.4360520301594222e-05
+0 fit 3.97e-05 metrics ['0.133', '0.358', '-0.000977']
+1 fit 3.88e-05 metrics ['0.134', '0.353', '0.00307']
+2 fit 3.88e-05 metrics ['0.134', '0.353', '0.00319']
+3 fit 3.88e-05 metrics ['0.134', '0.353', '0.00319']
+4 fit 3.88e-05 metrics ['0.134', '0.353', '0.00319']
+5 fit 3.88e-05 metrics ['0.134', '0.353', '0.00319']
+6 fit 3.88e-05 metrics ['0.134', '0.353', '0.00319']
+7 fit 3.88e-05 metrics ['0.134', '0.353', '0.00319']
+sigma 9 aaa fit 5.414870078617205e-06
+0 fit 1.13e-05 metrics ['0.121', '0.346', '0.00815']
+1 fit 1.09e-05 metrics ['0.121', '0.343', '0.00816']
+2 fit 1.09e-05 metrics ['0.121', '0.342', '0.00816']
+3 fit 1.09e-05 metrics ['0.121', '0.342', '0.00816']
+4 fit 1.09e-05 metrics ['0.121', '0.342', '0.00816']
+5 fit 1.09e-05 metrics ['0.121', '0.342', '0.00816']
+6 fit 1.09e-05 metrics ['0.121', '0.342', '0.00816']
+7 fit 1.09e-05 metrics ['0.121', '0.342', '0.00816']
+sigma 10 aaa fit 9.166713150156333e-13
+0 fit 2.35e-13 metrics ['6.76e-09', '1.36e-08', '0.00853']
+1 fit 2.35e-13 metrics ['6.76e-09', '1.36e-08', '0.00853']
+2 fit 2.35e-13 metrics ['6.76e-09', '1.36e-08', '0.00853']
+3 fit 2.35e-13 metrics ['6.76e-09', '1.36e-08', '0.00853']
+4 fit 2.35e-13 metrics ['6.76e-09', '1.36e-08', '0.00853']
+5 fit 2.35e-13 metrics ['6.76e-09', '1.36e-08', '0.00853']
+6 fit 2.35e-13 metrics ['6.76e-09', '1.36e-08', '0.00853']
+7 fit 2.35e-13 metrics ['6.76e-09', '1.36e-08', '0.00853']
+
+ scalarband
+raw 12 aaa fit 1.0937047480372897e-09
+0 fit 1.5e-09 metrics ['0.0406', '0.0576', '0.0161']
+1 fit 1.44e-09 metrics ['0.0406', '0.0575', '0.0161']
+2 fit 1.44e-09 metrics ['0.0406', '0.0575', '0.0161']
+3 fit 1.44e-09 metrics ['0.0406', '0.0575', '0.0161']
+4 fit 1.44e-09 metrics ['0.0406', '0.0575', '0.0161']
+5 fit 1.44e-09 metrics ['0.0406', '0.0575', '0.0161']
+6 fit 1.44e-09 metrics ['0.0406', '0.0575', '0.0161']
+7 fit 1.44e-09 metrics ['0.0406', '0.0575', '0.0161']
+raw 13 aaa fit 1.5795053829946304e-11
+0 fit 3.09e-11 metrics ['0.0215', '0.0299', '0.0162']
+1 fit 2.83e-11 metrics ['0.0214', '0.0297', '0.0162']
+2 fit 2.84e-11 metrics ['0.0214', '0.0297', '0.0162']
+3 fit 2.84e-11 metrics ['0.0214', '0.0297', '0.0162']
+4 fit 2.84e-11 metrics ['0.0214', '0.0297', '0.0162']
+5 fit 2.84e-11 metrics ['0.0214', '0.0297', '0.0162']
+6 fit 2.84e-11 metrics ['0.0214', '0.0297', '0.0162']
+7 fit 2.84e-11 metrics ['0.0214', '0.0297', '0.0162']
+raw 14 aaa fit 9.977535754710918e-13
+0 fit 2.45e-12 metrics ['0.0126', '0.0169', '0.0162']
+1 fit 2.44e-12 metrics ['0.0126', '0.0169', '0.0162']
+2 fit 2.44e-12 metrics ['0.0126', '0.0169', '0.0162']
+3 fit 2.44e-12 metrics ['0.0126', '0.0169', '0.0162']
+4 fit 2.44e-12 metrics ['0.0126', '0.0169', '0.0162']
+5 fit 2.44e-12 metrics ['0.0126', '0.0169', '0.0162']
+6 fit 2.44e-12 metrics ['0.0126', '0.0169', '0.0162']
+7 fit 2.44e-12 metrics ['0.0126', '0.0169', '0.0162']
+sigma 20 aaa fit 5.525940212180489e-11
+0 fit 3.4e-11 metrics ['0.0131', '0.014', '0.0162']
+1 fit 3.39e-11 metrics ['0.0167', '0.0149', '0.0161']
+2 fit 3.4e-11 metrics ['0.0128', '0.0106', '0.0161']
+3 fit 3.4e-11 metrics ['0.0121', '0.00993', '0.0161']
+4 fit 3.4e-11 metrics ['0.012', '0.00993', '0.0161']
+5 fit 3.4e-11 metrics ['0.0116', '0.00965', '0.0161']
+6 fit 3.4e-11 metrics ['0.0115', '0.00993', '0.0161']
+7 fit 3.39e-11 metrics ['0.0164', '0.0151', '0.0161']
+sigma 21 aaa fit 3.612116190394673e-11
+0 fit 3.4e-11 metrics ['0.013', '0.0138', '0.0162']
+1 fit 3.45e-11 metrics ['0.014', '0.0117', '0.0161']
+2 fit 3.41e-11 metrics ['0.0116', '0.00943', '0.0161']
+3 fit 3.42e-11 metrics ['0.0119', '0.00948', '0.0161']
+4 fit 3.42e-11 metrics ['0.012', '0.00973', '0.0161']
+5 fit 3.4e-11 metrics ['0.0129', '0.0108', '0.0161']
+6 fit 3.4e-11 metrics ['0.0115', '0.00951', '0.0161']
+7 fit 3.4e-11 metrics ['0.0114', '0.00943', '0.0161']
+sigma 22 aaa fit 4.5786956257826663e-11
+0 fit 3.4e-11 metrics ['0.013', '0.0138', '0.0162']
+1 fit 3.38e-11 metrics ['0.0146', '0.0127', '0.0161']
+2 fit 3.41e-11 metrics ['0.0113', '0.00913', '0.0161']
+3 fit 3.4e-11 metrics ['0.0118', '0.00967', '0.0161']
+4 fit 3.39e-11 metrics ['0.0117', '0.00973', '0.0161']
+5 fit 3.4e-11 metrics ['0.0121', '0.0102', '0.0161']
+6 fit 3.4e-11 metrics ['0.0127', '0.0108', '0.0161']
+7 fit 3.39e-11 metrics ['0.0115', '0.00975', '0.0161']
+
+ band
+raw 14 aaa fit 6.624143997670415e-11
+0 fit 4.68e-10 metrics ['0.0484', '0.0412', '0.0209']
+1 fit 4.42e-10 metrics ['0.0488', '0.0413', '0.0209']
+2 fit 4.42e-10 metrics ['0.0488', '0.0413', '0.0209']
+3 fit 4.42e-10 metrics ['0.0488', '0.0413', '0.0209']
+4 fit 4.42e-10 metrics ['0.0488', '0.0413', '0.0209']
+5 fit 4.42e-10 metrics ['0.0488', '0.0413', '0.0209']
+6 fit 4.42e-10 metrics ['0.0488', '0.0413', '0.0209']
+7 fit 4.42e-10 metrics ['0.0488', '0.0413', '0.0209']
+raw 15 aaa fit 3.004183494802038e-11
+0 fit 2.85e-11 metrics ['0.0291', '0.0251', '0.021']
+1 fit 2.86e-11 metrics ['0.0291', '0.0251', '0.021']
+2 fit 2.86e-11 metrics ['0.0291', '0.0251', '0.021']
+3 fit 2.86e-11 metrics ['0.0291', '0.0251', '0.021']
+4 fit 2.86e-11 metrics ['0.0291', '0.0251', '0.021']
+5 fit 2.86e-11 metrics ['0.0291', '0.0251', '0.021']
+6 fit 2.86e-11 metrics ['0.0291', '0.0251', '0.021']
+7 fit 2.86e-11 metrics ['0.0291', '0.0251', '0.021']
+raw 16 aaa fit 5.584674160646265e-13
+0 fit 1.17e-12 metrics ['0.0268', '0.0255', '0.021']
+1 fit 1.15e-12 metrics ['0.0268', '0.0255', '0.021']
+2 fit 1.15e-12 metrics ['0.0268', '0.0255', '0.021']
+3 fit 1.15e-12 metrics ['0.0268', '0.0255', '0.021']
+4 fit 1.15e-12 metrics ['0.0268', '0.0255', '0.021']
+5 fit 1.15e-12 metrics ['0.0268', '0.0255', '0.021']
+6 fit 1.15e-12 metrics ['0.0268', '0.0255', '0.021']
+7 fit 1.15e-12 metrics ['0.0268', '0.0255', '0.021']
+sigma 13 aaa fit 1.2246071967641774e-11
+0 fit 3.62e-11 metrics ['0.0219', '0.0212', '0.021']
+1 fit 3.49e-11 metrics ['0.0219', '0.0212', '0.021']
+2 fit 3.49e-11 metrics ['0.0219', '0.0212', '0.021']
+3 fit 3.49e-11 metrics ['0.0219', '0.0212', '0.021']
+4 fit 3.49e-11 metrics ['0.0219', '0.0212', '0.021']
+5 fit 3.49e-11 metrics ['0.0219', '0.0212', '0.021']
+6 fit 3.49e-11 metrics ['0.0219', '0.0212', '0.021']
+7 fit 3.49e-11 metrics ['0.0219', '0.0212', '0.021']
+sigma 14 aaa fit 1.0252669879510808e-12
+0 fit 2.26e-12 metrics ['0.0163', '0.0141', '0.021']
+1 fit 2.1e-12 metrics ['0.0162', '0.014', '0.021']
+2 fit 2.1e-12 metrics ['0.0162', '0.014', '0.021']
+3 fit 2.1e-12 metrics ['0.0162', '0.014', '0.021']
+4 fit 2.1e-12 metrics ['0.0162', '0.014', '0.021']
+5 fit 2.1e-12 metrics ['0.0162', '0.014', '0.021']
+6 fit 2.1e-12 metrics ['0.0162', '0.014', '0.021']
+7 fit 2.1e-12 metrics ['0.0162', '0.014', '0.021']
+sigma 15 aaa fit 3.591239472302477e-13
+0 fit 1.94e-12 metrics ['0.0164', '0.0156', '0.021']
+1 fit 1.08e-12 metrics ['0.0161', '0.015', '0.021']
+2 fit 1.1e-12 metrics ['0.0161', '0.015', '0.021']
+3 fit 1.1e-12 metrics ['0.0161', '0.015', '0.021']
+4 fit 1.1e-12 metrics ['0.0161', '0.015', '0.021']
+5 fit 1.1e-12 metrics ['0.0161', '0.015', '0.021']
+6 fit 1.1e-12 metrics ['0.0161', '0.015', '0.021']
+7 fit 1.1e-12 metrics ['0.0161', '0.015', '0.021']
+
+ band2
+raw 13 aaa fit 9.603588779638616e-10
+0 fit 2.09e-09 metrics ['0.0714', '0.0537', '0.0269']
+1 fit 2.06e-09 metrics ['0.0713', '0.0535', '0.0269']
+2 fit 2.06e-09 metrics ['0.0713', '0.0535', '0.0269']
+3 fit 2.06e-09 metrics ['0.0713', '0.0535', '0.0269']
+4 fit 2.06e-09 metrics ['0.0713', '0.0535', '0.0269']
+5 fit 2.06e-09 metrics ['0.0713', '0.0535', '0.0269']
+6 fit 2.06e-09 metrics ['0.0713', '0.0535', '0.0269']
+7 fit 2.06e-09 metrics ['0.0713', '0.0535', '0.0269']
+raw 14 aaa fit 3.8368690888813296e-11
+0 fit 1.16e-09 metrics ['0.0752', '0.0548', '0.0269']
+1 fit 1.16e-09 metrics ['0.0748', '0.0545', '0.0269']
+2 fit 1.16e-09 metrics ['0.0748', '0.0545', '0.0269']
+3 fit 1.16e-09 metrics ['0.0748', '0.0545', '0.0269']
+4 fit 1.16e-09 metrics ['0.0748', '0.0545', '0.0269']
+5 fit 1.16e-09 metrics ['0.0748', '0.0545', '0.0269']
+6 fit 1.16e-09 metrics ['0.0748', '0.0545', '0.0269']
+7 fit 1.16e-09 metrics ['0.0748', '0.0545', '0.0269']
+raw 15 aaa fit 9.73831697068532e-13
+0 fit 1.16e-10 metrics ['0.0329', '0.0224', '0.0269']
+1 fit 1.16e-10 metrics ['0.0329', '0.0224', '0.0269']
+2 fit 1.16e-10 metrics ['0.0329', '0.0224', '0.0269']
+3 fit 1.16e-10 metrics ['0.0329', '0.0224', '0.0269']
+4 fit 1.16e-10 metrics ['0.0329', '0.0224', '0.0269']
+5 fit 1.16e-10 metrics ['0.0329', '0.0224', '0.0269']
+6 fit 1.16e-10 metrics ['0.0329', '0.0224', '0.0269']
+7 fit 1.16e-10 metrics ['0.0329', '0.0224', '0.0269']
+sigma 12 aaa fit 5.109403487156776e-11
+0 fit 9.46e-10 metrics ['0.0936', '0.0726', '0.0269']
+1 fit 9.38e-10 metrics ['0.093', '0.0721', '0.0269']
+2 fit 9.38e-10 metrics ['0.093', '0.0721', '0.0269']
+3 fit 9.38e-10 metrics ['0.093', '0.0721', '0.0269']
+4 fit 9.38e-10 metrics ['0.093', '0.0721', '0.0269']
+5 fit 9.38e-10 metrics ['0.093', '0.0721', '0.0269']
+6 fit 9.38e-10 metrics ['0.093', '0.0721', '0.0269']
+7 fit 9.38e-10 metrics ['0.093', '0.0721', '0.0269']
+sigma 13 aaa fit 2.2773155774894094e-11
+0 fit 2.65e-11 metrics ['0.0324', '0.0283', '0.0269']
+1 fit 2.61e-11 metrics ['0.0328', '0.0287', '0.0269']
+2 fit 2.61e-11 metrics ['0.0328', '0.0287', '0.0269']
+3 fit 2.61e-11 metrics ['0.0328', '0.0287', '0.0269']
+4 fit 2.61e-11 metrics ['0.0328', '0.0287', '0.0269']
+5 fit 2.61e-11 metrics ['0.0328', '0.0287', '0.0269']
+6 fit 2.61e-11 metrics ['0.0328', '0.0287', '0.0269']
+7 fit 2.61e-11 metrics ['0.0328', '0.0287', '0.0269']
+sigma 14 aaa fit 4.2401938478875827e-13
+0 fit 7.45e-12 metrics ['0.0163', '0.0134', '0.0269']
+1 fit 7.44e-12 metrics ['0.0163', '0.0134', '0.0269']
+2 fit 7.44e-12 metrics ['0.0163', '0.0134', '0.0269']
+3 fit 7.45e-12 metrics ['0.0163', '0.0134', '0.0269']
+4 fit 7.44e-12 metrics ['0.0163', '0.0134', '0.0269']
+5 fit 7.45e-12 metrics ['0.0163', '0.0134', '0.0269']
+6 fit 7.45e-12 metrics ['0.0163', '0.0134', '0.0269']
+7 fit 7.45e-12 metrics ['0.0163', '0.0134', '0.0269']
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A extra_tests.py
+bash-5.1$ bash-5.1$ sigma 25 fit 1.3e-13 metrics ['0.00513', '0.00568', '0.0162']
+sigma 26 fit 8.8e-14 metrics ['0.00514', '0.0057', '0.0162']
+sigma 27 fit 8.9e-14 metrics ['0.00513', '0.00573', '0.0162']
+map 20 fit 7.6e-12 metrics ['0.00592', '0.00572', '0.0162']
+map 22 fit 7.5e-13 metrics ['0.00454', '0.00535', '0.0162']
+map 24 fit 3.5e-15 metrics ['0.00165', '0.00108', '0.0162']
+sigmamap 20 fit 4.1e-13 metrics ['0.00181', '0.00115', '0.0162']
+sigmamap 22 fit 7.1e-13 metrics ['0.00288', '0.00201', '0.0162']
+sigmamap 24 fit 3.2e-12 metrics ['0.00314', '0.00229', '0.0162']
+sigmamap 26 fit 1.6e-12 metrics ['0.00324', '0.00242', '0.0162']
+sigmamap 28 fit 1.2e-13 metrics ['0.0128', '0.0098', '0.0162']
+sigmamap 30 fit 8.4e-14 metrics ['0.00154', '0.000876', '0.0162']
+sigmamap 32 fit 6.5e-13 metrics ['0.00165', '0.000962', '0.0162']
+sigmamap 34 fit 3.4e-13 metrics ['0.00164', '0.000957', '0.0162']
+sigmamap 36 fit 1.5e-13 metrics ['0.00165', '0.000958', '0.0162']
+sigmamap 38 fit 1.8e-13 metrics ['0.00165', '0.000962', '0.0162']
+sigmamap 40 fit 1.4e-13 metrics ['0.00165', '0.000963', '0.0162']
+sigmamap 42 fit 1.2e-13 metrics ['0.00165', '0.000963', '0.0162']
+sigmamap 44 fit 1.2e-13 metrics ['0.00155', '0.000897', '0.0162']
+sigmamap 46 fit 5.5e-14 metrics ['0.00146', '0.000847', '0.0162']
+sigmamap 48 fit 7.3e-14 metrics ['0.00141', '0.000826', '0.0162']
+sigmamap 50 fit 9.4e-14 metrics ['0.00122', '0.00077', '0.0162']
+sigmamap 52 fit 2.8e-14 metrics ['0.00122', '0.000777', '0.0162']
+sigmamap 54 fit 2.8e-14 metrics ['0.00122', '0.000777', '0.0162']
+mapdiv 20 fit 6.7e-12 metrics ['0.00457', '0.00434', '0.0162']
+mapdiv 22 fit 1e-13 metrics ['0.00412', '0.0039', '0.0162']
+mapdiv 24 fit 9.1e-16 metrics ['0.00102', '0.000687', '0.0162']
+sigmamapdiv 18 fit 2.6e-11 metrics ['0.0043', '0.00361', '0.0162']
+sigmamapdiv 20 fit 2.3e-13 metrics ['0.00206', '0.00128', '0.0162']
+sigmamapdiv 22 fit 2.6e-13 metrics ['0.0029', '0.00203', '0.0162']
+sigmamapdiv 24 fit 2.3e-13 metrics ['0.00308', '0.00221', '0.0162']
+sigmamapdiv 26 fit 6.3e-13 metrics ['0.00309', '0.00223', '0.0162']
+sigmamapdiv 28 fit 2.2e-13 metrics ['0.00313', '0.00227', '0.0162']
+sigmamapdiv 30 fit 3.8e-13 metrics ['0.00567', '0.00591', '0.0162']
+sigmamapdiv 32 fit 2.3e-13 metrics ['0.00109', '0.000681', '0.0162']
+sigmamapdiv 34 fit 1.9e-13 metrics ['0.00143', '0.000821', '0.0162']
+sigmamapdiv 36 fit 7.6e-14 metrics ['0.00153', '0.000885', '0.0162']
+sigmamapdiv 38 fit 5.4e-14 metrics ['0.00154', '0.000888', '0.0162']
+sigmamapdiv 40 fit 1.3e-13 metrics ['0.00157', '0.00091', '0.0162']
+sigmamapdiv 42 fit 2.6e-14 metrics ['0.00147', '0.000852', '0.0162']
+sigmamapdiv 44 fit 5.3e-14 metrics ['0.00146', '0.000842', '0.0162']
+sigmamapdiv 46 fit 9.4e-14 metrics ['0.00123', '0.00082', '0.0162']
+sigmamapdiv 48 fit 1.9e-13 metrics ['0.00153', '0.00088', '0.0162']
+sigmamapdiv 50 fit 2.4e-14 metrics ['0.00135', '0.000798', '0.0162']
+sigmamapdiv 52 fit 2.3e-14 metrics ['0.00135', '0.000798', '0.0162']
+sigmamapdiv 54 fit 2e-14 metrics ['0.00135', '0.000798', '0.0162']
+
+ band
+raw 14 fit 6.6e-11 metrics ['0.0465', '0.0325', '0.021']
+raw 15 fit 3e-11 metrics ['0.033', '0.0284', '0.021']
+raw 16 fit 5.6e-13 metrics ['0.0293', '0.026', '0.021']
+raw 17 fit 5.3e-14 metrics ['0.0172', '0.0152', '0.021']
+raw 18 fit 2.7e-15 metrics ['0.0125', '0.0111', '0.021']
+sigma 13 fit 1.2e-11 metrics ['0.0199', '0.0193', '0.021']
+sigma 14 fit 9e-13 metrics ['0.011', '0.00836', '0.021']
+sigma 15 fit 2.6e-13 metrics ['0.00976', '0.0084', '0.021']
+sigma 16 fit 5.4e-15 metrics ['0.00851', '0.00941', '0.021']
+sigma 17 fit 6.9e-16 metrics ['0.00335', '0.00277', '0.021']
+map 24 fit 2e-12 metrics ['0.00996', '0.00618', '0.021']
+map 26 fit 9.4e-14 metrics ['0.00469', '0.00313', '0.021']
+map 28 fit 4.4e-15 metrics ['0.00285', '0.00213', '0.021']
+map 30 fit 1.3e-15 metrics ['0.00176', '0.00102', '0.021']
+sigmamap 22 fit 4.5e-12 metrics ['0.00715', '0.00465', '0.021']
+sigmamap 24 fit 4.4e-13 metrics ['0.00295', '0.00196', '0.021']
+sigmamap 26 fit 3.2e-15 metrics ['0.00243', '0.00193', '0.021']
+mapdiv 22 fit 2.1e-11 metrics ['0.00979', '0.00733', '0.021']
+mapdiv 24 fit 4e-13 metrics ['0.0166', '0.00991', '0.021']
+mapdiv 26 fit 1.9e-14 metrics ['0.00439', '0.00279', '0.021']
+mapdiv 28 fit 1.3e-15 metrics ['0.00262', '0.00174', '0.021']
+sigmamapdiv 20 fit 2.7e-11 metrics ['0.00861', '0.00573', '0.021']
+sigmamapdiv 22 fit 4.8e-12 metrics ['0.00544', '0.00349', '0.021']
+sigmamapdiv 24 fit 2.9e-14 metrics ['0.00233', '0.00121', '0.021']
+sigmamapdiv 26 fit 1e-15 metrics ['0.00222', '0.00164', '0.021']
+
+ band2
+raw 14 fit 3.8e-11 metrics ['0.0769', '0.0503', '0.0269']
+raw 15 fit 1e-12 metrics ['0.037', '0.0211', '0.0269']
+raw 16 fit 1.3e-13 metrics ['0.0258', '0.0171', '0.0269']
+raw 17 fit 8.9e-15 metrics ['0.0475', '0.0147', '0.0269']
+raw 18 fit 1.4e-15 metrics ['0.0129', '0.00894', '0.0269']
+sigma 12 fit 5.1e-11 metrics ['0.049', '0.0344', '0.0269']
+sigma 13 fit 2.3e-11 metrics ['0.0678', '0.0501', '0.0269']
+sigma 14 fit 3.5e-13 metrics ['0.0129', '0.00961', '0.0269']
+sigma 15 fit 3.9e-14 metrics ['0.0174', '0.0163', '0.0269']
+sigma 16 fit 5.7e-16 metrics ['0.0165', '0.0128', '0.0269']
+map 22 fit 3.4e-11 metrics ['0.101', '0.0396', '0.0269']
+map 24 fit 8.1e-13 metrics ['0.0166', '0.0126', '0.0269']
+map 26 fit 2e-14 metrics ['0.0142', '0.00981', '0.0269']
+map 28 fit 6.9e-16 metrics ['0.00834', '0.00874', '0.0269']
+sigmamap 22 fit 7.6e-13 metrics ['0.0102', '0.00846', '0.0269']
+sigmamap 24 fit 1.7e-14 metrics ['0.00917', '0.00889', '0.0269']
+sigmamap 26 fit 1.2e-15 metrics ['0.00876', '0.00898', '0.0269']
+mapdiv 22 fit 6.2e-12 metrics ['0.0311', '0.0279', '0.0269']
+mapdiv 24 fit 1.3e-13 metrics ['0.0127', '0.0111', '0.0269']
+mapdiv 26 fit 4.6e-15 metrics ['0.0123', '0.0104', '0.0269']
+mapdiv 28 fit 9.1e-16 metrics ['0.0111', '0.00907', '0.0269']
+sigmamapdiv 20 fit 8.1e-11 metrics ['0.0793', '0.0562', '0.0269']
+sigmamapdiv 22 fit 3.4e-13 metrics ['0.00954', '0.0123', '0.0269']
+sigmamapdiv 24 fit 4.5e-15 metrics ['0.00861', '0.0105', '0.0269']
+sigmamapdiv 26 fit 4.5e-16 metrics ['0.00731', '0.00699', '0.0269']
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A loewner_tests.py
+bash-5.1$ bash-5.1$ 
+ finite 0
+1e-10 12 fit 4.237519276016302e-14 metrics [2.1412490418587224e-13, 2.2236955073876665e-12, 0.008531998317795901]
+1e-11 12 fit 4.237519276016302e-14 metrics [2.1412490418587224e-13, 2.2236955073876665e-12, 0.008531998317795901]
+1e-12 12 fit 4.237519276016302e-14 metrics [2.1412490418587224e-13, 2.2236955073876665e-12, 0.008531998317795901]
+1e-13 12 fit 4.237519276016302e-14 metrics [2.1412490418587224e-13, 2.2236955073876665e-12, 0.008531998317795901]
+1e-14 12 fit 4.237519276016302e-14 metrics [2.1412490418587224e-13, 2.2236955073876665e-12, 0.008531998317795901]
+1e-15 12 fit 4.237519276016302e-14 metrics [2.1412490418587224e-13, 2.2236955073876665e-12, 0.008531998317795901]
+1e-16 12 fit 4.237519276016302e-14 metrics [2.1412490418587224e-13, 2.2236955073876665e-12, 0.008531998317795901]
+
+ finite 2e-13
+1e-10 12 fit 7.439330658799962e-10 metrics [1.0489408327384789e-08, 4.4130145343306366e-08, 0.008531998324551558]
+1e-11 12 fit 7.439330658799962e-10 metrics [1.0489408327384789e-08, 4.4130145343306366e-08, 0.008531998324551558]
+1e-12 12 fit 7.439330658799962e-10 metrics [1.0489408327384789e-08, 4.4130145343306366e-08, 0.008531998324551558]
+1e-13 14 fit 5.256670305905968e-09 metrics [9.767685636679579e-08, 8.839322654840106e-07, 0.008531997984228898]
+1e-14 17 fit 1.2218197765160084e-09 metrics [1.6712563474330475e-08, 1.0735743500355865e-07, 0.008531998260974285]
+1e-15 20 fit 5.360315687859228e-09 metrics [4.5880057222205214e-07, 4.354367599183066e-07, 0.00853199831667489]
+1e-16 22 fit 6.617697668757191e-09 metrics [1.2998218775154893e-07, 1.663853775123931e-07, 0.008531998316538149]
+
+ scalarband 0
+1e-10 23 fit 1.2036986334333218e-06 metrics [0.14983884346164675, 0.31844598389178513, 0.01614891435325017]
+1e-11 24 fit 5.485080697401835e-07 metrics [0.1345341723838284, 0.2905529436451086, 0.016149822707794845]
+1e-12 25 fit 2.1133737365478658e-07 metrics [0.12508040612658014, 0.2695740565186025, 0.016150002760040163]
+1e-13 28 fit 7.520061289570467e-09 metrics [0.10165436282805138, 0.21901623056590538, 0.016150445536359234]
+1e-14 29 fit 3.7105028762373456e-09 metrics [0.08763215565854575, 0.19340673642299297, 0.016150610135945584]
+1e-15 30 fit 1.3934384842493579e-09 metrics [0.08317186709484242, 0.17944577101984588, 0.01615061398657563]
+1e-16 33 fit 5.631901148038789e-09 metrics [0.07407150155514487, 0.16940400436384276, 0.016151047977229018]
+
+ scalarband 2e-13
+1e-10 23 fit 9.806588300492619e-07 metrics [0.14992324198137127, 0.31881483115186127, 0.016148908421380802]
+1e-11 24 fit 6.739980459433924e-07 metrics [0.13433432546558663, 0.2904676727364272, 0.016149810250305468]
+1e-12 25 fit 2.3373744835664848e-06 metrics [0.12497171406845706, 0.26724089945054014, 0.016149973954256467]
+1e-13 29 fit 2.8876411757934772e-06 metrics [0.12162990832056517, 0.23780372337815311, 0.016149883748864377]
+1e-14 33 fit 6.622810243389663e-07 metrics [0.10790266266995019, 0.22172715742639182, 0.016150214667983803]
+1e-15 36 fit 4.6257706035720966e-07 metrics [0.1042822355377385, 0.20857123888076595, 0.016149939485471314]
+1e-16 37 fit 8.444156402323128e-07 metrics [0.11866463382009523, 0.25018850061509207, 0.016149751169595487]
+
+ band 0
+1e-10 29 fit 1.4045926310722616e-06 metrics [0.2088475055094194, 0.21538639762701825, 0.020935961323162704]
+1e-11 31 fit 4.1488546617056157e-07 metrics [0.17912851590491508, 0.18907182409436268, 0.02095335268334876]
+1e-12 33 fit 8.141559842127645e-08 metrics [0.16268814418062133, 0.1746928954692334, 0.02096308857839865]
+1e-13 35 fit 1.6154075633042005e-08 metrics [0.13695304706093409, 0.15552338468637664, 0.020966293016598678]
+1e-14 37 fit 1.994285171818691e-09 metrics [0.12362959130054027, 0.13842730691511204, 0.020968235712281662]
+1e-15 39 fit 2.1746964638362212e-09 metrics [0.11177227947207466, 0.11831135106433115, 0.020969048095024992]
+1e-16 41 fit 1.2079878219571812e-08 metrics [0.1059990667615691, 0.10468891707562576, 0.020969380086837]
+
+ band 2e-13
+1e-10 29 fit 1.4250192048650918e-06 metrics [0.2088325381632935, 0.21566567534648562, 0.020935999417444177]
+1e-11 31 fit 3.872731859833743e-07 metrics [0.18075440635634749, 0.19270276765179162, 0.020952858731993245]
+1e-12 33 fit 1.1367795674235936e-07 metrics [0.16433117973697298, 0.1748696299582038, 0.02096101863046039]
+1e-13 36 fit 1.0218557093892352e-07 metrics [0.1768929482410331, 0.1823704600554494, 0.020979615392443134]
+1e-14 39 fit 2.700157093877874e-08 metrics [0.16454993177750735, 0.17268751533888949, 0.020959480971762045]
+1e-15 42 fit 2.8190393401162813e-08 metrics [0.16673657129535324, 0.1770758088509263, 0.02099651625235551]
+1e-16 45 fit 2.3915466841168974e-08 metrics [0.16088508925148312, 0.17081434527598222, 0.02095915176054127]
+
+ band2 0
+1e-10 27 fit 2.9194442649563055e-07 metrics [0.0910901153905834, 0.09289460185327424, 0.026891368232055828]
+1e-11 28 fit 9.809189270964176e-08 metrics [0.08814903486400147, 0.0916570262558778, 0.026894607740282003]
+1e-12 30 fit 2.6029084201940898e-08 metrics [0.07428833196479707, 0.06537744554142808, 0.026898182147703023]
+1e-13 32 fit 5.049715139366906e-09 metrics [0.04941454587883528, 0.04103196377300249, 0.02690102766482132]
+1e-14 33 fit 9.180653071730739e-10 metrics [0.04379471646039915, 0.040348671444399554, 0.026901231900492758]
+1e-15 35 fit 9.851166180992449e-10 metrics [0.044445185679332665, 0.04425221746327235, 0.026901718578672462]
+1e-16 36 fit 2.6668270457527045e-09 metrics [0.041233912950085126, 0.037455910189390366, 0.0269017384442494]
+
+ band2 2e-13
+1e-10 27 fit 2.9834205569033254e-07 metrics [0.09170739826182064, 0.09513290750666076, 0.026891343734145222]
+1e-11 28 fit 9.360375546674871e-08 metrics [0.08904925018562622, 0.09050024246878803, 0.026894214909813568]
+1e-12 30 fit 4.976963217831869e-08 metrics [0.0783938953216189, 0.0698006775773262, 0.0268983415828878]
+1e-13 33 fit 4.4164208630356597e-08 metrics [0.08502430542682507, 0.08901541499843, 0.02689517746247818]
+1e-14 36 fit 1.3469689214988358e-08 metrics [0.07651365455935974, 0.06643932968475466, 0.026896459097436872]
+1e-15 39 fit 2.5012724769808942e-08 metrics [0.0853359869478346, 0.07861667664493283, 0.02689466280288505]
+1e-16 43 fit 1.8747084043640735e-08 metrics [0.0734784598338243, 0.0644164349256891, 0.026896392476693644]
+bash-5.1$ Thu Aug 27 17:50:27 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A polefit.py
+bash-5.1$ bash-5.1$ 
+ finite
+before 12 2.4941002391577566e-11 [3.99697147622033e-09, 1.9945706424657904e-08, 0.008531998319074738] negative 7.82261588260473e-09 rank1 -1.9015035937051833e-09
+after 12 7.55518447787827e-13 [9.117538045597263e-11, 3.9040761589509744e-10, 0.00853199831770325] negative 1.2539995845694911e-10 rank1 -6.866867635256911e-11
+before 12 1.0703588869856834e-11 [3.011517983957224e-09, 1.482388244214692e-08, 0.0085319983174995] negative 5.599179971531316e-09 rank1 -2.736370058692602e-09
+after 12 7.555114536427621e-13 [9.08943141084124e-11, 3.911163446430282e-10, 0.008531998317703165] negative 1.2482521280920874e-10 rank1 -6.824330827746482e-11
+before 12 3.360759109223512e-12 [2.409356784335789e-09, 1.424966974611075e-08, 0.008531998319816537] negative 3.958528248950681e-09 rank1 -1.6197075215224093e-09
+after 12 7.55518888997861e-13 [9.136364146414793e-11, 3.89654561314941e-10, 0.008531998317703519] negative 1.2596918035407166e-10 rank1 -6.930434625575355e-11
+
+ scalarband
+before 17 7.228224664466288e-10 [0.09509071875245001, 0.15724757509820106, 0.01615082013518745] negative 0.004212918421112092 rank1 0.5700386021823461
+after 17 4.575955957980568e-10 [0.09516962302320642, 0.15770934569925288, 0.016150827349073183] negative 0.0041747215822273585 rank1 0.5697301805036228
+before 19 1.577734409900131e-10 [0.05864325980148057, 0.0982247822131149, 0.016150640587736412] negative 0.0027240397952241297 rank1 0.5482076441608011
+after 19 5.411209887386247e-11 [0.05824169923755293, 0.09916400761375493, 0.01615064463528127] negative 0.002314625220853034 rank1 0.5477190886674324
+before 21 2.85708995486548e-12 [0.05853177131128654, 0.10319534295211587, 0.016150683260260517] negative 0.058440955321734565 rank1 0.5157139881738847
+after 21 9.568180706956777e-13 [0.058516201621019816, 0.10332290835612132, 0.016150684411972913] negative 0.05265411270784302 rank1 0.5202291303794717
+
+ band
+before 19 1.88553610247646e-09 [0.09120650188036863, 0.08570069514529882, 0.020970807234618492] negative 0.00251883821151959 rank1 0.9043097725785304
+after 19 1.2533282299442015e-09 [0.0987273236498582, 0.09966027633197615, 0.020970896546043914] negative 0.0019100313872932105 rank1 0.903233408880298
+before 21 7.173339722032688e-11 [0.06842352125626444, 0.06689013071356258, 0.020970305050574716] negative 0.002283790028835911 rank1 0.8966611732963291
+after 21 3.108861333680936e-11 [0.0680913947070303, 0.06652870958951376, 0.020970049961177947] negative 0.0023943078291872194 rank1 0.8975153763299457
+before 23 1.4051126376678625e-12 [0.04959493321591566, 0.051130329831824875, 0.020969806851927373] negative 0.0006079916512272752 rank1 0.8893771421497468
+after 23 9.907191107542807e-13 [0.04982779630404881, 0.051783233044609335, 0.020969786863987386] negative 0.0006378767386674947 rank1 0.889581466530588
+
+ band2
+before 19 1.743342258798404e-10 [0.028449416762575654, 0.018311361340447363, 0.0269017939802017] negative 0.008546194610671513 rank1 0.6540766533764332
+after 19 1.0030059578053836e-10 [0.027507064454454326, 0.017776176878875182, 0.026901772798083735] negative 0.006890960230418223 rank1 0.6539325908021336
+before 21 1.4666754149461824e-11 [0.02165860972722053, 0.01720493637915812, 0.026902101512890738] negative 0.0045508200631431935 rank1 0.6454763924074672
+after 21 6.4615411412961364e-12 [0.02343833583962027, 0.017647794701871458, 0.026902090934856595] negative 0.005479793009850605 rank1 0.6471997596458833
+before 19 1.8283729050634436e-07 [0.3873540882123625, 0.607012675075632, -1.073695673794565] negative 1.432700366108246 rank1 -0.026541371446076836
+after 19 2.7221266834429735e-09 [0.10256959814596024, 0.07021652307935992, 0.02688439863548864] negative 14.484033955444366 rank1 -11.844590405843446
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A continuation.py
+A ensemble_tests.py
+bash-5.1$ bash-5.1$ RESULT finite 1 [3.226738139277645e-12, 1.6612626559246717e-11, 0.008531998317816425] seconds 0.0792737920419313
+RESULT finite 2 [2.835998897590449e-09, 1.85633417928812e-08, 0.007687122372112931] seconds 0.08214855997357517
+RESULT finite 3 [1.3196304827501587e-10, 4.007330556802e-10, 0.004443519338466353] seconds 0.03354086400941014
+elapsed 0.20305246696807444 models 23
+RESULT scalarband 1 [0.0023648909089041144, 0.0017445506129736116, 0.016150909968916063] seconds 0.20423135097371414
+elapsed 0.5464718829607591 models 32
+RESULT scalarband 2 [0.01347821106078128, 0.009207484480772358, 0.006419519632121237] seconds 0.5478250709711574
+RESULT scalarband 3 [0.15827630701872042, 0.32627191595382327, 0.004484631250901032] seconds 0.04317616700427607
+elapsed 0.22878382296767086 models 21
+RESULT band 1 [0.0028388098206014816, 0.0015454157072298858, 0.020969897346732397] seconds 0.22982537501957268
+elapsed 0.5965455379919149 models 30
+RESULT band 2 [0.016442699217391728, 0.014586695457880935, 0.007047349757867478] seconds 0.597905455972068
+elapsed 0.15444577200105414 models 23
+RESULT band 3 [0.03627142739355775, 0.029648717117930514, 0.005708033018273216] seconds 0.15541958098765463
+elapsed 0.2123080330202356 models 26
+RESULT band2 1 [0.007761084016944229, 0.007193358668356329, 0.02690181268737573] seconds 0.2133459440083243
+elapsed 8.567216837021988 models 31
+RESULT band2 2 [0.0282883577226459, 0.03928787843209393, 0.009270520266834054] seconds 8.621554946992546
+elapsed 0.18461613601539284 models 21
+RESULT band2 3 [0.016121014739820305, 0.012321528115237864, 0.008075765201719935] seconds 0.1853382010012865
+Thu Aug 27 17:55:14 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A solve.py
+M continuation.py
+bash-5.1$ bash-5.1$ bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M continuation.py
+bash-5.1$ bash-5.1$ RESULT finite 1 [3.226738139277645e-12, 1.6612626559246717e-11, 0.008531998317816425] seconds 0.06290766701567918
+RESULT finite 2 [2.835998897590449e-09, 1.85633417928812e-08, 0.007687122372112931] seconds 0.1306701690191403
+RESULT finite 3 [1.3196304827501587e-10, 4.007330556802e-10, 0.004443519338466353] seconds 0.09843901701970026
+RESULT scalarband 1 [0.0011544787743416659, 0.0006920702065793494, 0.016150696555047053] seconds 0.4210226129507646
+RESULT scalarband 2 [0.007356703764921849, 0.005092902017479962, 0.0064202343597569555] seconds 0.7549313970375806
+RESULT scalarband 3 [0.00981131057164335, 0.004796469120587785, 0.004484635640139771] seconds 0.23209908895660192
+RESULT band 1 [0.0014923892486395478, 0.0007712999630976764, 0.020969792705021403] seconds 0.2862610640004277
+RESULT band 2 [0.01195078376530728, 0.010273402603208777, 0.007047719388859114] seconds 0.6986578209907748
+RESULT band 3 [0.03371472372213, 0.02530161143786618, 0.005708030311384697] seconds 0.1568769770092331
+RESULT band2 1 [0.005759336799037829, 0.006179920372036342, 0.026901948851100456] seconds 0.2599613160127774
+RESULT band2 2 [0.021409466992048334, 0.027567997862244915, 0.009268740422863046] seconds 0.7620401509921066
+RESULT band2 3 [0.00838040153414456, 0.0061558932601226924, 0.008075884383461747] seconds 0.2257708009565249
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A bandfit.py
+bash-5.1$ bash-5.1$ BANDRESULT scalarband 1 1 1.0665241951685105e-14 3.1487052572348236e-14 [8.131518782251719e-15, 4.1959860633221304e-15, 0.016150698734307013] 1.6367546080145985
+BANDRESULT scalarband 2 1 9.301796354251707e-14 9.734222518148528e-13 [7.644018751495465e-14, 6.902648683064448e-14, 0.006420246464247732] 10.184823680028785
+BANDRESULT scalarband 3 1 1.0318623015668283e-14 1.575038296040572e-14 [1.0001702015257914e-14, 9.551084779480743e-15, 0.00895850802200989] 0.19708583201281726
+BANDRESULT band 1 1 0.029606972403062398 0.6810073235866584 [0.17331796573257277, 0.11272510920510297, 0.020719293273566544] 0.9866023560171016
+BANDRESULT band 1 2 8.293690540502897e-15 1.1091275235541522e-13 [2.465990553470716e-14, 1.959399310962951e-14, 0.020969745509612867] 7.958807581977453
+BANDRESULT band 2 1 0.050470527585236576 1.4605911863753047 [0.2825562017455475, 0.2919176048694351, 0.006948231858144382] 10.137320301029831
+BANDRESULT band 2 2 0.002432027028799015 0.12430781185102668 [0.05832155905262584, 0.04968008428012393, 0.007049432790797704] 10.074652209004853
+BANDRESULT band 3 1 0.014403809643273605 0.23879403367248048 [0.041098501202829554, 0.04572611145190223, 0.011094763255056104] 0.1753732689539902
+BANDRESULT band 3 2 5.94801360243593e-15 4.705692596447023e-14 [5.088401911386141e-14, 5.783070191005766e-14, 0.011378413098588419] 0.362239086010959
+BANDRESULT band2 1 1 0.13810454134930644 1.7619477492268814 [0.5282940844832618, 0.445082527257258, 0.026543467385967183] 2.2781270599807613
+BANDRESULT band2 1 2 1.0173820451480044e-14 2.2271706777841988e-13 [5.6666832095433794e-14, 4.4137673821721756e-14, 0.026902026231491676] 10.102070848981384
+BANDRESULT band2 2 1 0.12686940606902122 2.001766641584044 [0.42524647093371093, 0.6572895134216196, 0.009587490118331167] 10.043842607992701
+BANDRESULT band2 2 2 0.019112325659110172 1.015938673479207 [0.40180519527535546, 0.5315377311112814, 0.009117489127987115] 10.030065856000874
+BANDRESULT band2 3 1 0.017106557366547807 0.04528490036177829 [0.15151084029328737, 0.16762924625569395, 0.015171957694293097] 0.19562114897416905
+BANDRESULT band2 3 2 7.232478730758051e-15 1.2235361486061294e-14 [9.960876274691155e-14, 9.79279044927771e-14, 0.016055755484477366] 0.39906347799114883
+Thu Aug 27 18:01:20 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A test_solver.py
+bash-5.1$ bash-5.1$ test_cli (test_solver.ReconstructionTests) ... ok
+test_continuous_bands (test_solver.ReconstructionTests) ... ok
+test_dyson_static_shift (test_solver.ReconstructionTests) ... ok
+test_finite_noncommuting_spectra (test_solver.ReconstructionTests) ... ok
+test_no_dynamic_self_energy (test_solver.ReconstructionTests) ... ok
+test_unitary_covariance (test_solver.ReconstructionTests) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 6.075s
+
+OK
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M bandfit.py
+bash-5.1$ bash-5.1$ BANDRESULT scalarband 1 1 1.1934910404476011e-14 4.4177221714121354e-14 [3.3461317081413014e-14, 3.722822237156553e-14, 0.01615069873430702] 2.2002531059551984
+BANDRESULT scalarband 2 1 1.2473887118680257e-09 1.9287188954477895e-08 [9.249720213721611e-09, 7.976656904157994e-09, 0.006420246465783365] 10.0095091900439
+BANDRESULT scalarband 3 1 9.59308787356377e-15 1.2306789929478365e-14 [1.0623839400162122e-14, 7.576511931138698e-15, 0.008958508022009903] 0.17265354900155216
+BANDRESULT band 1 1 0.029606972403062495 0.6810073244073946 [0.173317966732372, 0.1127251098437015, 0.020719293255820802] 0.8502075420110486
+BANDRESULT band 1 2 9.324165192019564e-15 1.2043160792458372e-13 [2.614071628790827e-14, 2.2637419296089256e-14, 0.020969745509612867] 2.8059803689830005
+BANDRESULT band 2 1 0.050470493807377066 1.46016021856907 [0.2824901836974043, 0.2917940940063676, 0.0069482769348293] 10.18834394600708
+BANDRESULT band 2 2 0.0012784234713429264 0.10973401920567444 [0.045415462751575195, 0.03705519947179704, 0.00704748113645457] 10.397117993037682
+BANDRESULT band 3 1 0.014403809643274002 0.23879401535619213 [0.041098499479772684, 0.0457261116751767, 0.01109476326163004] 0.07495580101385713
+BANDRESULT band 3 2 6.052632404580454e-15 4.3580237515847433e-14 [4.727995657304716e-14, 6.737251114445404e-14, 0.011378413098588419] 0.12071734701748937
+BANDRESULT band2 1 1 0.13810454134930386 1.7619479206118203 [0.5282940750013981, 0.4450825334859114, 0.026543467210471353] 1.9835607929853722
+BANDRESULT band2 1 2 1.0185709899711078e-14 1.6042268569526164e-13 [5.792631556149462e-14, 5.1537388558075656e-14, 0.02690202623149157] 4.998572821961716
+BANDRESULT band2 2 1 0.12686940567986718 2.0017158278490004 [0.42524117659063376, 0.6572878770151999, 0.009587464853676071] 10.272577425988857
+BANDRESULT band2 2 2 0.015980427933554853 0.9859345912498564 [0.394143977277631, 0.5156675384358669, 0.009175459236538725] 10.258178172050975
+BANDRESULT band2 3 1 0.01710655736654707 0.04528489674953508 [0.15151083993654021, 0.16762924834464316, 0.015171957680142812] 0.1788556629908271
+BANDRESULT band2 3 2 6.1774309905564985e-15 1.0451122572507456e-14 [8.453462534411511e-14, 7.486928787178885e-14, 0.016055755484477376] 0.21457599301356822
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M bandfit.py
+bash-5.1$ > > > > > > > > > > > EXACTBAND 2 1.0194072132840434e-15 0.002695149861141109
+EXACTBAND 3 1.1658948613151704e-14 0.002678450982472441
+EXACTBAND 4 2.385833978262793e-15 0.0024577218368853158
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M bandfit.py
+bash-5.1$ > > > > > > > > > > > > > > > > > bash-5.1$ scalarband 1 2.8986233302433446e-10 10.088925377000123
+FINAL scalarband 2.6796109407770233e-09 [9.626425408208585e-10, 9.596814947282508e-10, 0.006420246464915874]
+band 1 0.050470534302213384 10.216275571030565
+band 2 1.4427320063850591e-11 23.70165416301461
+FINAL band 1.0923284390939837e-10 [1.566502207547676e-11, 1.3319591550341688e-11, 0.007047666063661802]
+band2 1 0.12687234501077824 10.285140605992638
+band2 2 0.00823694102619489 35.31336373096565
+FINAL band2 1.0958054812290368 [0.31817764261331816, 0.48758426969352925, 0.009243114167624349]
+Thu Aug 27 18:08:56 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M bandfit.py
+M continuation.py
+M solve.py
+bash-5.1$ bash-5.1$ test_cli (test_solver.ReconstructionTests) ... ok
+test_continuous_bands (test_solver.ReconstructionTests) ... ok
+test_dyson_static_shift (test_solver.ReconstructionTests) ... ok
+test_finite_noncommuting_spectra (test_solver.ReconstructionTests) ... ok
+test_no_dynamic_self_energy (test_solver.ReconstructionTests) ... ok
+test_unitary_covariance (test_solver.ReconstructionTests) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 66.569s
+
+OK
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A stress_tests.py
+M continuation.py
+M bandfit.py
+M solve.py
+bash-5.1$ bash-5.1$ STRESS 8 2 2 0 [9.990496190057285e-14, 4.773297862972762e-12, 0.004866295262643195] {'discrete': True} seconds 0.03291204402921721
+STRESS 8 4 4 2e-13 [5.457088034693046e-12, 1.0430582890460509e-10, 0.004257797265362248] {'discrete': True} seconds 0.03816682496108115
+STRESS 16 2 2 0 [1.5786702556106023e-09, 6.61522239501489e-09, 0.007562042893666694] {'discrete': True} seconds 0.05521205498371273
+STRESS 16 4 4 2e-13 [6.487568842902036e-09, 3.5229314757239545e-08, 0.004733957968284964] {'discrete': True} seconds 0.07745983300264925
+STRESS 24 2 2 0 [0.16978752468208527, 0.348874370311257, 0.005664179131732595] {'residual': 2.690696883609474e-16} seconds 0.22577137302141637
+STRESS 24 4 4 2e-13 [0.12318798304140137, 0.31141332729668936, 0.006049988993122581] {'residual': 5.222709088311749e-13} seconds 0.7402958949678577
+STRESS 32 2 2 0 [0.21451050494576956, 0.32808856671833564, 0.005546035052684298] {'residual': 4.680597420440246e-16} seconds 0.19185359997209162
+STRESS 32 4 4 2e-13 [0.16830829172271933, 0.3076323071730947, 0.00706973281898317] {'residual': 4.889899659380931e-13} seconds 0.5929040939663537
+STRESS 2d 2 1 0 [0.0142967963970962, 0.01444625571426567, 0.0182626999569775] {'residual': 9.703919339356454e-17} seconds 0.11104608199093491
+STRESS 2d 3 2 2e-13 [0.02232340729000685, 0.04444647905514091, 0.013894509526192022] {'residual': 1.753554655438905e-13} seconds 0.3103852159692906
+STRESS 2d 4 3 0 [0.015293313434015217, 0.019725823748025912, 0.010203697586779952] {'residual': 5.108065365868119e-16} seconds 0.3357309850398451
+STRESS 2d 2 2 2e-09 [0.03086642272419424, 0.03477711683800532, 0.01746350285526627] {'residual': 9.087508706598392e-10} seconds 0.15461525204591453
+FULL2D 2 [0.0142967963970962, 0.01444625571426567, 0.0182626999569775] seconds 0.7784746229881421
+FULL2D 3 [0.01508699428129437, 0.026387710498086678, 0.013896810002637768] seconds 30.258166637970135
+Thu Aug 27 18:13:59 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M continuation.py
+bash-5.1$ > > > > > > > > > > > bash-5.1$ FINITE 16 2 [1.5794633178075025e-09, 6.601327740428499e-09, 0.007562042892781294] {'discrete': True} seconds 0.04968546598684043
+FINITE 16 4 [6.483246290694265e-09, 3.4985890506807914e-08, 0.004733957966055089] {'discrete': True} seconds 0.07144904904998839
+FINITE 20 2 [0.2330055212896343, 0.5497282071356865, 0.005467716725087089] {'residual': 3.616572264556157e-16} seconds 0.2325979410088621
+FINITE 20 4 [0.0032818141768533354, 0.015489100826609557, 0.004784924950027771] {'residual': 5.180840968208264e-13} seconds 0.8283236999996006
+FINITE 24 2 [0.16978752468208527, 0.348874370311257, 0.005664179131732595] {'residual': 2.690696883609474e-16} seconds 0.2700984309776686
+FINITE 24 4 [0.12318798304140137, 0.31141332729668936, 0.006049988993122581] {'residual': 5.222709088311749e-13} seconds 0.6746096860151738
+FINITE 28 2 [0.17087361830077066, 0.33195639355256296, 0.0065437028127986714] {'residual': 4.527487608611086e-16} seconds 0.184483676974196
+FINITE 28 4 [0.18923617973062914, 0.27123944121077126, 0.0061711386605826845] {'residual': 4.750745423702258e-13} seconds 1.1818060699733905
+FINITE 32 2 [0.21451050494576956, 0.32808856671833564, 0.005546035052684298] {'residual': 4.680597420440246e-16} seconds 0.22156157798599452
+FINITE 32 4 [0.16830829172271933, 0.3076323071730947, 0.00706973281898317] {'residual': 4.889899659380931e-13} seconds 0.7343097679549828
+bash-5.1$ > > > > > > > > > > > > > bash-5.1$ 20 2 1e-10 18 fit 2.7256453619349574e-06 metric [0.12427907902682193, 0.6840428627644398, 0.0054041028354316015]
+20 2 1e-12 20 fit 2.2263891936238274e-12 metric [1.7144035921847106e-07, 1.6558603849665067e-06, 0.005461966332005609]
+20 2 1e-14 20 fit 2.2263891936238274e-12 metric [1.7144035921847106e-07, 1.6558603849665067e-06, 0.005461966332005609]
+20 2 1e-15 20 fit 2.2263891936238274e-12 metric [1.7144035921847106e-07, 1.6558603849665067e-06, 0.005461966332005609]
+20 4 1e-10 20 fit 2.317132993167382e-12 metric [1.2183678088475374e-09, 9.748276165194034e-09, 0.004785748279234267]
+20 4 1e-12 20 fit 2.317132993167382e-12 metric [1.2183678088475374e-09, 9.748276165194034e-09, 0.004785748279234267]
+20 4 1e-14 21 fit 5.803311904370731e-10 metric [3.969759974299962e-09, 2.4315707769235774e-08, 0.0047857482803880125]
+20 4 1e-15 25 fit 1.7225720732872706e-10 metric [5.7949648905398096e-08, 4.1956497349289585e-07, 0.004785748305024244]
+24 2 1e-10 18 fit 1.7668374705233526e-06 metric [0.12265368542691987, 0.5739464096347313, 0.005645693265655078]
+24 2 1e-12 21 fit 4.406127442602845e-08 metric [0.05706657682818968, 0.3653519844123595, 0.005660946846502867]
+24 2 1e-14 23 fit 1.2994834343785322e-09 metric [0.04882401880371543, 0.3213847995680981, 0.005663365815465961]
+24 2 1e-15 24 fit 1.0003505119839789e-10 metric [0.0008082008172231153, 0.0058194613738048245, 0.005665427479948648]
+24 4 1e-10 24 fit 6.345493255723663e-12 metric [1.4021746556535894e-08, 4.766020942589699e-08, 0.0060426124273077805]
+24 4 1e-12 24 fit 6.345493255723663e-12 metric [1.4021746556535894e-08, 4.766020942589699e-08, 0.0060426124273077805]
+24 4 1e-14 25 fit 1.1156129556447743e-10 metric [1.0785781818924984e-06, 1.870146921490072e-06, 0.006042612427253678]
+24 4 1e-15 28 fit 6.132246826521352e-11 metric [7.850438612568812e-07, 2.836556373461883e-06, 0.006042612541296885]
+28 2 1e-10 20 fit 3.842224362797319e-07 metric [0.23128168803831048, 0.6505102512176156, 0.006541699423749167]
+28 2 1e-12 22 fit 2.819722604510054e-08 metric [0.23941984159406038, 0.41140527702746005, 0.006555581000675361]
+28 2 1e-14 24 fit 1.1541592764713145e-09 metric [0.10725066078060279, 0.25509285703247153, 0.006562246433448493]
+28 2 1e-15 25 fit 5.469490115928065e-10 metric [0.14381501069787964, 0.29214655551035057, 0.006562721768837064]
+28 4 1e-10 28 fit 9.28435037869468e-12 metric [2.450234961977404e-07, 1.0660248002079133e-06, 0.0061680485204732615]
+28 4 1e-12 28 fit 9.28435037869468e-12 metric [2.450234961977404e-07, 1.0660248002079133e-06, 0.0061680485204732615]
+28 4 1e-14 28 fit 9.28435037869468e-12 metric [2.450234961977404e-07, 1.0660248002079133e-06, 0.0061680485204732615]
+28 4 1e-15 31 fit 4.0313270533328367e-10 metric [9.70266690405421e-07, 2.213717718640277e-06, 0.006168048502893298]
+32 2 1e-10 20 fit 7.875310809669034e-07 metric [0.30785799903745487, 0.6208747698948814, 0.005532271738019328]
+32 2 1e-12 22 fit 1.123127514361385e-07 metric [0.33299022640716613, 0.6075588573775792, 0.005539588960116442]
+32 2 1e-14 24 fit 6.911646032781155e-09 metric [0.20340406935572872, 0.4594134512017967, 0.0055434008986525035]
+32 2 1e-15 26 fit 4.706285813553643e-10 metric [0.1819865411487167, 0.39196433808000364, 0.005544510827927771]
+32 4 1e-10 32 fit 1.9411931676303348e-11 metric [1.7098950571708583e-06, 7.117629352246916e-06, 0.0070634696792020715]
+32 4 1e-12 32 fit 1.9411931676303348e-11 metric [1.7098950571708583e-06, 7.117629352246916e-06, 0.0070634696792020715]
+32 4 1e-14 32 fit 1.9411931676303348e-11 metric [1.7098950571708583e-06, 7.117629352246916e-06, 0.0070634696792020715]
+32 4 1e-15 34 fit 4.316112413605751e-10 metric [6.623732538098583e-06, 2.2421850861162886e-05, 0.007063461969298721]
+Thu Aug 27 18:17:49 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M continuation.py
+bash-5.1$ > > > > > > > > > > > bash-5.1$ 20 2 [1.7702069001117702e-07, 1.372270961106309e-06, 0.005461966222066572] {'discrete': True, 'block': True} 0.05443772301077843
+20 4 [0.0032818141768533354, 0.015489100826609557, 0.004784924950027771] {'residual': 5.180840968208264e-13} 0.7034405549638905
+24 2 [0.16978752468208527, 0.348874370311257, 0.005664179131732595] {'residual': 2.690696883609474e-16} 0.24487018800573424
+24 4 [0.12318798304140137, 0.31141332729668936, 0.006049988993122581] {'residual': 5.222709088311749e-13} 0.7971407640143298
+28 2 [0.17087361830077066, 0.33195639355256296, 0.0065437028127986714] {'residual': 4.527487608611086e-16} 0.21412440796848387
+28 4 [0.18923617973062914, 0.27123944121077126, 0.0061711386605826845] {'residual': 4.750745423702258e-13} 1.285973813966848
+32 2 [0.21451050494576956, 0.32808856671833564, 0.005546035052684298] {'residual': 4.680597420440246e-16} 0.16117440501693636
+32 4 [0.16830829172271933, 0.3076323071730947, 0.00706973281898317] {'residual': 4.889899659380931e-13} 0.5690722540020943
+scalarband 3 [0.0011544787743416659, 0.0006920702065793494, 0.016150696555047053] {'residual': 4.666241009123576e-16} 0.20681058504851535
+scalarband 4 [0.007356703764921849, 0.005092902017479962, 0.0064202343597569555] {'residual': 4.55440827327165e-13} 1.6979775740182959
+scalarband 2 [0.00175731477193615, 0.001428703158931125, 0.008958507454182358] {'residual': 2.8353313066869034e-16} 0.19258729799184948
+band 3 [0.0014923892486395478, 0.0007712999630976764, 0.020969792705021403] {'residual': 2.5928089423750246e-16} 0.24176314804935828
+band 4 [0.01195078376530728, 0.010273402603208777, 0.007047719388859114] {'residual': 3.3246679979680697e-13} 0.7072119409567676
+band 2 [0.004230915118668711, 0.004159402578128511, 0.011378404757506606] {'residual': 2.1573508087659075e-16} 0.15271582000423223
+band2 3 [0.005759336799037829, 0.006179920372036342, 0.026901948851100456] {'residual': 2.8380657946260285e-16} 0.24543010001070797
+band2 4 [0.021409466992048334, 0.027567997862244915, 0.009268740422863046] {'residual': 2.735688580709372e-13} 0.6401515920297243
+band2 2 [0.00148694990869588, 0.0015265371160529011, 0.01605578158165947] {'residual': 1.401374306842338e-16} 0.17248185601783916
+Thu Aug 27 18:20:17 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M continuation.py
+bash-5.1$ > > > > > > > ranks 28 [24, 24, 24, 24, 24, 24, 26, 29]
+block error 24 2.681811078435584e-09 3.967302627896007e-10
+ranks 36 [24, 24, 24, 24, 24, 24, 26, 29]
+block error 24 2.535917903005755e-09 3.967302627896007e-10
+bash-5.1$ > > > > > > > > Success. Updated the following files:
+M continuation.py
+bash-5.1$ > > > > > > > > > > ranks 28 [24, 24, 24, 24, 24, 24, 24, 28]
+uncorrected 2.446518168607415e-11 9.08775132504863e-13 4.334809187183382e-12
+block error 24 7.047532102881264e-10 3.9673026278960076e-10
+ranks 36 [24, 24, 24, 24, 24, 24, 24, 28]
+uncorrected 2.6151271930620636e-11 8.652126140375698e-13 3.772985712703025e-12
+block error 24 4.273048965048636e-10 3.9673026278960076e-10
+ranks 28 [24, 24, 24, 24, 24, 24, 25, 28]
+uncorrected 5.564388182779911e-11 3.252402909472712e-12 1.1457520757582978e-11
+block error 24 3.3774424183451936e-09 3.9673026278960076e-10
+ranks 36 [24, 24, 24, 24, 24, 24, 26, 29]
+uncorrected 5.279373006000206e-11 3.0589847332174487e-12 7.646583719323882e-12
+block error 24 1.9333940672429357e-09 3.9673026278960076e-10
+ranks 28 [24, 24, 24, 24, 24, 24, 26, 29]
+uncorrected 3.910542207602146e-11 5.650391130728479e-12 1.1064421121430315e-11
+block error 24 2.681811078435584e-09 3.9673026278960076e-10
+ranks 36 [24, 24, 24, 24, 24, 24, 26, 29]
+uncorrected 6.52895253041792e-11 5.487835839866517e-12 1.017966482630345e-11
+block error 24 2.535917903005755e-09 3.9673026278960076e-10
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M continuation.py
+bash-5.1$ > > > > > > > > > > > bash-5.1$ 20 2 [1.7702003066468786e-07, 1.3722702666463064e-06, 0.005461966222038936] {'discrete': True, 'block': True} 0.07904143497580662
+20 4 [1.8031865357346266e-09, 1.3563295646496201e-08, 0.004785748278520456] {'discrete': True, 'block': True} 0.14256232796469703
+24 2 [0.16978752468208527, 0.348874370311257, 0.005664179131732595] {'residual': 2.690696883609474e-16} 0.30476448801346123
+24 4 [1.1802986582028496e-08, 4.334035394343879e-08, 0.0060426124394384745] {'discrete': True, 'block': True} 0.20843979599885643
+28 2 [0.17087361830077066, 0.33195639355256296, 0.0065437028127986714] {'residual': 4.527487608611086e-16} 0.2276858119876124
+28 4 [8.935014957271971e-08, 5.173049823689323e-07, 0.006168048503728728] {'discrete': True, 'block': True} 0.5019780350266956
+32 2 [0.21451050494576956, 0.32808856671833564, 0.005546035052684298] {'residual': 4.680597420440246e-16} 0.17135580000467598
+32 4 [9.277481233421337e-07, 3.969435020452002e-06, 0.0070634687448939805] {'discrete': True, 'block': True} 0.0713412250042893
+scalarband 3 [0.0011544787743416659, 0.0006920702065793494, 0.016150696555047053] {'residual': 4.666241009123576e-16} 0.27230792498448864
+scalarband 4 [0.007356703764921849, 0.005092902017479962, 0.0064202343597569555] {'residual': 4.55440827327165e-13} 0.7616268420242704
+scalarband 2 [0.00175731477193615, 0.001428703158931125, 0.008958507454182358] {'residual': 2.8353313066869034e-16} 0.2683784670080058
+band 3 [0.0014923892486395478, 0.0007712999630976764, 0.020969792705021403] {'residual': 2.5928089423750246e-16} 0.42118616501102224
+band 4 [0.01195078376530728, 0.010273402603208777, 0.007047719388859114] {'residual': 3.3246679979680697e-13} 0.9047458810382523
+band 2 [0.004230915118668711, 0.004159402578128511, 0.011378404757506606] {'residual': 2.1573508087659075e-16} 0.20111306197941303
+band2 3 [0.005759336799037829, 0.006179920372036342, 0.026901948851100456] {'residual': 2.8380657946260285e-16} 0.3597892650286667
+band2 4 [0.021409466992048334, 0.027567997862244915, 0.009268740422863046] {'residual': 2.735688580709372e-13} 0.8794760860037059
+band2 2 [0.00148694990869588, 0.0015265371160529011, 0.01605578158165947] {'residual': 1.401374306842338e-16} 0.20819175196811557
+Thu Aug 27 18:22:39 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A README.md
+M bandfit.py
+M test_solver.py
+bash-5.1$ bash-5.1$ bash-5.1$ > > > > > > > > > EXAMPLE_CHECK (241, 2, 2) (241, 2, 2) True 0.0024158185235290414 0.0
+bash-5.1$ test_band_contour_integral (test_solver.ReconstructionTests) ... ok
+test_cli (test_solver.ReconstructionTests) ... ok
+test_continuous_bands (test_solver.ReconstructionTests) ... ok
+test_dyson_static_shift (test_solver.ReconstructionTests) ... ok
+test_finite_noncommuting_spectra (test_solver.ReconstructionTests) ... ok
+test_larger_matrix_bath (test_solver.ReconstructionTests) ... ok
+test_no_dynamic_self_energy (test_solver.ReconstructionTests) ... ok
+test_unitary_covariance (test_solver.ReconstructionTests) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 70.292s
+
+OK
+bash-5.1$ bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > bash-5.1$ 2D 2 0 [0.0142967963970962, 0.01444625571426567, 0.0182626999569775] {'residual': 9.703919339356454e-17}
+2D 3 2e-13 [0.02232340729000685, 0.04444647905514091, 0.013894509526192022] {'residual': 1.753554655438905e-13}
+2D 4 0 [0.015293313434015217, 0.019725823748025912, 0.010203697586779952] {'residual': 5.108065365868119e-16}
+2D 2 2e-09 [0.03086642272419424, 0.03477711683800532, 0.01746350285526627] {'residual': 9.087508706598392e-10}
+SEMICIRCLE 2 [0.0009388924139989871, 0.000870985687646653, 0.0042628261527197535] {'residual': 1.2953599999966978e-15}
+SEMICIRCLE 4 [0.0019339921081439296, 0.0023422266277958745, 0.004262826187199855] {'residual': 2.4614929070277618e-15}
+bash-5.1$ test_solver.py
+22:class ReconstructionTests(unittest.TestCase):
+
+solve.py
+23:def solve(request):
+54:def main():
+bash-5.1$ -rw-rw-r-- 1 xuandong xuandong 2.1K Aug 27 18:24 README.md
+-rw-rw-r-- 1 xuandong xuandong  11K Aug 27 18:24 bandfit.py
+-rw-rw-r-- 1 xuandong xuandong  25K Aug 27 18:22 continuation.py
+-rw-rw-r-- 1 xuandong xuandong 2.5K Aug 27 18:12 solve.py
+-rw-rw-r-- 1 xuandong xuandong 6.4K Aug 27 18:24 test_solver.py
+bash-5.1$ Thu Aug 27 18:26:32 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > Success. Updated the following files:
+M continuation.py
+M README.md
+bash-5.1$ bash-5.1$ bash-5.1$ > > > > > > > > > G_retarded (241, 2, 2) finite True
+Sigma_retarded (241, 2, 2) finite True
+test_band_contour_integral (test_solver.ReconstructionTests) ... ok
+test_cli (test_solver.ReconstructionTests) ... ok
+test_continuous_bands (test_solver.ReconstructionTests) ... ok
+test_dyson_static_shift (test_solver.ReconstructionTests) ... ok
+test_finite_noncommuting_spectra (test_solver.ReconstructionTests) ... ok
+test_larger_matrix_bath (test_solver.ReconstructionTests) ... ok
+test_no_dynamic_self_energy (test_solver.ReconstructionTests) ... ok
+test_unitary_covariance (test_solver.ReconstructionTests) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 70.648s
+
+OK
+
+bash-5.1$ exit
+
+codex
+Implemented `../attempt/solve.py:23` with adaptive matrix reconstruction for discrete baths and continuous bands, preserving orbital coherence, causality, and Dyson consistency.
+
+Validation: all 8 regression tests pass, and the supplied example succeeds from the read-only task directory.
+
+Documentation: `../attempt/README.md:1`.
+tokens used
+261,874
+Implemented `../attempt/solve.py:23` with adaptive matrix reconstruction for discrete baths and continuous bands, preserving orbital coherence, causality, and Dyson consistency.
+
+Validation: all 8 regression tests pass, and the supplied example succeeds from the read-only task directory.
+
+Documentation: `../attempt/README.md:1`.

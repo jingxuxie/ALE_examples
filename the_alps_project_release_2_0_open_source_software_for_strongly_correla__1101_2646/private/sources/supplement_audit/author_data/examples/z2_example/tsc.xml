@@ -1,0 +1,36 @@
+<MODELS>
+    <SITEBASIS name="spinless fermion">
+        <QUANTUMNUMBER name="P" min="0" max="1" type="fermionic"/>
+        <OPERATOR name="c" matrixelement="1">
+            <CHANGE quantumnumber="P" change="1"/>
+        </OPERATOR>
+        <OPERATOR name="cdag" matrixelement="1">
+            <CHANGE quantumnumber="P" change="-1"/>
+        </OPERATOR>
+    </SITEBASIS>
+    
+    <BASIS name="spinless fermion">
+        <SITEBASIS ref="spinless fermion"/>
+        <CONSTRAINT quantumnumber="P" value="P_total"/>
+    </BASIS>
+    
+    <BONDOPERATOR name="fermion_hop" source="x" target="y">
+        cdag(x)*c(y)+cdag(y)*c(x)
+    </BONDOPERATOR>
+    
+    <BONDOPERATOR name="pairing" source="x" target="y">
+        c(x)*c(y)+cdag(y)*cdag(x)
+    </BONDOPERATOR>
+    
+    <HAMILTONIAN name="tsc">
+        <PARAMETER name="t" default="1"/>
+        <BASIS ref="spinless fermion"/>
+        <SITETERM site="i">
+            -mu*cdag(i)*c(i)
+        </SITETERM>
+        <BONDTERM source="i" target="j">
+            -t*fermion_hop(i,j) + D*pairing(i,j)
+        </BONDTERM>
+    </HAMILTONIAN>
+     
+</MODELS>

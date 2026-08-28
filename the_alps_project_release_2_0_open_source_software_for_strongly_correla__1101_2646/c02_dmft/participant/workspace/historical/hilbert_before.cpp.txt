@@ -1,0 +1,74 @@
+/*****************************************************************************
+ *
+ * ALPS DMFT Project
+ *
+ * Copyright (C) 2005-2007 by Philipp Werner <werner@comp-phys.org>,
+ *                            Matthias Troyer <troyer@comp-phys.org>,
+ *                            Emanuel Gull <gullc@comp-phys.org>,
+ *                            Sebastian Fuchs <fuchs@comp-phys.org>
+ *               2012-2013 by Jakub Imriska <jimriska@phys.ethz.ch>
+ *
+* Permission is hereby granted, free of charge, to any person obtaining
+* a copy of this software and associated documentation files (the “Software”),
+* to deal in the Software without restriction, including without limitation
+* the rights to use, copy, modify, merge, publish, distribute, sublicense,
+* and/or sell copies of the Software, and to permit persons to whom the
+* Software is furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included
+* in all copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS
+* OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+* FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+* DEALINGS IN THE SOFTWARE.
+ *
+ *****************************************************************************/
+
+matsubara_green_function_t GeneralFSHilbertTransformer::operator()(const matsubara_green_function_t& G_omega, 
+                                                                      matsubara_green_function_t &G0_omega, 
+                                                                      const double mu, const double h, const double beta) const
+{
+  if(G_omega.nsite()!=1){throw std::logic_error("GeneralFSHilbertTransformer::operator(): don't know how to handle systems with != 1 site.");}
+  matsubara_green_function_t Sigma(1, 1, G_omega.nflavor());
+  matsubara_green_function_t G_omega_new(1, 1, G_omega.nflavor());
+
+  if (!AFM) {
+    std::cout<<"GeneralFSHilbertTransformer: PM version; using: mu="<<mu<<", h="<<h<<", beta="<<beta<<std::endl;
+    for(frequency_t w=0; w<G_omega.nfreq(); ++w){
+      double wn=(2.*w+1)*M_PI/beta;
+      for(spin_t f=0; f<G_omega.nflavor(); ++f){
+        Sigma(0,f)=1./G0_omega(w,f)-1./G_omega(w,f);
+        std::complex<double> zeta=std::complex<double>(mu-h,wn)-Sigma(0,f);
+        
+        G_omega_new(0,f)=bandstruct->HilbertIntegral_PM(zeta,f);
+        G0_omega(w,f)=1./(1./G_omega_new(0,f)+Sigma(0,f));
+      }
+    }
+  } else {
+    std::cout<<"GeneralFSHilbertTransformer: AFM version; using: mu="<<mu<<", h="<<h<<", beta="<<beta<<std::endl;
+    if(G_omega.nflavor()%2!=0){throw std::logic_error("GeneralFSHilbertTransformer::operator(): don't know how to handle odd number of flavors in the AFM case.");}
+    for(spin_t f=0; f<G_omega.nflavor()/2; f+=2){
+      for(frequency_t w=0; w<G_omega.nfreq(); ++w){
+        Sigma(0,2*f)=1./G0_omega(w,2*f)-1./G_omega(w,2*f);
+        Sigma(0,2*f+1)=1./G0_omega(w,2*f+1)-1./G_omega(w,2*f+1);
+        double wn=(2.*w+1)*M_PI/beta;
+        std::complex<double> zeta_0=std::complex<double>(mu-h,wn)-Sigma(0,2*f);
+        std::complex<double> zeta_1=std::complex<double>(mu+h,wn)-Sigma(0,2*f+1);
+        
+        std::complex<double> integral=bandstruct->HilbertIntegral_AFM(zeta_0*zeta_1,2*f);
+        
+        //compute the new G's:
+        G_omega_new(0,2*f)=zeta_1*integral; //formula 97 in review
+        G_omega_new(0,2*f+1)=zeta_0*integral;
+        G0_omega(w,2*f)=1./(1./G_omega_new(0,2*f)+Sigma(0,2*f));
+        G0_omega(w,2*f+1)=1./(1./G_omega_new(0,2*f+1)+Sigma(0,2*f+1));
+      }
+    }
+  }
+  
+  return G0_omega;
+}

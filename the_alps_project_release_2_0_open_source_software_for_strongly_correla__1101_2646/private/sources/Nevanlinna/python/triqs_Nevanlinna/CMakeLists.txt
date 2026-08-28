@@ -1,0 +1,37 @@
+# Configure the version
+configure_file(version.py.in version.py)
+
+# All Python files. Copy them in the build dir to have a complete package for the tests.
+file(GLOB_RECURSE python_sources RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.py)
+
+if(NOT TRIQS_Support)
+  list(REMOVE_ITEM python_sources "solver.py")
+endif()
+
+foreach(file ${python_sources})
+  configure_file(${file} ${file} COPYONLY)
+endforeach()
+
+# Install python files to proper location
+set(PYTHON_LIB_DEST ${TRIQS_PYTHON_LIB_DEST_ROOT}/${PROJECT_NAME})
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/version.py DESTINATION ${PYTHON_LIB_DEST})
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} DESTINATION ${TRIQS_PYTHON_LIB_DEST_ROOT} FILES_MATCHING PATTERN "*.py")
+
+# Fetch c2py (provides c2py_add_module)
+include(FetchContent)
+FetchContent_Declare(
+  c2py
+  GIT_REPOSITORY  https://github.com/flatironinstitute/c2py
+  GIT_TAG         0.9.x
+  EXCLUDE_FROM_ALL # exclude from all so that c2py is NOT installed.
+)
+FetchContent_MakeAvailable(c2py)
+
+# Add Python modules
+c2py_add_module(kernels_core LINK_LIBRARIES ${PROJECT_NAME}_c ${PROJECT_NAME}_warnings)
+install(TARGETS kernels_core DESTINATION ${PYTHON_LIB_DEST})
+
+if(TRIQS_Support)
+  c2py_add_module(solver_core LINK_LIBRARIES ${PROJECT_NAME}_c ${PROJECT_NAME}_warnings)
+  install(TARGETS solver_core DESTINATION ${PYTHON_LIB_DEST})
+endif()

@@ -1,0 +1,109 @@
+name: ALPS Python Packaging CI/CD
+
+on:
+  push:
+    branches:
+      - master    # the default branch
+    tags:
+      - 'v*'    # this triggers the workflow when a tag starting with 'v' is pushed
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.plat.os }}
+    runs-on: ${{ matrix.plat.os }}
+    strategy:
+      matrix:
+        # macos-13 is an intel runner, macos-14 is apple silicon
+        plat: 
+        - { os: ubuntu-latest, target: "", arch: x86_64, homebrew: ''}
+        #- { os: macos-13, target: "13.0" , arch: x86_64, homebrew: '/usr/local'} #DEPRECATED. Too old.
+        - { os: macos-15, target: "15.0" , arch: arm64, homebrew: '/opt/homebrew'}
+        - { os: macos-26, target: "26.0" , arch: arm64, homebrew: '/opt/homebrew'}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Install Fortran compiler based on OS
+      - name: Install dependencies
+        timeout-minutes: 20
+        run: |
+          if [ "${{ matrix.plat.os }}" = "ubuntu-latest" ]; then
+            printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' \
+              | sudo tee /etc/apt/apt.conf.d/99ci-timeouts > /dev/null
+            sudo apt-get update
+            sudo apt-get install -y gfortran
+          else
+            brew update
+            brew install gfortran
+          fi
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22.0
+        env:
+          CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
+          CIBW_ARCHS: ${{ matrix.plat.arch }}
+          CIBW_ARCHS_MACOS: ${{ matrix.plat.arch }}
+
+          # Set Fortran compiler for all platforms
+          CIBW_ENVIRONMENT: "FC=gfortran"
+
+          # macOS-specific settings
+          CIBW_ENVIRONMENT_MACOS: >
+            Boost_ROOT_DIR=/Users/runner/work/ALPS/ALPS/boost_1_87_0
+            MACOSX_DEPLOYMENT_TARGET=${{ matrix.plat.target }}
+            CXXFLAGS="-stdlib=libc++"
+#          CIBW_ENVIRONMENT: >
+
+        # env:
+        #   CIBW_SOME_OPTION: value
+        #    ...
+        # with:
+        #   package-dir: .
+        #   output-dir: wheelhouse
+        #   config-file: "{package}/pyproject.toml"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cibw-wheels-${{ matrix.plat.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
+
+
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+
+  upload_pypi:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    #if: github.event_name == 'release' && github.event.action == 'published'
+    # or, alternatively, upload to PyPI on every tag starting with 'v' (remove on: release above to use this)
+    if: startsWith(github.ref, 'refs/tags/v')  || github.event_name == 'release'
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          # unpacks all CIBW artifacts into dist/
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        #with:
+          # To test: 
+          # repository-url: https://test.pypi.org/legacy/
