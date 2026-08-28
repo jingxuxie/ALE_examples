@@ -25,26 +25,17 @@ The original collection above consists of rejected screening archives, not
 accepted hard ALE tasks. Consult each original `status.json` for its reason and supporting record;
 the reasons and amount of completed work vary by task.
 
-## Additional collection (`tasks_v3`)
+## Newer collection (`task_v3/`)
+
+The ten tasks from the author's `tasks_v3` directory are grouped in
+[`task_v3/`](task_v3/README.md), separate from the original collection above.
+Open that collection's index to browse its task reports.
 
 These are review snapshots of the saved reports and pilot artifacts. Some
 tournaments were still in progress during capture; inclusion here is not an
 acceptance decision or a claim that all runs have finished.
 
-| Topic | Author's report |
-| --- | --- |
-| Atomistic spin models | [Report](atomistic_spin_model_simulations_of_magnetic_nanomaterials__1310_6143/REPORT.md) |
-| Symmetrized Wannier-like tight-binding models | [Final report](automated_construction_of_symmetrized_wannier_like_tight_binding_model__1805_12148/FINAL_REPORT.md) |
-| Quantum LDPC code landscape | [Report](decoding_across_the_quantum_ldpc_code_landscape__2005_07016/REPORT.md) |
-| Learning quantum noise | [Report](efficient_learning_of_quantum_noise__1907_13022/REPORT.md) |
-| Zigzag Majorana Josephson junctions | [Report](enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/REPORT.md) |
-| FastEEC energy correlators | [Report](fasteec_fast_evaluation_of_n_point_energy_correlators__2406_08577/REPORT.md) |
-| Phonopy and phono3py | [Report](implementation_strategies_in_phonopy_and_phono3py__2301_05784/REPORT.md) |
-| Equivariant lattice field theory learning | [Report](learning_lattice_quantum_field_theories_with_equivariant_continuous_fl__2207_00283/REPORT.md) |
-| Reliability of lattice gauge theories | [Report](reliability_of_lattice_gauge_theories__2001_00024/REPORT.md) |
-| ALPS | [Report](the_alps_project_release_2_0_open_source_software_for_strongly_correla__1101_2646/REPORT.md) |
-
-See the [tasks_v3 publication notes](PUBLICATION_V3.md) for snapshot semantics,
+See the [collection publication notes](task_v3/PUBLICATION_V3.md) for snapshot semantics,
 runtime exclusions, and restoration of losslessly packaged large data.
 
 ## Before reviewing or running
@@ -55,6 +46,6 @@ participant.
 
 These are review-oriented exports, not complete offline runtime images. The
 [original publication notes](PUBLICATION.md) document the `tasks_v2` exclusions,
-including its oversized frozen snapshot. The [tasks_v3 notes](PUBLICATION_V3.md)
+including its oversized frozen snapshot. The [newer collection notes](task_v3/PUBLICATION_V3.md)
 document that collection separately: oversized scientific data is preserved
 losslessly and can be restored, while installed runtime trees remain excluded.

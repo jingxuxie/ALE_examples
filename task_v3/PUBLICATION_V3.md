@@ -1,11 +1,12 @@
-# tasks_v3 review snapshot
+# task_v3 review snapshot
 
 ## Scope and status
 
 Ten additional folders from the author's `tasks_v3` directory are included under
-their original names alongside the earlier review collection. Their source
+their original names inside the repository's `task_v3/` folder. Their source
 folders are not modified. The earlier task folders and their original
-publication manifest are not changed by this export.
+publication manifest remain unchanged at the repository root. Start with the
+[collection index](README.md) to browse the newer reports.
 
 This is a **review snapshot**, not a finalized benchmark release. Some reports
 explicitly describe ongoing work. Files are captured individually while stable,
@@ -26,18 +27,20 @@ losslessly gzip-compressed and stored as numbered parts of at most 64 MiB under
 the corresponding task's `REVIEW_LARGE_FILES/` directory. Identical large
 payloads within a task share the same packaged data. Original paths, sizes,
 SHA-256 hashes, and the ordered part list are in
-`PUBLICATION_MANIFEST_V3.json`.
+`PUBLICATION_MANIFEST_V3.json`. All paths in this manifest are relative to
+`task_v3/`, the directory containing the manifest and restoration helper.
 
 The original oversized file paths are absent until restored. With Python 3.10+
 and only its standard library, run from the repository root:
 
 ```bash
-python restore_v3_artifacts.py --list
-python restore_v3_artifacts.py --verify
-python restore_v3_artifacts.py
+python task_v3/restore_v3_artifacts.py --list
+python task_v3/restore_v3_artifacts.py --verify
+python task_v3/restore_v3_artifacts.py
 ```
 
-Use `--only PATH_PREFIX` to select one task or one original path. Verification
+Use `--only PATH_PREFIX` to select one task or one original path relative to
+`task_v3/` (without adding the `task_v3/` prefix). Verification
 checks the stored parts and the fully decompressed content. Restoration checks
 the same hashes and refuses to overwrite an existing file with different
 contents. Restored oversized files are ignored by Git so they are not
@@ -80,14 +83,16 @@ are checked through decompression against their recorded original hashes.
 Credential-pattern scanning is performed, but is not a security audit of all
 the executable code or nested archive contents.
 
-The collection is committed one task at a time, followed by the catalog and
-publication tools. This keeps each upload batch manageable. On the author's
-prepared local clone, the following helper publishes only the commit range
-belonging to this snapshot, using ordinary fast-forward pushes:
+The collection was initially committed one task at a time, followed by the
+catalog and publication tools, then moved into `task_v3/` without changing the
+task artifacts. This keeps each upload batch manageable and preserves the
+published history. On the author's prepared local clone, run the following from
+the repository root to publish the snapshot and its folder reorganization using
+ordinary fast-forward pushes:
 
 ```bash
-bash push_tasks_v3.sh --dry-run
-bash push_tasks_v3.sh
+bash task_v3/push_tasks_v3.sh --dry-run
+bash task_v3/push_tasks_v3.sh
 ```
 
 The helper checks the repository destination, refuses divergent remote work,

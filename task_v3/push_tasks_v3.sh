@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repository=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+script_directory=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repository=$(git -C "$script_directory" rev-parse --show-toplevel)
 cd -- "$repository"
 baseline=bc01f7d79efd047b5b90eed5e1cc1b6e5eb6b90d
 expected_remote=https://github.com/jingxuxie/ALE_examples.git
@@ -10,10 +11,10 @@ if [[ $(git remote get-url origin) != "$expected_remote" ]]; then
     exit 1
 fi
 if [[ $# -gt 1 || ( $# -eq 1 && ${1:-} != --dry-run ) ]]; then
-    printf '%s\n' 'Usage: bash push_tasks_v3.sh [--dry-run]' >&2
+    printf '%s\n' 'Usage: bash task_v3/push_tasks_v3.sh [--dry-run]' >&2
     exit 2
 fi
-tip=$(git log -1 --format=%H -- push_tasks_v3.sh)
+tip=$(git log -1 --format=%H -- task_v3/push_tasks_v3.sh)
 if [[ -z $tip ]] || ! git merge-base --is-ancestor "$baseline" "$tip"; then
     printf '%s\n' 'The publication commit is missing or does not descend from the expected baseline.' >&2
     exit 1
@@ -28,7 +29,7 @@ if [[ -z $remote_head ]] || ! git cat-file -e "$remote_head^{commit}" 2>/dev/nul
     exit 1
 fi
 if git merge-base --is-ancestor "$tip" "$remote_head"; then
-    printf '%s\n' 'This tasks_v3 snapshot is already published.'
+    printf '%s\n' 'This task_v3 snapshot and folder layout are already published.'
     exit 0
 fi
 if ! git merge-base --is-ancestor "$remote_head" "$tip"; then
@@ -64,4 +65,4 @@ if [[ $remote_head != "$tip" ]]; then
     printf '%s\n' 'Remote changed after the upload; inspect GitHub before claiming exact-tip verification.' >&2
     exit 1
 fi
-printf 'Published and verified tasks_v3 snapshot: %s\n' "$tip"
+printf 'Published and verified task_v3 snapshot and folder layout: %s\n' "$tip"
