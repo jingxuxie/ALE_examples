@@ -1,0 +1,3147 @@
+arXiv:2301.05784v1  [cond-mat.mtrl-sci]  13 Jan 2023
+Implementation strategies in phonopy and phono3py
+Atsushi Togo, 1, 2, ∗ Laurent Chaput, 3 Terumasa Tadano, 4 and Isao Tanaka 2, 5, 6
+1Research and Services Division of Materials Data and Integr ated System,
+National Institute for Materials Science, Tsukuba, Ibarak i 305-0047, Japan
+2Center for Elements Strategy Initiative for Structural Mat erials,
+Kyoto University, Sakyo, Kyoto 606-8501, Japan
+3Universit´ e de Lorraine, LEMTA, Centre National de la Reche rche Scientiﬁque,
+Unit´ e Mixte de Recherche 7563, BP 70239, 54506 Vandœuvre Ce dex, france
+4Research Center for Magnetic and Spintronic Materials,
+National Institute for Materials Science, Tsukuba, Ibarak i 305-0047, Japan
+5Department of Materials Science and Engineering,
+Kyoto University, Sakyo, Kyoto 606-8501, Japan
+6Nanostructures Research Laboratory, Japan Fine Ceramics C enter, Atsuta, Nagoya 456-8587, Japan
+Scientiﬁc simulation codes are public property sustained b y the community. Modern technology
+allows anyone to join scientiﬁc software projects, from any where, remotely via the internet.
+The phonopy and phono3py codes are widely used open source ph onon calculation codes. This
+review describes a collection of computational methods and techniques as implemented in these
+codes and shows their implementation strategies as a whole, aiming to be useful for the community.
+Some of the techniques presented here are not limited to phon on calculations and may therefore be
+useful in other area of condensed matter physics.
+CONTENTS
+I. Introduction 1
+II. Crystal and symmetry 2
+A. Crystal structure 2
+B. Space group operation 3
+C. Primitive cell 3
+D. Reciprocal space 4
+E. Phonon coordinates 5
+F. Brillouin zone 5
+III. Geometry of supercell model 6
+A. Supercell construction 6
+B. Commensurate points 7
+IV. Transformation between force constants and
+dynamical matrices 7
+V. Non-analytical term correction 8
+VI. Regular grid in reciprocal primitive cell 9
+A. Traditional regular grid 9
+B. Generalized regular grid 9
+C. Indexing of grid points 10
+D. Symmetry of generalized regular grids 10
+E. Double grid for subgrid shift 11
+F. Grid points in BZ 11
+G. Irreducible grid points 11
+H. q point triplets 12
+VII. Tetrahedron method 13
+A. Division into six tetrahedra 14
+B. Functions 14
+C. Integration weights 15
+D. Use of symmetry of grid points 16
+E. Triplets integration weights 16
+VIII. Random displacement generation 17
+IX. Phonon band unfolding 17
+X. Conclusion 19
+ACKNOWLEDGMENTS 20
+A. Functions used in the linear tetrahedron
+method 20
+1. ω < ω i
+1 20
+2. ωi
+1 < ω < ω i
+2 20
+3. ωi
+2 < ω < ω i
+3 20
+4. ωi
+3 < ω < ω i
+4 21
+5. ωi
+4 < ω 21
+B. Summation formulae 21
+C. Projection into primitive cell Bloch states 22
+References 23
+I. INTRODUCTION
+Supported by an exponential growth of computer
+power, computer simulations and scientiﬁc software de-
+velopment are essential for condensed matter physics and
+materials science. Results obtained from computer sim-
+ulations are getting more realistic and scientiﬁc software
+development more robust.
+Since many scientiﬁc codes are distributed under open-
+source licenses, it is easy to start using scientiﬁc soft-
+ware and perform computations. Participation in scien-
+tiﬁc software development has also become easier with
+the availability of open-source compilers and source code
+2
+editors. Collaborative development by members at dif-
+ferent worksites or locations, i.e., distributed develop-
+ment, became quite popular for scientiﬁc software these
+days. Anyone can contribute to an open-source software
+project, and the contributions are usually united on in-
+ternet hosting services for software development. Docu-
+mentation of the scientiﬁc software is an important part
+of the software development, not only for users but also
+for scientiﬁc software developers. For users, it explains
+how to use the software. For developers, it describes how
+to read and write the code.
+Development of key software can be a project that lasts
+for many years. Once a key code is developed, it may be
+used for an unexpectedly long time. However, computer
+architectures are constantly evolving. The way to achieve
+high performance computing may therefore change dras-
+tically in a relatively short time, on the order of a decade.
+For example, it is always required to follow the increase
+in the number of cores in processors. Indeed, algorithms
+and data structures must be optimized for a concurrent
+use of many cores in a multi-core processor. Increasing
+memory space usually allows more ﬂexible software de-
+sign. To adapt the code to those changes, the documen-
+tation is important to share the meaning of the software
+design choices among users and developers.
+The phonopy and phono3py codes are scientiﬁc soft-
+ware developed to perform phonon calculations. A vari-
+ety of physical properties can be calculated using them:
+the phonon spectrum, the dynamical structure factor,
+and the lattice thermal conductivity, to mention just a
+few. The computational method is based on the supercell
+approach. In the computer implementations, various nu-
+merical methods and techniques are employed. Some of
+those implemented in the phonopy and phono3py codes
+are covered in this review. Our motivation to write this
+review is to provide essential information to understand
+the codes in depth and to invite scientiﬁc software devel-
+opers in the phonopy and phono3py projects.
+Although this review is written targeting scientiﬁc soft-
+ware developers, it may be also useful for expert users of
+the phonopy and phono3py codes. The computational
+methods and techniques underlying the phonon calcula-
+tions are described as implemented in the phonopy and
+phono3py codes.
+In Sec. II, the representation of the crystal structure
+and the crystal symmetry are presented in a crystallo-
+graphic way. The reciprocal space of the crystal and
+the crystal symmetry in the reciprocal space are also de-
+scribed. Then, the phonon coordinates are introduced.
+The concept of Brillouin zone (BZ) required for the
+phonon calculation is brieﬂy deﬁned.
+In Sec. III, the geometry of the supercell structure
+model is described. The supercell geometry is associated
+to the primitive cell by an integer matrix and how to con-
+struct the supercell geometry using the integer matrix is
+explained.
+In Sec. IV, the transformation between the supercell
+force constants and the dynamical matrices is presented.
+Since the phonopy and phono3py codes employ the super-
+cell approach, the force constants elements are limited to
+within the supercell. The transformation therefore needs
+to be performed with special care. Such details are given
+in this section.
+In Sec. V, the treatment of long range dipole-dipole
+interaction in the dynamical matrix, as implemented in
+the phonopy code, is explained. The implementation is
+mainly based on Ref. 1, and its application to the super-
+cell approach is reviewed.
+In Sec. VI, the traditional and generalized regular grids
+used to sample reciprocal space discretely are deﬁned.
+The symmetry treatment of those grid points, used in
+the phonopy and phono3py codes, is also presented.
+In Sec. VII, a linear tetrahedron method is described
+using the formulation as implemented in the phonopy and
+phono3py codes. The implementation is mainly based
+on Refs. 2 and 3. The method is then applied to three
+phonon scattering.
+In Sec. VIII, a scheme to generate random atomic dis-
+placements in the supercell at ﬁnite temperatures is pre-
+sented. This is achieved by superpositions of displace-
+ments corresponding to randomly sampled harmonic os-
+cillators.
+In Sec. IX, a band unfolding technique implemented
+in the phonopy code following Ref. 4 is explained. The
+formulation speciﬁc for the phonon calculation with the
+supercell approach is provided.
+II. CR YSTAL AND SYMMETR Y
+A. Crystal structure
+As shown in Fig. 1, a crystal model is deﬁned by a
+collection of unit cells periodically repeated in the three
+directions of space. Each unit cell contains atoms. We
+normally choose a conventional set of basis vectors to
+span the unit cell, ( a, b, c), so that it represents natu-
+rally the crystal symmetry along with the choice of origin
+of atomic positions. 5 Positions of atoms are represented
+either in Cartesian coordinates or in crystallographic co-
+ordinates. Denoting the crystallographic coordinates of
+an atom as x = (x1, x2, x3)⊺, its position R is given by
+R = x1a + x2b + x3c
+= (a, b, c)
+
+
+x1
+x2
+x3
+
+
+= (a, b, c)x. (1)
+In the above equation, if the basis vectors are represented
+using column vectors containing their Cartesian compo-
+nents, then ( a, b, c) becomes a matrix, and R a column
+vector containing the Cartesian coordinates of the atomic
+3
+position vector,
+
+
+Rx
+Ry
+Rz
+
+ =
+
+
+ax bx cx
+ay by cy
+az bz cz
+
+
+
+
+x1
+x2
+x3
+
+ . (2)
+In the following we will use both representations. De-
+pending on context, ( a, b, c) can therefore be considered
+as a row vector containing three elements of a vector
+space, or a 3 by 3 matrix.
+It is assumed that elements of x are in the inter-
+val [0 , 1) to describe the structure. However it is of-
+ten the case that we have to compare two positions of
+atoms which may be in diﬀerent unit cells, possibly af-
+ter a space group operation. For example, to identify
+two coordinates x and x′ which correspond to the same
+location within the unit cell, but are possibly shifted
+by a lattice vector, it is convenient to bring each ele-
+ment of the diﬀerence ∆ x = x′− x into the interval
+[−0.5, 0.5) and then conﬁrm that the length of ∆ x is
+smaller than a tolerance ǫ. This is implemented in the
+phonopy and phono3py codes everywhere by rounding
+components of ∆ x to the nearest integer (nint(∆ x)) and
+checking|(a, b, c)[∆ x− nint(∆ x)]| < ǫ.
+(a) Unit cell (b) Basis vectors
+(c) Crystal lattice
+Lattice point
+Position of atom
+FIG. 1. Crystal structure model of β -Si3N4. See also Fig. 2
+for the space group symmetry. (a) Unit cell containing atoms .
+(b) Basis vectors of the unit cell. (c) Crystal lattice. The ﬁ lled
+circle symbols show the lattice points. In this model, the un it
+cell is assumed to be primitive.
+B. Space group operation
+Various symmetries of crystals and phonons are used in
+the phonopy and phono3py codes. The most important
+one is the space group symmetry. A space group oper-
+ation is composed of a (proper or improper) rotation S
+and a translation τ . It is often written by a composite
+notation (S, τ) which sends the position R to
+R′ = (S, τ)R≡S R + τ. (3)
+Using crystallographic coordinates this is written as
+(a, b, c)x′ =S(a, b, c)x + (a, b, c)w (4)
+or
+x′ = (a, b, c)−1S(a, b, c)x + w
+≡ Sx + w, (5)
+where S can be shown to be a unimodular matrix.
+w contains the components of the translation vector
+in the crystallographic basis. If Cartesian coordinates
+were used instead, the matrix representing the rotation
+would be orthogonal. Representing the space group by
+S ={(S, τ)}, the crystallographic point group is given
+by P ={S|(S, τ)∈ S}. An example of space group oper-
+ation is shown in Fig. 2. The crystal structure overlaps
+with itself after a rotation of 60 ◦ along z axis and a + 1
+2 c
+shift. Therefore
+S =
+
+
+1 ¯1 0
+1 0 0
+0 0 1
+
+ , w =
+
+
+0
+0
+1/2
+
+ , (6)
+must be a space group operation. It means that any
+atom in the unit cell at point x is sent by the space
+group operation to a new point
+x′ =
+
+
+1 ¯1 0
+1 0 0
+0 0 1
+
+ x +
+
+
+0
+0
+1/2
+
+ . (7)
+The new point x′ can be located out of the original unit
+cell, but an atom with the same atomic type must be
+found at this new location.
+(6) 6+(0, 0, 1/2)(1) 1
+FIG. 2. Symmetry operations applied on the unit cell of β -
+Si3N4 whose space-group type is P 63/m (No. 176). The left
+and middle ﬁgures illustrate identity and 6-fold screw axis
+operations. Their notations follow the international tabl es for
+crystallography volume A. 5 The right ﬁgure shows the crystal
+structure viewed from the top ( z-axis) that depicts the 6-fold
+screw axis passing through the origin O.
+C. Primitive cell
+In most cases, a unit cell as described in Sec. II A is
+used as the input crystal structure model of a phonon
+4
+TABLE I. Choices of transformation matrices Pprim of Eq. (8)
+used in the phonopy and phono3py codes. The subscripts X
+of the matrices PX indicate the centring types: A, B, C for
+the base centring types, I and F for the body and face cen-
+tring types, respectively, and R for the (obverse) rhombohe-
+dral centring type.
+PA =
+
+
+1 0 0
+0 1
+2
+¯1
+2
+0 1
+2
+1
+2
+
+ , PB =
+
+
+1
+2 0 ¯1
+2
+0 1 0
+1
+2 0 1
+2
+
+ , PC =
+
+
+1
+2
+1
+2 0
+¯1
+2
+1
+2 0
+0 0 1
+
+ ,
+PI =
+
+
+¯1
+2
+1
+2
+1
+2
+1
+2
+¯1
+2
+1
+2
+1
+2
+1
+2
+¯1
+2
+
+ , PF =
+
+
+0 1
+2
+1
+2
+1
+2 0 1
+2
+1
+2
+1
+2 0
+
+ , PR =
+
+
+2
+3
+¯1
+3
+¯1
+3
+1
+3
+1
+3
+¯2
+3
+1
+3
+1
+3
+1
+3
+
+ .
+calculation. The most plausible choice of unit cell is ei-
+ther a primitive cell or a conventional unit cell. The
+former represents the minimum unit of periodicity of a
+crystal lattice. It is therefore the one used for Fourier
+expansions and is necessary for a reciprocal space rep-
+resentation of phonon properties. The Bloch theorem
+evidenced this lattice translational symmetry. The latter
+follows the crystallographic convention. Although it pro-
+vides intuitive shapes of the unit cells (cubic, hexagonal,
+etc), it may contain several lattice points. Fig. 3 shows
+the conventional unit cell and a primitive cell for silicon
+crystallized within the face-centred-cubic structure.
+The conventional unit cell structure is uniquely de-
+ﬁned to follow the crystallographic convention, 5 within
+the freedom due to Euclidean normalizer. 5 On the other
+hand, the choice of primitive cell is not unique. This is in-
+convenient for a systematic handling of crystal structure
+models in phonon calculations. Therefore, phonopy sug-
+gests predeﬁned transformation matrix Pprim from the
+conventional unit cell to the primitive cell. Pprim is used
+as
+(ap, bp, cp) = ( ac, bc, cc)Pprim, (8)
+where ( ap, bp, cp) are the basis vectors of the primitive
+cell and ( ac, bc, cc) those of the conventional unit cell.
+The choices of the transformation matrices used in the
+phonopy and phono3py codes are shown in Table I. For
+example, the transformation matrix used for silicon in
+Fig. 3 is Pprim = PF . These matrices are equivalent to
+those presented in Table 2 of Ref. 6 although those are
+given for the reciprocal space basis vectors.
+The crystal lattice is deﬁned as the set of integer linear
+combinations of primitive lattice vectors. A lattice vector
+Rl can therefore be written as
+Rl = l1ap + l2bp + l3cp = (ap, bp, cp)l (li∈ Z). (9)
+In Fig. 1, if the unit cell is assumed to be primitive, then
+Fig. 1 (c) shows the crystal lattice. The lattice point
+may then be chosen to coincide with the origin of each
+Conventional unit cell Primitive cell
+FIG. 3. Conventional unit cell and primitive cell of sili-
+con. The space group type is F d¯3m (No. 227). Since the
+conventional unit cell contains four lattice points with ei ght
+atoms, the primitive cell is chosen to have two atoms by
+det(PF ) = 1 / 4.
+unit cell. Sometimes it is also useful to regard the crystal
+lattice as generated using the lattice translations of the
+space group, ( I, t), where I and t denote the identity
+operation and lattice translation, respectively.
+D. Reciprocal space
+The crystal structure, and the symmetry explained
+above, are deﬁned in direct (real) space. In this sec-
+tion, crystallography is brieﬂy summarized in reciprocal
+space. This is quite useful for our purpose since phonons
+are described in reciprocal space using wave vectors. It is
+convenient to introduce a reciprocal lattice whose basis
+vectors ( a∗
+p, b∗
+p, c∗
+p) are solutions of the equation
+(ap, bp, cp)⊺(a∗
+p, b∗
+p, c∗
+p) = 2 π1. (10)
+This equation can be solved to give
+a∗
+p = 2π bp× cp
+Vc
+, b∗
+p = 2π cp× ap
+Vc
+, c∗
+p = 2π ap× bp
+Vc
+,
+(11)
+where Vc = ap· (bp× cp) = bp· (cp× ap) = cp· (ap× bp).
+The reciprocal lattice points are then obtained from the
+integer linear combinations of reciprocal basis vectors,
+G = G1a∗
+p + G2b∗
+p + G3c∗
+p = (a∗
+p, b∗
+p, c∗
+p)G (Gi∈ Z).
+(12)
+Similarly to the atomic positions R, wave vectors q are
+deﬁned from real linear combinations of the reciprocal
+lattice vectors,
+q = q1a∗
+p + q2b∗
+p + q3c∗
+p = (a∗
+p, b∗
+p, c∗
+p)q. (13)
+If the qi are restricted to the interval [0 , 1), a primitive
+cell of reciprocal space is obtained.
+If we consider a component of a Fourier expansion,
+fq(R) = eiq·R, it is transformed by an operation of the
+crystallographic point group to the function
+Sfq(R) = fq(S−1R) = eiq·S−1R = eiSq·SS−1R = eiSq·R
+= fSq(R). (14)
+5
+For this reason, the image of a wave vector through an
+operation of the crystallographic point group is deﬁned
+to be
+q′ =Sq⇐⇒ (a∗
+p, b∗
+p, c∗
+p)q′ =S(a∗
+p, b∗
+p, c∗
+p)q (15)
+or
+q′ = (a∗
+p, b∗
+p, c∗
+p)−1S(a∗
+p, b∗
+p, c∗
+p)q (16)
+= (ap, bp, cp)⊺S(ap, bp, cp)−⊺q (17)
+= S−⊺q. (18)
+The set {S−⊺q} with S in the crystallographic point
+group{S} is called the star of q.
+E. Phonon coordinates
+Atoms vibrate in the vicinity of their equilibrium po-
+sitions in crystals. Instantaneous and equilibrium posi-
+tions of atoms in crystals are denoted by Rlκ and R0
+lκ,
+respectively, where l and κ are used to label the lattice
+points and atoms in the primitive cell of l, respectively.
+Displacements of atoms are written as ulκ = Rlκ− R0
+lκ.
+In this review, we deﬁne the dynamical matrix as 7
+Dκα,κ′α′ (q) = 1√mκmκ′
+∑
+l′
+Φ 0κα,l′κ′α′ eiq·(R0
+l′κ′ −R0
+0κ).
+(19)
+α and mκ denote the index of the Cartesian coordinates
+and the mass of the atom κ, respectively. Φ lκα,l′κ′α′
+are the harmonic force constants, deﬁned as the second
+derivative of the energy with respect to atomic positions,
+and evaluated at the equilibrium positions. 7 Phonon fre-
+quency ωqν and eigenvector Wκα(qν) are obtained as the
+solution of the eigenvalue equation of the dynamical ma-
+trix in Eq. ( 19), which is written as
+∑
+κ′α′
+Dκα,κ′α′ (q)Wκ′α′ (qν) = ω2
+qνWκα(qν). (20)
+ν labels the phonon band index, and the composite index
+qν is used to consider a phonon mode.
+Eq. ( 20) can also be written in matrix form as
+D(q)W(q) = W( q)Ω 2(q), (21)
+or, because D( q) is hermitian,
+D(q) = W( q)Ω 2(q)W†(q), (22)
+where Ω 2(q) is the diagonal matrix whose diagonal el-
+ements are ω2
+qν. Each column of W( q) contains an
+eigenvector Wκα(qν) corresponding to a diﬀerent band
+index ν. Elements of each column are ordered as
+(Wκ1x, Wκ1y, Wκ1z, . . . , Wκna x, Wκna y, Wκna z), where na
+is the number of atoms in the primitive cell.
+Because Dκα,κ′α′ (q) = D∗
+κα,κ′α′ (−q), we have
+ωqν = ω−qν, (23)
+and we can choose
+Wκα(qν) = W ∗
+κα(−qν). (24)
+Moreover eigenvalues and eigenvectors inherit symme-
+try properties of the force constants. It can be shown 8
+that under a space group operation (S, τ) the eigenvalues
+and eigenvectors transform as
+ωSqν = ωqν, (25)
+Wκ′ (Sqν) =SWκ(qν)e−iSq·τ , (26)
+where Wκ(qν) represents the phonon eigenvector of
+atom κ in Cartesian coordinates, and κ′ is the image
+of atom κ under the space group operation.
+An actual displacement can be described from a linear
+combination of phonon eigenvectors. This deﬁnes the
+phonon coordinates Q(qν) as
+ulκα =
+∑
+qν
+Q(qν) 1√N mκ
+Wκα(qν)eiq·R0
+lκ (27)
+=
+∑
+qν
+Q(qν)ulκα(qν), (28)
+where N is the number of lattice points in crystal.
+ulκα(qν) is deﬁned for the purpose of convenience in the
+following sections. The previous equation can be inverted
+to give
+Q(qν) =
+∑
+lκα
+ulκα
+√ mκ
+N W ∗
+κα(qν)e−iq·R0
+lκ . (29)
+F. Brillouin zone
+Symmetry property of phonons in reciprocal space is
+best represented in the BZ. 6,8–12 In the phonopy and
+phono3py codes, the BZ is deﬁned as a Wigner-Seitz cell
+of the reciprocal lattice. To check if a q point belongs
+to the BZ we proceed as follow. First the basis vectors
+of the Niggli cell 13–16 are determined. The Niggli cell is
+a cell with the shortest possible reciprocal basis vectors.
+Then using integer linear combinations of those Niggli
+basis vectors, we search for the shortest |q + G|. Finally
+q + G is used as the q point in the BZ.
+Three q points are needed for the three phonon scatter-
+ing considered in the phono3py code. In case one or more
+of those three points is on the BZ surface, we choose the
+translationally equivalent points on the BZ surface which
+minimize|q + q′ + q′′|.
+As an example, the BZ of β-Si3N4 is presented in
+Fig. 4. The basal plane has the hexagonal shape and
+c∗
+p is longer than a∗
+p and b∗
+p because cp is shorter than
+ap and bp. By deﬁnition, a∗
+p/2, b∗
+p/2, and c∗
+p/2 are lo-
+cated on the BZ surface. The high symmetry points and
+paths in the BZ have special symbols as shown in Fig. 4
+(b).6
+6
+Γ
+M K
+Λ Σ
+(a) (b)
+FIG. 4. Brillouin zone (BZ) of β -Si3N4. See also Figs. 1 and
+2 for the cell shape in direct space. (a) The ﬁrst BZ. (b) BZs
+viewed from c∗
+p axis direction. Symbols of the special points
+and paths follow the Bilbao crystallographic server. 6
+III. GEOMETR Y OF SUPERCELL MODEL
+A. Supercell construction
+In the phonopy and phono3py codes, the supercell ap-
+proach is employed. The supercell is deﬁned by multiple
+primitive cells, so that the basis vectors of the supercell
+(as, bs, cs) can be represented as the image of the primi-
+tive cell basis vectors through an integer matrix Mp→s,
+(as, bs, cs) = ( ap, bp, cp)Mp→s. (30)
+Like the unit cell, the supercells are arranged on the su-
+percell lattice. The supercell lattice points are labeled by
+L, and located from the vectors RL.
+FIG. 5. Lattices and basis vectors of primitive cell ( ap, bp),
+supercell ( as, bs), new primitive cell ( ˜ap, ˜bp), new supercell
+(˜as, ˜bs), and auxiliary supercell ( aaux, baux). Circle and small
+ﬁlled circle symbols depict lattice points in the supercell and
+in the new supercell, respectively. The latter points can be
+brought by the supercell lattice translations to the former
+points uniquely.
+The supercell model is constructed using Mp→s. The
+lattice points within the supercell are used to perform the
+summation found in Eq. ( 19). These lattice points can be
+elegantly obtained using the approach reported by Hart
+and Forcade.17 The integer matrix Mp→s is ﬁrst reduced
+to a diagonal integer matrix D = P Mp→ sQ by the uni-
+modular matrices P and Q, where we choose det( P ) = 1
+and det( Q) = 1. This matrix decomposition can be the
+Smith normal form (SNF), however, it is unnecessary to
+strictly follow the deﬁnition of the SNF.
+Using this transformation, Eq. 30 can be written
+(˜as, ˜bs, ˜cs) = ( ˜ap, ˜bp, ˜cp)D, (31)
+with
+(˜as, ˜bs, ˜cs) = ( as, bs, cs)Q, (32)
+(˜ap, ˜bp, ˜cp) = ( ap, bp, cp)P −1. (33)
+(˜as, ˜bs, ˜cs) and ( ˜ap, ˜bp, ˜cp) deﬁne a new supercell and
+a new primitive cell, respectively. Because det( P ) =
+det(Q) = 1, they have the same volumes as the former
+ones, and generate the same lattices. The beneﬁt of us-
+ing those new primitive and supercell comes from the
+fact that D is diagonal. The new primitive and supercell
+lattice vectors are therefore collinear.
+We can easily ﬁnd the lattice vectors located within
+the new supercell. If we write D = diag(n1, n2, n3), they
+are given by the vectors
+Rm = ( ˜ap, ˜bp, ˜cp)
+
+
+m1
+m2
+m3
+
+ = (˜ap, ˜bp, ˜cp)m, (34)
+with mi∈{ 0, 1, . . . , ni− 1}. This can also be written
+Rm = ( ˜as, ˜bs, ˜cs)D−1m (35)
+= (as, bs, cs)QD−1m. (36)
+Therefore, the lattice points within the original supercell
+have coordinates
+xs = QD−1m (mod 1) (37)
+along the supercell lattice vectors ( as, bs, cs). The
+(mod 1) operation is used to shift the lattice vectors from
+within the new supercell to within the original supercell.
+In Fig. 5, an example of a supercell construction for a
+two dimensional lattice is presented. D = P Mp→ sQ is
+computed as
+(
+2 0
+0 4
+)
+=
+(
+0 1
+−1 1
+) (
+2 2
+−2 2
+) (
+0 −1
+1 −1
+)
+. (38)
+This gives
+(˜ap, ˜bp) = ( ap, bp)P −1 = (ap + bp,−ap), (39)
+(˜as, ˜bs) = ( as, bs)Q = (bs,−as− bs). (40)
+As can be seen in Fig. 5, ( ˜ap, ˜bp) and ( ˜as, ˜bs) are mu-
+tually parallel, and the new supercell is simply built by
+2× 4 units of the new primitive cell. Since the lattices
+7
+generated by the original or new basis vectors are the
+same, the lattice points inside the new supercell are sim-
+ply brought into the original supercell by supercell lattice
+translations.
+Another way of constructing the supercell is to employ
+an auxiliary supercell,
+(aaux, baux, caux) = ( ap, bp, cp)Mp→aux, (41)
+which is deﬁned by a diagonal integer matrix Mp→aux =
+diag(n1, n2, n3). This gives
+(aaux, baux, caux) = ( as, bs, cs)M −1
+p→sMp→aux. (42)
+We choose M −1
+p→sMp→aux to be an integer matrix. To
+satisfy it, in the implementation, the diagonal elements
+of Mp→aux are determined by making the smallest par-
+allelepiped of ( aaux, baux, caux) that includes the paral-
+lelepiped of ( as, bs, cs). The lattice points within this
+auxiliary supercell are then
+Rm = (ap, bp, cp)
+
+
+m1
+m2
+m3
+
+ = (ap, bp, cp)m, (43)
+with mi∈{ 0, 1, . . . , ni− 1}. Their coordinates along the
+basis vectors of the auxiliary supercell are
+xaux = M −1
+p→auxm (44)
+while their coordinates along the basis vectors of the orig-
+inal supercell are
+xs = M −1
+p→sMp→auxxaux (mod 1). (45)
+As before, we used the (mod 1) operation to shift the
+lattice points from within the auxiliary supercell to
+within the original supercell. Notice that every lat-
+tice point within the original supercell is obtained from
+det
+(
+M −1
+p→sMp→aux
+)
+lattice points within the auxiliary
+supercell. Only one of them should be conserved.
+An example is shown in Fig. 5. Lattice points
+in the auxiliary supercell are brought into the super-
+cell by the supercell lattice translations. But since
+det
+(
+M −1
+p→sMp→aux
+)
+= 2, each lattice point within the
+original supercell is obtained from two lattice points in
+the auxiliary supercell.
+For backward compatibility, to preserve indices of
+atoms in the supercell, it is the latter way of the supercell
+construction which is used as default in the phonopy and
+phono3py codes. However, the latter algorithm is much
+slower than the former, and therefore the former should
+be used for very larger supercells.
+B. Commensurate points
+From Eqs. ( 30) and ( 10), we have
+(a∗
+p, b∗
+p, c∗
+p) = ( a∗
+s , b∗
+s , c∗
+s )M ⊺
+p→s. (46)
+(a∗
+s , b∗
+s , c∗
+s ) are the reciprocal basis vectors associated
+to the supercell. q points given by integer linear com-
+binations of the reciprocal supercell basis vectors are
+called commensurate with the supercell because they ful-
+ﬁll eiq·RL = 1 for any supercell lattice vector RL.
+For practical purpose, we are interested in the com-
+mensurate points located within the reciprocal primitive
+cell. Since Eq. ( 46) has the same form as Eq. ( 30), the
+same approaches as those explained in Sec. III A can be
+used for generation of the commensurate points within
+the reciprocal primitive cell.
+IV. TRANSFORMATION BETWEEN FORCE
+CONSTANTS AND DYNAMICAL MATRICES
+In Eqs. ( 19) and ( 20), force constants are transformed
+to phonon eigenvalues and eigenvectors. In principle, in
+Eq. ( 19) the summation over l′ is performed for all lat-
+tice vectors. However, in the supercell approach, it is not
+Φ 0κα,l′κ′α′ which is obtained from numerical simulations,
+but Φ SC
+0κα,l′κ′α′ = ∑
+L′ Φ 0κα,L′+l′κ′α′ ,18 with l′ restricted
+to the supercell. It means that the force constants are
+only known within a restricted region of the crystal, the
+supercell, and within this region they are contaminated
+by the periodic repetitions of the supercell. This also
+means that the supercell force constants Φ SC
+0κα,l′κ′α′ are
+periodic under a supercell lattice translation while the
+phase factor eiq·(R0
+l′κ′ −R0
+0κ) is not, except when q is a
+wave vector commensurate with the supercell. There is
+therefore an ambiguity about where to choose the atom
+(l′κ′). For commensurate wave vectors, it could be cho-
+sen in any periodic repetition of the supercell contain-
+ing atom (0 κ) without changing the value of phase fac-
+tor. However, for other values of q, this value would be
+changed, and therefore this choice matters.
+In the phonopy and phono3py codes, following Ref. 18,
+the phase factors given by the shortest vectors of R0
+l′κ′ +
+RL− R0
+0κ are chosen, where RL are the positions of
+the supercell lattice points L. This is implemented by
+searching L by
+{L}κκ′l′ = arg min
+L
+(|R0
+l′κ′ + RL− R0
+0κ|), (47)
+and the results are stored and used many times in the
+calculation. Since multiple L can be found for each pair
+of atoms (0 κ) in the primitive cell and ( l′κ′) in the su-
+percell cell, Eq. ( 47) gives a set of L. The dynamical
+matrix of the supercell is computed from the supercell
+force constants Φ SC
+0κα,l′κ′α′ averaging the phase factors of
+{L} as follows, 18
+DSC
+κα,κ′α′ (q) = 1√mκmκ′
+∑
+l′
+Φ SC
+0κα,l′κ′α′
+× 1
+|{L}κκ′l′|
+∑
+{L}κκ′ l′
+eiq·(R0
+l′κ′ +RL−R0
+0κ).
+(48)
+8
+Eq. ( 19) can be inverted to compute force constants
+from N dynamical matrices, 19
+Φ 0κα,l′κ′α′ =
+√mκmκ′
+N
+∑
+q
+Dκα,κ′α′ (q)e−iq·(R0
+l′ κ′ −R0
+0κ).
+(49)
+Dκα,κ′α′(q) can be obtained from known eigenvectors
+and eigenvalues, as in Eq. ( 22), or calculated by Eq. ( 48).
+Φ SC
+0κα,l′κ′α′ can be obtained from DSC
+κα,κ′α′(q) by restrict-
+ing the above q sum to the wavevectors q⋆ commensurate
+with the supercell. Eq. ( 49) can also be used to transform
+supercell force constants in a diﬀerent supercell shape by
+oversampling q⋆ points. Indeed, we obtain
+Φ SCL←S
+0κα,l′
+Lκ′α′ = 1
+N
+∑
+q⋆
+L
+e
+−iq⋆
+L·(R0
+l′
+Lκ′ −R0
+0κ)
+
+
+∑
+l′
+S
+Φ SCS
+0κα,l′
+Sκ′α′
+1
+|{LS}κκ′l′
+S
+|
+∑
+{LS}κκ′ l′
+S
+e
+iq⋆
+L·(R0
+l′
+Sκ′ +RLS −R0
+0κ)
+
+ , (50)
+where subscripts of variables XL and XS mean those de-
+ﬁned in diﬀerent supercell shapes, e.g., larger (L) and
+smaller (S) supercells, respectively. The original super-
+cell force constants Φ SCS
+0κα,l′
+Sκ′α′ are given in the smaller
+supercell. Commensurate points q⋆
+L are sampled with re-
+spect to the larger supercell. The transformed supercell
+force constants Φ SCL←S
+0κα,l′
+Lκ′α′ are given in the larger super-
+cell. A possible application is to embed anharmonic con-
+tribution obtained through self-consistent harmonic ap-
+proximation using a smaller supercell into the harmonic
+force constants of a larger supercell. 20
+V. NON-ANALYTICAL TERM CORRECTION
+Long range dipole-dipole interactions are diﬃcult to
+capture in a supercell approach. Therefore it is treated
+with the help of a model, the so called non-analytical
+term correction (NAC). 1,21–23
+At the commensurate points, this contribution is al-
+ready included in Eq. ( 48) via the supercell force con-
+stants. However, at general q points it is not. Gonze and
+Lee1 have formulated this contribution to the dynamical
+matrix, and in the phonopy and phono3py codes only
+the reciprocal space term of the dipole-dipole interaction
+contribution to the dynamical matrix is calculated. It is
+given by
+DDD
+κα,κ′α′ (q) = 4π
+Vc
+e2
+4πǫ0
+1√mκmκ′
+∑
+ββ′
+Z ∗
+κ,βαZ ∗
+κ′,β′α′
+×
+∑
+Q=G+q
+QβQβ′
+∑
+γγ′ Qγǫγγ′Qγ′
+× eiG·(R0
+0κ−R0
+0κ′ ) exp
+
+−
+∑
+γγ′
+Qγǫγγ′Qγ′
+4Λ 2
+
+ ,
+(51)
+where β and γ indicate the Cartesian coordinates. If
+the polarization is called P, then Z ∗
+κ,βα = Vc
+e
+∂Pβ
+∂R0κα
+|E=0
+are the Born eﬀective charges at zero electric ﬁeld, E =
+0. ǫγγ′ is the high-frequency static dielectric constant
+tensor. Λ is a parameter adjusted together with the cutoﬀ
+radius used for the summation over G. A translational
+invariance condition can be applied to Eq. ( 51) by 1
+DDD
+κα,κ′α′(q)←DDD
+κα,κ′α′ (q)− δκκ′
+∑
+κ′′
+√ mκ′′
+mκ
+DDD
+κα,κ′′α′ (q = 0).
+(52)
+As said already, at the commensurate points, this
+dipole-dipole contribution is already included in Eq. ( 48)
+via the supercell force constants. Therefore, Eq. ( 51)
+is used for the interpolation of the dynamical matrix at
+general q points. The procedure is reported in Ref. 1,
+which is described shortly as follows. At the commen-
+surate points q⋆, the short-range dynamical matrix is
+calculated as
+DSR,SC
+κα,κ′α′ (q⋆) = DSC
+κα,κ′α′(q⋆)− DDD
+κα,κ′α′ (q⋆). (53)
+Next, the short-range supercell force constants Φ SR,SC
+0κα,l′κ′α′
+is obtained from {DSR,SC
+κα,κ′α′ (q⋆)} using Eq. ( 49), then the
+short-range dynamical matrix DSR,SC
+κα,κ′α′ (q) is calculated
+at the general q point by Eq. ( 48), i.e.,
+{DSR,SC
+κα,κ′α′ (q⋆)}− −−−− →
+Eq.(49)
+Φ SR,SC
+0κα,l′κ′α′− −−−− →
+Eq.(48)
+DSR,SC
+κα,κ′α′ (q).
+(54)
+Finally, the dynamical matrix at the general q point with
+NAC is obtained by
+DNAC
+κα,κ′α′(q) = DSR,SC
+κα,κ′α′ (q) + DDD
+κα,κ′α′ (q). (55)
+An example of application of NAC to wurtzite-type
+AlN is shown in Fig. 6. As can be seen, the correction is
+signiﬁcant near the Γ point. It also shows the directional
+dependence near the Γ, in the direction of K and A, due
+to the non-spherical symmetry of ǫγγ′ and Z ∗
+κ,βα of AlN.
+9
+Γ M K Γ A L H A0
+5
+10 
+15 
+20 
+25 Frequency (THz) 
+Wave vector 
+FIG. 6. Calculated phonon band structure of wurtzite-
+type AlN using the 5 × 5 × 3 supercell with (solid curves)
+and without (dashed curves) non-analytical term correctio n
+(NAC). Circle and square symbols depict phonon frequencies
+at q → 0, where ﬁlled and open symbols indicate phonon
+modes calculated with and without NAC, respectively. Wave
+vector path was selected by Seek-path. 24,25
+VI. REGULAR GRID IN RECIPROCAL
+PRIMITIVE CELL
+When phonon properties at q points need to be inte-
+grated over the BZ, a technique often used is to discretize
+the reciprocal space. Usually reciprocal primitive cells
+are uniformly sampled by a regular grid such as Ref. 26,
+even if other choices are possible. 27 Traditionally, the reg-
+ular grid is deﬁned by evenly dividing the reciprocal basis
+vectors, as shown in Fig. 7 (a). However, other regular
+grids may be chosen, as shown in Fig. 7 (b). For example,
+the grid shown in Fig. 7 (b) is deﬁned by dividing evenly
+the reciprocal basis vectors of the conventional unit cell
+instead. This is a type of generalized regular grid, 28–31
+as will be explained later.
+(a) (b)
+FIG. 7. Diﬀerent Γ-centred regular grids in plane reciproca l
+primitive cell ( c2mm). Filled circle symbols depict the grid
+points. Open circle symbols show the grid points equivalent
+to some other grid points by periodicity. Shaded area indi-
+cates a microzone 2 and a∗
+m and b∗
+m give the basis vectors of
+the microzone. (a) Traditional regular grid. (b) A type of
+generalized regular grid. 28–31
+A. Traditional regular grid
+Traditionally, the volume of the reciprocal primitive
+cell is divided into uniform microzones so that the ba-
+sis vectors of the reciprocal primitive cell are simply in-
+teger multiples of the basis vectors of each microzone
+(a∗
+m, b∗
+m, c∗
+m). The equation which deﬁnes the microzone
+basis vectors is then
+(a∗
+p, b∗
+p, c∗
+p) = ( a∗
+m, b∗
+m, c∗
+m)D (56)
+with D = diag(n1, n2, n3), n i∈ N.
+A 2D example of this microzone is shown in Fig. 7
+(a). The q points of the grid points are represented by
+integer linear combinations of the microzone basis vectors
+plus a possible rigid shift ( s1, s2, s3)⊺. Therefore their
+coordinates in the ( a∗
+p, b∗
+p, c∗
+p) basis are
+
+
+q1
+q2
+q3
+
+ =
+
+
+(m1 + s1)/n1
+(m2 + s2)/n2
+(m3 + s3)/n3
+
+ , (57)
+mi∈{ 0, 1, . . . , ni− 1}, 0≤ si < 1.
+To conserve symmetry, ni and si are chosen so that the
+microzone lattice with the shift is invariant under the
+crystallographic point group P.
+B. Generalized regular grid
+A generalized regular grid is deﬁned using a conven-
+tional unit cell related to the primitive cell by Eq. ( 8).
+The reciprocal conventional unit cell is therefore
+(a∗
+c , b∗
+c , c∗
+c ) = ( a∗
+p, b∗
+p, c∗
+p)P ⊺
+prim. (58)
+Microzones can be deﬁned considering that their basis
+vectors are integer divisions of the reciprocal basis vectors
+of the conventional unit cell. This is written as
+(a∗
+c , b∗
+c , c∗
+c ) = ( a∗
+m, b∗
+m, c∗
+m)diag(N1, N2, N3), N i∈ N.
+(59)
+A 2D example of this microzone is shown in Fig. 7 (b).
+From Eqs. ( 58) and ( 59), we have
+(a∗
+p, b∗
+p, c∗
+p) = ( a∗
+m, b∗
+m, c∗
+m)diag(N1, N2, N3)P −⊺
+prim
+= (a∗
+m, b∗
+m, c∗
+m)Mg. (60)
+The grid matrix Mg = diag( N1, N2, N3)P −⊺
+prim is an in-
+teger matrix. det( Mg) is the number of translationally
+nonequivalent grid points in the reciprocal primitive cell.
+When Mg is not a diagonal matrix, the grid generated
+by Eq. (60) is a generalized regular grid, otherwise we ob-
+tain the traditional regular grid as described in Sec. VI A.
+Notice however that the generalized regular grid may be
+transformed into the traditional regular grid of some re-
+ciprocal cell using an SNF kind of decomposition, as ex-
+plained in Sec. III A. This is shown in the next section.
+10
+C. Indexing of grid points
+The integer matrix Mg can be reduced to a diagonal
+integer matrix such as D = P MgQ as has been employed
+in Sec. III A. This property of the matrix decomposition
+is similarly used to index grid points by integer numbers
+of{0, 1, . . . ,det(D)− 1}17 in the phono3py code. Note
+that det( D) = det( Mg). Eq. ( 60) is rewritten as
+(a∗
+p, b∗
+p, c∗
+p)Q = (a∗
+m, b∗
+m, c∗
+m)P −1D. (61)
+Denoting
+(˜a∗
+p, ˜b∗
+p, ˜c∗
+p) = ( a∗
+p, b∗
+p, c∗
+p)Q, (62)
+(˜a∗
+m, ˜b∗
+m, ˜c∗
+m) = ( a∗
+m, b∗
+m, c∗
+m)P −1, (63)
+we have
+(˜a∗
+p, ˜b∗
+p, ˜c∗
+p) = ( ˜a∗
+m, ˜b∗
+m, ˜c∗
+m)D. (64)
+Since Q is a unimodular matrix, ( ˜a∗
+p, ˜b∗
+p, ˜c∗
+p) and
+(a∗
+p, b∗
+p, c∗
+p) generate the same reciprocal primitive lat-
+tice. Similarly ( ˜a∗
+m, ˜b∗
+m, ˜c∗
+m) and ( a∗
+m, b∗
+m, c∗
+m) generate
+the same microzone lattice due to the unimodular ma-
+trix P −1.
+Eq. ( 64) has the same form as Eq. ( 56) with D =
+diag(n1, n2, n3). Therefore the q points of the grid points
+are calculated similarly as Eq. ( 57) but in the basis
+(˜a∗
+p, ˜b∗
+p, ˜c∗
+p),
+q = ( ˜a∗
+p, ˜b∗
+p, ˜c∗
+p)
+
+
+(m1 + ˜s1)/n1
+(m2 + ˜s2)/n2
+(m3 + ˜s3)/n3
+
+ . (65)
+Notice that in the above equation we use ˜ si rather than
+si. In fact for practical purpose, it may be convenient
+to deﬁne the grid shift s = ( s1, s2, s3)⊺ in the basis
+(a∗
+m, b∗
+m, c∗
+m). Therefore we have ˜s = P s.
+The indexing of the grid points in the reciprocal prim-
+itive cell ( ˜a∗
+p, ˜b∗
+p, ˜c∗
+p) is a trivial task. Indeed, in the
+phonopy and phono3py codes, each grid point is bijec-
+tively mapped to an integer p by
+p = m1 + n1m2 + n1n2m3, m i∈{ 0, 1, . . . , ni− 1}.
+(66)
+With this deﬁntion, 0 ≤ p < n 1n2n3.
+The q points generated this way are located within
+the reciprocal cell ( ˜a∗
+p, ˜b∗
+p, ˜c∗
+p). They could be shifted to
+the reciprocal cell ( a∗
+p, b∗
+p, c∗
+p) by reciprocal lattice vector
+translations if needed. Notice however that to obtain the
+integer p through Eq. ( 66) for a general integer triplet
+(m1, m2, m3)⊺, modulo n = ( n1, n2, n3)⊺ is required to
+locate the point within the cell ( ˜a∗
+p, ˜b∗
+p, ˜c∗
+p). Indeed,
+(m1, m2, m3)⊺ and ( m1 + G1n1, m2 + G2n2, m3 + G3n3)⊺
+indicate diﬀerent locations in q space, although they are
+equivalent points due to periodicity.
+D. Symmetry of generalized regular grids
+For a Γ centred grid ( si = 0), the coordinates of a q
+point in the basis ( a∗
+p, b∗
+p, c∗
+p) are given by
+q = QD−1m + G, (67)
+where m = (m1, m2, m3)⊺ and the reciprocal lattice vec-
+tor G is chosen to bring qi in the interval [0, 1). If the reg-
+ular grid is a traditional one, we simply have Q = P = 1.
+As shown by Eq. ( 18), the image of this q point through
+an operation of the crystallographic point group is given
+by
+q′ = S−⊺QD−1m + S−⊺G + G′ (68)
+where we have added a reciprocal lattice vector G′ to
+shift q′
+i of the image point in the interval [0 , 1). If q′
+belongs to the grid we have deﬁned, for all S−⊺ in the
+crystallographic point group, we will say that the grid is
+invariant under the crystallographic point group. If it is
+so, q′ can be written as
+q′ = QD−1m′ + G′′. (69)
+with m′
+i∈{ 0, 1, . . . , ni− 1}. Comparing Eq. ( 68) and
+Eq. ( 69), we obtain
+m′ = (QD−1)−1S−⊺(QD−1)m (70)
++ (QD−1)−1(S−⊺G + G′− G′′) (71)
+Because Q and S−⊺ are unimodular, and D contains the
+number of divisions along ( ˜a∗
+p, ˜b∗
+p, ˜c∗
+p), the last term is
+always a reciprocal lattice vector. The matrix
+˜S−⊺ = (QD−1)−1S−⊺(QD−1) (72)
+is the matrix representation of S in the ( ˜a∗
+m, ˜b∗
+m, ˜c∗
+m) ba-
+sis. Its determinant is always 1 or −1, but for m′ to be
+integer, it has to have integer entries, and therefore be
+unimodular. This is checked in the phono3py code, and
+if it is true for all S−⊺ in crystallographic point group,
+the regular grid follows the crystallographic point group,
+and we consider it is properly deﬁned. The last equation
+can also be written as
+P −1 ˜S−⊺P = MgS−⊺M −1
+g (73)
+and an equivalent strategy is to check that both sides are
+unimodular.
+Introducing the subgrid shift s (see Sec. VI C) can fur-
+ther break the symmetry of the regular grid. In Eq. ( 67)
+m is replaced by m + P s and m′ by m′ + P s in
+Eq. ( 69). Requiring the shift to be invariant (mod 1)
+under an operation of the crystallographic point group,
+˜S−⊺P s = P s (mod 1), we obtain the condition
+P −1 ˜S−⊺P s = MgS−⊺M −1
+g s = s (mod 1) (74)
+against all S−⊺ in the crystallographic point group.
+11
+E. Double grid for subgrid shift
+To satisfy the crystallographic symmetry, the subgrid
+shift si is normally chosen to be either 0 or 1 /2. It is
+better to treat grid point arithmetic by integers for the
+computer implementation and its performance. This is
+realized by doubling m and s. This well-known tech-
+nique, e.g., presented in Ref. 3, is directly usable for the
+generalized regular grid in Sec. VI B. As a choice, we de-
+ﬁne it by
+md = 2(m + P s), (mod 2 n), (75)
+and the q points are given like in Eq. ( 67) by
+q = QD−1md/2 + G. (76)
+The symmetry operation is implemented as
+md′
+= ˜S−⊺md (mod 2 n). (77)
+The index of the grid point md′
+is obtained by Eq. ( 66)
+after recovering m′ using Eq. ( 75),
+m′ = (md′
+− 2P s)/2 (mod n). (78)
+In the phono3py code, an integer vector of 2 s is used for
+the implementation, instead of s, to avoid ﬂoating point
+arithmetic.
+F. Grid points in BZ
+In this section, the BZ grid points are deﬁned to in-
+clude diﬀerent q points on the BZ surface that may be
+equivalent grid points by reciprocal lattice translations,
+in addition to the grid points inside the BZ.
+For a Γ centred grid, in the ( ˜a∗
+m, ˜b∗
+m, ˜c∗
+m) basis, each
+BZ grid point is represented by the integer triplet
+mBZ =
+
+
+mBZ
+1
+mBZ
+2
+mBZ
+3
+
+ =
+
+
+m1 + Gm
+1 n1
+m2 + Gm
+2 n2
+m3 + Gm
+3 n3
+
+ , G m
+i ∈ Z, (79)
+where Gm is chosen to minimize the norm of q =
+(˜a∗
+p, ˜b∗
+p, ˜c∗
+p)D−1mBZ = ( ˜a∗
+m, ˜b∗
+m, ˜c∗
+m)mBZ. Therefore,
+mBZ is written as
+mBZ = m + D arg min
+Gm
+(|(˜a∗
+p, ˜b∗
+p, ˜c∗
+p)(D−1m + Gm)|).
+(80)
+Multiple mBZ can be found when the grid point is on the
+BZ surface.
+In the phono3py code, Eq. ( 80) is implemented as fol-
+lows. As the ﬁrst step, reduced basis vectors of the re-
+ciprocal primitive cell are obtained by using the Niggli
+reduction or any reduction scheme. This is written using
+the change-of-basis matrix M ∗
+p→r as
+(a∗
+r , b∗
+r , c∗
+r ) = ( a∗
+p, b∗
+p, c∗
+p)M ∗
+p→r, (81)
+where M ∗
+p→r is unimodular. This gives
+q = (a∗
+r , b∗
+r , c∗
+r )(M ∗
+p→r)−1QD−1[m + DGm] (82)
+= (a∗
+r , b∗
+r , c∗
+r )
+[
+(M ∗
+p→r)−1QD−1m + G
+]
+. (83)
+The second line deﬁnes the reciprocal lattice vector G.
+G is divided into two pieces,
+G = ¯G + ∆ G. (84)
+Nearest integers of−(M ∗
+p→r)−1QD−1m are stored in ¯G,
+which is formally written as
+¯G =−nint[(M ∗
+p→r)−1QD−1m] (85)
+to bring the following ¯q closer to the origin,
+¯q = (a∗
+r , b∗
+r , c∗
+r )
+[
+(M ∗
+p→r)−1QD−1m + ¯G
+]
+. (86)
+∆ G that minimizes |¯q + (a∗
+r , b∗
+r , c∗
+r )∆ G| is searched in
+∆ Gi∈{− 2,−1, 0, 1, 2}. Finally, mBZ is obtained as
+mBZ = m + DQ−1M ∗
+p→r( ¯G + ∆ G). (87)
+As written above, m and p are in one-to-one correspon-
+dence and multiple mBZ can be found for each m or p.
+In the phono3py code, {{mBZ(p)}|0≤ p < det(D)} is
+calculated and stored at the initial step.
+With the subgrid shift, m in the equations above are
+replaced by m + P s. Either with or without the subgrid
+shift, mBZ is determined using the double grid technique
+presented in Sec. VI E. From stored mBZ, the BZ q points
+are obtained by
+q = (a∗
+p, b∗
+p, c∗
+p)QD−1(mBZ + P s). (88)
+G. Irreducible grid points
+Using symmetry properties of phonons, e.g., Eq. ( 25),
+the computation required for the phonon calculations can
+be reduced. Indeed, many phonon properties result from
+the BZ integration of functions of a single q variable.
+Collecting the values of those functions for the q points
+in the irreducible part of the BZ only may speed up the
+calculation and also save memory space. When the BZ
+integration is performed on a regular grid, the irreducible
+q points are obtained from the irreducible grid points. In
+this section, we explain how to obtain those irreducible
+grid points, where it is assumed that the regular grid
+satisﬁes the symmetry as described in Sec. VI D.
+A 2D example of BZ is presented in Fig. 8. A symmetry
+operation acts on a q point as q′ =Sq. The star of q is
+the set of those points written as {Sq|S∈ P}, where one
+q point represents its star. The irreducible BZ is the set
+of representative q points of all stars in the BZ. In Fig. 8
+(a), the 2D BZ has the eight-fold symmetry of C4v, and
+the irreducible BZ is depicted by the shaded area.
+In a phonon calculation, q points are sampled on a
+regular grid, and the irreducible grid points are deﬁned as
+12
+(a) (b) (c)
+FIG. 8. (a) 2D Brillouin zone (BZ). Shaded area is a choice
+of the irreducible BZ. (b) 6 × 6 regular grid on the BZ in-
+cluding the BZ surface. Filled and open circle symbols show
+the grid points belonging to the irreducible BZ under the C4v
+symmetry and the other grid points, respectively. (c) The ir -
+reducible grid points may not be located in a connected space .
+the grid points that belong to the irreducible BZ as shown
+in Fig. 8 (b). In practical calculations, the irreducible
+grid points considered may however not be located in a
+connected space, as shown in Fig. 8 (c). This simply
+means that the selected representative point in the star
+is located somewhere else.
+In the phonopy and phono3py codes, the irreducible
+grid points are obtained as follows. Each grid point in-
+dexed by p is represented in the double grid of Eq. ( 75).
+All symmetry operations ˜S−⊺ of the crystallographic
+point group are applied to the grid point as given by
+Eq. ( 77). The grid point index of the rotated grid point,
+p(S), is recovered successively applying Eqs. ( 78) and
+(66). The minimum value in {p(S)|p(S)≤ p,S∈ P} is
+chosen as the irreducible grid point. The mappings of the
+grid point indices p
+{S}
+−−→p are stored for all grid points
+in 0≤ p < det(D), and the unique elements of {p} give
+the irreducible grid points of the regular grid. It is im-
+portant to perform these operations only by integers for
+the computational eﬃciency.
+H. q point triplets
+In the phono3py code, triplets of q points, ( q, q′, q′′),
+are considered for the computation of the phonon-phonon
+interaction. This interaction is therefore not a func-
+tion of a single q variable. The number of grid points
+det(D) becomes large when dense sampling is used, e.g.,
+det(D) = 300 3 = 27× 106 in the study of Ref. 20. Then,
+the number of triplets of q points becomes 300 9∼ 1022,
+which is a really huge number for numerical computa-
+tions and also storing in memory of computers.
+Due to lattice translational symmetry, elements of the
+three phonon interaction strength can be non-zero only
+if q + q′ + q′′ = G.32,33 This is used to reduce the com-
+putation of the interactions for all triplets ( q, q′, q′′) to
+all pairs of points ( q, q′). To satisfy this condition, the
+Γ centred regular grid is used in the phonon-phonon in-
+teraction calculation of the phono3py code. Moreover,
+the crystallographic point group operations, time rever-
+sal symmetry, and permutation symmetry for each pair
+of q and q′ are used to reduce further the number of in-
+teractions to be computed. However, even doing so, the
+number of the combination of two q points is still large.
+Therefore, in this section, we describe the strategy used
+to make those computations practical.
+As mentioned in Sec. VI G, many phonon related prop-
+erties are written as sum of functions of a single vari-
+able q, such as ∑
+q f (q). For example, under the relax-
+ation time approximation, the lattice thermal conductiv-
+ity (LTC) computed in the phono3py code can be written
+as
+κ = 1
+N Vc
+∑
+qν
+τqν Cqνvqν⊗ vqν, (89)
+where Cqν and vqν denote the phonon mode heat capac-
+ity and group velocity, respectively,
+Cqν = kB
+(ℏωqν
+kBT
+)2 exp(ℏωqν/kBT )
+[exp(ℏωqν/kBT )− 1]2 , (90)
+vqν = ∂ωqν
+∂q . (91)
+In Eq. ( 90), ℏ and kB denote the reduced Planck con-
+stant and the Boltzmann constant, respectively, and T is
+the temperature. τqν in Eq. ( 89) is the phonon lifetime,
+and the reciprocal of τqν is calculated from the phonon-
+phonon interaction strength in the phono3py code. The
+explicit equation used for τqν = 1 /2Γ qν(ωqν) is given at
+Eq. 111.
+The LTC of Eq. ( 89) is conveniently computed iter-
+ating over irreducible q points. Indeed, the mode heat
+capacity and the lifetime have the same symmetry as the
+phonon band structure, Eq. ( 25),
+CSqν = Cqν , (92)
+τSqν = τqν , (93)
+and the derivative of Eq. ( 25) gives
+vSqν =Svqν . (94)
+Therefore, the summation in Eq. ( 89) can be reduced to
+a summation over the irreducible grid points. Denoting
+q the irreducible points, we obtain
+κ = 1
+N Vc
+∑
+qν
+τqν Cqν
+(∑
+S
+Svqν⊗S vqν
+)m(q)
+|{S}| (95)
+where the last factor is the number of branches in the
+star of q, m(q), divided by the cardinality of the crystal-
+lographic point group, |{S}|.
+When each calculation of τqν is computationally de-
+manding, the computation of τqν at diﬀerent q points
+may be distributed over multiple or many computer
+nodes. Therefore, it is convenient to have a set of q point
+13
+triplets at ﬁxed q in{(q, q′, q′′)}. As shown in Eq. ( 95),
+in this strategy, q is chosen from the irreducible BZ. Now,
+because q must be kept ﬁxed, it is not the full set of oper-
+ation of the crystallographic point group which should be
+used to reduce the summation over q′, but a subgroup
+which lets q invariant. This subgroup is known as the
+point group of q,
+Pq ={S|S q = q (mod G),S∈ P}. (96)
+Consequently, q′ is chosen in the irreducible part of
+the BZ deﬁned by Pq. Finally, q′′ is computed as
+q′′ = G− q− q′ where G is a reciprocal lattice vec-
+tor chosen to shift q′′ within the BZ of the same origin.
+For phonons, one of ( q, q′, q′′) and ( q, q′′, q′) is chosen
+due to the permutation symmetry.
+In the phono3py code, q, q′, and q′′ are taken from the
+BZ of the same origin. When some of them are on the
+BZ surface, they are chosen among their translationally
+equivalent points on the BZ surface so that the triplet
+minimizes|G| of q + q′ + q′′ = G.
+(a) (b) (c)
+-3 -2 -1 0 1 2 3
+-3 
+-2 
+-1 
+0
+1
+2
+3
+FIG. 9. A strategy to choose a q point triplet. The same 2D
+Brillouin zone (BZ) as Fig. 8 is used. The star symbols depict
+three q points in the BZ under the constraint of q + q′ + q′′ =
+G. (a) q is chosen from the irreducible grid points of C4v
+symmetry. q works as the stabilizer of the subgroup of C4v
+symmetry. (b) q′ is chosen in the irreducible grid points of
+the subgroup. (c) q′′ = G − q − q′ where G of the shortest
+|(a∗, b∗)G|, i.e., G = (0, 0) in this example, is chosen.
+This triplet search is implemented using the irreducible
+grid points and the BZ grid points described in Secs. VI G
+and VI F, respectively. The q points q, q′, and q′′ are
+represented by the BZ grid points mBZ
+q , mBZ
+q′ , and mBZ
+q′′ ,
+respectively. As shown in Fig. 9 (a), mBZ
+q is chosen in the
+irreducible grid points. The point mBZ
+q breaks the crys-
+tallographic point-group P. Using ˜S−⊺ given by Eq. ( 72),
+the point group of q is obtained as
+Pq ={S|mBZ
+q = ˜S−⊺mBZ
+q (mod n), S∈ P}. (97)
+As shown in Fig. 9 (b), mBZ
+q′ is sampled from the irre-
+ducible grid points of Pq. The third grid point is given
+by mBZ
+q′′ = DG− mBZ
+q − mBZ
+q′ . Finally, mBZ
+q , mBZ
+q′ , or
+mBZ
+q′′ may be shifted to minimize |G| if some of them are
+on the BZ surface as explained for ( q, q′, q′′) above.
+VII. TETRAHEDRON METHOD
+Once implemented, tetrahedron methods are easy to
+use and robust. Moreover, when the code is written in
+a modular way, it can be reusable for diﬀerent kind BZ
+integrations. The phonopy and phono3py codes employ
+a linear tetrahedron method where several techniques are
+picked and mixed from the various reports, notably, by
+MacDonald et al. 2 and Bl¨ ochlet al. 3
+The implementation in the phonopy and phono3py
+codes is structured as schematically illustrated in Fig. 10.
+The bottom of the structure is the regular grid. The par-
+allelepiped formed by the basis vectors of the reciprocal
+primitive cell is divided into many smaller parallelepiped
+microzones on the regular grid. Every microzone has the
+same shape, deﬁned by the basis vectors ( a∗
+m, b∗
+m, c∗
+m), as
+presented in Sec. VI. In the case of the traditional regu-
+lar grid, Eq. 56 deﬁnes the microzones to be considered,
+while for the generalized regular grid Eq. 59 is used.
+Each of the microzones is divided into six tetrahedra in
+the same way as shown in Fig. 11.
+Regular grid
+Cut into six tetrahedra
+Linear interpolation
+Integration weights
+Microzones
+Linear tetrahedron method module
+Symmetry
+FIG. 10. Implementation of the linear tetrahedron method in
+the phonopy and phono3py codes. This routine is provided
+as a module that returns integration weights. In the module,
+each layer depends on the lower layers. Crystal symmetry is
+treated outside of this module.
+The integral over the BZ to be performed is then re-
+garded as a sum of contributions from those tetrahedra.
+The function to be integrated is linearly interpolated
+within each tetrahedron (see Sec. VII B) and therefore
+the integration within each tetrahedron can be done an-
+alytically. To interpolate linearly a tridimensional func-
+tion one needs four values. Each tetrahedron has four
+vertices. Therefore the values of the function to be inte-
+grated on the vertices of the tetrahedra are used to build
+the interpolations.
+Diﬀerent recipes can be used to implement this pro-
+gram. We follow Ref. 2 as well as Ref. 3 to obtain integra-
+14
+Main diagonal
+6
+6
+2 22
+2
+2
+2
+FIG. 11. A scheme to divide a parallelepiped microzone into
+six tetrahedra with the same volume. 3 The eight vertices of
+the parallelepiped are shared by 6, 6, 2, 2, 2, 2, 2, and 2
+tetrahedra, respectively.
+tion weights for grid points rather than for the tetrahedra
+themselves. Indeed, as it will be shown, it is possible to
+rearrange the contributions from tetrahedra to contribu-
+tions from the grid points. This is useful to make the
+tetrahedron method easy use, and to make it similar to
+smearing methods. In addition, this way, the symme-
+try of the regular grid described in Sec. VI D is applied
+straightforwardly to the integration weights.
+A. Division into six tetrahedra
+The scheme to divide the microzone into six tetrahedra
+follows Ref. 3 reported by Bl¨ ochlet al. We choose a short-
+est main diagonal of the parallelepiped ( a∗
+m, b∗
+m, c∗
+m).
+Then the six tetrahedra are selected sharing this main
+diagonal as shown in Fig. 11.
+B. Functions
+In this section we introduce the functions g(ω), n(ω),
+I(ω), and J(ω) to be computed using the linear tetrahe-
+dron method. The notation roughly follows Ref. 2. More-
+over, the band index ν is not written explicitly, since each
+band can be treated independently. It is therefore under-
+stood that a sum over the bands should be performed at
+the end of the calculation.
+The density of states g(ω) is written as
+g(ω)≡
+∫
+BZ
+d3qδ(ω− ωq) (98)
+≈ Vt
+6N∑
+i=1
+g(ω, ωi
+1, ωi
+2, ωi
+3, ωi
+4)
+≡ Vt
+6N∑
+i=1
+gi. (99)
+The deﬁnition is written at the ﬁrst line, the approxi-
+mation obtained from the linear tetrahedron method at
+the second line and an obvious deﬁnition of gi, the con-
+tribution of tetrahedron i, at the third line. Here i is
+an index running throughout the 6 N tetrahedra, and Vt
+is the volume of a tetrahedron. The values of frequency
+at the vertices are assumed to be arranged in ascending
+order, ωi
+1 < ω i
+2 < ω i
+3 < ω i
+4.
+The integrated density of states, or number of states
+function, n(ω), is written following the same conventions,
+n(ω)≡
+∫ ω
+−∞
+dω′g(ω′) (100)
+≈ Vt
+6N∑
+i=1
+n(ω, ωi
+1, ωi
+2, ωi
+3, ωi
+4)
+≡ Vt
+6N∑
+i=1
+ni. (101)
+Weighted density of states frequently appears in
+phonon calculations. They are deﬁned by
+I(ω) =
+∫
+BZ
+d3qF (q)δ(ω− ωq)
+≈ Vt
+6N∑
+i=1
+gi
+4∑
+k=1
+Ik(ω, ωi
+1, ωi
+2, ωi
+3, ωi
+4)F i
+k
+≡ Vt
+6N∑
+i=1
+gi
+4∑
+k=1
+I i
+kF i
+k, (102)
+where F (q) is a function of q and we used the notation
+F i
+k = F (qi
+k) at the vertex k of the tetrahedron labeled
+by i. I i
+k = Ik(ω, ωi
+1, ωi
+2, ωi
+3, ωi
+4) are given in appendix
+A. We notice in this equation an additional summation
+over the vertices of each tetrahedron. This comes from
+the function F , which is linearly interpolated within each
+tetrahedron. When F = 1, this equation reduces to the
+density of states.
+Finally, the integral of I(ω) over frequency, J(ω), is
+written as
+J(ω) =
+∫ ω
+−∞
+dω′I(ω′) =
+∫
+BZ
+d3qF (q)θ(ω− ωq)
+≈ Vt
+6N∑
+i=1
+ni
+4∑
+k=1
+Jk(ω, ωi
+1, ωi
+2, ωi
+3, ωi
+4)F i
+k
+≡ Vt
+6N∑
+i=1
+ni
+4∑
+k=1
+J i
+kF i
+k, (103)
+where J i
+k = Jk(ω, ωi
+1, ωi
+2, ωi
+3, ωi
+4) are given in appendix A.
+In appendix A, the formulae for the coeﬃcients ap-
+pearing for the quantities, gi, ni, I i
+k, J i
+k, are stated from
+Ref. 2. To derive those formulae, the calculation of J(ω)
+is considered ﬁrst, and I(ω) is obtained through diﬀeren-
+tiation. n(ω) and g(ω) are just special cases for F = 1.
+The θ(ω− ωq) function in J(ω) shows that computing
+the contribution from one tetrahedron is related to the
+estimation of the volume ωq < ω , which can be de-
+scribed from an intersection of a tetrahedron with a plane
+ωq = ω, since ωq is now assumed to be a linear func-
+tion of q. As shown in Fig. 12 the volume will assume
+15
+diﬀerent shapes depending on the value of ω. Diﬀerent
+formulae are therefore obtained for the diﬀerent cases to
+be considered.
+(a) (b) (c)
+FIG. 12. Diﬀerent linear cuts by ω plane of a tetrahedron.
+(a) ω i
+1 < ω < ω i
+2 < ω i
+3 < ω i
+4, (b) ω i
+1 < ω i
+2 < ω < ω i
+3 < ω i
+4, and
+(c) ω i
+1 < ω i
+2 < ω i
+3 < ω < ω i
+4.2
+C. Integration weights
+In Eq. (102), I(ω) is expressed as a summation over 6 N
+tetrahedra and four vertices. Following Bl¨ ochl et al. in
+Ref. 3, this can be rearranged as a sum over grid points.
+This scheme hides cumbersome handling of tetrahedra
+from outside the linear tetrahedron method module as
+shown in Fig. 10. Once integration weights, that are de-
+scribed in this section, are computed, the data structure
+is shared with smearing methods and the symmetry han-
+dling is made easy.
+I(ω) can be rewritten as
+I(ω)≈ Vt
+N −1∑
+p=0
+24∑
+ip=1
+gip
+4∑
+k=1
+I ip
+k F ip
+k δ(ip,k),p, (104)
+where p denotes the grid points (see Sec. VI C), and ip is
+the index of a tetrahedron in the 24 tetrahedra that are
+sharing the grid point p (see Fig. 11 for 24 = 6+6+2+2+
+2+2+2+2). The composite index ( ip, k) indicates a grid
+point, and δ(ip,k),p selects the vertex which is identical to
+the grid point p in the four vertices of the tetrahedron ip.
+Since F ip
+k δ(ip,k),p is only non zero when ( ip, k) is the
+point p, we write F ip
+k δ(ip,k),p = Fpδ(ip,k),p. The summa-
+tion ( 104) becomes
+I(ω)≈ Vt
+N −1∑
+p=0
+Fpwp, (105)
+where
+wp =
+24∑
+ip=1
+gip
+4∑
+k=1
+I ip
+k δ(ip,k),p. (106)
+I(ω) has therefore been expressed as a summation over
+grid points. This integral is given by the weighted sum of
+the values of the function F at points p, Fp, with weights
+wp given by Eq. ( 106).
+A 2D illustration of the summation ( 105) is presented
+in Fig. 13. Fig. 13 (a) shows that each of parallelograms
+is cut in two triangles, and the four vertices of each par-
+allelogram are shared by 2, 2, 1, and 1 of those triangles.
+Six triangles share the grid point marked by the circle
+symbol as shown in Fig. 13 (b). This shows that only 6
+terms are summed up in the summation ( 106) because of
+δ(ip,k),p. For the tetrahedra in 3D, 24 terms are summed
+up at each grid point in the summation ( 106).
+21
+12
+Main diagonal
+(a) (b)
+FIG. 13. 2D schematic illustration of rearrangement of sum-
+mation (104). (a) Each parallelogram is cut into two triangl es.
+Four vertices of the parallelogram are shared by 2, 2, 1, and 1
+triangles, respectively. (b) Six triangles (shaded) that s hare a
+grid point (circle symbol) contribute to the integration we ight
+of the grid point.
+To compute Eq. ( 106), it is convenient to repre-
+sent the positions of grid points using shifts from the
+grid point p, mp + ∆ m. The 2D example is de-
+picted in Fig. 14. The main diagonal (0 , 0)–(1, 1) is
+chosen. For this main diagonal, the six triangles that
+share the central point are uniquely determined. They
+are represented by the following ∆ m of the apices:
+(0, 0)–(0, 1)–(1, 1), (0, 0)–(1, 1)–(1, 0), . . .
+FIG. 14. 2D schematic illustration of grid point shifts ∆ m
+from the focused grid point (center) to the neighbors.
+For the linear tetrahedron method, there are four
+choices for the main diagonal, and for each choice of the
+main diagonal, the ∆ m of the vertices of the 24 tetrahe-
+dra shared by a grid point are predetermined. Therefore,
+the datasets of the 24 tetrahedra of the four main diago-
+nals are predetermined and hard-corded in the phonopy
+and phono3py codes as 4× 24× 4× 3 integer array whose
+elements are in {−1, 0, 1} for the regular grid.
+For the generalized regular grid, the shifts -1 or 1 cor-
+responds to coordinates of the neighboring points in the
+(a∗
+m, b∗
+m, c∗
+m) basis. The coordinates of those shifts are
+16
+however easily obtained in the ( ˜a∗
+m, ˜b∗
+m, ˜c∗
+m) basis used in
+the calculation, ∆ mG = P ∆ m, since
+(a∗
+m, b∗
+m, c∗
+m)∆ m = (a∗
+m, b∗
+m, c∗
+m)P −1P ∆ m
+= ( ˜a∗
+m, ˜b∗
+m, ˜c∗
+m)∆ mG, (107)
+where Eq. 63 is used in the last equation.
+D. Use of symmetry of grid points
+The symmetry of grid points can be applied to the
+linear tetrahedron method. The symmetry is used to
+prepare input dataset of a grid point required by the lin-
+ear tetrahedron method module as illustrated in Fig. 10.
+Once the input dataset is made, symmetry information is
+unnecessary for the linear tetrahedron method module.
+In this section, we denote ωp≡ ωi
+k and the mapping
+of the grid point p
+{S}
+−−→p deﬁned in Sec. VI G is written
+as p = f (p). Under the condition ωp = ωf (p), which
+is satisﬁed by the phonon frequencies, the integration
+weights fulﬁll the relation
+wp≈ wf (p). (108)
+This is an approximation since the set of 24 tetrahedra
+may not follow the crystallographic point group, i.e., the
+rotated tetrahedron may not be mapped to any of the 24
+tetrahedra. However, Eq. ( 108) is a very good approxi-
+mation.
+When Fp has the symmetry Fp = Ff (p), Eq. ( 105) can
+be written as
+I(ω)≈ Vt
+N −1∑
+p=0
+Fpwp≈ Vt
+N −1∑
+p=0
+Ff (p)wf (p). (109)
+The right hand side of Approx. ( 109) can therefore be
+computed from the values at irreducible grid points only.
+Deﬁning the multiplicity of the irreducible points as
+m(p) = |{p|p = f (p), ∀p}|, the right hand side of Ap-
+prox. ( 109) is written as
+I(ω)≈ Vt
+∑
+{p}
+Fpwpm(p). (110)
+Here m(p) is equivalent to m(q) in Eq. ( 95), i.e. the
+number of branches in the star of q.
+E. Triplets integration weights
+As shown in Ref. 33, the phonon linewidth computed
+by the phono3py code, due to phonon-phonon interac-
+tions, is given by
+Γ qν(ω) = 18π
+ℏ2
+∑
+q′q′′
+∑
+ν′ν′′
+⏐⏐Φ −qν,q′ν′,q′′ν′′
+⏐⏐2
+{(nq′ν′ + nq′′ν′′ + 1)δ(ω− ωq′ν′− ωq′′ν′′ ) (111)
++ (nq′ν′− nq′′ν′′ ) [δ(ω + ωq′ν′− ωq′′ν′′ )− δ(ω− ωq′ν′ + ωq′′ν′′ )]} . (112)
+If we consider q to be ﬁxed, the summations to be per-
+formed over the BZ have the form
+Kq(ω) = 1
+N
+∑
+q′q′′
+Fq,q′,q′′ ∆( q + q′ + q′′)δ(ω− ωq′,q′′)
+(113)
+where Fq,q′,q′′ is an arbitrary function of q, q′ and q′′.
+ωq′,q′′ is a function of q′ and q′′. For example, in Eq. 111,
+to compute the contribution from the ﬁrst delta function
+we need to consider, ωq′,q′′ = ωq′ + ωq′′ .
+In the above equation, ∆( q + q′ + q′′) means 1 when
+q + q′ + q′′ = G otherwise 0. In Eq. 111 this factor is
+included in Φ qν,q′ν′,q′′ν′′ .33 For given q, q′, and q′′ in
+the BZ, q′′ is chosen so that |G| is smallest. At ﬁxed q,
+for given q′, only a single q′′ contributes. This allows to
+eliminate the summation over q′′, therefore we obtain
+Kq(ω) = 1
+N
+∑
+q′
+Fq,q′,G−q−q′δ(ω− ωq′,G−q−q′) (114)
+= Vc
+(2π)3
+∫
+BZ
+d3q′Fq,q′,G−q−q′δ(ω− ωq′,G−q−q′).
+(115)
+This quantity has therefore the form of the function I(ω)
+we considered previously. To apply the linear tetrahe-
+dron method to Kq(ω) we need to know the value of
+the functions Fq,q′,G−q−q′ and ωq′,G−q−q′ at the ver-
+tices q′ + ∆ q′ around the point q′. They are given by
+Fq,q′+∆ q′,G−q−q′−∆ q′ = Fq,q′+∆ q′,q′′−∆ q′, (116)
+ωq′+∆ q′,G−q−q′−∆ q′ = ωq′+∆ q′,q′′−∆ q′. (117)
+It means that ∆ q′′ =−∆ q′ for the corresponding neigh-
+boring point of q′′. Using the values ωq′+∆ q′,q′′−∆ q′ as
+the input dataset of the linear tetrahedron method, the
+triplets integration weights are computed in the same way
+as written in Sec. VII C.
+17
+VIII. RANDOM DISPLACEMENT
+GENERATION
+Once phonon frequency ωqν and eigenvector Wκα(qν)
+are obtained in a supercell, they can be used to gener-
+ate atomic conﬁgurations relevant at ﬁnite temperatures.
+This can be achieved using Eq. ( 27) and writing
+Q(qν) = 1√
+2 (QR(qν) + iQI (qν)), (118)
+where both QR(qν) and QI (qν) are real variables. It is
+shown in Ref. 34 that they are real normal coordinates,
+fulﬁlling the equation of the harmonic oscillator. Their
+probability density is therefore a gaussian,
+P [QR/I (qν)] = 1√
+2πσ2qν
+exp
+[
+− QR/I (qν)2
+2σ2qν
+]
+, (119)
+with
+σ2
+qν = ℏ
+2ωqν
+coth ℏωqν
+2kBT = ℏ
+2ωqν
+(1 + 2nqν), (120)
+where nqν = ( e
+ℏ ωqν
+kB T − 1)−1 is the Bose–Einstein distri-
+bution function.
+Substituting Eq. ( 118) into Eq. ( 27) and remembering
+Q(−qν) = Q∗(qν), we obtain
+ulκα = 1√N mκ
+{ ∑
+q∈A,ν
+Q(qν) Re[ulκα(qν)]
++ 1√
+2
+∑
+q∈B,ν
+[
+(QR(qν) + iQI(qν))ulκα(qν)
++ (QR(qν)− iQI(qν))u∗
+lκα(qν)
+] }
+(121)
+= 1√N mκ
+{ ∑
+q∈A,ν
+Q(qν) Re[ulκα(qν)]
++
+√
+2
+∑
+q∈B,ν
+[
+QR(qν) Re[ulκα(qν)]
+− QI (qν) Im[ulκα(qν)]
+] }
+. (122)
+Here, A is a set of q points commensurate with the su-
+percell, where Q(qν) becomes real (e.g. Γ point) or
+q = −q + G, and B includes other commensurate q
+points in the one side of the BZ and q⁄=−q+G. Namely,
+only one of q or−q should be included in the summation
+over q∈ B.34
+Finally, generating random numbers following
+Eq. ( 119) and using them for QR(qν) and QI(qν) in
+Eq. ( 122), random displacements {ulκα} in a supercell
+can be generated systematically at a given temperature.
+The random structures generated in this way can be
+used to investigate the impact of phonon excitation on
+various physical properties, such as electronic structure
+and magnetism, at ﬁnite temperatures. Indeed, the in-
+vestigated quantity is computed for each random struc-
+ture generated, and the average of values obtained for
+those random structures is computed to mimic the eﬀect
+of temperature.
+We note that this approach is physically valid only
+when all phonon modes are dynamically stable ( ω2
+qν > 0)
+at all commensurate q points. This condition is usually
+satisﬁed in many compounds where lattice anharmonic-
+ity is not very strong. However, in some anharmonic
+systems, including high-temperature metastable phases,
+the harmonic approximation may yield unstable phonon
+modes.
+Even when all phonons are stable, their frequencies
+may deviate from experimental values signiﬁcantly. In
+such cases, it is recommended to use anharmonic phonon
+frequencies and eigenvectors at ﬁnite temperatures for
+Eqs. ( 120) and ( 122). The anharmonic frequencies and
+eigenvectors renormalized at ﬁnite temperatures can be
+obtained, for example, by performing a self-consistent
+phonon calculation using either the real-space stochas-
+tic approaches, 35–40 which are often termed the stochas-
+tic self-consistent harmonic approximation (SSCHA), or
+the momentum-space implementation which uses anhar-
+monic force constants. 41,42 An application of SSCHA
+performed with random displacements generated by the
+phonopy code coupled with the ALM force constants cal-
+culation code 43 is found in Ref. 20.
+IX. PHONON BAND UNFOLDING
+To draw a phonon band structure for system with de-
+fects computed in a supercell approach, band unfolding
+technique may be useful. Since even one point defect
+breaks the periodicity of a crystal, a certain approxima-
+tion is necessary to achieve this representation. In this
+section, an implementation of the method proposed by
+Allen et al. 4 is explained.
+In Fig. 15, a 2D schematic illustration of a supercell
+with a vacancy is presented. It is analyzed by presuming
+the corresponding perfect supercell with the same lattice
+vectors. Eq. ( 30) gives the relationship between the basis
+vectors of the primitive cell and those of the supercell,
+which indicates that the perfect supercell contains N =
+det(Mp→s) primitive cells. The reciprocal basis vectors
+are given by Eq. ( 46). The BZ volume of the primitive
+cell is N times larger than that of the supercell as shown
+in Fig. 16.
+For this analysis to be possible, we assume there ex-
+its one-to-one correspondence between the atoms and va-
+cancy sites in the defective supercell and the atoms in the
+perfect supercell. The atoms and vacancies in the defec-
+tive supercell can therefore be labeled by the composite
+index lκ in the same way as in the perfect supercell. It
+18
+V
+Supercell with a vacancy Perfect supercell
+FIG. 15. 2D schematic illustration of supercell with a va-
+cancy (left) and the corresponding perfect supercell (righ t).
+The atoms are depicted by open circle symbols. The vacancy
+is marked by ”V”. The perfect supercell contains 2 × 2 prim-
+itive cells whose lattice points ( l1, l2, l3, l4) are indicated by
+ﬁlled circle symbols. Positions of all atoms in the defectiv e
+supercell can be deviated slightly from the equilibrium po-
+sitions of the perfect supercell. At unfolding, phase shift of
+q⋆ ·Rlj is multiplied to the phonon eigenvector of the defec-
+tive supercell at each primitive lattice translation as giv en in
+Eq.(135).
+FIG. 16. Unfolding of 2D Brillouin zone (BZ) of the supercell
+(q⋆
+1) to 2 × 2 BZs of the supercell ( q⋆
+1, q⋆
+2, q⋆
+3, q⋆
+4). Gray levels
+of shaded backgrounds indicate BZs of the supercell which
+belong to diﬀerent q⋆ points.
+means that vacancy sites in the defective supercell must
+have respective atoms in the perfect supercell. The atoms
+in the defective supercell can nevertheless have slightly
+diﬀerent positions than in the perfect supercell. The 2D
+schematic illustration we obtain is shown in Fig. 15.
+We write coordinates of lattice points in the supercell
+as
+Rl = (ap, bp, cp)l = (as, bs, cs)˜l, (123)
+where l are integers, while ˜l may not be.
+Let ˆTj be the j-th lattice translation operator which is
+deﬁned on a function as follows
+ˆTjf (R) = f (R− Rlj ). (124)
+In this section, l correspond to lattice vectors within the
+perfect supercell. There are N such lattice vectors and
+therefore N lattice translation operations. ˆTj maps a
+lattice vector with index li in the perfect supercell to
+a lattice vector with index lk. The mapping between
+indices is determined from
+˜li
+ˆTj
+−→˜lk = ˜li + ˜lj (mod 1), (125)
+where (mod 1) means that the lattice points translated
+outside the supercell are brought back inside the supercell
+by a supercell lattice translation. The mapping obtained
+this way is stored in an N× N permutation matrix. In
+Fig. 15, the 2D supercell model is made of 2 × 2 primitive
+cells. For example, the translation by ap brings l1 to l2.
+One more translation by ap brings l2 to l1 due to the
+periodicity of the supercell. In the following, the mapping
+li
+ˆTj
+−→lk is written compactly as lk = Tj(li).
+The ﬁrst step of this method is to compute the phonon
+eigenvectors of the defective supercell. The Bloch wave
+of an eigenvector given by Eqs. ( 19) and ( 20) is written
+as
+Ψ lκ(˜q˜ν) = ei˜q·RlκWlκ(˜q˜ν), (126)
+where Wlκ(˜q˜ν) is the phonon eigenvector of the defec-
+tive supercell, with band index ˜ν, and at the wave vector
+˜q in the BZ of the supercell. Eigenvector elements cor-
+responding to vacancies are treated as zeros.
+We consider that ˆTj is applied to the Bloch wave as
+ˆTjΨ lκ(˜q˜ν)≈ Ψ T−1
+j (l)κ(˜q˜ν)
+= ei˜q·(Rlκ−Rlj )WT−1
+j (l)κ(˜q˜ν). (127)
+The ﬁrst line of Eq. ( 127) may not be consistent with
+Eq. (124) since positions of atoms in the defective super-
+cell can be displaced slightly from those in the perfect
+supercell.
+The next step is to unfold the ˜q point from the BZ of
+the supercell to the N q points in the BZ of the primitive
+cell which are equivalent up to vectors of the reciprocal
+supercell lattice. This is written as
+q = q⋆ + ˜q, (128)
+where q⋆ is an integer linear combination of ( a∗
+s , b∗
+s , c∗
+s ).
+The schematic illustration for the BZ of the 2D supercell
+is shown in Fig. 16. The ˜q points in the BZ of the su-
+percell are shifted by q⋆ inside the BZ of the primitive
+cell.
+Applying periodic boundary conditions on the super-
+cell, the translation operations { ˆTj} form an Abelian
+group of order N with irreducible representations
+e−iq⋆·Rlj . The great orthogonality theorem then gives
+the relation
+1
+N
+N∑
+j=1
+eiq⋆·Rlj = δq⋆,0. (129)
+19
+This result is also proved algebraically in appendix B,
+together with the dual relation
+1
+N
+N∑
+i=1
+e−iq⋆
+i ·(Rlj −Rlj′ ) = δj,j′ . (130)
+where q⋆
+i are the N vectors q⋆ within the BZ of the prim-
+itive cell. We deﬁne the operator
+ˆP (˜q, q⋆) = 1
+N
+N∑
+j=1
+ei(˜q+q⋆)·Rlj ˆTj. (131)
+It can easily be shown that it is a projection operator,
+which selects the part of Ψ lκ(˜q˜ν) that is also a Bloch
+function of the primitive lattice with wave vector q =
+q⋆ + ˜q. Indeed, in appendix C we obtain
+ˆTi ˆP (˜q, q⋆)Ψ lκ(˜q˜ν) = e−i(˜q+q⋆)·Rli ˆP (˜q, q⋆)Ψ lκ(˜q˜ν).
+(132)
+Moreover, because from Eq. ( 130), ∑ N
+i=1 ˆP (˜q, q⋆
+i ) =
+1, the decomposition of Ψ lκ(˜q˜ν) into the N functions
+ˆP (˜q, q⋆
+i )Ψ lκ(˜q˜ν), i = 1, . . . , N is unique,
+Ψ lκ(˜q˜ν) =
+N∑
+i=1
+[
+ˆP (˜q, q⋆
+i )Ψ lκ(˜q˜ν)
+]
+. (133)
+The projection by Eq. ( 131) and the decomposition by
+Eq. ( 133) indicate that the weight of state having the
+Bloch symmetry q = q⋆ + ˜q of the primitive lattice in
+the supercell Bloch state Ψ liκ(˜q˜ν) is therefore deﬁned as
+w(˜q˜ν, q⋆) =
+∑
+iκ
+| ˆP (˜q, q⋆)Ψ liκ(˜q˜ν)|2
+= 1
+N 2
+∑
+iκ
+⏐⏐⏐⏐
+N∑
+j=1
+WT−1
+j (li)κ(˜q˜ν)eiq⋆·Rlj
+⏐⏐⏐⏐
+2
+(134)
+= 1
+N
+∑
+iκ
+N∑
+j=1
+W∗
+liκ(˜qν)WT−1
+j (li)κ(˜q˜ν)eiq⋆·Rlj .
+(135)
+It can easily be checked that ∑ N
+i=1 w(˜q˜ν, q⋆
+i ) = 1 from
+Eq. 130 and the unit normalization of the phonon eigen-
+vectors. Interestingly, this result does not require phonon
+eigenvectors of the perfect crystal. The second equa-
+tion is implemented in the phonopy code though the
+third equation may be more intuitive. WT−1
+j (li)κ(˜q˜ν) is
+the phonon eigenvector elements belonging to the lattice
+point T −1
+j (li). The unfolding weight indicates its corre-
+lation with Wliκ(˜qν) after the phase shift eiq⋆·Rlj . In
+the example of Fig. 15, the phase shifts are integer mul-
+tiples of π, since the 2D supercell model is made of 2 × 2
+primitive cells.
+An example of the phonon band unfolding technique
+applied to Al with a vacancy is shown in Fig. 17. The
+corresponding perfect supercell (32 atoms) is constructed
+by 2 × 2× 2 of conventional unit cell (4 atoms). The
+primitive cell contains 1 atom and
+Mp→s =
+
+
+−2 2 2
+2 −2 2
+2 2 −2
+
+ . (136)
+Under ﬁxed basis vectors of the supercell with a va-
+cancy, internal atomic positions are relaxed. For the un-
+folding, q points are sampled along the BZ path L–Γ–L
+of the primitive cell (see Fig. 17). Those points can be
+uniquely decomposed as q = ˜q + q⋆, where ˜q belongs
+to the BZ of the supercell, and q⋆ is a reciprocal lattice
+vector of the supercell. For the above example, q⋆ is
+found to be Γ or L, depending on the position of q along
+the path L–Γ–L. Those two possibilities are represented
+using unshaded and shaded backgrounds in Fig. 17.
+The phonon modes of the defective supercell are cal-
+culated at those ˜q points. The projection operator of
+Eq. ( 131) is q⋆ dependent and only a fraction of the
+phonon modes are unfolded along the L–Γ–L path, be-
+cause the selected q⋆ points are only a subset of the com-
+mensurate q⋆ points in the summation of Eq. ( 133). In
+Fig. 17, though we can see phonon frequencies are per-
+turbed by the vacancy, the unfolded phonon band struc-
+ture roughly follows the phonon band structure of the
+perfect supercell.
+Substitutional defects can be managed straightfor-
+wardly. Interstitial defects can be handled in the same
+way as the vacancy case by deﬁning corresponding super-
+cell diﬀerently. 44 Suppose we have one intersticial defect
+in the supercell model. It is treated as a usual atom in
+the primitive cell of the corresponding perfect supercell.
+In the defective supercell, the interstitial atom is located
+in one primitive cell, and in the other primitive cells, the
+interstitial sites are treated as vacancies.
+X. CONCLUSION
+A scientiﬁc simulation code implements mathematical
+models that are described with formulae. In those for-
+mulae, the information is often not detailed enough for
+direct computer implementation, and the detailed knowl-
+edge can be implicit. Scientiﬁc software developers may
+have to learn it from skilled people around, otherwise ﬁnd
+it independently. To ease the latter situation in the mod-
+ern era of distributed software development, we aimed to
+provide details of the computational methods employed
+in the phonopy and phono3py codes, keeping the formal-
+ism as close as possible to the implementations.
+Not all of the computational methods described in this
+review are speciﬁc to the phonon calculation or the super-
+cell approach. For example, handling of the regular grids
+and the linear tetrahedron method presented are appli-
+cable to electronic structure calculations. We therefore
+20
+0
+2
+4
+6
+8
+10 
+0.00
+0.25
+0.50
+0.75
+1.00
+1.25
+1.50
+1.75
+2.00
+Phonon frequency (THz) 
+Wave vector 
+Γ LL
+FIG. 17. Phonon band unfolding of Al with a vacancy. Color
+scale indicates unfolding weights of phonon modes depicted
+by ﬁlled circle symbols, where those of the degenerated mode s
+are summed. Phonon modes calculated for the defective su-
+percell are presented by + (plus) symbols. Unshaded and
+shaded backgrounds show Brillouin zones of the supercell th at
+belong to q⋆ of Γ and L, respectively. Only a part of weights
+are unfolded into these two commensurate points among 32
+commensurate points. Although this unfolding technique re -
+quires no reference states, for the comparison, phonon band
+structure of the perfect supercell is shown by solid curves.
+hope that this review will be a useful source of informa-
+tion for software developers in condensed matter science.
+ACKNOWLEDGMENTS
+This work was supported by MEXT Japan through
+ESISM (Elements Strategy Initiative for Structural Ma-
+terials) of Kyoto University and JSPS KAKENHI Grant
+Numbers JP21K04632 and JP21K03424. L. C. thanks
+the Institut Universitaire de France and the EXPLOR
+center hosted by the University de Lorraine.
+Appendix A: Functions used in the linear
+tetrahedron method
+In this section we give explicit formulae for gi, ni, I i
+k,
+and J i
+k.2 They assume diﬀerent forms depending on the
+position of ω in the sequence ωi
+1 < ω i
+2 < ω i
+3 < ω i
+4. Also,
+they are expressed using f i
+nm and ∆ i
+nm which are deﬁned
+as
+f i
+nm≡ (ω− ωi
+m)/(ωi
+n− ωi
+m), f i
+nm + f i
+mn = 1, (A1)
+∆ i
+nm≡ ωi
+n− ωi
+m. (A2)
+gi, ni, I i, and J i satisfy the following relations:
+dni
+dω = gi, (A3)
+d(niJ i
+k)
+dω = giI i
+k. (A4)
+It may be useful to remember
+f i
+n′m/∆ i
+nm = f i
+nm/∆ i
+n′m, (A5)
+df i
+nm
+dω = 1
+∆ inm
+. (A6)
+1. ω < ω i
+1
+gi = 0. (A7)
+ni = 0. (A8)
+I i
+k = 0. (A9)
+J i
+k = 0. (A10)
+2. ω i
+1 < ω < ω i
+2
+As shown in Fig. 12 (a), the volume to consider is a
+tetrahedron with vertices located at q1, qα = f i
+21q2 +
+f i
+12q1, qβ = f i
+31q3 + f i
+13q1, qγ = f i
+41q4 + f i
+14q1, and
+ni =f i
+21f i
+31f i
+41. (A11)
+Inside this volume, F (q) is linearly interpolated, i.e.,
+F (qα) ≈ f i
+21F (q2) + f i
+12F (q1), . . ., and the contribu-
+tion of i-th tetrahedron to J(ω) is approximated as
+Vtni[F (q1) +F (qα) +F (qβ) +F (qγ)]/4. By substituting
+it in Eq. ( 103), we obtain
+J i
+1 =(1 + f i
+12 + f i
+13 + f i
+14)/4. (A12)
+J i
+k =f i
+k1/4, k = 2, 3, 4. (A13)
+Using Eqs. ( A3) and ( A4),
+gi = 3ni/(ω− ωi
+1) = 3 f i
+21f i
+31f i
+41/(ω− ωi
+1)
+= 3f i
+21f i
+31/∆ i
+41. (A14)
+I i
+1 = (f i
+12 + f i
+13 + f i
+14)/3. (A15)
+I i
+k = f i
+k1/3, k = 2, 3, 4. (A16)
+3. ω i
+2 < ω < ω i
+3
+In this case, the occupied part of the tetrahedron is
+the sum of the following three tetrahedra. Vertices of the
+ﬁrst tetrahedron are q1, q2, qα = f i
+42q4 + f i
+24q2, qβ =
+f i
+32q3 + f i
+23q2, and its volume is V i
+12αβ = Vtf i
+42f i
+32. The
+vertices of the second tetrahedron are q1, qα, qβ, qδ =
+21
+f i
+41q4 + f i
+14q1, and its volume is V i
+1αβδ = Vtf i
+41f i
+24f i
+32.
+The vertices of the third tetrahedron are q1, qβ, qδ, qγ =
+f i
+31q3+f i
+13q1, and its volume is V i
+1βδγ = Vtf i
+41f i
+31f i
+23. The
+locations of the vertices are depicted in Fig. 12 (b). We
+obtain
+ni =(V i
+12αβ + V i
+1αβδ + V i
+1βδγ )/Vt
+=f i
+42f i
+32 + f i
+41f i
+24f i
+32 + f i
+41f i
+31f i
+23. (A17)
+J i
+1 =[V i
+12αβ + V i
+1αβδ (1 + f i
+14)
++ V i
+1βδγ (1 + f i
+14 + f i
+13)]/(4niVt). (A18)
+J i
+2 =[V i
+12αβ(1 + f i
+24 + f i
+23) + V i
+1αβδ (f i
+24 + f i
+23)
++ V i
+1βδγ f i
+23]/(4niVt). (A19)
+J i
+3 =[V i
+12αβf i
+32 + V i
+1αβδ f i
+32 + V i
+1βδγ (f i
+32 + f i
+31)]/(4niVt).
+(A20)
+J i
+4 =[V i
+12αβf i
+42 + V i
+1αβδ (f i
+42 + f i
+41) + V i
+1βδγ f i
+41]/(4niVt).
+(A21)
+gi =3(f i
+23f i
+31 + f i
+32f i
+24)/∆ i
+41. (A22)
+I i
+1 =f i
+14/3 + f i
+13f i
+31f i
+23/(gi∆ i
+41). (A23)
+I i
+2 =f i
+23/3 + (f i
+24)2f i
+32/(gi∆ i
+41). (A24)
+I i
+3 =f i
+32/3 + (f i
+31)2f i
+23/(gi∆ i
+41). (A25)
+I i
+4 =f i
+41/3 + f i
+42f i
+24f i
+32/(gi∆ i
+41). (A26)
+4. ω i
+3 < ω < ω i
+4
+As shown in Fig. 12 (c), the occupied part of the tetra-
+hedron is the full tetrahedron minus the tetrahedron with
+vertices at q4, qβ = f i
+42q4+f i
+24q2, qδ = f i
+41q4+f i
+14q1 and
+qγ = f i
+43q4 + f i
+34q3. Its volume is V i
+4βδγ = Vtf i
+14f i
+24f i
+34.
+Therefore, the contribution of i-th tetrahedron to J(ω) is
+approximated as{Vt[F (q1) + F (q2) + F (q3) + F (q4)]−
+V i
+4βδγ [F (q4) + F (qβ) + F (qγ) + F (qδ)]}/4. We obtain
+ni =(1− f i
+14f i
+24f i
+34). (A27)
+J i
+1 =[1− (f i
+14)2f i
+24f i
+34]/4ni. (A28)
+J i
+2 =[1− f i
+14(f i
+24)2f i
+34]/4ni. (A29)
+J i
+3 =[1− f i
+14f i
+24(f i
+34)2]/4ni. (A30)
+J i
+4 =[1− f i
+14f i
+24f i
+34(1 + f i
+41 + f i
+42 + f i
+43)]/4ni. (A31)
+gi =3(1− ni)/(ωi
+4− ω) = 3 f i
+24f i
+34/∆ i
+41. (A32)
+I i
+k =f i
+k4/3, k = 1, 2, 3. (A33)
+I i
+4 =(f i
+41 + f i
+42 + f i
+43)/3. (A34)
+5. ω i
+4 < ω
+The tetrahedron is fully occupied, therefore,
+gi = 0. (A35)
+ni = 1. (A36)
+I i
+k = 0. (A37)
+J i
+k = 1/4. (A38)
+Appendix B: Summation formulae
+When the supercell lattice vectors are collinear to those
+of the primitive cell,
+(as, bs, cs) = ( ap, bp, cp)Mp→s. (B1)
+With Mp→s = diag(n1, n2, n3), it is proved in most text-
+book that the set of lattice vectors
+Rl = (ap, bp, cp)
+
+
+l1
+l2
+l3
+
+ , l i = 0, . . . , ni− 1 (B2)
+= (ap, bp, cp)l (B3)
+and their conjugated wave vectors
+q = (a∗
+p, b∗
+p, c∗
+p)
+
+
+p1/n1
+p2/n2
+p3/n3
+
+ , p i = 0, . . . , ni− 1 (B4)
+= (a∗
+s , b∗
+s , c∗
+s )
+
+
+p1
+p2
+p3
+
+ (B5)
+= (a∗
+s , b∗
+s , c∗
+s )p, (B6)
+fulﬁll the summation formulae
+1
+det(Mp→s)
+∑
+{Rl}
+eiq·Rl = δq,G, (B7)
+1
+det(Mp→s)
+∑
+{q}
+e−iq·Rl = δRl,RL, (B8)
+where G is any reciprocal lattice vector, and RL any
+supercell lattice vector.
+When the supercell is not collinear to the primitive cell,
+the set of lattice vectors, {Rl}, are those integer linear
+combinations of ( ap, bp, cp) located within the supercell
+(as, bs, cs), and the set of wave vectors, {q}, are those
+integer linear combinations of ( a∗
+s , b∗
+s , c∗
+s ) located within
+the reciprocal cell ( a∗
+p, b∗
+p, c∗
+p). Since the above summa-
+tions can not easily be split into the product of three
+geometric series, it is not obvious whether the above re-
+sults are still valid.
+However, we have seen in Sec. III A that SNF like
+transformations can always be used to obtain primitive
+cell and supercell which are collinear, and for which the
+22
+summation formulae ( B7) and ( B8) are obviously valid.
+We have
+(˜ap, ˜bp, ˜cp) = ( ap, bp, cp)P −1, (B9)
+(˜as, ˜bs, ˜cs) = ( as, bs, cs)Q, (B10)
+and therefore
+(˜a∗
+p, ˜b∗
+p, ˜c∗
+p) = ( a∗
+p, b∗
+p, c∗
+p)P ⊺, (B11)
+(˜a∗
+s , ˜b∗
+s , ˜c∗
+s ) = ( a∗
+s , b∗
+s , c∗
+s )Q−⊺ (B12)
+= (˜a∗
+p, ˜b∗
+p, ˜c∗
+p)D−1, (B13)
+while the set of lattice vectors and wave vectors,
+˜Rl = (˜ap, ˜bp, ˜cp)˜l, (B14)
+˜q = ( ˜a∗
+s , ˜b∗
+s , ˜c∗
+s ) ˜p, (B15)
+with ˜li = 0, . . . , Di− 1 and ˜pi = 0, . . . , Di− 1, fulﬁlls,
+1
+det(D)
+∑
+{ ˜Rl}
+ei˜q· ˜Rl = δ˜q,G, (B16)
+1
+det(D)
+∑
+{˜q}
+e−i˜q· ˜Rl = δ ˜Rl,RL . (B17)
+Since the same lattices are generated by the unimodu-
+lar transformations ( B11) and ( B12), we can write
+˜Rl = Rl + RL, (B18)
+˜q = q + G (B19)
+where RL is a supercell lattice vector used to bring ˜Rl
+within the original supercell ( as, bs, cs), and G a recip-
+rocal lattice vector used to bring ˜q to the original re-
+ciprocal cell ( a∗
+p, b∗
+p, c∗
+p). Since q· RL, G· RL, G· Rl
+are multiple of 2 π, and det( Mp→s) = det( D), we obtain
+Eqs. ( B7) and ( B8) for arbitrary supercell and primitive
+cell related by an integer matrix Mp→s. Notice however
+that the deﬁnition of the set of lattice vectors and wave
+vectors for which those summation formulae hold is now
+more general. The wave vectors are along the reciprocal
+vectors of the supercell and located within the reciprocal
+cell of the primitive lattice, while the lattice vectors are
+along the primitive lattice vectors and located within the
+supercell.
+Appendix C: Projection into primitive cell Bloch
+states
+From the deﬁnition of the projection operator,
+ˆTi ˆP (˜q, q⋆)Ψ lκ(˜q˜ν) = ˆTi
+1
+N
+N∑
+j=1
+ei(˜q+q⋆)·Rlj ˆTjΨ lκ(˜q˜ν) (C1)
+= e−i(˜q+q⋆)·Rli
+1
+N
+N∑
+j=1
+ei(˜q+q⋆)·(Rlj +Rli ) ˆTi ˆTjΨ lκ(˜q˜ν) (C2)
+= e−i(˜q+q⋆)·Rli
+1
+N
+N∑
+j=1
+ei(˜q+q⋆)·(Rlj +Rli )ei˜q·(Rlκ−Rlj −Rli )W(TiTj )−1(l)κ(˜q˜ν) (C3)
+= e−i(˜q+q⋆)·Rli
+1
+N
+N∑
+j=1
+eiq⋆·(Rlj +Rli )ei˜q·RlκW(TiTj )−1(l)κ(˜q˜ν). (C4)
+Rlj + Rli may be outside the supercell, therefore we write Rlj + Rli = Rlk + RL, where RL is a supercell lattice
+vector. Because Wlκ(˜q˜ν) has the periodicity of the supercell, and eiq⋆·RL = 1, we obtain
+ˆTi ˆP (˜q, q⋆)Ψ lκ(˜q˜ν) = e−i(˜q+q⋆)·Rli
+1
+N
+N∑
+k=1
+eiq⋆·Rlk ei˜q·RlκWT−1
+k (l)κ(˜q˜ν) (C5)
+= e−i(˜q+q⋆)·Rli
+1
+N
+N∑
+k=1
+ei(˜q+q⋆)·Rlk ei˜q·(Rlκ−Rlk )WT−1
+k (l)κ(˜q˜ν) (C6)
+= e−i(˜q+q⋆)·Rli
+1
+N
+N∑
+k=1
+ei(˜q+q⋆)·Rlk ˆTkΨ lκ(˜q˜ν) (C7)
+= e−i(˜q+q⋆)·Rli ˆP (˜q, q⋆)Ψ lκ(˜q˜ν). (C8)
+23
+∗ togo.atsushi@gmail.com
+1 X. Gonze and C. Lee, Phys. Rev. B 55, 10355 (1997) .
+2 A. H. MacDonald, S. H. Vosko, and P. T. Coleridge, Jour-
+nal of Physics C: Solid State Physics 12, 2991 (1979).
+3 P. E. Bl¨ ochl, O. Jepsen, and O. K. Andersen,
+Phys. Rev. B 49, 16223 (1994) .
+4 P. B. Allen, T. Berlijn, D. A. Casavant, and J. M. Soler,
+Phys. Rev. B 87, 085322 (2013) .
+5 M. I. Aroyo, International Tables for Crystallography, Vol.
+A (Wiley, Hoboken, 2016).
+6 M. I. Aroyo, D. Orobengoa, G. de la Flor, E. S. Tasci, J. M.
+Perez-Mato, and H. Wondratschek, Acta Crystallogr. Sect.
+A 70, 126 (2014).
+7 A. Togo, J. Phys. Soc. Jpn. 92, 012001 (2023) .
+8 A. A. Maradudin and S. H. Vosko,
+Rev. Mod. Phys. 40, 1 (1968) .
+9 U. Shmueli, International Tables for Crystallography, Vol.
+B (Wiley, Hoboken, 2008).
+10 T. Bradley, C. Bradley, and A. Cracknell, The Mathemat-
+ical Theory of Symmetry in Solids: Representation Theory
+for Point Groups and Space Groups (Clarendon Press, Ox-
+ford, 1972).
+11 Kronecker Product Tables, Vol. 1. General Introduction
+and Tables of Irreducible Representations of Space Groups
+(IFI/Plenum, New York, 1979).
+12 G. K. Horton and A. A. Maradudin, eds., Dynamical Prop-
+erties of Solids , Vol. 1 (North-Holland Publishing Com-
+pany, Amsterdam, 1974).
+13 P. Niggli, Krystallographische und strukturtheoretische
+Grundbegriﬀe. Handbuch der Experimentalphysik , Vol. 7
+(Leipzig: Akademische Verlagsgesellschaft, 1928) pp. 108 –
+176.
+14 B. Gruber, Acta Crystallogr. A 29, 433 (1973).
+15 I. Kˇ riv´ y and B. Gruber, Acta Crystallogr. A 32, 297
+(1976).
+16 R. W. Grosse-Kunstleve, N. K. Sauter, and P. D. Adams,
+Acta Crystallogr. A 60, 1 (2004).
+17 G. L. W. Hart and R. W. Forcade,
+Phys. Rev. B 77, 224115 (2008) .
+18 K. Parlinski, Z. Q. Li, and Y. Kawazoe,
+Phys. Rev. Lett. 78, 4063 (1997) .
+19 D. C. Wallace, Thermodynamics of crystals (Dover Publi-
+cations, 1998).
+20 A. Togo, H. Hayashi, T. Tadano, S. Tsutsui, and
+I. Tanaka, J. Phys. Condens. Matter (2022) .
+21 R. M. Pick, M. H. Cohen, and R. M. Martin,
+Phys. Rev. B 1, 910 (1970) .
+22 P. Giannozzi, S. de Gironcoli, P. Pavone, and S. Baroni,
+Phys. Rev. B 43, 7231 (1991) .
+23 X. Gonze, J.-C. Charlier, D. C. Allan, and M. P. Teter,
+Phys. Rev. B 50, 13035 (1994).
+24 Y. Hinuma, G. Pizzi, Y. Kumagai, F. Oba, and I. Tanaka,
+Comput. Mater. Sci. 128, 140 (2017) .
+25 A. Togo and I. Tanaka, “ Spglib: a software library for
+crystal symmetry search,” (2018), arXiv:1808.01590.
+26 H. J. Monkhorst and J. D. Pack, Phys. Rev. B 13, 5188
+(1976).
+27 D. J. Chadi and M. L. Cohen,
+Phys. Rev. B 8, 5747 (1973) .
+28 J. Moreno and J. M. Soler, Phys. Rev. B 45, 13891 (1992) .
+29 P. Wisesa, K. A. McGill, and T. Mueller,
+Phys. Rev. B 93, 155109 (2016) .
+30 W. S. Morgan, J. J. Jorgensen, B. C. Hess, and G. L.
+Hart, Comput. Mater. Sci. 153, 424 (2018) .
+31 W. S. Morgan, J. E. Christensen, P. K. Hamilton, J. J.
+Jorgensen, B. J. Campbell, G. L. Hart, and R. W. Forcade,
+Comput. Mater. Sci. 173, 109340 (2020) .
+32 L. Chaput, A. Togo, I. Tanaka, and G. Hug,
+Phys. Rev. B 84, 094302 (2011) .
+33 A. Togo, L. Chaput, and I. Tanaka, Phys. Rev. B 91,
+094306 (2015).
+34 G. H. W. Alexei A. Maradudin, E. W. Montroll, ed., The-
+ory of Lattice Dynamics in the Harmonic Approximation ,
+Solid state physics : advances in research and applications
+(Academic press, New York and London, 1963).
+35 L. Monacelli, R. Bianco, M. Cherubini,
+M. Calandra, I. Errea, and F. Mauri,
+J. Phys. Condensed Matter 33, 363001 (2021) .
+36 I. Errea, M. Calandra, and F. Mauri,
+Phys. Rev. Lett. 111, 177002 (2013) .
+37 I. Errea, M. Calandra, and F. Mauri,
+Phys. Rev. B 89, 064302 (2014) .
+38 R. Bianco, I. Errea, L. Paulatto, M. Calandra, and
+F. Mauri, Phys. Rev. B 96, 014111 (2017) .
+39 L. Monacelli, I. Errea, M. Calandra, and F. Mauri,
+Phys. Rev. B 98, 024106 (2018) .
+40 F. Eriksson, E. Fransson, and P. Erhart,
+Adv. Theory Simul. 2, 1800184 (2019) .
+41 T. Tadano and S. Tsuneyuki,
+Phys. Rev. B 92, 054301 (2015) .
+42 Y.-N. Wu, W. A. Saidi, J. K. Wuenschell, T. Tadano,
+P. Ohodnicki, B. Chorpening, and Y. Duan,
+J. Phys. Chem. Lett. 11, 2518 (2020) .
+43 T. Tadano and S. Tsuneyuki,
+J. Phys. Soc. Jpn. 87, 041015 (2018) .
+44 S. Moxon, J. Skelton, J. S. Tse, J. Flitcroft, A. Togo,
+D. J. Cooke, E. Lora da Silva, R. M. Harker,
+M. T. Storr, S. C. Parker, and M. Molinari,
+J. Mater. Chem. A 10, 1861 (2022) .

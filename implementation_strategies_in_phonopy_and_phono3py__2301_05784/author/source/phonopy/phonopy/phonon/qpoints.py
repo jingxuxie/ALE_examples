@@ -1,0 +1,275 @@
+# SPDX-License-Identifier: BSD-3-Clause
+"""Phonon calculation at specific q-points."""
+
+from __future__ import annotations
+
+import os
+from collections.abc import Sequence
+from typing import Literal, TypedDict
+
+import numpy as np
+from numpy.typing import NDArray
+
+from phonopy.harmonic.dynamical_matrix import (
+    DynamicalMatrix,
+    DynamicalMatrixNAC,
+    diagonalize_dynamical_matrices,
+    get_dynamical_matrices_at_qpoints,
+)
+from phonopy.phonon.group_velocity import GroupVelocity
+from phonopy.physical_units import get_physical_units
+from phonopy.structure.cells import Primitive
+
+
+class QpointsDict(TypedDict):
+    """Return type of Phonopy.get_qpoints_dict."""
+
+    frequencies: NDArray[np.double]
+    eigenvectors: NDArray[np.cdouble] | None
+    group_velocities: NDArray[np.double] | None
+    dynamical_matrices: NDArray[np.cdouble] | None
+
+
+class QpointsPhonon:
+    """Calculate phonons at specified qpoints.
+
+    Attributes
+    ----------
+    qpoints : ndarray
+        q-points in reduced coordinates of reciprocal lattice.
+        shape=(qpoints, 3), dtype='double'
+    frequencies : ndarray
+        Phonon frequencies. Imaginary frequencies are represented by
+        negative real numbers. Unit conversion factor is multiplied.
+        shape=(qpoints, bands), dtype='double'
+    eigenvectors : ndarray
+        Phonon eigenvectors. None when with_eigenvectors=False.
+        shape=(qpoints, bands, bands), dtype='complex'
+    eigenvalues : ndarray
+        Phonon eigenvvalues. Unit conversion factor is not multiplied.
+        shape=(qpoints, bands), dtype='double'
+    group_velocities : ndarray
+        Phonon group velocities. None if group velocities are not
+        calculated.
+        shape=(qpoints, bands, 3), dtype='double'
+    dynamical_matrices : ndarray
+        Dynamical matrices at q-points.
+        shape=(qpoints, bands, bands), dtype='double'
+
+    """
+
+    def __init__(
+        self,
+        qpoints: Sequence[Sequence[float]]
+        | Sequence[NDArray[np.double]]
+        | NDArray[np.double],
+        dynamical_matrix: DynamicalMatrix | DynamicalMatrixNAC,
+        nac_q_direction: Sequence[float] | NDArray[np.double] | None = None,
+        with_eigenvectors: bool = False,
+        group_velocity: GroupVelocity | None = None,
+        with_dynamical_matrices: bool = False,
+        factor: float | None = None,
+        lang: Literal["C", "Rust"] | None = None,
+    ) -> None:
+        """Init method.
+
+        Parameters
+        ----------
+        qpoints : ndarray
+            q-points in reduced coordinates of reciprocal lattice.
+            shape=(N, 3), dtype='double'
+        dynamical_matrix : DynamicalMatrix or DynamicalMatrixNAC
+            Dynamical matrix calculator.
+        nac_q_direction : ndarray, optional
+            Direction of q-vector approaching to Gamma point in reduced
+            coordinates of reciprocal lattice. Used for NAC correction.
+            shape=(3,), dtype='double'. Default is None.
+        with_eigenvectors : bool, optional
+            Flag whether eigenvectors are calculated or not. Default is False.
+        group_velocity : GroupVelocity, optional
+            Group velocity calculator. Default is None.
+        with_dynamical_matrices : bool, optional
+            Flag whether dynamical matrices are stored or not. Default is False.
+        factor : float, optional
+            Unit conversion factor for phonon frequencies. Default is
+            DefaultToTHz of the physical units.
+        lang : Literal["C", "Rust"], optional
+            Backend for the batched dynamical-matrix build.  When None
+            (default) the value is inherited from
+            ``dynamical_matrix.lang``; pass an explicit string to
+            override.
+
+        """
+        primitive: Primitive = dynamical_matrix.primitive
+        self._natom = len(primitive)
+        self._masses = primitive.masses
+        self._symbols = primitive.symbols
+        self._positions = primitive.scaled_positions
+        self._lattice = primitive.cell
+
+        self._qpoints = np.asarray(qpoints, dtype="double", order="C")
+        self._dynamical_matrix = dynamical_matrix
+        self._lang: Literal["C", "Rust"] = (
+            lang if lang is not None else dynamical_matrix.lang
+        )
+        self._nac_q_direction = (
+            np.array(nac_q_direction, dtype="double")
+            if nac_q_direction is not None
+            else None
+        )
+        self._with_eigenvectors = with_eigenvectors
+        self._gv_obj: GroupVelocity | None = group_velocity
+        self._with_dynamical_matrices = with_dynamical_matrices
+        if factor is None:
+            self._factor = get_physical_units().DefaultToTHz
+        else:
+            self._factor = factor
+
+        self._group_velocities: NDArray[np.double] | None = None
+        self._eigenvectors: NDArray[np.cdouble] | None = None
+        self._eigenvalues: NDArray[np.double]
+        self._frequencies: NDArray[np.double]
+        self._dynamical_matrices: NDArray[np.cdouble] | None = None
+
+        self._run()
+
+    @property
+    def qpoints(self) -> NDArray[np.double]:
+        """Return q-points in reduced coordinates of reciprocal lattice."""
+        return self._qpoints
+
+    @property
+    def frequencies(self) -> NDArray[np.double]:
+        """Return frequencies."""
+        return self._frequencies
+
+    @property
+    def eigenvalues(self) -> NDArray[np.double]:
+        """Return eigenvalues."""
+        return self._eigenvalues
+
+    @property
+    def eigenvectors(self) -> NDArray[np.cdouble] | None:
+        """Return eigenvectors."""
+        return self._eigenvectors
+
+    @property
+    def group_velocities(self) -> NDArray[np.double] | None:
+        """Return group velocities."""
+        return self._group_velocities
+
+    @property
+    def dynamical_matrices(self) -> NDArray[np.cdouble] | None:
+        """Return DynamicalMatrix class instance."""
+        return self._dynamical_matrices
+
+    def write_hdf5(
+        self,
+        filename: str | os.PathLike = "qpoints.hdf5",
+        compression: Literal["gzip", "lzf"] | int | None = None,
+    ) -> None:
+        """Write results in hdf5."""
+        import h5py
+
+        with h5py.File(filename, "w") as w:
+            w.create_dataset("reciprocal_lattice", data=np.linalg.inv(self._lattice.T))
+            w.create_dataset("masses", data=self._masses)
+            w.create_dataset("qpoint", data=self._qpoints, compression=compression)
+            w.create_dataset(
+                "frequency", data=self._frequencies, compression=compression
+            )
+            if self._with_eigenvectors:
+                w.create_dataset(
+                    "eigenvector", data=self._eigenvectors, compression=compression
+                )
+            if self._group_velocities is not None:
+                w.create_dataset(
+                    "group_velocity",
+                    data=self._group_velocities,
+                    compression=compression,
+                )
+            if self._with_dynamical_matrices:
+                w.create_dataset(
+                    "dynamical_matrix",
+                    data=self._dynamical_matrices,
+                    compression=compression,
+                )
+
+    def write_yaml(self, filename: str | os.PathLike = "qpoints.yaml") -> None:
+        """Write results in yaml."""
+        w = open(filename, "w")
+        w.write("nqpoint: %-7d\n" % len(self._qpoints))
+        w.write("natom:   %-7d\n" % self._natom)
+        rec_lattice = np.linalg.inv(self._lattice)  # column vectors
+        w.write("reciprocal_lattice:\n")
+        for vec, axis in zip(rec_lattice.T, ("a*", "b*", "c*"), strict=True):
+            w.write("- [ %12.8f, %12.8f, %12.8f ] # %2s\n" % (tuple(vec) + (axis,)))
+        w.write("phonon:\n")
+
+        for i, q in enumerate(self._qpoints):
+            w.write("- q-position: [ %12.7f, %12.7f, %12.7f ]\n" % tuple(q))
+            if self._with_dynamical_matrices:
+                assert self._dynamical_matrices is not None
+                w.write("  dynamical_matrix:\n")
+                for row in self._dynamical_matrices[i]:
+                    w.write("  - [ ")
+                    for j, elem in enumerate(row):
+                        w.write("%15.10f, %15.10f" % (elem.real, elem.imag))
+                        if j == len(row) - 1:
+                            w.write(" ]\n")
+                        else:
+                            w.write(", ")
+
+            w.write("  band:\n")
+            for j, freq in enumerate(self._frequencies[i]):
+                w.write("  - # %d\n" % (j + 1))
+                w.write("    frequency: %15.10f\n" % freq)
+
+                if self._group_velocities is not None:
+                    w.write(
+                        "    group_velocity: [ %13.7f, %13.7f, %13.7f ]\n"
+                        % tuple(self._group_velocities[i, j])
+                    )
+
+                if self._with_eigenvectors:
+                    assert self._eigenvectors is not None
+                    w.write("    eigenvector:\n")
+                    for k in range(self._natom):
+                        w.write("    - # atom %d\n" % (k + 1))
+                        for ll in (0, 1, 2):
+                            w.write(
+                                "      - [ %17.14f, %17.14f ]\n"
+                                % (
+                                    self._eigenvectors[i][k * 3 + ll, j].real,
+                                    self._eigenvectors[i][k * 3 + ll, j].imag,
+                                )
+                            )
+            w.write("\n")
+
+    def _run(self) -> None:
+        if self._gv_obj is not None:
+            self._gv_obj.run(self._qpoints, perturbation=self._nac_q_direction)
+            self._group_velocities = self._gv_obj.group_velocities
+
+        dynmat = get_dynamical_matrices_at_qpoints(
+            self._dynamical_matrix,
+            self._qpoints,
+            self._nac_q_direction,
+            lang=self._lang,
+        )
+        eigenvalues, eigenvectors = diagonalize_dynamical_matrices(
+            dynmat,
+            with_eigenvectors=self._with_eigenvectors,
+            lang=self._lang,
+        )
+        self._eigenvalues = eigenvalues
+        self._frequencies = np.ascontiguousarray(
+            np.sqrt(np.abs(eigenvalues)) * np.sign(eigenvalues) * self._factor,
+            dtype="double",
+        )
+
+        if self._with_eigenvectors:
+            self._eigenvectors = eigenvectors
+
+        if self._with_dynamical_matrices:
+            self._dynamical_matrices = np.ascontiguousarray(dynmat, dtype="cdouble")

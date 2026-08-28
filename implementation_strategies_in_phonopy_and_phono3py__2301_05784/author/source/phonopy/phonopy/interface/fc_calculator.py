@@ -1,0 +1,375 @@
+# SPDX-License-Identifier: BSD-3-Clause
+"""Force constants calculator interfaces."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Literal, cast
+
+import numpy as np
+from numpy.typing import NDArray
+
+from phonopy.exception import (
+    ForceCalculatorRequiredError,
+    ForceConstantsCalculatorNotFoundError,
+)
+from phonopy.harmonic.displacement import DisplacementDataset
+from phonopy.harmonic.force_constants import FDFCSolver
+from phonopy.interface.alm import ALMFCSolver
+from phonopy.interface.symfc import SymfcFCSolver, parse_symfc_options
+from phonopy.structure.atoms import PhonopyAtoms
+from phonopy.structure.cells import Primitive
+from phonopy.structure.dataset import get_displacements_and_forces
+from phonopy.structure.symmetry import Symmetry
+
+fc_calculator_names = {
+    "alm": "ALM",
+    "symfc": "symfc",
+    "traditional": "phonopy-traditional",
+}
+
+
+def check_and_cast_fc_calculator_name(
+    fc_calculator: str | None,
+) -> Literal["traditional", "symfc", "alm"] | None:
+    """Check if the force constants calculator name is valid."""
+    if fc_calculator is None:
+        return None
+    if fc_calculator not in fc_calculator_names:
+        raise ForceConstantsCalculatorNotFoundError(
+            f"{fc_calculator} is not a valid force constants calculator."
+        )
+    else:
+        return cast(Literal["traditional", "symfc", "alm"], fc_calculator)
+
+
+def get_fc_solver(
+    supercell: PhonopyAtoms,
+    dataset: DisplacementDataset,
+    primitive: Primitive | None = None,
+    fc_calculator: Literal["traditional", "symfc", "alm"] | None = None,
+    fc_calculator_options: str | None = None,
+    orders: Sequence[int] | None = None,
+    is_compact_fc: bool = False,
+    symmetry: Symmetry | None = None,
+    log_level: int = 0,
+    lang: Literal["C", "Rust"] = "Rust",
+) -> FCSolver:
+    """Return force constants solver class instance.
+
+    Parameters
+    ----------
+    supercell : PhonopyAtoms
+        Supercell
+    dataset : DisplacementDataset
+        Dataset that contains displacements, forces, and optionally energies.
+    primitive : Primitive
+        Primitive cell. Only needed for the traditional FC calculator.
+    fc_calculator : str, optional
+        Currently 'traditional' (FD method), 'alm', and 'symfc' are supported.
+        Default is None, meaning invoking 'traditional'.
+    fc_calculator_options : str, optional
+        This is arbitrary string.
+    orders : Sequence[int], optional
+        Orders of force constants to be calculated. Default is None.
+    is_compact_fc : bool, optional
+        If True, force constants are returned in the compact form.
+    symmetry : Symmetry, optional
+        Symmetry of supercell. This is used for the traditional and symfc FC
+        solver. Default is None.
+    log_level : integer or bool, optional
+        Verbosity level. False or 0 means quiet. True or 1 means normal level of
+        log to stdout. 2 gives verbose mode.
+
+    Returns
+    -------
+    FCSolver
+        Force constants solver class instance.
+
+    """
+    fc_solver_name = fc_calculator if fc_calculator is not None else "traditional"
+    fc_solver = FCSolver(
+        fc_solver_name,
+        supercell,
+        symmetry=symmetry,
+        dataset=dataset,
+        is_compact_fc=is_compact_fc,
+        primitive=primitive,
+        orders=orders,
+        options=fc_calculator_options,
+        log_level=log_level,
+        lang=lang,
+    )
+    return fc_solver
+
+
+def get_fc2(
+    supercell: PhonopyAtoms,
+    dataset: DisplacementDataset,
+    primitive: Primitive | None = None,
+    fc_calculator: Literal["traditional", "symfc", "alm"] | None = None,
+    fc_calculator_options: str | None = None,
+    is_compact_fc: bool = False,
+    symmetry: Symmetry | None = None,
+    log_level: int = 0,
+    lang: Literal["C", "Rust"] = "Rust",
+) -> NDArray[np.double]:
+    """Supercell 2nd order force constants (fc2) are calculated.
+
+    The expected shape of supercell fc2 to be returned is
+        (len(atom_list), num_atoms, 3, 3).
+
+    Parameters
+    ----------
+    supercell : PhonopyAtoms
+        Supercell
+    dataset : DisplacementDataset
+        Dataset that contains displacements, forces, and optionally energies.
+    primitive : Primitive
+        Primitive cell. Only needed for the traditional FC calculator.
+    fc_calculator : str, optional
+        Currently 'traditional' (FD method), 'alm', and 'symfc' are supported.
+        Default is None, meaning invoking 'traditional'.
+    fc_calculator_options : str, optional
+        This is arbitrary string.
+    is_compact_fc : bool, optional
+        If True, force constants are returned in the compact form.
+    symmetry : Symmetry, optional
+        Symmetry of supercell. This is used for the traditional and symfc FC
+        solver. Default is None.
+    log_level : integer or bool, optional
+        Verbosity level. False or 0 means quiet. True or 1 means normal level of
+        log to stdout. 2 gives verbose mode.
+
+    Returns
+    -------
+    fc2 : ndarray
+        2nd order force constants. shape=(len(atom_list), num_atoms, 3, 3),
+        dtype='double', order='C'.
+
+    """
+    fc_solver = get_fc_solver(
+        supercell,
+        dataset,
+        primitive=primitive,
+        fc_calculator=fc_calculator,
+        fc_calculator_options=fc_calculator_options,
+        orders=[2],
+        is_compact_fc=is_compact_fc,
+        symmetry=symmetry,
+        log_level=log_level,
+        lang=lang,
+    )
+    return fc_solver.force_constants[2]
+
+
+class FCSolver:
+    """Force constants calculator interface."""
+
+    def __init__(
+        self,
+        fc_solver_name: Literal["traditional", "symfc", "alm"],
+        supercell: PhonopyAtoms,
+        symmetry: Symmetry | None = None,
+        dataset: DisplacementDataset | None = None,
+        is_compact_fc: bool = False,
+        primitive: Primitive | None = None,
+        orders: Sequence[int] | None = None,
+        options: str | None = None,
+        log_level: int = 0,
+        lang: Literal["C", "Rust"] = "Rust",
+    ) -> None:
+        """Init method.
+
+        Force constants are calculated if necessary data are provided.
+
+        For the symfc FC solver, SymfcFCSolver instance can be returned without
+        necessary data for computing force constants. For the other solvers,
+        raise an error.
+
+        Parameters
+        ----------
+        fc_solver_name : Literal["traditional", "symfc", "alm"]
+            Force constants calculator name.
+        supercell : PhonopyAtoms
+            Supercell.
+        symmetry : Symmetry, optional
+            Symmetry of supercell. Default is None.
+        dataset : DisplacementDataset, optional
+            Dataset that contains displacements, forces, and optionally
+            energies. Default is None.
+        is_compact_fc : bool, optional
+            If True, force constants are returned in the compact form.
+        primitive : Primitive, optional
+            Primitive cell. This is needed for the traditional and alm FC
+            calculator. Default is None.
+        orders : Sequence[int], optional
+            Orders of force constants to be calculated. Default is None.
+        options : str, optional
+            This is arbitrary string that is used for each FC solver. Default is
+            None.
+        log_level : int, optional
+            Log level. Default is 0.
+
+        """
+        self._supercell = supercell
+        self._symmetry = symmetry
+        self._dataset = dataset
+        self._is_compact_fc = is_compact_fc
+        self._primitive = primitive
+        self._orders = orders
+        self._options = options
+        self._log_level = log_level
+        self._lang: Literal["C", "Rust"] = lang
+
+        self._fc_solver = self._set_fc_solver(fc_solver_name)
+
+    @property
+    def fc_solver(self) -> FDFCSolver | SymfcFCSolver | ALMFCSolver:
+        """Return force constants solver class instance."""
+        return self._fc_solver
+
+    @property
+    def force_constants(self) -> dict[int, NDArray[np.double]]:
+        """Return force constants."""
+        return self._fc_solver.force_constants
+
+    def _set_fc_solver(
+        self, fc_calculator_name: str
+    ) -> FDFCSolver | SymfcFCSolver | ALMFCSolver:
+        if fc_calculator_name == "traditional":
+            return self._set_traditional_solver()
+        if fc_calculator_name == "symfc":
+            return self._set_symfc_solver()
+        if fc_calculator_name == "alm":
+            return self._set_alm_solver()
+        raise ValueError(f"Unknown fc_calculator_name: {fc_calculator_name}")
+
+    def _set_traditional_solver(
+        self, solver_class: type[FDFCSolver] | None = FDFCSolver
+    ) -> FDFCSolver:
+        if self._primitive is None:
+            raise RuntimeError(
+                "Primitive cell is required for the traditional FC solver."
+            )
+
+        if self._dataset is None:
+            raise RuntimeError(
+                "Displacement-force dataset is required for the traditional FC solver."
+            )
+
+        if "displacements" in self._dataset:
+            lines = [
+                "Type-II dataset for displacements and forces was provided, ",
+                "but the selected force constants calculator cannot process it.",
+                "Use another force constants calculator, e.g., symfc, ",
+                "to generate force constants.",
+            ]
+            raise ForceCalculatorRequiredError("\n".join(lines))
+
+        if solver_class is None:
+            solver_class = FDFCSolver
+        return solver_class(
+            self._supercell,
+            self._primitive,
+            self._symmetry,  # type: ignore[arg-type]
+            self._dataset,
+            is_compact_fc=self._is_compact_fc,
+            log_level=self._log_level,
+            lang=self._lang,
+        )
+
+    def _set_symfc_solver(self, order: int = 2) -> SymfcFCSolver:
+        options = parse_symfc_options(self._options, order)
+        options.pop("memsize", None)
+        if self._dataset is None:
+            # Estimation-only path; no FC to compute, so no compact/full
+            # decision to make.
+            return SymfcFCSolver(
+                self._supercell,
+                symmetry=self._symmetry,
+                options=options,
+                log_level=self._log_level,
+            )
+
+        displacements, forces = self._get_displacements_and_forces()
+        symfc_solver = SymfcFCSolver(
+            self._supercell,
+            displacements=displacements,
+            forces=forces,
+            symmetry=self._symmetry,
+            options=options,
+            log_level=self._log_level,
+        )
+        if self._orders is not None:
+            # Split the usual ``run`` into ``compute_basis_set + solve`` so
+            # we can inspect ``p2s_map`` between the two phases and switch
+            # to full FC if symfc's primitive disagrees with phonopy's.
+            symfc_solver.begin_run_log(self._orders)
+            symfc_solver.compute_basis_set(orders=self._orders)
+            is_compact_fc = self._resolve_compact_fc(symfc_solver)
+            symfc_solver.solve(orders=self._orders, is_compact_fc=is_compact_fc)
+            symfc_solver.end_run_log()
+        return symfc_solver
+
+    def _resolve_compact_fc(self, symfc_solver: SymfcFCSolver) -> bool:
+        """Decide ``is_compact_fc`` for ``solve``.
+
+        Falls back to full FC when symfc detects a smaller primitive cell
+        than the one recorded in the input.  In that case the compact FC
+        arrays returned by symfc cannot be stored in phonopy's compact
+        slots without a non-trivial re-mapping, so full FC is used to
+        keep the downstream code paths consistent.
+
+        Must be called after ``compute_basis_set`` so that ``p2s_map`` is
+        available.
+
+        """
+        if not self._is_compact_fc or self._primitive is None:
+            return self._is_compact_fc
+        symfc_p2s = symfc_solver.p2s_map
+        if symfc_p2s is None:
+            return self._is_compact_fc
+        phonopy_p2s = self._primitive.p2s_map
+        if len(symfc_p2s) == len(phonopy_p2s) and (symfc_p2s == phonopy_p2s).all():
+            return True
+        if self._log_level:
+            print("WARNING:")
+            print(f"  symfc detected a primitive cell with {len(symfc_p2s)} atoms,")
+            print(
+                f"    smaller than the input primitive cell ({len(phonopy_p2s)} atoms)."
+            )
+            print("  Falling back to full force constants. For optimum performance,")
+            print("  regenerate with the default primitive matrix.")
+        return False
+
+    def _set_alm_solver(self) -> ALMFCSolver:
+        if self._primitive is None:
+            raise RuntimeError(
+                "Primitive cell is required for the traditional FC solver."
+            )
+
+        if self._dataset is None:
+            raise RuntimeError(
+                "Displacement-force dataset is required for ALM FC solver."
+            )
+        displacements, forces = self._get_displacements_and_forces()
+
+        if self._orders is None:
+            raise RuntimeError("Orders are required for ALM FC solver.")
+        return ALMFCSolver(
+            self._supercell,
+            self._primitive,
+            displacements,
+            forces,  # type: ignore[arg-type]
+            max(self._orders) - 1,
+            is_compact_fc=self._is_compact_fc,
+            options=self._options,
+            log_level=self._log_level,
+        )
+
+    def _get_displacements_and_forces(
+        self,
+    ) -> tuple[NDArray[np.double], NDArray[np.double] | None]:
+        """Return displacements and forces for fc2."""
+        return get_displacements_and_forces(self._dataset)  # type: ignore[arg-type]

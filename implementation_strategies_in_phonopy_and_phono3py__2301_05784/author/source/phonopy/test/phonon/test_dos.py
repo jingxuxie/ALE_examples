@@ -1,0 +1,344 @@
+# SPDX-License-Identifier: BSD-3-Clause
+"""Tests for DOS."""
+
+import numpy as np
+import pytest
+
+from phonopy import Phonopy
+from phonopy.cui.phonopy_script import _get_pdos_indices
+from phonopy.phonon.dos import ProjectedDos
+
+tp_str = """0.000000 100.000000 200.000000 300.000000 400.000000
+500.000000 600.000000 700.000000 800.000000 900.000000
+4.856373 3.916036 -0.276031 -6.809284 -14.961974
+-24.342086 -34.708562 -45.898943 -57.796507 -70.313405
+0.000000 26.328820 55.258118 74.269718 88.156943
+99.054231 108.009551 115.606163 122.200204 128.024541
+0.000000 36.207859 45.673598 47.838871 48.634251
+49.009334 49.214960 49.339592 49.420745 49.476502"""
+
+tdos_str = """-0.750122 0.000000
+0.249878 0.000041
+1.249878 0.010398
+2.249878 1.363019
+3.249878 1.837252
+4.249878 0.991171
+5.249878 0.342658
+6.249878 0.106961
+7.249878 0.032966"""
+
+tdos_thm_str = """-0.750122 0.000000
+0.249878 0.004508
+1.249878 0.090716
+2.249878 0.549237
+3.249878 1.093288
+4.249878 1.349766
+5.249878 0.660090
+6.249878 0.461219
+7.249878 0.000000"""
+
+pdos_str = """-0.750122 0.000000 0.000000
+0.249878 0.000016 0.000025
+1.249878 0.004469 0.005929
+2.249878 0.620921 0.742098
+3.249878 0.597587 1.239666
+4.249878 0.501077 0.490094
+5.249878 0.142162 0.200496
+6.249878 0.070026 0.036935
+7.249878 0.020225 0.012741"""
+
+pdos_thm_str = """-0.750122 0.000000 0.000000
+0.249878 0.001820 0.002688
+1.249878 0.037419 0.053297
+2.249878 0.228129 0.321109
+3.249878 0.403637 0.689651
+4.249878 0.756532 0.593234
+5.249878 0.454573 0.205518
+6.249878 0.322527 0.138692
+7.249878 0.000000 0.000000"""
+
+
+def testTotalDOS(ph_nacl_nofcsym: Phonopy):
+    """Test of total DOS with smearing method."""
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5])
+    phonon.run_total_dos(freq_pitch=1, use_tetrahedron_method=False)
+    dos = phonon.total_dos.dos
+    freqs = phonon.total_dos.frequency_points
+    data_ref = np.reshape([float(x) for x in tdos_str.split()], (-1, 2))
+    np.testing.assert_allclose(data_ref, np.c_[freqs, dos], atol=1e-5)
+    # for f, d in zip(freqs, dos):
+    #     print("%f %f" % (f, d))
+
+
+def testTotalDOSTetrahedron(ph_nacl_nofcsym: Phonopy):
+    """Test of total DOS with tetrahedron method."""
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5])
+    phonon.run_total_dos(freq_pitch=1, use_tetrahedron_method=True)
+    dos = phonon.total_dos.dos
+    freqs = phonon.total_dos.frequency_points
+    data_ref = np.reshape([float(x) for x in tdos_thm_str.split()], (-1, 2))
+    np.testing.assert_allclose(data_ref, np.c_[freqs, dos], atol=1e-5)
+    # for f, d in zip(freqs, dos):
+    #     print("%f %f" % (f, d))
+
+
+def test_total_dos_sigma_overrides_tetrahedron(ph_nacl_nofcsym: Phonopy):
+    """Sigma selects the smearing method even with use_tetrahedron_method=True.
+
+    The default use_tetrahedron_method=True with sigma used to crash
+    (TotalDos) because __init__ dispatched on the flag while run()
+    dispatched on sigma.
+
+    """
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5])
+    dos_default = phonon.run_total_dos(sigma=0.5, freq_pitch=1).dos
+    dos_smearing = phonon.run_total_dos(
+        sigma=0.5, freq_pitch=1, use_tetrahedron_method=False
+    ).dos
+    assert dos_default is not None
+    np.testing.assert_allclose(dos_default, dos_smearing, atol=1e-12)
+
+
+def test_projected_dos_sigma_overrides_tetrahedron(ph_nacl_nofcsym: Phonopy):
+    """Sigma selects the smearing method even with use_tetrahedron_method=True.
+
+    The default use_tetrahedron_method=True with sigma used to silently
+    ignore sigma (ProjectedDos) because run() dispatched on the flag
+    while sigma promised the smearing method.
+
+    """
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5], is_mesh_symmetry=False, with_eigenvectors=True)
+    pdos_default = phonon.run_projected_dos(sigma=0.5, freq_pitch=1).projected_dos
+    pdos_smearing = phonon.run_projected_dos(
+        sigma=0.5, freq_pitch=1, use_tetrahedron_method=False
+    ).projected_dos
+    assert pdos_default is not None
+    np.testing.assert_allclose(pdos_default, pdos_smearing, atol=1e-12)
+
+
+def test_total_dos_cauchy_smearing(ph_nacl_nofcsym: Phonopy):
+    """Cauchy smearing is selectable through run_total_dos."""
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5])
+    dos_normal = phonon.run_total_dos(
+        sigma=0.5, freq_pitch=1, smearing_function="Normal"
+    ).dos
+    dos_cauchy = phonon.run_total_dos(
+        sigma=0.5, freq_pitch=1, smearing_function="Cauchy"
+    ).dos
+    assert dos_normal is not None
+    assert dos_cauchy is not None
+    # Different distributions give different DOS.
+    assert not np.allclose(dos_normal, dos_cauchy)
+
+
+def test_projected_dos_cauchy_smearing(ph_nacl_nofcsym: Phonopy):
+    """Cauchy smearing is selectable through run_projected_dos."""
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5], is_mesh_symmetry=False, with_eigenvectors=True)
+    pdos_normal = phonon.run_projected_dos(
+        sigma=0.5, freq_pitch=1, smearing_function="Normal"
+    ).projected_dos
+    pdos_cauchy = phonon.run_projected_dos(
+        sigma=0.5, freq_pitch=1, smearing_function="Cauchy"
+    ).projected_dos
+    assert pdos_normal is not None
+    assert pdos_cauchy is not None
+    assert not np.allclose(pdos_normal, pdos_cauchy)
+
+
+def _run_projected_dos(mesh, **kwargs):
+    """Build a smearing ProjectedDos directly and return its projected DOS."""
+    pdos = ProjectedDos(mesh, sigma=0.5, **kwargs)
+    pdos.set_draw_area(freq_pitch=1)
+    pdos.run()
+    return pdos.projected_dos
+
+
+def test_projected_dos_xyz_projection(ph_nacl_nofcsym: Phonopy):
+    """Summing the xyz projection over x, y, z per atom recovers the per-atom PDOS.
+
+    Regression guard for the eigenvector handling in ``ProjectedDos.__init__``.
+
+    """
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5], is_mesh_symmetry=False, with_eigenvectors=True)
+    pdos_atom = _run_projected_dos(phonon.mesh)
+    pdos_xyz = _run_projected_dos(phonon.mesh, xyz_projection=True)
+    assert pdos_atom is not None
+    assert pdos_xyz is not None
+    natom, nfreq = pdos_atom.shape
+    summed = pdos_xyz.reshape(natom, 3, nfreq).sum(axis=1)
+    np.testing.assert_allclose(summed, pdos_atom, atol=1e-10)
+
+
+def test_projected_dos_direction(ph_nacl_nofcsym: Phonopy):
+    """Projection onto Cartesian x equals the x rows of the xyz projection.
+
+    Regression guard for the direction-projection path in
+    ``ProjectedDos.__init__``.
+
+    """
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5], is_mesh_symmetry=False, with_eigenvectors=True)
+    pdos_xyz = _run_projected_dos(phonon.mesh, xyz_projection=True)
+    pdos_dir_x = _run_projected_dos(phonon.mesh, direction=[1, 0, 0])
+    assert pdos_xyz is not None
+    assert pdos_dir_x is not None
+    np.testing.assert_allclose(pdos_dir_x, pdos_xyz[0::3], atol=1e-10)
+
+
+def test_projected_dos_non_merge_site_weights(ph_nacl_nofcsym: Phonopy, monkeypatch):
+    """Per-atom site-mixture weights scale each atom's PDOS by x_a.
+
+    Regression guard for the mixture_weights handling in ``ProjectedDos.__init__``.
+
+    """
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5], is_mesh_symmetry=False, with_eigenvectors=True)
+    mesh = phonon.mesh
+    natom = len(mesh.primitive)
+
+    pdos_ref = _run_projected_dos(mesh)
+    pdos_xyz_ref = _run_projected_dos(mesh, xyz_projection=True)
+    assert pdos_ref is not None
+    assert pdos_xyz_ref is not None
+
+    weights = np.linspace(0.4, 1.0, natom)  # non-uniform: distinguishes per atom
+    monkeypatch.setattr(
+        type(mesh.primitive), "mixture_weights", property(lambda self: weights)
+    )
+    pdos_w = _run_projected_dos(mesh)
+    pdos_xyz_w = _run_projected_dos(mesh, xyz_projection=True)
+
+    np.testing.assert_allclose(pdos_w, pdos_ref * weights[:, None], atol=1e-12)
+    np.testing.assert_allclose(
+        pdos_xyz_w, pdos_xyz_ref * np.repeat(weights, 3)[:, None], atol=1e-12
+    )
+
+
+def testProjectedlDOS(ph_nacl_nofcsym: Phonopy):
+    """Test projected DOS with smearing method."""
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5], is_mesh_symmetry=False, with_eigenvectors=True)
+    phonon.run_projected_dos(freq_pitch=1, use_tetrahedron_method=False)
+    pdos = phonon.projected_dos.projected_dos
+    freqs = phonon.projected_dos.frequency_points
+    data_ref = np.reshape([float(x) for x in pdos_str.split()], (-1, 3)).T
+    np.testing.assert_allclose(data_ref, np.vstack([freqs, pdos]), atol=1e-5)
+    # for f, d in zip(freqs, pdos.T):
+    #     print(("%f" + " %f" * len(d)) % ((f, ) + tuple(d)))
+
+
+def testPartialDOSTetrahedron(ph_nacl_nofcsym: Phonopy):
+    """Test projected DOS with tetrahedron method."""
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5], is_mesh_symmetry=False, with_eigenvectors=True)
+    phonon.run_projected_dos(freq_pitch=1, use_tetrahedron_method=True)
+    pdos = phonon.projected_dos.projected_dos
+    freqs = phonon.projected_dos.frequency_points
+    data_ref = np.reshape([float(x) for x in pdos_thm_str.split()], (-1, 3)).T
+    np.testing.assert_allclose(data_ref, np.vstack([freqs, pdos]), atol=1e-5)
+    # for f, d in zip(freqs, pdos.T):
+    #     print(("%f" + " %f" * len(d)) % ((f, ) + tuple(d)))
+
+
+tdos_thm_even_str = """-0.005713 0.000000
+0.994287 0.071996
+1.994287 0.424551
+2.994287 2.048093
+3.994287 2.166890
+4.994287 1.684229
+5.994287 0.500183
+6.994287 0.126302
+7.994287 0.000000"""
+
+
+pdos_thm_even_str = """-0.005713 0.000000 0.000000
+0.994287 0.029538 0.042458
+1.994287 0.178648 0.245903
+2.994287 0.778448 1.269645
+3.994287 1.269147 0.897743
+4.994287 0.765973 0.918256
+5.994287 0.382650 0.117533
+6.994287 0.077068 0.049234
+7.994287 0.000000 0.000000"""
+
+
+def testTotalDOSTetrahedronEvenMesh(ph_nacl_nofcsym: Phonopy):
+    """Total DOS with tetrahedron method on an even mesh.
+
+    Even mesh numbers trigger the default ``is_gamma_center=False`` half-grid
+    shift in Mesh.  This regression test locks in the values produced when the
+    shift is propagated to BZGrid via ``Mesh.is_shift``.
+
+    """
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([6, 6, 6])
+    # Confirm the test exercises the shifted-grid (Gamma-less) setup.
+    assert list(phonon.mesh.is_shift) == [1, 1, 1]
+    min_q_norm = float(np.linalg.norm(phonon.mesh.qpoints, axis=1).min())
+    np.testing.assert_allclose(min_q_norm, np.sqrt(3) / 12, atol=1e-12)
+    phonon.run_total_dos(freq_pitch=1, use_tetrahedron_method=True)
+    dos = phonon.total_dos.dos
+    freqs = phonon.total_dos.frequency_points
+    data_ref = np.reshape([float(x) for x in tdos_thm_even_str.split()], (-1, 2))
+    np.testing.assert_allclose(data_ref, np.c_[freqs, dos], atol=1e-5)
+
+
+def testPartialDOSTetrahedronEvenMesh(ph_nacl_nofcsym: Phonopy):
+    """Projected DOS with tetrahedron method on an even mesh.
+
+    Companion to ``testTotalDOSTetrahedronEvenMesh`` for the projected path.
+
+    """
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([6, 6, 6], is_mesh_symmetry=False, with_eigenvectors=True)
+    # Confirm the test exercises the shifted-grid (Gamma-less) setup.
+    assert list(phonon.mesh.is_shift) == [1, 1, 1]
+    min_q_norm = float(np.linalg.norm(phonon.mesh.qpoints, axis=1).min())
+    np.testing.assert_allclose(min_q_norm, np.sqrt(3) / 12, atol=1e-12)
+    phonon.run_projected_dos(freq_pitch=1, use_tetrahedron_method=True)
+    pdos = phonon.projected_dos.projected_dos
+    freqs = phonon.projected_dos.frequency_points
+    data_ref = np.reshape([float(x) for x in pdos_thm_even_str.split()], (-1, 3)).T
+    np.testing.assert_allclose(data_ref, np.vstack([freqs, pdos]), atol=1e-5)
+
+
+def test_debye_frequency(ph_nacl_nofcsym: Phonopy):
+    """Test Debye frequency via run_debye_frequency and the debye_frequency attr."""
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5])
+    phonon.run_total_dos(freq_pitch=1)
+    assert phonon.total_dos.debye_frequency is None
+    phonon.total_dos.run_debye_frequency()
+    freq_debye = phonon.total_dos.debye_frequency
+    assert isinstance(freq_debye, float)
+    assert freq_debye > 0
+
+
+def test_debye_frequency_deprecated_api(ph_nacl_nofcsym: Phonopy):
+    """Deprecated set_/get_Debye_frequency keep working but warn."""
+    phonon = ph_nacl_nofcsym
+    phonon.run_mesh([5, 5, 5])
+    phonon.run_total_dos(freq_pitch=1)
+
+    with pytest.warns(DeprecationWarning):
+        phonon.set_Debye_frequency()
+    with pytest.warns(DeprecationWarning):
+        freq_debye_deprecated = phonon.get_Debye_frequency()
+
+    np.testing.assert_allclose(
+        freq_debye_deprecated, phonon.total_dos.debye_frequency, atol=1e-12
+    )
+
+
+def test_get_pdos_indices(ph_tio2: Phonopy):
+    """Test get_pdos_indices by TiO2."""
+    indices = _get_pdos_indices(ph_tio2.primitive_symmetry)
+    np.testing.assert_array_equal(indices[0], [0, 1, 2, 3])
+    np.testing.assert_array_equal(indices[1], [4, 5])

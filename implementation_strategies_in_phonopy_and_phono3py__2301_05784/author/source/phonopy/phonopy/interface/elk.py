@@ -1,0 +1,224 @@
+# SPDX-License-Identifier: BSD-3-Clause
+"""Elk calculator interface."""
+
+from __future__ import annotations
+
+import os
+import sys
+from collections.abc import Callable, Sequence
+from typing import Any
+
+import numpy as np
+from numpy.typing import NDArray
+
+from phonopy.file_IO import collect_forces
+from phonopy.interface.vasp import (
+    check_forces,
+    get_drift_forces,
+    get_scaled_positions_lines,
+)
+from phonopy.structure.atomic_data import get_atomic_data
+from phonopy.structure.atoms import PhonopyAtoms
+from phonopy.structure.cells import group_by_key
+
+
+def parse_set_of_forces(
+    num_atoms: int,
+    forces_filenames: Sequence[str | os.PathLike],
+    verbose: bool = True,
+) -> list[NDArray[np.double]]:
+    """Parse forces from output files."""
+    hook = "Forces :"
+    is_parsed = True
+    force_sets = []
+
+    for i, filename in enumerate(forces_filenames):
+        if verbose:
+            sys.stdout.write("%d. " % (i + 1))
+        f = open(filename)
+        elk_forces = collect_forces(f, num_atoms, hook, [3, 4, 5], word="total force")
+        if check_forces(elk_forces, num_atoms, filename, verbose=verbose):
+            drift_force = get_drift_forces(
+                elk_forces, filename=filename, verbose=verbose
+            )
+            force_sets.append(np.array(elk_forces) - drift_force)
+        else:
+            is_parsed = False
+
+    if is_parsed:
+        return force_sets
+    else:
+        return []
+
+
+def read_elk(filename: str | os.PathLike) -> tuple[PhonopyAtoms, list[str]]:
+    """Read crystal structure."""
+    elk_in = ElkIn(open(filename).readlines())
+    tags = elk_in.get_variables()
+    avec = [tags["scale"][i] * np.array(tags["avec"][i]) for i in range(3)]
+    spfnames = tags["atoms"]["spfnames"]
+    symbols = [x.split(".")[0] for x in spfnames]
+    numbers = []
+    for s in symbols:
+        if s in symbols:
+            numbers.append(get_atomic_data().symbol_map[s])
+        else:
+            numbers.append(0)
+
+    for i, n in enumerate(numbers):
+        if n == 0:
+            for j in range(1, 119):
+                if j not in numbers:
+                    numbers[i] = j
+                    break
+    pos_all = []
+    num_all = []
+    for num, pos in zip(numbers, tags["atoms"]["positions"], strict=True):
+        pos_all += pos
+        num_all += [num] * len(pos)
+
+    return PhonopyAtoms(numbers=num_all, cell=avec, scaled_positions=pos_all), spfnames
+
+
+def write_elk(
+    filename: str | os.PathLike,
+    cell: PhonopyAtoms,
+    sp_filenames: list[str],
+) -> None:
+    """Write cell to file."""
+    f = open(filename, "w")
+    f.write(get_elk_structure(cell, sp_filenames))
+
+
+def write_supercells_with_displacements(
+    supercell: PhonopyAtoms,
+    cells_with_displacements: Sequence[PhonopyAtoms],
+    ids: NDArray[np.int64] | Sequence[int],
+    sp_filenames: list[str],
+    pre_filename: str | os.PathLike = "supercell",
+    width: int = 3,
+) -> None:
+    """Write supercells with displacements to files."""
+    write_elk("%s.in" % pre_filename, supercell, sp_filenames)
+    for i, cell in zip(ids, cells_with_displacements, strict=True):
+        filename = "{pre_filename}-{0:0{width}}.in".format(
+            i, pre_filename=pre_filename, width=width
+        )
+        write_elk(filename, cell, sp_filenames)
+
+
+def get_elk_structure(
+    cell: PhonopyAtoms,
+    sp_filenames: list[str] | None = None,
+) -> str:
+    """Return Elk structure in text."""
+    lattice = cell.cell
+    (num_atoms, symbols, scaled_positions) = group_by_key(
+        cell.symbols, cell.scaled_positions
+    )
+
+    if sp_filenames is None:
+        spfnames: list = [s + ".in" for s in symbols]  # type: ignore[operator]
+    else:
+        spfnames = sp_filenames
+
+    lines = ""
+    lines += "avec\n"
+    lines += ((" %21.16f" * 3 + "\n") * 3) % tuple(lattice.ravel())
+    lines += "atoms\n"
+    n_pos = 0
+    lines += " %d\n" % len(num_atoms)
+    for i, (n, s) in enumerate(zip(num_atoms, spfnames, strict=True)):
+        lines += " '%s'\n" % s
+        lines += " %d\n" % n
+        lines += get_scaled_positions_lines(scaled_positions[n_pos : (n_pos + n)])  # type: ignore[index]
+        if i < len(num_atoms) - 1:
+            lines += "\n"
+        n_pos += n
+
+    return lines
+
+
+class ElkIn:
+    """Class to create Elk input file."""
+
+    def __init__(self, lines: list[str]) -> None:
+        """Init method."""
+        self._set_methods: dict[str, Callable[[], None]] = {
+            "atoms": self._set_atoms,
+            "avec": self._set_avec,
+            "scale": self._set_scale,
+            "scale1": self._set_scale1,
+            "scale2": self._set_scale2,
+            "scale3": self._set_scale3,
+        }
+        self._tags: dict[str, Any] = {
+            "atoms": None,
+            "avec": None,
+            "scale": [1.0, 1.0, 1.0],
+        }
+        self._lines: list[str] = lines[:]
+        self._collect()
+
+    def get_variables(self) -> dict[str, Any]:
+        """Return tags."""
+        return self._tags
+
+    def _collect(self) -> None:
+        while True:
+            try:
+                line_str = self._lines.pop(0).strip()
+            except IndexError:
+                break
+
+            if len(line_str) == 0:
+                continue
+            if line_str[0] == "!":
+                continue
+
+            elems = line_str.split()
+            if elems[0] in self._set_methods:
+                self._set_methods[elems[0]]()
+
+    def _set_atoms(self) -> None:
+        nspecies = int(self._lines.pop(0).split()[0])
+        spfnames = []
+        positions = []
+        for _ in range(nspecies):
+            spfnames.append(self._lines.pop(0).split()[0].strip("'"))
+            natoms = int(self._lines.pop(0).split()[0])
+            pos_sp = []
+            for _ in range(natoms):
+                pos_sp.append([float(x) for x in self._lines.pop(0).split()[:3]])
+            positions.append(pos_sp)
+
+        self._tags["atoms"] = {"spfnames": spfnames, "positions": positions}
+
+    def _set_avec(self) -> None:
+        avec = []
+        for _ in range(3):
+            avec.append([float(x) for x in self._lines.pop(0).split()[:3]])
+        self._tags["avec"] = avec
+
+    def _set_scale(self) -> None:
+        scale = float(self._lines.pop(0).split()[0])
+        for i in range(3):
+            self._tags["scale"][i] = scale
+
+    def _set_scale1(self) -> None:
+        self._tags["scale"][0] = float(self._lines.pop(0).split()[0])
+
+    def _set_scale2(self) -> None:
+        self._tags["scale"][1] = float(self._lines.pop(0).split()[0])
+
+    def _set_scale3(self) -> None:
+        self._tags["scale"][2] = float(self._lines.pop(0).split()[0])
+
+
+if __name__ == "__main__":
+    from phonopy.structure.symmetry import Symmetry
+
+    cell, sp_filenames = read_elk(sys.argv[1])
+    symmetry = Symmetry(cell)
+    print("# %s" % symmetry.get_international_table())
+    print(get_elk_structure(cell, sp_filenames=sp_filenames))

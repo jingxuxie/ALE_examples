@@ -1,0 +1,226 @@
+(install)=
+
+# Installation
+
+(install_conda)=
+
+## Installation via conda
+
+Conda is a software package management system. Once the conda system is set-up
+(see [miniforge](https://github.com/conda-forge/miniforge)), the installation of
+phonopy is super easy for any of Linux, MacOSX, and Windows. Phonopy is
+installed using conda by
+
+```bash
+% conda install -c conda-forge phonopy
+```
+
+### Minimum steps to install and use phonopy via conda
+
+In the following procedure, conda's environment (see
+[miniforge](https://github.com/conda-forge/miniforge)) is used not to interfere
+existing environment (mainly python environment).
+
+```bash
+% conda create -n phonopy -c conda-forge
+% conda activate phonopy
+% conda install -c conda-forge phonopy
+```
+
+To exit from this conda's environment:
+
+```bash
+% conda deactivate
+```
+
+To use this phonopy, entering this environment is necessary like below.
+
+```
+% conda activate phonopy
+(phonopy) % phonopy
+        _
+  _ __ | |__   ___  _ __   ___   _ __  _   _
+ | '_ \| '_ \ / _ \| '_ \ / _ \ | '_ \| | | |
+ | |_) | | | | (_) | | | | (_) || |_) | |_| |
+ | .__/|_| |_|\___/|_| |_|\___(_) .__/ \__, |
+ |_|                            |_|    |___/
+                                       4.1.0
+
+Rust backend (phonors) using rayon (10 threads).
+Running in phonopy.load mode.
+Python version 3.13.3
+Spglib version 2.7.0
+
+
+Switched on phonopy-yaml mode.
+"phonopy_disp.yaml" or "phonopy.yaml" could not be found.
+  ___ _ __ _ __ ___  _ __
+ / _ \ '__| '__/ _ \| '__|
+|  __/ |  | | | (_) | |
+ \___|_|  |_|  \___/|_|
+```
+
+## Using HDF5 on NFS mounted file system
+
+Recent hdf5 versions just as installed may not work on NFS mounted file systems.
+In this case, setting the following environment variable may solve the problem:
+
+```bash
+export HDF5_USE_FILE_LOCKING=FALSE
+```
+
+(install_from_source)=
+
+## Installation from source code
+
+### System requirement
+
+The procedure to setup phonopy is explained in this section. It is supposed that
+phonopy is installed on the recent linux distribution like Ubuntu or Fedora with
+Python version 3.10 or later. Mac OS X users may use conda (conda-forge channel)
+packages. Windows users should use conda (conda-forge channel) packages as well.
+
+Prepare the following Python libraries:
+
+- Python (>=3.10) and its header files
+- numpy (>=1.17)
+- matplotlib (>=2.2.2)
+- python-yaml (pyyaml>=5.3)
+- python-h5py (h5py>=3.0)
+- scipy
+- spglib (>=2.5)
+- symfc (>=1.7)
+- phonors (Rust backend; installed automatically by `pip install phonopy`)
+
+It is recommended to install seekpath to plot phonon band structure:
+
+- seekpath
+
+For the CP2K interface, the following package will be needed to install:
+
+- cp2k-input-tools
+
+### Installing required packages by conda
+
+The python libraries can be installed using conda. Conda packages are
+distributed in binary. Minimum setup of conda envrironment is done by miniforge,
+which is downloaded at <https://github.com/conda-forge/miniforge>. It is strongly
+recommended to create conda's virtual environment by
+`conda create -n <venvname>` as written above. The installation of necessary
+libraries is done as follows:
+
+```bash
+% conda install -c conda-forge numpy scipy h5py pyyaml matplotlib-base seekpath symfc spglib phonors cmake
+```
+
+Here `phonors` is the Rust backend, installed as a pre-built binary from conda;
+usually this is all that is needed. Only when a development version of `phonors`
+is required is it necessary to build `phonors` from source; see
+{ref}`rust_backend`.
+
+The default build below skips the C extension, so no C/C++ compiler is needed.
+To also build the legacy C extension, additionally install C/C++ compilers:
+
+```
+% conda install -c conda-forge c-compiler cxx-compiler
+```
+
+(install_setup_py)=
+
+### Building using `pip install`
+
+If package installation is not possible or you want to compile with a special
+compiler or special options, phonopy is built using `pip install`. In this case,
+manual modification of `CMakeLists.txt` may be needed.
+
+Note that at version 2.26.0, the build system of phonopy was modernized.
+Nanobind, cmake, and scikit-build-core are used for the building. The receipt is
+written in `CMakeLists.txt` and `pyproject.toml`. The old `setup.py` was
+removed.
+
+1. Get the source code from github
+
+   ```bash
+   % git clone https://github.com/phonopy/phonopy.git
+   % cd phonopy
+   ```
+
+2. Run `pip install`
+
+   ```
+   % PHONOPY_NO_C_EXT=1 pip install . -vvv
+   ```
+
+   The editable install (`pip install -e`) may not work depending on the
+   computer environment.
+
+Since v4, `phonors` is the default backend and a required runtime dependency.
+It is installed automatically from PyPI by `pip install phonopy`, so the C
+extension is not required; setting `PHONOPY_NO_C_EXT=1` skips building it
+entirely (no C/C++ compiler needed). To also build the legacy C extension,
+which remains selectable at run time (`lang="C"` / `--legacy-backend`), run
+`pip install . -vvv` without the env var. See {ref}`rust_backend` for details.
+
+(install_trouble_shooting)=
+
+## Trouble shooting
+
+### Remove previous phonopy installations
+
+Sometimes previous installations of phonopy prevent from loading newly installed
+phonopy. In this case, it is recommended to uninstall all the older phonopy
+packages by
+
+1. Running `pip uninstall phonopy` as many times as no phonopy packages will be
+   found. Error message may be shown, but don't mind it. Similarly do
+   `conda uninstall phonopy`.
+
+2. There may still exist litter of phonopy packages. So it is also recommend to
+   remove them if it is found, e.g.:
+
+   ```
+   % rm -fr ~/.local/lib/python*/site-packages/phonopy*
+   ```
+
+Set correct environment variables `PATH` and `PYTHONPATH`
+
+### When using conda environment, this information is not applicable
+
+In phonopy, `PATH` and `PYTHONPATH` play important roles. Of course the
+information about them can be easily found in internet (e.g.
+<https://en.wikipedia.org/wiki/PATH_(variable)>), so you really have to find
+information by yourself and read them. Even if you can't understand them, first
+you must ask to your colleagues or people before sending this unnecessary
+question (as a researcher using computer simulation) to the mailing list.
+
+The problem appears when phonopy execution and library paths are set multiple
+times in those environment variable. It is easy to check current environment
+variables by:
+
+```
+% echo $PATH
+```
+
+```
+% echo $PYTHONPATH
+```
+
+When multiple different phonopy paths are found, remove all except for what you
+really need. Then logout from the current shell (terminal) and open new shell
+(terminal) to confirm that the modification is activated.
+
+### Missing Intel libraries when building from source using icc
+
+`LDSHARED="icc -shared"` may be of help. See this github issues,
+<https://github.com/phonopy/phonopy/issues/123>.
+
+### Missing or unknown CXX compiler
+
+CMake errors may occur during installation related to the CXX compiler.
+
+This can typically be resolved by ensuring your C++ compiler is updated, and
+that the CXX environment variable
+(<https://cmake.org/cmake/help/latest/envvar/CXX.html>) is set.
+
+See this GitHub issue:
+<https://github.com/phonopy/phonopy/issues/439>.

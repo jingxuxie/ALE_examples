@@ -1,0 +1,115 @@
+cmake_minimum_required(VERSION 3.20)
+
+if(NOT SKBUILD_PROJECT_NAME)
+    set(SKBUILD_PROJECT_NAME phonopy)
+endif()
+
+if(DEFINED ENV{PHONOPY_NO_C_EXT} AND NOT "$ENV{PHONOPY_NO_C_EXT}" STREQUAL "0")
+    # Declare the project with no language so CMake skips C/C++ compiler detection.
+    # scikit-build-core's build step still calls CMake even with no targets, so the
+    # project() call has to happen before we bail out.
+    project(${SKBUILD_PROJECT_NAME} NONE)
+    message(
+        STATUS "PHONOPY_NO_C_EXT is set; skipping _phonopy and _recgrid C extensions"
+    )
+    return()
+endif()
+
+project(${SKBUILD_PROJECT_NAME})
+set(DEV_MODULE Development.Module)
+find_package(
+    Python 3.9 REQUIRED
+    COMPONENTS Interpreter ${DEV_MODULE}
+    OPTIONAL_COMPONENTS Development.SABIModule)
+
+cmake_policy(SET CMP0007 NEW)
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE
+        Release
+        CACHE STRING "Choose the type of build." FORCE)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release"
+                                                 "MinSizeRel" "RelWithDebInfo")
+endif()
+
+option(PHONOPY_USE_OMP "Build with OpenMP support" ON)
+
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "CMAKE_SYSTEM_PREFIX_PATH: ${CMAKE_SYSTEM_PREFIX_PATH}")
+
+if(PHONOPY_USE_OMP)
+    find_package(OpenMP)
+
+    if(OpenMP_FOUND)
+        message(STATUS "OpenMP libs: ${OpenMP_C_LIBRARIES}")
+        message(STATUS "OpenMP flags: ${OpenMP_C_FLAGS}")
+    endif()
+else()
+    message(STATUS "OpenMP is not used.")
+    set(OpenMP_FOUND OFF) # cmake-lint: disable=C0103
+endif()
+
+set(SOURCES_PHONOPY
+    ${PROJECT_SOURCE_DIR}/c/phonopy.c ${PROJECT_SOURCE_DIR}/c/dynmat.c
+    ${PROJECT_SOURCE_DIR}/c/derivative_dynmat.c ${PROJECT_SOURCE_DIR}/c/rgrid.c
+    ${PROJECT_SOURCE_DIR}/c/tetrahedron_method.c)
+
+set(SOURCES_RECGRID
+    ${PROJECT_SOURCE_DIR}/c/bzgrid.c ${PROJECT_SOURCE_DIR}/c/grgrid.c
+    ${PROJECT_SOURCE_DIR}/c/lagrid.c ${PROJECT_SOURCE_DIR}/c/snf3x3.c
+    ${PROJECT_SOURCE_DIR}/c/recgrid.c)
+
+if(BUILD_SHARED_LIBS)
+    # Shared library
+    add_library(phonopy_libs SHARED ${SOURCES_PHONOPY})
+    add_library(recgrid_lib SHARED ${SOURCES_RECGRID})
+
+    if(OpenMP_FOUND)
+        target_link_libraries(phonopy_libs PRIVATE recgrid_lib OpenMP::OpenMP_C)
+        target_link_libraries(recgrid_lib PRIVATE OpenMP::OpenMP_C)
+    else()
+        target_link_libraries(phonopy_libs PRIVATE recgrid_lib)
+    endif()
+
+    target_compile_definitions(phonopy_libs PRIVATE THM_EPSILON=1e-10)
+else()
+    # Static link library
+    add_library(phonopy_libs STATIC ${SOURCES_PHONOPY})
+    add_library(recgrid_lib STATIC ${SOURCES_RECGRID})
+
+    if(OpenMP_FOUND)
+        target_link_libraries(phonopy_libs PRIVATE recgrid_lib OpenMP::OpenMP_C)
+        target_link_libraries(recgrid_lib PRIVATE OpenMP::OpenMP_C)
+    else()
+        target_link_libraries(phonopy_libs PRIVATE recgrid_lib)
+    endif()
+
+    target_compile_definitions(phonopy_libs PRIVATE THM_EPSILON=1e-10)
+endif()
+
+set_target_properties(phonopy_libs PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(recgrid_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+execute_process(
+    COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    OUTPUT_VARIABLE NB_DIR)
+list(APPEND CMAKE_PREFIX_PATH "${NB_DIR}")
+find_package(nanobind CONFIG REQUIRED)
+nanobind_add_module(_phonopy STABLE_ABI ${PROJECT_SOURCE_DIR}/c/phonopy.h
+                    ${PROJECT_SOURCE_DIR}/c/_phonopy.cpp)
+nanobind_add_module(_recgrid STABLE_ABI ${PROJECT_SOURCE_DIR}/c/recgrid.h
+                    ${PROJECT_SOURCE_DIR}/c/_recgrid.cpp)
+
+if(OpenMP_FOUND)
+    target_link_libraries(_phonopy PRIVATE phonopy_libs OpenMP::OpenMP_C)
+    target_link_libraries(_recgrid PRIVATE recgrid_lib OpenMP::OpenMP_C)
+else()
+    target_link_libraries(_phonopy PRIVATE phonopy_libs)
+    target_link_libraries(_recgrid PRIVATE recgrid_lib)
+endif()
+
+target_compile_definitions(_phonopy PRIVATE THM_EPSILON=1e-10)
+target_compile_definitions(_recgrid PRIVATE THM_EPSILON=1e-10)
+install(TARGETS _phonopy LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})
+install(TARGETS _recgrid LIBRARY DESTINATION ${SKBUILD_PROJECT_NAME})
