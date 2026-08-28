@@ -1,0 +1,735 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a045dc-a4a6-7230-8b37-5c7f7bc2c7d4
+--------
+user
+Solve the mission in TASK.md. Read input/ and workspace/ as needed. You have up to one hour. Write the complete executable submission and any needed files into /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/attempt. Keep the task directory read-only. Your only task-artifact access is /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/participant and /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/attempt; no private references or earlier attempts are available. Test your solution on the provided input, and make solve.py follow the documented interface. Do not stop at a plan or claim success without an implementation.
+codex
+I’ll read the mission and inputs, then implement and test it.
+
+exec
+/bin/bash -lc 'pwd && ls -la && cat TASK.md && find . -name AGENTS.md -print' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/participant
+ succeeded in 16886ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/participant
+total 16
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:28 .
+drwx------ 4 xuandong xuandong   80 Aug 27 17:56 ..
+-rw-rw-r-- 1 xuandong xuandong  586 Aug 27 17:28 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:30 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:28 workspace
+# Localization beyond a finite device
+
+Build a reliable localization-analysis program for the supplied superconducting-junction simulations. Recover bulk amplitude decay lengths and isolate finite-device left-end density profiles, including their decay lengths. Handle overlapping ends, oscillations, and changes of basis without changing the physical device.
+
+Start from `workspace/finite_workflow.py`. The complete definitions, file formats, and scoring are in `workspace/DEFINITION.md`. Submit `attempt/solve.py`, runnable as `python attempt/solve.py --input INPUT --output OUTPUT`.
+
+exec
+/bin/bash -c 'ls -la workspace input && cat workspace/DEFINITION.md && cat workspace/finite_workflow.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/participant
+ succeeded in 11063ms:
+input:
+total 16736
+drwxrwxr-x 2 xuandong xuandong     4096 Aug 27 17:30 .
+drwxrwxr-x 4 xuandong xuandong     4096 Aug 27 17:28 ..
+-rw-rw-r-- 1 xuandong xuandong   147872 Aug 27 17:37 b01.npz
+-rw-rw-r-- 1 xuandong xuandong 16969859 Aug 27 17:39 e10.npz
+-rw-rw-r-- 1 xuandong xuandong      543 Aug 27 17:39 manifest.json
+
+workspace:
+total 20
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:28 .
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:28 ..
+-rw-rw-r-- 1 xuandong xuandong 7325 Aug 27 17:34 DEFINITION.md
+-rw-rw-r-- 1 xuandong xuandong 1787 Aug 27 17:28 finite_workflow.py
+# Contract
+
+INPUT is a directory containing `manifest.json` and NumPy `.npz` files; load with `allow_pickle=False`. OUTPUT is one UTF-8 JSON **file**, not a directory. The program must create its parent if necessary. NumPy and SciPy are installed. No network, private files, Kwant, or symbolic packages are needed at submission runtime. All lengths are nm, all energies meV, all arrays complex128 or float64. These are numerical tight-binding simulations, not measurements. The device length remains 4550 nm; it is not the localization length.
+
+The manifest has `schema_version: 1` and a `cases` list. Each record has unique string `id`, `family`, and relative NPZ `file`. Other fields describe the physical geometry and are not targets. Input filenames and case identifiers have no scientific meaning. Do not train a lookup table. Public inputs are examples, without reference answers. Evaluation includes other parameter settings and basis representations.
+
+## Bulk tail (`bulk_tail`)
+
+The input contains square `onsite` H and `hopping` T matrices, scalar `cell_length_nm` d, and a finite-device witness (`witness_x_nm`, `witness_density`). H is Hermitian. T can be singular. In the supplied representation the infinite periodic system acts as
+
+    (Hamiltonian psi)[j] = T psi[j+1] + H psi[j] + T.conj().T psi[j-1].
+
+At energy zero, consider all nonzero bulk solutions that decay exponentially towards increasing j. Report the **longest finite amplitude decay length** `xi_amplitude_nm`. A solution with envelope norm proportional to exp(-j*d/xi) has amplitude length xi. Discard solutions with strictly finite support; the target concerns the asymptotic tail. The selected cases have no zero-energy propagating modes. This definition is a bulk penetration length; it does not assert that every parameter setting is topological or that every boundary couples to the slowest bulk channel. A local finite-boundary fit is not the target definition.
+
+The cell can contain several original lattice slices. Use the supplied physical d; neither matrix dimension nor orbital count is a length. Cells related by grouping represent the same infinite material. Orbital phase conventions can differ. All transverse orbitals and both superconducting regions are retained.
+
+The witness is the normalized x-projected density of the lowest-positive-energy eigenstate of the 4550 nm open finite device at the **same physical parameters**. It contains 455 original 10 nm lattice slices, even when the bulk input uses grouped cells. The nominal witness is an archived numerical density; other witnesses were recomputed from the same validated tight-binding Hamiltonian. Grouped representations of the same material share a witness. All components in the witness have already been squared and summed: do not square the density again. The bulk matrices, not that finite witness alone, specify the asymptotic problem. The supplied finite-only starter cannot resolve all of these cases.
+
+## Finite end (`finite_end`)
+
+`basis` U has shape (D,6), with orthonormal columns spanning six low-energy states of a finite BdG Hamiltonian. It is not necessarily an energy eigenbasis. `energy_matrix` K has shape (6,6) and is the Hamiltonian projected into this basis: physical states are U*c. `x_orbital_nm` has shape (D,) and gives the position of each amplitude component, with four consecutive components per physical site. `x_grid_nm` is the sorted list of distinct x coordinates. No spatial rows or transverse orbitals have been removed. Basis rotations and orbital gauge transformations carry no physical information.
+
+Let S be the two-dimensional physical subspace corresponding to the **two eigenvalues of K closest to zero in absolute value**. They form a separated particle-hole pair; the other four states must not be included. Define the left-end state as the normalized vector in S minimizing the expectation of x. Its minimizer is unique up to a global phase in these inputs. This variational definition isolates an end without adding an unphysical edge potential and without requiring a gauge-fixed spinor. Do not return a single positive-energy eigenstate, which can occupy both ends.
+
+Return `rho_left`: the real, nonnegative **probability mass** at each coordinate of `x_grid_nm`, obtained by summing squared absolute amplitudes over all rows at that x. It must sum to one. Return densities, not amplitudes; global spinor phase is unscored.
+
+Also return the operational finite-window **amplitude** length `xi_window_nm`. Let N=len(x_grid_nm), q=N//4. On indices q,...,2*q-1, fit log(rho_left) = intercept + slope*x by unweighted ordinary least squares with an intercept. Define xi_window_nm = -2/slope. All target densities in this window are positive and all reference slopes negative. This deliberately fixed finite-window statistic is reproducible even in a multimode oscillatory profile; it is **not** asserted to equal the asymptotic bulk length. There is no arbitrary smoothing, peak threshold, or amplitude cutoff to tune. A density envelope exp(-x/ell) corresponds to amplitude length 2*ell.
+
+## Output
+
+    {"schema_version": 1, "predictions": {
+      "example_bulk_id": {"xi_amplitude_nm": 27000.0},
+      "example_end_id": {"rho_left": [0.1, 0.2, "..."], "xi_window_nm": 750.0}
+    }}
+
+The numbers and identifiers above are illustrative, not answers. Replace the ellipsis by numeric entries. Return every requested ID and no duplicate JSON keys. Lengths must be finite and strictly positive; profile entries finite and nonnegative, with sum within 1e-5 of one. A missing case gets zero quality; a malformed component gets zero component quality without discarding other valid components or cases. Extra IDs are ignored. Do not emit NaN or Infinity.
+
+## Scoring and resources
+
+Each bulk case has raw quality exp(-abs(log(predicted/reference))/0.25).
+For an end case, let h2 = 0.5*sum((sqrt(predicted_density)-sqrt(reference_density))**2). The raw profile quality is exp(-h2/0.05); length quality is exp(-abs(log(predicted_length/reference_length))/0.20). The end case raw quality is their arithmetic mean. Malformed components score zero independently. No finite-array renormalization is performed by the evaluator.
+
+Average quality separately over cases of each family. Normalize each family by clip((quality-weak_quality)/(strong_quality-weak_quality),0,1), using fixed author-run calibration of the shipped finite-only starter and an independently implemented strong solver on the same evaluation inputs. The overall score is the equally weighted mean of the two normalized family scores, regardless of case counts. Raw per-component and per-family quality is also reported. This prevents bulk cases from swamping end-state extraction. Zero and one are baseline anchors, not accuracy thresholds.
+
+The batch runtime limit is 300 seconds, one BLAS thread, with a 6 GiB address-space limit. Wall time is reported but is not a separate quality objective. Full finite-system diagonalization is intentionally unnecessary: the expensive six-state extraction is supplied, while the scientific localization analysis remains. Standard dense diagonalization of a single Hamiltonian is not a solution to both targets. Evaluator inputs are staged without answers; proper isolation of private assets is the outer runner's responsibility.
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+import scipy.linalg
+
+
+def fit_amplitude_length(coordinates, density):
+    quarter = len(coordinates) // 4
+    selection = slice(quarter, 2 * quarter)
+    slope = np.polyfit(coordinates[selection], np.log(np.maximum(density[selection], 1e-300)), 1)[0]
+    if slope >= 0:
+        return float(coordinates[-1] - coordinates[0])
+    return float(-2 / slope)
+
+
+def analyze(case, arrays):
+    if case["family"] == "bulk_tail":
+        return {"xi_amplitude_nm": fit_amplitude_length(arrays["witness_x_nm"], arrays["witness_density"])}
+    energies, vectors = scipy.linalg.eigh(arrays["energy_matrix"])
+    positive = np.flatnonzero(energies > 0)
+    selected = positive[np.argmin(energies[positive])]
+    wavefunction = arrays["basis"] @ vectors[:, selected]
+    coordinates = arrays["x_grid_nm"]
+    density = np.bincount(np.searchsorted(coordinates, arrays["x_orbital_nm"]), weights=np.abs(wavefunction) ** 2)
+    density /= density.sum()
+    return {"rho_left": density.tolist(), "xi_window_nm": fit_amplitude_length(coordinates, density)}
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    manifest = json.loads((args.input / "manifest.json").read_text())
+    predictions = {}
+    for case in manifest["cases"]:
+        with np.load(args.input / case["file"], allow_pickle=False) as arrays:
+            predictions[case["id"]] = analyze(case, arrays)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps({"schema_version": 1, "predictions": predictions}, allow_nan=False))
+
+
+if __name__ == "__main__":
+    main()
+
+  → Inspect definitions and simulation inputs
+  • Develop bulk and finite localization methods
+  • Implement executable submission and diagnostics
+  • Test supplied cases and refine
+**Evaluating numerical methods**
+
+I'm thinking about the need for a robust method to tackle bulk eigenproblems, considering singular hopping grouping and invariance. I want to inspect dimensions, norms, and ranks to ensure everything aligns correctly. It feels crucial to ensure that the numerical approach we take is not just accurate but also efficient enough to handle the complexity of these problems. I'm curious about how various methods might fit into this framework!
+exec
+/bin/bash -c "cat input/manifest.json; ls -la ../attempt; python - <<'PY'
+import numpy as np
+from pathlib import Path
+for path in Path('input').glob('*.npz'):
+ print('\\n',path)
+ with np.load(path,allow_pickle=False) as data:
+  for key in data.files:
+   value=data[key]
+   print(key,value.shape,value.dtype, (value.item() if value.ndim==0 else ''))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/participant
+ succeeded in 11791ms:
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "b01",
+      "family": "bulk_tail",
+      "file": "b01.npz",
+      "mu_meV": 9.6,
+      "B_x_code": 1.0,
+      "device_length_nm": 4550,
+      "witness": "finite eigenstate density at the same physical parameters",
+      "witness_origin": "regenerated numerical simulation"
+    },
+    {
+      "id": "e10",
+      "family": "finite_end",
+      "file": "e10.npz",
+      "device_length_nm": 4550,
+      "geometry": "sawtooth",
+      "rough_edge": null,
+      "norbs_per_site": 4
+    }
+  ]
+}
+total 4
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 27 17:57 .
+drwx------ 4 xuandong xuandong   80 Aug 27 17:57 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 17:57 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 17:57 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 17:57 .git
+
+ input/e10.npz
+basis (183820, 6) complex128 
+energy_matrix (6, 6) complex128 
+x_orbital_nm (183820,) float64 
+x_grid_nm (455,) float64 
+
+ input/b01.npz
+onsite (320, 320) complex128 
+hopping (320, 320) complex128 
+cell_length_nm () float64 10.0
+witness_x_nm (455,) float64 
+witness_density (455,) float64 
+
+codex
+Bulk tails need Bloch factors; finite ends need position minimization.
+
+  ✓ Inspect definitions and simulation inputs
+  → Develop bulk and finite localization methods
+  • Implement executable submission and diagnostics
+  • Test supplied cases and refine
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import time
+import numpy as np
+import scipy.linalg as la
+with np.load('input/b01.npz',allow_pickle=False) as data:
+ onsite=data['onsite']; hopping=data['hopping']; distance=data['cell_length_nm'].item()
+size=len(onsite)
+print('matrix norms',la.norm(onsite),la.norm(hopping), 'Hermitian residual',la.norm(onsite-onsite.conj().T),flush=True)
+start=time.monotonic()
+singular=la.svdvals(hopping)
+print('svd',time.monotonic()-start, singular.min(),singular.max(), 'rank',sum(singular>singular[0]*1e-12),flush=True)
+print('onsite min abs eig',min(abs(la.eigvalsh(onsite))),flush=True)
+left=np.zeros((2*size,2*size),complex); right=np.zeros_like(left)
+left[:size,:size]=-onsite;left[:size,size:]=-hopping.conj().T;left[size:,:size]=np.eye(size)
+right[:size,:size]=hopping;right[size:,size:]=np.eye(size)
+start=time.monotonic(); factors=la.eigvals(left,right,check_finite=False)
+print('qz runtime',time.monotonic()-start,flush=True)
+inside=factors[(abs(factors)>1e-12)&(abs(factors)<1-1e-10)]
+order=np.argsort(abs(inside))[::-1]
+print('slow factors',inside[order[:12]])
+print('lengths',-distance/np.log(abs(inside[order[:12]])))
+print('zero/infinite/inside',sum(abs(factors)<1e-12),sum(~np.isfinite(factors)),len(inside),flush=True)
+with np.load('input/e10.npz',allow_pickle=False) as data:
+ basis=data['basis']; energy=data['energy_matrix']; orbital_x=data['x_orbital_nm']; grid=data['x_grid_nm']
+ energies,rotation=la.eigh(energy)
+ pair=basis@rotation[:,np.argsort(abs(energies))[:2]]
+ position=pair.conj().T@(orbital_x[:,None]*pair)
+ positions,localized=la.eigh(position)
+ state=pair@localized[:,0]
+ density=np.bincount(np.searchsorted(grid,orbital_x),weights=abs(state)**2,minlength=len(grid));density/=density.sum()
+ quarter=len(grid)//4; selected=slice(quarter,2*quarter)
+ length=-2/np.polyfit(grid[selected],np.log(density[selected]),1)[0]
+ print('energies',energies)
+ print('basis orthogonality',la.norm(basis.conj().T@basis-np.eye(6)))
+ print('position eigs',positions,'finite xi',length,'density sum',density.sum(),'min',density.min())
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/participant
+ succeeded in 13370ms:
+matrix norms 1285.117791830503 340.89251943003876 Hermitian residual 9.88709276647174e-14
+svd 0.01368764997459948 19.049910580774302 19.07613936664065 rank 320
+onsite min abs eig 27.24925669243201
+qz runtime 2.0067116909776814
+slow factors [0.70126732+0.71236175j 0.70126732-0.71236175j 0.72193628+0.68903898j
+ 0.72193628-0.68903898j 0.8051082 +0.5840407j  0.8051082 -0.5840407j
+ 0.75078634-0.64316583j 0.75078634+0.64316583j 0.81782836-0.53995558j
+ 0.81782836+0.53995558j 0.7953385 -0.55987612j 0.7953385 +0.55987612j]
+lengths [26137.47219867 26137.47219865  4948.72700635  4948.72700633
+  1859.62100746  1859.62100745   872.66852462   872.66852462
+   494.92266483   494.92266483   360.44666575   360.44666575]
+zero/infinite/inside 0 0 320
+energies [-7.46885634e-02 -7.29347891e-02 -8.01000307e-05  8.01000307e-05
+  7.29347891e-02  7.46885634e-02]
+basis orthogonality 1.0013449577184722e-13
+position eigs [ 607.45846329 3916.95265903] finite xi 652.653224830875 density sum 1.0 min 5.228887987944577e-07
+
+**Considering numerical computations**
+
+It seems like I need to avoid spurious rounding errors by either detecting zeros or potentially using Singular Value Decomposition (SVD) reduction. However, I realize I should start with a code that includes specific methods. First, I need to load the finite Hermitian symmetric average. I should ensure that there's no physical modification below the rounding level. Then, I could get the rank factors using `np.linalg.svd` with the `full_matrices` set to false.
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import time
+import numpy as np
+import scipy.linalg as la
+with np.load('input/b01.npz',allow_pickle=False) as data:
+ onsite=data['onsite']; hopping=data['hopping']; distance=data['cell_length_nm'].item()
+for group in (1,2,3):
+ size=len(onsite); expanded=np.kron(np.eye(group), onsite); link=np.zeros_like(expanded)
+ for index in range(group-1):
+  expanded[index*size:(index+1)*size,(index+1)*size:(index+2)*size]=hopping
+  expanded[(index+1)*size:(index+2)*size,index*size:(index+1)*size]=hopping.conj().T
+ link[-size:,:size]=hopping
+ start=time.monotonic()
+ left,singular,right=la.svd(link,check_finite=False,full_matrices=False)
+ rank=sum(singular>len(link)*np.finfo(float).eps*singular[0])
+ factor_left=left[:,:rank]*np.sqrt(singular[:rank]);factor_right=right[:rank].conj().T*np.sqrt(singular[:rank])
+ solution=la.solve(expanded,np.column_stack((factor_left,factor_right)),assume_a='her',check_finite=False)
+ cross=factor_right.conj().T@solution[:,:rank]
+ right_block=factor_right.conj().T@solution[:,rank:]
+ left_block=factor_left.conj().T@solution[:,:rank]
+ cross_back=factor_left.conj().T@solution[:,rank:]
+ identity=np.eye(rank); zeros=np.zeros((rank,rank))
+ matrix_a=np.block([[-identity,-right_block],[zeros,-cross_back]])
+ matrix_b=np.block([[cross,zeros],[left_block,identity]])
+ values=la.eigvals(matrix_a,matrix_b,check_finite=False)
+ inside=values[(abs(values)>1e-12)&(abs(values)<1-1e-10)]
+ length=-distance*group/np.log(max(abs(inside)))
+ print('group',group,'rank',rank,'length',length,'time',time.monotonic()-start,flush=True)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/participant
+**Evaluating deflation methods**
+
+I’m considering the proper use of low-rank deflation to remove finite support before dealing with slow roots. If I reduce the rank of singular T, there are still some zero eigenvalues. This occurs only if there’s no inverted coupling in channels crossing back, which could result in exact zeros or tiny values. The threshold might eliminate these with a homogeneous zero threshold. Should I use a zero tolerance around 64eps times the size? It seems like standard strict finite support numerical epsilon might help too.
+ succeeded in 16928ms:
+group 1 rank 320 length 26137.472199035095 time 2.254800434981007
+group 2 rank 320 length 26137.472198798838 time 2.461459597980138
+group 3 rank 320 length 26137.472198760872 time 3.2672986169927754
+
+codex
+Both methods work; grouped cells recover the same bulk length.
+
+  ✓ Inspect definitions and simulation inputs
+  ✓ Develop bulk and finite localization methods
+  → Implement executable submission and diagnostics
+  • Test supplied cases and refine
+exec
+/bin/bash -c 'command -v apply_patch' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/participant
+ succeeded in 11150ms:
+/srv/home/xuandong/.codex/tmp/arg0/codex-arg0h5etif/apply_patch
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/attempt/solve.py
++#"'!/usr/bin/env python3
++"""Bulk complex-band decay and variational finite-device end localization."""
++
++import os
++
++for thread_variable in (
++    "OPENBLAS_NUM_THREADS",
++    "OMP_NUM_THREADS",
++    "MKL_NUM_THREADS",
++    "BLIS_NUM_THREADS",
++    "VECLIB_MAXIMUM_THREADS",
++    "NUMEXPR_NUM_THREADS",
++):
++    os.environ[thread_variable] = "1"
++
++import argparse
++import json
++import warnings
++from pathlib import Path
++
++import numpy as np
++import scipy.linalg as linalg
++
++
++def quadratic_pencil(onsite, hopping):
++    """Linearize (T*z**2 + H*z + T.conj().T) psi = 0."""
++    dimension = onsite.shape[0]
++    scale = max(linalg.norm(onsite, np.inf), linalg.norm(hopping, np.inf))
++    if scale == 0:
++        raise ValueError("The bulk Hamiltonian has no finite decay length")
++    matrix_a = np.zeros((2 * dimension, 2 * dimension), dtype=np.complex128)
++    matrix_b = np.zeros_like(matrix_a)
++    matrix_a[:dimension, :dimension] = -onsite / scale
++    matrix_a[:dimension, dimension:] = -hopping.conj().T / scale
++    matrix_a[dimension:, :dimension] = np.eye(dimension)
++    matrix_b[:dimension, :dimension] = hopping / scale
++    matrix_b[dimension:, dimension:] = np.eye(dimension)
++    return matrix_a, matrix_b
++
++
++def reduced_pencil(onsite, left_factor, right_factor):
++    """Eliminate the cell interior for T = left_factor @ right_factor.H.
++
++    For a = right_factor.H @ psi and b = left_factor.H @ psi / z,
++    psi = -H**(-1) @ (z * left_factor @ a + right_factor @ b).
++    Projecting this identity gives a pencil of size twice rank(T),
++    irrespective of how many original slices were grouped into a cell.
++    """
++    with warnings.catch_warnings():
++        warnings.simplefilter("error", linalg.LinAlgWarning)
++        factorization, pivots = linalg.lu_factor(onsite, check_finite=False)
++        condition_estimator = linalg.get_lapack_funcs("gecon", (factorization,))
++        reciprocal_condition, info = condition_estimator(
++            factorization, linalg.norm(onsite, 1)
++        )
++        if info != 0 or reciprocal_condition < 1e-10:
++            raise linalg.LinAlgError("Cell interior is too close to singular")
++        inverse_factors = linalg.lu_solve(
++            (factorization, pivots),
++            np.column_stack((left_factor, right_factor)),
++            check_finite=False,
++        )
++    rank = left_factor.shape[1]
++    inverse_left = inverse_factors[:, :rank]
++    inverse_right = inverse_factors[:, rank:]
++    cross = right_factor.conj().T @ inverse_left
++    right_block = right_factor.conj().T @ inverse_right
++    left_block = left_factor.conj().T @ inverse_left
++    reverse_cross = left_factor.conj().T @ inverse_right
++    identity = np.eye(rank)
++    zeros = np.zeros((rank, rank), dtype=np.complex128)
++    matrix_a = np.block([[-identity, -right_block], [zeros, -reverse_cross]])
++    matrix_b = np.block([[cross, zeros], [left_block, identity]])
++    return matrix_a, matrix_b
++
++
++def bulk_amplitude_length(onsite, hopping, cell_length_nm):
++    """Return -d/log(|z|) for the slowest nonzero right-decaying mode."""
++    onsite = np.asarray(onsite, dtype=np.complex128)
++    hopping = np.asarray(hopping, dtype=np.complex128)
++    left_vectors, singular_values, right_adjoint = linalg.svd(
++        hopping, full_matrices=False, check_finite=False
++    )
++    threshold = hopping.shape[0] * np.finfo(float).eps * singular_values[0]
++    rank = int(np.count_nonzero(singular_values > threshold))
++    if rank == 0:
++        raise ValueError("No nonzero exponentially decaying bulk modes")
++    pencil = None
++    if rank < hopping.shape[0]:
++        root_singular_values = np.sqrt(singular_values[:rank])
++        left_factor = left_vectors[:, :rank] * root_singular_values
++        right_factor = right_adjoint[:rank].conj().T * root_singular_values
++        try:
++            pencil = reduced_pencil(onsite, left_factor, right_factor)
++        except (linalg.LinAlgError, linalg.LinAlgWarning):
++            pass
++    if pencil is None:
++        pencil = quadratic_pencil(onsite, hopping)
++    homogeneous = linalg.eigvals(
++        *pencil, homogeneous_eigvals=True, overwrite_a=True, check_finite=False
++    )
++    numerator, denominator = np.abs(homogeneous)
++    decaying = (
++        np.isfinite(numerator)
++        & np.isfinite(denominator)
++        & (numerator > 0)
++        & (denominator > numerator)
++    )
++    numerator = numerator[decaying]
++    denominator = denominator[decaying]
++    if numerator.size == 0:
++        raise ValueError("No finite right-decaying bulk modes were found")
++    attenuation = np.log(denominator) - np.log(numerator)
++    near_unit_circle = numerator > 0.5 * denominator
++    attenuation[near_unit_circle] = -np.log1p(
++        (numerator[near_unit_circle] - denominator[near_unit_circle])
++        / denominator[near_unit_circle]
++    )
++    length = float(cell_length_nm / np.min(attenuation))
++    if not np.isfinite(length) or length <= 0:
++        raise ValueError("Invalid bulk amplitude decay length")
++    return length
++
++
++def fit_amplitude_length(coordinates, density):
++    """Apply the specified, unsmoothed second-quarter density-log OLS fit."""
++    quarter = len(coordinates) // 4
++    selection = slice(quarter, 2 * quarter)
++    selected_density = density[selection]
++    if quarter < 2 or np.any(selected_density <= 0):
++        raise ValueError("The fit window must contain positive densities")
++    centered_x = coordinates[selection] - np.mean(coordinates[selection])
++    log_density = np.log(selected_density)
++    slope = np.dot(centered_x, log_density - np.mean(log_density)) / np.dot(
++        centered_x, centered_x
++    )
++    if not np.isfinite(slope) or slope >= 0:
++        raise ValueError("The finite-window density slope must be negative")
++    return float(-2 / slope)
++
++
++def finite_left_end(basis, energy_matrix, orbital_x, coordinates):
++    """Minimize position only within the closest-to-zero energy pair."""
++    energies, energy_vectors = linalg.eigh(energy_matrix, check_finite=False)
++    selected_pair = np.argsort(np.abs(energies), kind="stable")[:2]
++    pair = basis @ energy_vectors[:, selected_pair]
++    centered_positions = orbital_x - 0.5 * (coordinates[0] + coordinates[-1])
++    position_matrix = pair.conj().T @ (centered_positions[:, None] * pair)
++    position_matrix = 0.5 * (position_matrix + position_matrix.conj().T)
++    _, position_vectors = linalg.eigh(position_matrix, check_finite=False)
++    wavefunction = pair @ position_vectors[:, 0]
++    density = np.bincount(
++        np.searchsorted(coordinates, orbital_x),
++        weights=np.abs(wavefunction) ** 2,
++        minlength=len(coordinates),
++    )
++    density /= np.sum(density)
++    return {
++        "rho_left": density.tolist(),
++        "xi_window_nm": fit_amplitude_length(coordinates, density),
++    }
++
++
++def analyze(case, arrays):
++    if case["family"] == "bulk_tail":
++        return {
++            "xi_amplitude_nm": bulk_amplitude_length(
++                arrays["onsite"], arrays["hopping"], float(arrays["cell_length_nm"])
++            )
++        }
++    if case["family"] == "finite_end":
++        return finite_left_end(
++            arrays["basis"],
++            arrays["energy_matrix"],
++            arrays["x_orbital_nm"],
++            arrays["x_grid_nm"],
++        )
++    raise ValueError(f"Unknown case family: {case['"'family']}\")
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument(\"--input\", type=Path, required=True)
++    parser.add_argument(\"--output\", type=Path, required=True)
++    args = parser.parse_args()
++    manifest = json.loads((args.input / \"manifest.json\").read_text(encoding=\"utf-8\"))
++    predictions = {}
++    for case in manifest[\"cases\"]:
++        with np.load(args.input / case[\"file\"], allow_pickle=False) as arrays:
++            predictions[case[\"id\"]] = analyze(case, arrays)
++    args.output.parent.mkdir(parents=True, exist_ok=True)
++    args.output.write_text(
++        json.dumps({\"schema_version\": 1, \"predictions\": predictions}, allow_nan=False)
++        + \"\\n\",
++        encoding=\"utf-8\",
++    )
++
++
++if __name__ == \"__main__\":
++    main()
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/attempt/README.md
++# Localization solver
++
++Run with Python, NumPy, and SciPy:
++
++"'```sh
++python solve.py --input /path/to/input --output /path/to/predictions.json
++```
++
++`solve.py` follows the supplied schema and never uses the finite-device witness
++to infer a bulk length. It solves the zero-energy complex-band polynomial
++`T z² + H z + T†`, retains nonzero factors strictly inside the unit circle, and
++returns the largest amplitude length `-cell_length_nm / log(abs(z))`.
++For singular hopping, a rank-reduced generalized eigenproblem eliminates cell
++interiors; an unreduced pencil handles singular or ill-conditioned interiors.
++No inverse of the hopping matrix, boundary potential, or changed device length
++is used. The physical cell length accounts for grouped representations.
++
++For finite devices, it first diagonalizes the supplied six-dimensional energy
++matrix, then minimizes projected position within only the closest-to-zero
++two-state subspace. Squared amplitudes are summed over all orbitals at each x
++and normalized. The reported finite-window amplitude length is exactly the
++specified second-quarter log-density OLS statistic, including its factor of two.
++Both extractions are invariant under orbital gauge transformations, and the
++finite extraction is invariant under rotations of the supplied six-state basis.
++
++The solver limits BLAS libraries to one thread and requires no external data,
++Kwant, or full finite-system diagonalization.
+*** End Patch
+PATCH
+python ../attempt/solve.py --input input --output ../attempt/predictions.json' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/participant
+**Evaluating tool commands**
+
+I realize the tool commands are taking longer than expected, around 20 seconds each, and I might need to set a working directory to try to improve that. The current filesystem is already mounted and startup times are around 70 seconds. I need to inspect what’s going on. I have about 30 minutes to work with, and I might be able to run tests after the pending patch is complete. Maybe separating execution commands could help avoid blocking?
+ succeeded in 46519ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/attempt/solve.py
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/attempt/README.md
+
+  ✓ Inspect definitions and simulation inputs
+  ✓ Develop bulk and finite localization methods
+  ✓ Implement executable submission and diagnostics
+  → Test supplied cases and refine
+codex
+Implementation runs. I’ll test analytic cases and representation invariance.
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import sys
+import json
+import time
+from pathlib import Path
+import numpy as np
+import scipy.linalg as la
+sys.path.insert(0, str(Path('../attempt').resolve()))
+import solve
+
+rng = np.random.default_rng(230817)
+def close(actual, expected, description, tolerance=1e-7):
+    error = abs(actual / expected - 1)
+    assert error < tolerance, (description, actual, expected, error)
+    print(f'PASS {description}: {actual:.12g} (relative error {error:.3g})', flush=True)
+
+def group_cells(onsite, hopping, count):
+    dimension = len(onsite)
+    grouped_onsite = np.kron(np.eye(count), onsite).astype(complex)
+    grouped_hopping = np.zeros_like(grouped_onsite)
+    for index in range(count - 1):
+        current = slice(index * dimension, (index + 1) * dimension)
+        following = slice((index + 1) * dimension, (index + 2) * dimension)
+        grouped_onsite[current, following] = hopping
+        grouped_onsite[following, current] = hopping.conj().T
+    grouped_hopping[-dimension:, :dimension] = hopping
+    return grouped_onsite, grouped_hopping
+
+onsite = np.diag([2 * np.cosh(0.02), 2 * np.cosh(0.2), 0.7]).astype(complex)
+hopping = np.diag([-1, -1, 0]).astype(complex)
+close(solve.bulk_amplitude_length(onsite, hopping, 10), 500, 'analytic multichannel singular hopping')
+for count in (2, 4, 7):
+    grouped_onsite, grouped_hopping = group_cells(onsite, hopping, count)
+    dimension = len(grouped_onsite)
+    rotation, _ = la.qr(rng.normal(size=(dimension, dimension)) + 1j * rng.normal(size=(dimension, dimension)))
+    rotated_onsite = rotation.conj().T @ grouped_onsite @ rotation
+    rotated_hopping = rotation.conj().T @ grouped_hopping @ rotation
+    close(solve.bulk_amplitude_length(rotated_onsite, rotated_hopping, 10 * count), 500, f'analytic grouping {count} with dense orbital rotation')
+
+singular_onsite = np.diag([3., 0., 0.]).astype(complex)
+compact_hopping = np.array([[-1, 0, 0], [0, 0, 1], [0, 0, 0]], dtype=complex)
+close(solve.bulk_amplitude_length(singular_onsite, compact_hopping, 10), 10 / np.arccosh(1.5), 'singular onsite fallback with compact-support dimers')
+for trial in range(5):
+    dimension = 6
+    onsite = np.diag(np.linspace(5, 9, dimension)).astype(complex)
+    hopping = 0.15 * (rng.normal(size=(dimension, dimension)) + 1j * rng.normal(size=(dimension, dimension)))
+    hopping[:, 3:] = 0
+    pencil = solve.quadratic_pencil(onsite, hopping)
+    factors = la.eigvals(*pencil)
+    inside = abs(factors[(abs(factors) > 1e-10) & (abs(factors) < 1 - 1e-10)])
+    reference = -10 / np.log(max(inside))
+    close(solve.bulk_amplitude_length(onsite, hopping, 10), reference, f'rank-reduced versus full pencil {trial}')
+
+results = json.loads(Path('../attempt/predictions.json').read_text())
+assert results['schema_version'] == 1
+assert set(results['predictions']) == {'b01', 'e10'}
+with np.load('input/b01.npz', allow_pickle=False) as data:
+    onsite = data['onsite']; hopping = data['hopping']; distance = float(data['cell_length_nm'])
+reference = results['predictions']['b01']['xi_amplitude_nm']
+close(reference, 26137.47219867, 'provided bulk versus independent full pencil')
+for count in (2, 3):
+    grouped_onsite, grouped_hopping = group_cells(onsite, hopping, count)
+    phases = np.exp(1j * rng.uniform(-np.pi, np.pi, len(grouped_onsite)))
+    grouped_onsite *= phases[:, None].conj() * phases[None, :]
+    grouped_hopping *= phases[:, None].conj() * phases[None, :] * np.exp(0.37j)
+    start = time.monotonic()
+    value = solve.bulk_amplitude_length(grouped_onsite, grouped_hopping, distance * count)
+    close(value, reference, f'provided bulk grouped {count}, orbital gauge and Bloch phase')
+    print(f'  runtime {time.monotonic() - start:.3f} s', flush=True)
+
+with np.load('input/e10.npz', allow_pickle=False) as data:
+    basis = data['basis']; energy = data['energy_matrix']; orbital_x = data['x_orbital_nm']; grid = data['x_grid_nm']
+reference_end = results['predictions']['e10']
+rho = np.array(reference_end['rho_left'])
+assert rho.shape == grid.shape and np.isfinite(rho).all() and np.all(rho >= 0)
+close(rho.sum(), 1., 'provided density normalization', 1e-12)
+close(reference_end['xi_window_nm'], 652.653224830875, 'provided finite-window versus independent extraction')
+rotation, _ = la.qr(rng.normal(size=(6, 6)) + 1j * rng.normal(size=(6, 6)))
+orbital_phase = np.exp(1j * rng.uniform(-np.pi, np.pi, len(basis)))
+rotated_basis = orbital_phase[:, None] * (basis @ rotation)
+rotated_energy = rotation.conj().T @ energy @ rotation
+rotated_end = solve.finite_left_end(rotated_basis, rotated_energy, orbital_x, grid)
+close(rotated_end['xi_window_nm'], reference_end['xi_window_nm'], 'finite six-state rotation plus orbital gauge', 1e-10)
+profile_error = np.max(abs(np.array(rotated_end['rho_left']) - rho))
+assert profile_error < 1e-12, profile_error
+print(f'PASS rotated finite profile: maximum absolute error {profile_error:.3g}', flush=True)
+quarter = len(grid) // 4
+manual_slope = np.polyfit(grid[quarter:2*quarter], np.log(rho[quarter:2*quarter]), 1)[0]
+close(reference_end['xi_window_nm'], -2/manual_slope, 'exact prescribed OLS window', 1e-12)
+print('All checks passed.', flush=True)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/participant
+**Considering file management and tests**
+
+I need to ensure that no unnecessary artifacts, like __pycache__, are created during the submissions since we only need to submit certain files. I could remove them using `rm -rf`, but I'm cautious about that command being destructive. There's no real need to include them. The user is asking about any executable submissions and necessary files, so I’ll ensure that predictions and results are nicely prepared. I won’t include a test suite, as we didn’t create one according to the instructions.
+ succeeded in 27088ms:
+PASS analytic multichannel singular hopping: 500 (relative error 1.35e-13)
+PASS analytic grouping 2 with dense orbital rotation: 500 (relative error 4.29e-13)
+PASS analytic grouping 4 with dense orbital rotation: 500 (relative error 1.9e-13)
+PASS analytic grouping 7 with dense orbital rotation: 500 (relative error 5.57e-13)
+PASS singular onsite fallback with compact-support dimers: 10.3904346062 (relative error 0)
+PASS rank-reduced versus full pencil 0: 3.98792694235 (relative error 6.66e-16)
+PASS rank-reduced versus full pencil 1: 3.7614338098 (relative error 2.22e-16)
+PASS rank-reduced versus full pencil 2: 3.62787157718 (relative error 4.44e-16)
+PASS rank-reduced versus full pencil 3: 3.62417348258 (relative error 2.44e-15)
+PASS rank-reduced versus full pencil 4: 4.19494444278 (relative error 2.22e-16)
+PASS provided bulk versus independent full pencil: 26137.4721988 (relative error 5.93e-12)
+PASS provided bulk grouped 2, orbital gauge and Bloch phase: 26137.4721988 (relative error 1.48e-12)
+  runtime 2.118 s
+PASS provided bulk grouped 3, orbital gauge and Bloch phase: 26137.4721988 (relative error 2.36e-12)
+  runtime 2.602 s
+PASS provided density normalization: 1 (relative error 1.11e-16)
+PASS provided finite-window versus independent extraction: 652.653224831 (relative error 2.22e-16)
+PASS finite six-state rotation plus orbital gauge: 652.653224831 (relative error 2.22e-16)
+PASS rotated finite profile: maximum absolute error 3.12e-17
+PASS exact prescribed OLS window: 652.653224831 (relative error 2.22e-16)
+All checks passed.
+
+codex
+Analytic and invariance checks pass. I’ll measure runtime and memory.
+
+exec
+/bin/bash -c "chmod +x solve.py
+ulimit -v 6291456
+/usr/bin/time -f 'Elapsed: %e s; peak resident memory: %M KiB' timeout 300 python solve.py --input ../participant/input --output predictions.json
+python - <<'PY'
+import json
+from pathlib import Path
+output=json.loads(Path('predictions.json').read_text())
+for identifier, prediction in output['predictions'].items():
+    summary={key: value for key,value in prediction.items() if key "'!= '"'rho_left'}
+    if 'rho_left' in prediction:
+        summary['profile_entries']=len(prediction['rho_left'])
+        summary['profile_sum']=sum(prediction['rho_left'])
+    print(identifier, summary)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/03_majorana_localization/attempt
+ succeeded in 10856ms:
+Elapsed: 2.56 s; peak resident memory: 92884 KiB
+b01 {'xi_amplitude_nm': 26137.472198824915}
+e10 {'xi_window_nm': 652.6532248308749, 'profile_entries': 455, 'profile_sum': 1.0000000000000007}
+
+The executable passes analytic, singular-hopping, grouped-cell, orbital-gauge, and six-state basis-rotation checks. The supplied input completes in 2.56 seconds using about 91 MiB under the 6 GiB limit.
+  ✓ Inspect definitions and simulation inputs
+  ✓ Develop bulk and finite localization methods
+  ✓ Implement executable submission and diagnostics
+  ✓ Test supplied cases and refine
+codex
+Implemented `attempt/solve.py:1` with the documented CLI. Results are in `attempt/predictions.json:1`.
+
+- Bulk amplitude length: **26,137.4722 nm**.
+- Finite-window amplitude length: **652.6532 nm**, with a normalized 455-point left-end density.
+- Passed analytic, singular-hopping, cell-grouping, gauge, and basis-rotation checks.
+- Supplied-input runtime: **2.56 seconds**, approximately **91 MiB** peak memory.
+
+The task directory remains unchanged.
+tokens used
+40,144
+Implemented `attempt/solve.py:1` with the documented CLI. Results are in `attempt/predictions.json:1`.
+
+- Bulk amplitude length: **26,137.4722 nm**.
+- Finite-window amplitude length: **652.6532 nm**, with a normalized 455-point left-end density.
+- Passed analytic, singular-hopping, cell-grouping, gauge, and basis-rotation checks.
+- Supplied-input runtime: **2.56 seconds**, approximately **91 MiB** peak memory.
+
+The task directory remains unchanged.

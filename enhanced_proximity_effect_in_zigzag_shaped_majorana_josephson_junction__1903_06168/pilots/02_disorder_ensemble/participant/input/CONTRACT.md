@@ -1,0 +1,15 @@
+# Interface
+
+A request contains a `cases` array. Each case has `id`, `mfp_nm`, `salt`, `amplitude_nm`, `field_T`, and `phase_rad`. Return `{"results": [{"id": ..., "strength_meV": ..., "gap_meV": ...}]}`. All values must be finite and nonnegative. IDs only associate results with requests and convey no scientific information.
+
+The forward model is a square-grid, spinful BdG junction in `workspace/clean_model.py`. Use its `make_system(amplitude_nm)` and `parameters(field_T, phase_rad)` rather than changing the mesh or effective physical parameters. The unit cell has length 3900 nm (three 1300 nm periods), grid spacing 10 nm, normal width 200 nm, and superconducting widths 300 nm on either side. `amplitude_nm` is the implementation's sinusoidal shape parameter, not a replacement straight strip. The Bloch variable is dimensionless phase per full unit cell. The requested gap is the absolute lowest band energy minimized over that phase, not the gap at zero momentum. Parameters and spin/Nambu conventions are fixed by the supplied model, including its Zeeman coefficient and band-bottom convention.
+
+Disorder is a scalar chemical-potential perturbation in **all** model regions: substitute `mu` by `mu - V_disorder(x,y)`. Preserve the clean pairing, spin-orbit, and Zeeman profiles. The potential is uniform in `[-U,U]` and reproducible from `workspace/random_field.py`. Its independent-site variance is `U**2/3`. Use the Born mean-free-path relation
+
+`mfp = hbar * v_F / (2*pi*rho_site*variance)`.
+
+Here `v_F = sqrt(2*mu/m_dis)`, `rho_site = a**2*m_dis/(pi*hbar**2)` is the 2D site density of states, `m_dis = 0.023*m_e`, `mu = 10 meV`, and `a = 10 nm`; convert SI units consistently. The disorder calibration mass intentionally differs from the forward model's `0.02*m_e`. These are supplied model parameters, not fitted unknowns. An infinite mean free path means zero disorder. `mfp_nm` is finite in scored cases.
+
+Evaluation requests may contain several cases, but cases execute independently with a 600-second wall limit, one BLAS thread, and a 12 GiB address-space limit each. The largest matrix has approximately 125,000 degrees of freedom. Dense full-matrix diagonalization is not viable. NumPy, SciPy, and the bundled construction library are available; no downloads are needed. Read-only task paths and a writable attempt directory are the only task artifacts accessible. Persist caches only in the attempt directory and do not rely on public-case identifiers.
+
+Scoring uses continuous relative gap errors and calibration errors, with separate means for the three regimes and an explicitly reported worst-family score. Spectral accuracy dominates (85%); calibration contributes 15%. The gap error scale is `max(0.20*reference_gap, 0.001 meV)`, acknowledging the numerical resolution of the archived calculation. An individual accuracy score is `1/(1+(error/scale)**2)`; performance is normalized against the documented zero-gap/zero-disorder weak baseline. Runtime failures retain no spectral credit. Values are independently recomputed/compared; explanations do not replace output.

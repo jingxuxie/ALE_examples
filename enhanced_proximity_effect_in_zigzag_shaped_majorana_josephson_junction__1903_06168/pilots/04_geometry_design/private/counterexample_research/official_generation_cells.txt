@@ -1,0 +1,313 @@
+CELL 1
+%load_ext autoreload
+%autoreload 2
+
+import os
+import pickle
+import numpy as np
+import itertools as it
+import dask
+import dask.array
+from tqdm.notebook import tqdm
+from kwant.operator import Density
+import utils
+from optimization import geometry_optimization
+CELL 3
+from dask_quantumtinkerer import Cluster
+from dask_quantumtinkerer import cluster_options
+
+options = cluster_options()
+options.worker_cores = 1
+options.worker_memory = 2
+options.extra_path = "~/majo-geometry-optimize"
+
+cluster = Cluster(options)
+cluster.scale(100)
+client = cluster.get_client()
+print(
+    "http://io.quantumtinkerer.tudelft.nl/user/"
+    + os.environ.get("JUPYTERHUB_USER")
+    + "/proxy/"
+    + cluster.dashboard_link[17:]
+)
+CELL 5
+a_x = a_y = 20
+L_x = 1300
+L_y = 1300
+W = 200
+X, Y, start_masks = utils.straight_geometry(L_x, L_y, a_x, a_y, W)
+
+base_ham_params = dict(
+    mu_normal=10,
+    mu_sc=10,
+    alpha=20,
+    E_Z=1,
+    phase=np.pi,
+    t=1905,
+    cos=np.cos,
+    sin=np.sin,
+    V=0,
+    disorder_seed=0,
+    disorder_strength=0,
+)
+
+ks = np.linspace(0, 2 * np.pi, 101)
+
+base_optimization_pars = dict(
+    X=X,
+    Y=Y,
+    start_masks=start_masks,
+    num_epochs=400,
+    num_iters=5,
+    min_dist=100,
+    ham_params=base_ham_params,
+    ks=ks,
+)
+
+filter_settings = {"mode": "wrap", "size": 3}
+CELL 7
+def compute_wavefunctions(X, Y, masks, params, filename=None):
+    syst = utils.system(X[:, 1:], Y[:, 1:])
+    new_masks = {m: masks[m][:, 1:] for m in masks}
+    h = utils.system_hamiltonian(syst, new_masks, dict(params, k_x=0))
+    e, wfs = utils.mumps_eigsh(h, 6, 0)
+    dens = Density(syst)
+    new_shape = [X.shape[0], X.shape[1] - 1]
+    wf = dens(wfs[:, 0]).reshape(new_shape[::-1])
+    if filename:
+        data = pickle.load(open(filename, "rb"))
+        data["wf"] = wf
+        with open(filename, "wb") as f:
+            pickle.dump(data, f)
+    return wf
+
+
+def band_gap(X, Y, masks, params):
+    def disp(k_x):
+        return utils.dispersion(k_x, X, Y, masks, params)[0]
+
+    es = [dask.array.from_delayed(dask.delayed(disp)(k), (8,), dtype=float) for k in ks]
+    es = dask.array.stack(es, axis=0)
+    return dask.array.min(dask.array.fabs(es))
+
+
+def batch_gaps(X, Y, masks, ham_params, mu_pts, EZ_pts, filename=None, homogeneous_mu=True):
+    if homogeneous_mu:
+        gaps = [
+            band_gap(X, Y, masks, dict(ham_params, mu_normal=mu, mu_sc=mu, E_Z=E_Z))
+            for mu, E_Z in it.product(mu_pts, EZ_pts)
+        ]
+    else:
+        gaps = [
+            band_gap(X, Y, masks, dict(ham_params, mu_normal=mu, E_Z=E_Z))
+            for mu, E_Z in it.product(mu_pts, EZ_pts)
+        ]
+    if filename:
+        gaps = dask.compute(gaps)
+        data = pickle.load(open(filename, "rb"))
+        data["gaps"] = gaps
+        with open(filename, "wb") as f:
+            pickle.dump(data, f)
+    return gaps
+CELL 9
+mu_range = [10, 15]
+EZ_range = [0.5, 1.5]
+mu_pts = np.linspace(*mu_range, 4)
+EZ_pts = np.linspace(*EZ_range, 4)
+homogeneous_optimization_pars = dict(
+    base_optimization_pars,
+    num_epochs=800,
+    mu_range=mu_range,
+    EZ_range=EZ_range,
+)
+CELL 10
+# μ homogeneous, no filtering
+filename = "data/homogeneous_no_filter.p"
+_, _, masks = geometry_optimization(
+    client, **dict(homogeneous_optimization_pars, filename=filename)
+)
+compute_wavefunctions(masks[-1], base_ham_params, filename)
+batch_gaps(X, Y, masks[-1], base_ham_params, mu_pts, EZ_pts, filename)
+
+# μ homogeneous, filtering
+filename = "data/homogeneous_filtered.p"
+_, _, masks = geometry_optimization(
+    client,
+    **dict(
+        homogeneous_optimization_pars,
+        filter_settings=filter_settings,
+        filter_epoch=5,
+        filename=filename,
+    ),
+)
+batch_gaps(X, Y, masks[-1], base_ham_params, mu_pts, EZ_pts, filename)
+compute_wavefunctions(masks[-1], base_ham_params, filename)
+CELL 12
+representative_gaps = []
+for chunk in tqdm((list(utils.chunks(masks, 2)))):
+    tasks = client.map(
+        lambda m: dask.compute(batch_gaps(X, Y, m, base_ham_params, mu_pts, EZ_pts)),
+        chunk,
+    )
+    representative_gaps += client.gather(tasks)
+representative_gaps = np.array(representative_gaps).squeeze()
+CELL 14
+chosen_epochs = [0, 150, 796]
+phase_diagram_gaps = []
+mu_pts = np.linspace(5, 20, 30)
+EZ_pts = np.linspace(0, 2, 30)
+tpt_gaps = [[], [], []]
+
+for i, epoch in enumerate(chosen_epochs):
+    tasks = batch_gaps(X, Y, masks[epoch], base_ham_params, mu_pts, EZ_pts)
+    for chunk in tqdm(list(utils.chunks(tasks, 30))):
+        tpt_gaps[i] += dask.compute(chunk)
+tpt_gaps = np.array(tpt_gaps).squeeze()
+
+wfs = [
+    compute_wavefunctions(masks[epoch], base_ham_params)
+    for epoch in chosen_epochs
+]
+
+with open("data/shape_evolution.p", "wb") as f:
+    pickle.dump([representative_gaps, tpt_gaps, wfs], f)
+CELL 16
+# No parameter shifting
+geometry_optimization(
+    client, **dict(base_optimization_pars,
+                   num_epochs=300,
+                   filename="data/stationary_params.p")
+)
+
+# 5% parameter shifting
+geometry_optimization(
+    client,
+    **dict(
+        base_optimization_pars,
+        num_epochs=300,
+        filename="data/varying_params.p",
+        mu_range=[9.5, 10.5],
+        EZ_range=[0.95, 1.05],
+    ),
+)
+CELL 18
+mismatch_ham_params = dict(base_ham_params, mu_sc=15)
+mu_range = [9, 11]
+EZ_range = [1.35, 1.65]
+mu_pts = np.linspace(*mu_range, 4)
+EZ_pts = np.linspace(*EZ_range, 4)
+mismatch_optimization_pars = dict(
+    base_optimization_pars,
+    num_epochs=800,
+    ham_params=mismatch_ham_params,
+    mu_range=mu_range,
+    EZ_range=EZ_range,
+    homogeneous_mu=False,
+)
+
+
+# μ mistmach, no filtering
+filename = "data/mismatched_no_filter.p"
+_, _, masks = geometry_optimization(
+    client, **dict(mismatch_optimization_pars, filename=filename)
+)
+batch_gaps(X, Y, masks[-1], mismatch_ham_params, mu_pts, EZ_pts, filename)
+compute_wavefunctions(masks[-1], mismatch_ham_params, filename)
+
+# μ mistmach, filtering
+filename = "data/mismatched_filtered.p"
+_, _, masks = geometry_optimization(
+    client,
+    **dict(
+        mismatch_optimization_pars,
+        filter_settings=filter_settings,
+        filter_epoch=1,
+        filename=filename,
+    ),
+)
+batch_gaps(X, Y, masks[-1], mismatch_ham_params, mu_pts, EZ_pts, filename)
+compute_wavefunctions(masks[-1], mismatch_ham_params, filename)
+CELL 21
+filename = f"data/robustness_checks/seed_1.p"
+_, _, masks = geometry_optimization(
+    client,
+    **dict(
+        homogeneous_optimization_pars,
+        parameter_seed=1,
+        filter_settings=filter_settings,
+        filter_epoch=5,
+        filename=filename,
+    ),
+)
+CELL 23
+filename = "data/robustness_checks/no_mirror_sym.p"
+_, _, masks = geometry_optimization(
+    client,
+    **dict(
+        homogeneous_optimization_pars,
+        num_iters=10,
+        mirror_sym=False,
+        filter_settings=filter_settings,
+        filter_epoch=5,
+        filename=filename,
+    ),
+)
+CELL 25
+disorder_ham_params = dict(
+    base_ham_params,
+    disorder_strength=1.7,
+    disorder_seed=lambda epoch: epoch,
+)
+
+disorder_optimization_pars = dict(
+    base_optimization_pars,
+    num_epochs=800,
+    ham_params=disorder_ham_params,
+    mu_range=[9.5, 10.5],
+    EZ_range=[0.95, 1.05],
+)
+
+# μ mistmach, filtering
+filename = "data/robustness_checks/disorder.p"
+_, _, masks = geometry_optimization(
+    client,
+    **dict(
+        disorder_optimization_pars,
+        filter_settings=filter_settings,
+        filter_epoch=5,
+        filename=filename,
+    ),
+)
+CELL 27
+W = 300
+z_y = 150
+X, Y, zigzag_masks = utils.zigzag_geometry(L_x, L_y, a_x, a_y, W, z_y)
+filename = "data/robustness_checks/zigzag.p"
+
+zigzag_optimization_pars = dict(
+    homogeneous_optimization_pars,
+    filter_settings=filter_settings,
+    filter_epoch=5,
+    start_masks=zigzag_masks,
+    filename=filename,
+)
+
+_, _, masks = geometry_optimization(client, **zigzag_optimization_pars)
+CELL 29
+for L_x in [650, 980, 1620, 1940]:
+    X, Y, start_masks = utils.straight_geometry(L_x, L_y, a_x, a_y, W)
+    filename = f"data/homogeneous_filtered_{L_x}.p"
+    _, _, masks = geometry_optimization(
+        client,
+        **dict(
+            homogeneous_optimization_pars,
+            X=X,
+            Y=Y,
+            start_masks=start_masks,
+            filter_settings=filter_settings,
+            filter_epoch=5,
+            filename=filename,
+        ),
+    )
+    batch_gaps(X, Y, masks[-1], base_ham_params, mu_pts, EZ_pts, filename)
+    compute_wavefunctions(X, Y, masks[-1], base_ham_params, filename)

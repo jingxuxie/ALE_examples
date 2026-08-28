@@ -1,0 +1,421 @@
+CELL 0
+%load_ext autoreload
+%autoreload 2
+
+import utils
+import numpy as np
+import kwant
+from matplotlib import pyplot as plt
+from copy import deepcopy
+import pickle
+import matplotlib as mpl
+from matplotlib.ticker import MaxNLocator
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+from matplotlib.gridspec import GridSpec
+from matplotlib.colors import ListedColormap
+from matplotlib.colors import Normalize
+from matplotlib.lines import Line2D
+import matplotlib.patches as patches
+from itertools import product
+from string import ascii_lowercase
+CELL 1
+mpl.use("agg")
+
+%matplotlib inline
+%config InlineBackend.figure_format = 'svg'
+
+# Color blind-friendly color cycle from https://github.com/matplotlib/matplotlib/issues/9460#issuecomment-875185352
+color_cyle = mpl.cycler(
+    color=["#5790fc", "#f89c20", "#e42536", "#964a8b", "#9c9ca1", "#7a21dd"]
+)
+params = {
+    "backend": "ps",
+    "axes.labelsize": 15,
+    "axes.prop_cycle": color_cyle,
+    "font.size": 15,
+    "legend.fontsize": 15,
+    "xtick.labelsize": 15,
+    "ytick.labelsize": 15,
+    "text.usetex": True,
+    "font.family": "serif",
+    "font.serif": "Computer Modern Roman",
+    "legend.frameon": True,
+    "savefig.dpi": 300,
+}
+
+plt.rcParams.update(params)
+plt.rc("text.latex", preamble=r"\usepackage{xfrac}\usepackage{siunitx}")
+CELL 2
+sc_cmp = ListedColormap(np.array([[222, 211, 211], [232, 190, 46]]) / 256)
+light_sc_cmp = ListedColormap(np.array([[255, 255, 255], [200, 200, 200]]) / 256)
+L_x = 1300
+L_y = 1200
+CELL 4
+with open("data/stationary_params.p", "rb") as f:
+    stationary_data = pickle.load(f)
+
+with open("data/varying_params.p", "rb") as f:
+    sample_data = pickle.load(f)
+
+fig, ax = plt.subplots(1, 1)
+plt.plot(stationary_data["actual_gaps"], label="Fixed parameters", c="C0")
+plt.plot(sample_data["actual_gaps"], label="5\% variation in $E_Z$ and $\mu$", c="C2")
+
+plt.legend(fontsize=13)
+plt.xlabel("Epoch")
+plt.ylabel("$E_\mathrm{gap}/\Delta_0$")
+plt.xticks()
+plt.yticks()
+plt.xlim(-5, 300)
+plt.ylim(0, None)
+
+# Add insets with geometries
+for i, (data, bbox_x) in enumerate(zip([stationary_data, sample_data], [0.3, 0.67])):
+    color = "C0" if i == 0 else "C2"
+    axins = inset_axes(
+        ax,
+        width="100%",
+        height="100%",
+        bbox_to_anchor=(bbox_x, 0.3, 0.3, 0.4),
+        bbox_transform=ax.transAxes,
+    )
+    axins.set_xticks([])
+    axins.set_yticks([])
+    for spine in axins.spines.values():
+        spine.set_edgecolor(color)
+        spine.set_linewidth(2)
+    masks = data["masks_by_epoch"]
+    shape = masks[-1]["sc_top"] + masks[-1]["sc_bot"]
+    axins.imshow(shape, origin="lower", cmap=sc_cmp, extent=(0, L_x, -L_y / 2, L_y / 2))
+    axins.set_ylim(-500, 500)
+
+plt.savefig("publication/figures/training_curves.pdf", bbox_inches="tight")
+CELL 5
+fig, ax = plt.subplots()
+ax.plot(stationary_data["actual_gaps"][:150])
+ax.plot(range(1, 302)[:150], stationary_data["predicted_gaps"][:150], '.', markersize=5)
+ax.set_xlabel("Epoch")
+ax.set_ylabel("$E_\mathrm{gap}/\Delta_0$")
+axins = inset_axes(ax, width=2, height=2, loc=4, borderpad=4)
+gap_min, gap_max = np.min(stationary_data["actual_gaps"]), np.max(stationary_data["actual_gaps"])
+axins.plot([0.9*gap_min, 1.1*gap_max], [0.9*gap_min, 1.1*gap_max])
+axins.plot(stationary_data["actual_gaps"][1:][:150], stationary_data["predicted_gaps"][:-1][:150], '.')
+axins.set_xlabel("Exact gap [$\Delta_0$]")
+axins.set_ylabel("Perturbative gap [$\Delta_0$]")
+plt.savefig("publication/figures/perturbation_theory_test.pdf", bbox_inches="tight")
+CELL 7
+params = {
+    "font.size": 13,
+    "legend.fontsize": 10,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 10,
+}
+
+plt.rcParams.update(params)
+CELL 8
+with open("data/homogeneous_filtered.p", "rb") as f:
+    masks_by_epoch = pickle.load(f)["masks_by_epoch"]
+
+with open("data/shape_evolution.p", "rb") as f:
+    representative_gaps, phase_diagram_gaps, wfs = pickle.load(f)
+CELL 9
+chosen_epochs = [0, 101, 796]
+EZs = np.linspace(0, 2, 10)
+mus = np.linspace(5, 20, 10)
+vmax = np.max(phase_diagram_gaps)
+
+fig = plt.figure(constrained_layout=True)
+gs = GridSpec(9, 3, figure=fig)
+ax = fig.add_subplot(gs[:3, :])
+epochs = range(len(representative_gaps))
+ax.plot(np.average(representative_gaps, axis=1))
+ax.plot(representative_gaps, c="C1", alpha=0.1)
+ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+ax.set_xlim(-2, max(epochs))
+ax.set_ylabel("$E_\mathrm{gap} / \Delta_0$", fontsize=12)
+ax.set_xlabel("Epoch", fontsize=12)
+ax.set_xlim(-3, None)
+ax.text(0, 0.2, "(a)")
+
+for epoch in chosen_epochs:
+    ax.axvline(x=epoch, ls="--")
+
+labels = ascii_lowercase[1:]
+for i, epoch in enumerate(chosen_epochs):
+    # Plot wavefunction
+    ax = fig.add_subplot(gs[3:6, i])
+    ax.set_xticks([0, 500, 1000])
+    ax.set_xlabel("$x$ (nm)", fontsize=12)
+    if i == 0:
+        ax.set_ylabel("$y$ (nm)", fontsize=12)
+    shape = masks_by_epoch[epoch]["sc_top"] + masks_by_epoch[epoch]["sc_bot"]
+    shape = shape[:, 1:]
+    ax.imshow(
+        shape, aspect="auto", cmap=light_sc_cmp, extent=(0, L_x, -L_y / 2, L_y / 2),
+        origin='lower'
+    )
+
+    wf = wfs[i].T
+    alphas = np.exp(-(1 - wf / np.max(wf)))
+    ax.imshow(
+        wf,
+        extent=(0, L_x, -L_y / 2, L_y / 2),
+        interpolation="bilinear",
+        alpha=alphas,
+        origin="lower",
+        cmap="gist_heat_r",
+        aspect="auto",
+    )
+    label = labels[i]
+    ax.text(50, 160, f"({label})")
+    ax.set_ylim(-300, 300)
+    # Plot phase diagram
+    ax = fig.add_subplot(gs[6:, i])
+    im = ax.imshow(
+        np.array(phase_diagram_gaps[i]).reshape(30, 30).T,
+        extent=(EZs[0], EZs[-1], mus[0], mus[-1]),
+        cmap="viridis",
+        vmax=vmax,
+        aspect="auto",
+        origin="lower",
+        interpolation="gaussian",
+    )
+    label = labels[i + 3]
+    ax.text(0.1, 16, f"({label})", c="white")
+    ax.set_xlabel("$E_Z/\Delta_0$", fontsize=12)
+    if i == 0:
+        ax.set_ylabel("$\mu / \Delta_0$", fontsize=12)
+        opt_mu = np.linspace(10, 15, 4)
+        opt_EZ = np.linspace(0.5, 1.5, 4)
+        rect = patches.Rectangle(
+            (0.5, 10),
+            1,
+            5,
+            linewidth=1,
+            edgecolor="white",
+            facecolor="none",
+            ls="--",
+        )
+        ax.add_patch(rect)
+        ax.scatter(*zip(*product(opt_EZ, opt_mu)), c="red", s=2, marker="x", zorder=10)
+    if i == 2:
+        cbar = fig.colorbar(im, ax=ax)
+        cbar.set_label("$E_\mathrm{gap} / \Delta_0$", fontsize=12)
+
+plt.savefig("publication/figures/optimization.pdf", bbox_inches="tight")
+CELL 11
+L_x = 1300
+L_y = 1200
+EZs = np.linspace(0, 2, 10)
+mus = np.linspace(5, 20, 10)
+vmax = np.max(phase_diagram_gaps)
+
+fig, axes = plt.subplots(2, 2, figsize=(10.8, 5))
+labels = ascii_lowercase
+filenames = {
+    (0, 0): "data/homogeneous_no_filter.p",
+    (1, 0): "data/homogeneous_filtered.p",
+    (0, 1): "data/mismatched_no_filter.p",
+    (1, 1): "data/mismatched_filtered.p",
+}
+
+for i, j in product(range(2), range(2)):
+    ax = axes[i, j]
+    with open(filenames[i, j].format(""), "rb") as f:
+        data = pickle.load(f)
+        masks_by_epoch = data["masks_by_epoch"]
+        wf = data["wf"].T
+        gaps = data["gaps"]
+        av_gap = np.average(gaps)
+        std_gap = np.std(gaps)
+
+    shape = masks_by_epoch[-1]["sc_top"] + masks_by_epoch[-1]["sc_bot"]
+    shape = shape[:, 1:]
+    if i == 1 and j == 0:
+        shape = shape[::-1, :]
+        wf = wf[::-1, :]
+
+    ax.imshow(shape, aspect=1, cmap=light_sc_cmp, extent=(0, L_x, -L_y / 2, L_y / 2))
+    alphas = np.exp(-(1 - wf / np.max(wf)))
+    ax.imshow(
+        wf,
+        extent=(0, L_x, -L_y / 2, L_y / 2),
+        interpolation="bilinear",
+        alpha=alphas,
+        cmap="gist_heat_r",
+        aspect=1,
+    )
+    ax.text(
+        330,
+        210,
+        f"$E_\mathrm{{gap}}/\Delta_0 = {av_gap:.2f} \pm {std_gap:.2f}$",
+        fontsize=15,
+    )
+    ax.set_ylim(-300, 300)
+
+for ax in np.ravel(axes):
+    ax.set_yticks([])
+    ax.set_xticks([])
+
+asb = AnchoredSizeBar(
+    axes[0, 0].transData,
+    100,
+    r"100 nm",
+    loc="lower center",
+    pad=0.1,
+    borderpad=0.5,
+    sep=5,
+    frameon=False,
+)
+axes[0, 0].add_artist(asb)
+
+axes[0, 0].set_title("$\mu_\mathrm{sc} = \mu_\mathrm{normal}$", pad=10)
+axes[0, 1].set_title("$\mu_\mathrm{sc} > \mu_\mathrm{normal}$", pad=10)
+axes[0, 0].set_ylabel("No filter", labelpad=10)
+axes[1, 0].set_ylabel("Filtered", labelpad=10)
+for ax in [axes[0, 1], axes[1, 1]]:
+    ax.yaxis.set_label_position("right")
+
+for i, ax in enumerate(axes.ravel()):
+    ax.text(30, 210, f"({ascii_lowercase[i]})", fontsize=15)
+
+plt.savefig("publication/figures/optimized_geometries.pdf", bbox_inches="tight")
+CELL 13
+def maximize_overlap(shape, ref, num_pts=40, preserve_mirror=False):
+    steps = [-1, 1]
+    rolls = range(-num_pts, num_pts)
+    residuals = []
+    for step_y, step_x, i, j in product(steps, steps, rolls, rolls):
+        transformed_shape = np.roll(shape[::step_y, ::step_x], (i, j), (0, 1))
+        residuals.append(np.sum(np.abs(transformed_shape - ref)))
+    residuals = np.array(residuals).reshape(2, 2, 2 * num_pts, 2 * num_pts)
+    if preserve_mirror:
+        residuals = residuals[:, :, :, num_pts]
+        ix = np.unravel_index(np.argmin(residuals), residuals.shape)
+        step_y, step_x = steps[ix[0]], steps[ix[1]]
+        i, j = rolls[ix[2]], 0
+    else:
+        ix = np.unravel_index(np.argmin(residuals), residuals.shape)
+        step_y, step_x = steps[ix[0]], steps[ix[1]]
+        i, j = rolls[ix[2]], rolls[ix[3]]
+    return np.roll(shape[::step_y, ::step_x], (i, j), (0, 1))
+
+
+def read_mask(filename, epoch=-1):
+    with open(filename, "rb") as f:
+        mask = pickle.load(f)["masks_by_epoch"][epoch]
+        mask = 1 * (mask["sc_top"] + mask["sc_bot"])
+    return mask
+
+
+# Load all shapes and appply shifts that maximize overlap with
+# reference image (the definition of the unit cell is arbitrary)
+ref_shape = read_mask(f"data/homogeneous_filtered.p")
+filenames = [
+    "data/robustness_checks/seed_1.p",
+    "data/robustness_checks/zigzag.p",
+    "data/robustness_checks/no_mirror_sym.p",
+    "data/robustness_checks/disorder.p",
+]
+
+fig, axes = plt.subplots(
+    4, 2, gridspec_kw={"wspace": -0.6, "hspace": 0.4}, figsize=(12, 8)
+)
+epochs = [50, -1]
+labels = (char for char in ascii_lowercase)
+for i in range(4):
+    for j in range(2):
+        shape = read_mask(filenames[i], epochs[j])
+        preserve_mirror = i != 2
+        shape = maximize_overlap(shape, ref_shape, preserve_mirror=preserve_mirror)
+        im = axes[i, j].imshow(
+            -(ref_shape - shape), extent=(0, L_x, -L_y / 2, L_y / 2), cmap="RdBu_r"
+        )
+        axes[i, j].text(10, 240, f"({next(labels)})", fontsize=11)
+
+for ax in np.ravel(axes):
+    ax.set_ylim(-300, 330)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+fig.text(0.45, 0.895, "Change random seed")
+fig.text(0.44, 0.69, "Start from zigzag geometry")
+fig.text(0.44, 0.485, "Allow mirror asymmetry")
+fig.text(0.45, 0.28, "Add onsite disorder")
+
+colors = [mpl.cm.get_cmap("RdBu_r")(i) for i in [0, 128, 256]]
+legend_elements = [
+    patches.Patch(facecolor=c, edgecolor="k", label=l)
+    for c, l in zip(colors, ["$-2\Delta_0$", 0, "$2\Delta_0$"])
+]
+plt.legend(
+    loc=(-0.67, 5.5),
+    ncol=3,
+    handles=legend_elements,
+    fontsize=12,
+    title="$|\Delta_\mathrm{ref}| - |\Delta_\mathrm{opt}|$",
+)
+
+plt.savefig("publication/figures/final_shape_comparison.pdf", bbox_inches="tight")
+CELL 15
+labels = (char for char in ascii_lowercase)
+
+for Ls in [[650, 1940], [980, 1620]]:
+    fig, axes = plt.subplots(1, 2, sharey=True,
+                             figsize=(10, 25),
+                             gridspec_kw={'width_ratios': Ls})
+
+    for i, (ax, L_x) in enumerate(zip(axes, Ls)):
+        with open(f"data/homogeneous_filtered_{L_x}.p", "rb") as f:
+            data = pickle.load(f)
+            masks_by_epoch = data["masks_by_epoch"]
+            wf = data["wf"].T
+            gaps = data["gaps"]
+            av_gap = np.average(gaps)
+            std_gap = np.std(gaps)
+
+        shape = masks_by_epoch[-1]["sc_top"] + masks_by_epoch[-1]["sc_bot"]
+        shape = shape[:, 1:]
+
+        if i == 0 and L_x == 650:
+            shape = shape[::-1, :]
+            wf = wf[::-1, :]
+        ax.imshow(shape, aspect=1, cmap=light_sc_cmp, extent=(0, L_x, -L_y / 2, L_y / 2))
+        alphas = np.exp(-(1 - wf / np.max(wf)))
+        ax.imshow(
+            wf,
+            extent=(0, L_x, -L_y / 2, L_y / 2),
+            interpolation="bilinear",
+            alpha=alphas,
+            cmap="gist_heat_r",
+            aspect=1,
+        )
+
+        ax.text(
+            L_x/2,
+            -240,
+            f"$E_\mathrm{{gap}}/\Delta_0 = {av_gap:.2f} \pm {std_gap:.2f}$",
+            fontsize=15,
+            ha="center"
+        )
+        ax.set_xlim(0, L_x)
+        ax.set_ylim(-300, 300)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.text(10, 240, f"({next(labels)})", fontsize=15)
+
+        if L_x == 1620:
+            asb = AnchoredSizeBar(
+                axes[1].transData,
+                100,
+                r"100 nm",
+                loc="upper center",
+                pad=0.1,
+                borderpad=2,
+                sep=5,
+                frameon=False,
+            )
+            axes[1].add_artist(asb)
+    plt.tight_layout()
+    plt.savefig(f"publication/figures/appendix_varying_L_x_{Ls[0]}.pdf", bbox_inches="tight")

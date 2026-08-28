@@ -1,0 +1,2929 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a045dd-e14b-73b1-8050-8377e3d64add
+--------
+user
+Solve the mission in TASK.md. Read input/ and workspace/ as needed. You have up to one hour. Write the complete executable submission and any needed files into /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/attempt. Keep the task directory read-only. Your only task-artifact access is /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant and /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/attempt; no private references or earlier attempts are available. Test your solution on the provided input, and make solve.py follow the documented interface. Do not stop at a plan or claim success without an implementation.
+codex
+I’ll read the mission, implement the submission, and test it.
+
+exec
+/bin/bash -lc 'pwd; ls -la; cat TASK.md; find . -name AGENTS.md -print' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ succeeded in 11267ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+total 16
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:27 .
+drwx------ 4 xuandong xuandong   80 Aug 27 17:57 ..
+-rw-rw-r-- 1 xuandong xuandong  660 Aug 27 17:27 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 27 17:27 input
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 27 17:29 workspace
+# Disorder-resilient junction audit
+
+Extend the clean-junction workflow to calibrated spatial disorder and compute reliable low-energy gaps across the supplied device regimes. Preserve the physical model and report the disorder calibration separately from the spectral result.
+
+Deliver `solve.py` in the attempt directory, invoked as `python solve.py --input request.json --output result.json`. The interface and resource envelope are in `input/CONTRACT.md`; the starting model is in `workspace/`. Correctness is assessed separately across clean-like, scattering-dominated, and phase-biased regimes. Do not substitute a broadening estimate for a spectral gap.
+
+exec
+/bin/bash -c "cat input/CONTRACT.md; printf '\\n---FILES---\\n'; rg --files input workspace" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ succeeded in 12348ms:
+# Interface
+
+A request contains a `cases` array. Each case has `id`, `mfp_nm`, `salt`, `amplitude_nm`, `field_T`, and `phase_rad`. Return `{"results": [{"id": ..., "strength_meV": ..., "gap_meV": ...}]}`. All values must be finite and nonnegative. IDs only associate results with requests and convey no scientific information.
+
+The forward model is a square-grid, spinful BdG junction in `workspace/clean_model.py`. Use its `make_system(amplitude_nm)` and `parameters(field_T, phase_rad)` rather than changing the mesh or effective physical parameters. The unit cell has length 3900 nm (three 1300 nm periods), grid spacing 10 nm, normal width 200 nm, and superconducting widths 300 nm on either side. `amplitude_nm` is the implementation's sinusoidal shape parameter, not a replacement straight strip. The Bloch variable is dimensionless phase per full unit cell. The requested gap is the absolute lowest band energy minimized over that phase, not the gap at zero momentum. Parameters and spin/Nambu conventions are fixed by the supplied model, including its Zeeman coefficient and band-bottom convention.
+
+Disorder is a scalar chemical-potential perturbation in **all** model regions: substitute `mu` by `mu - V_disorder(x,y)`. Preserve the clean pairing, spin-orbit, and Zeeman profiles. The potential is uniform in `[-U,U]` and reproducible from `workspace/random_field.py`. Its independent-site variance is `U**2/3`. Use the Born mean-free-path relation
+
+`mfp = hbar * v_F / (2*pi*rho_site*variance)`.
+
+Here `v_F = sqrt(2*mu/m_dis)`, `rho_site = a**2*m_dis/(pi*hbar**2)` is the 2D site density of states, `m_dis = 0.023*m_e`, `mu = 10 meV`, and `a = 10 nm`; convert SI units consistently. The disorder calibration mass intentionally differs from the forward model's `0.02*m_e`. These are supplied model parameters, not fitted unknowns. An infinite mean free path means zero disorder. `mfp_nm` is finite in scored cases.
+
+Evaluation requests may contain several cases, but cases execute independently with a 600-second wall limit, one BLAS thread, and a 12 GiB address-space limit each. The largest matrix has approximately 125,000 degrees of freedom. Dense full-matrix diagonalization is not viable. NumPy, SciPy, and the bundled construction library are available; no downloads are needed. Read-only task paths and a writable attempt directory are the only task artifacts accessible. Persist caches only in the attempt directory and do not rely on public-case identifiers.
+
+Scoring uses continuous relative gap errors and calibration errors, with separate means for the three regimes and an explicitly reported worst-family score. Spectral accuracy dominates (85%); calibration contributes 15%. The gap error scale is `max(0.20*reference_gap, 0.001 meV)`, acknowledging the numerical resolution of the archived calculation. An individual accuracy score is `1/(1+(error/scale)**2)`; performance is normalized against the documented zero-gap/zero-disorder weak baseline. Runtime failures retain no spectral credit. Values are independently recomputed/compared; explanations do not replace output.
+
+---FILES---
+workspace/UPSTREAM_LICENSE.txt
+workspace/clean_geometry.py
+workspace/clean_model.py
+workspace/random_field.py
+workspace/__pycache__/clean_model.cpython-310.pyc
+workspace/__pycache__/clean_geometry.cpython-310.pyc
+workspace/__pycache__/random_field.cpython-310.pyc
+input/request.json
+input/CONTRACT.md
+workspace/vendor/kwant-1.5.0.dist-info/INSTALLER
+workspace/vendor/kwant-1.5.0.dist-info/WHEEL
+workspace/vendor/kwant-1.5.0.dist-info/RECORD
+workspace/vendor/kwant-1.5.0.dist-info/METADATA
+workspace/vendor/kwant-1.5.0.dist-info/top_level.txt
+workspace/vendor/kwant-1.5.0.dist-info/REQUESTED
+workspace/vendor/kwant-1.5.0.dist-info/LICENSE.rst
+workspace/vendor/kwant/kpm.py
+workspace/vendor/kwant/lattice.py
+workspace/vendor/kwant/solvers/default.py
+workspace/vendor/kwant/solvers/__pycache__/sparse.cpython-310.pyc
+workspace/vendor/kwant/solvers/__pycache__/mumps.cpython-310.pyc
+workspace/vendor/kwant/solvers/__pycache__/default.cpython-310.pyc
+workspace/vendor/kwant/solvers/__pycache__/common.cpython-310.pyc
+workspace/vendor/kwant/solvers/__pycache__/__init__.cpython-310.pyc
+workspace/vendor/kwant/solvers/tests/__pycache__/test_solvers.cpython-310.pyc
+workspace/vendor/kwant/solvers/tests/__pycache__/__init__.cpython-310.pyc
+workspace/vendor/kwant/solvers/tests/test_solvers.py
+workspace/vendor/kwant/solvers/tests/__init__.py
+workspace/vendor/kwant/solvers/common.py
+workspace/vendor/kwant/solvers/mumps.py
+workspace/vendor/kwant/solvers/__init__.py
+workspace/vendor/kwant/solvers/sparse.py
+workspace/vendor/tinyarray-1.2.5.dist-info/INSTALLER
+workspace/vendor/tinyarray-1.2.5.dist-info/WHEEL
+workspace/vendor/tinyarray-1.2.5.dist-info/RECORD
+workspace/vendor/tinyarray-1.2.5.dist-info/METADATA
+workspace/vendor/tinyarray-1.2.5.dist-info/top_level.txt
+workspace/vendor/tinyarray-1.2.5.dist-info/REQUESTED
+workspace/vendor/tinyarray-1.2.5.dist-info/LICENSE.rst
+workspace/vendor/kwant/graph/defs.py
+workspace/vendor/kwant/graph/core.cpython-310-x86_64-linux-gnu.so
+workspace/vendor/kwant/graph/defs.h
+workspace/vendor/kwant/operator.cpython-310-x86_64-linux-gnu.so
+workspace/vendor/kwant/version.py
+workspace/vendor/kwant/system.py
+workspace/vendor/kwant/wraparound.py
+workspace/vendor/kwant/continuum/__pycache__/_common.cpython-310.pyc
+workspace/vendor/kwant/continuum/__pycache__/landau_levels.cpython-310.pyc
+workspace/vendor/kwant/continuum/__pycache__/__init__.cpython-310.pyc
+workspace/vendor/kwant/_colormaps.py
+workspace/vendor/kwant/continuum/__pycache__/discretizer.cpython-310.pyc
+workspace/vendor/kwant/rmt.py
+workspace/vendor/kwant/continuum/__init__.py
+workspace/vendor/kwant/continuum/discretizer.py
+workspace/vendor/kwant/_plotter.py
+workspace/vendor/kwant/graph/__pycache__/defs.cpython-310.pyc
+workspace/vendor/kwant/graph/__pycache__/__init__.cpython-310.pyc
+workspace/vendor/kwant/graph/core.pxd
+workspace/vendor/kwant/continuum/tests/test_common.py
+workspace/vendor/kwant/continuum/tests/test_discretizer.py
+workspace/vendor/kwant/__pycache__/rmt.cpython-310.pyc
+workspace/vendor/kwant/__pycache__/wraparound.cpython-310.pyc
+workspace/vendor/kwant/continuum/tests/__pycache__/test_discretizer.cpython-310.pyc
+workspace/vendor/kwant/__pycache__/_common.cpython-310.pyc
+workspace/vendor/kwant/continuum/tests/__pycache__/test_common.cpython-310.pyc
+workspace/vendor/kwant/__pycache__/qsymm.cpython-310.pyc
+workspace/vendor/kwant/continuum/tests/__pycache__/test_landau_levels.cpython-310.pyc
+workspace/vendor/kwant/__pycache__/builder.cpython-310.pyc
+workspace/vendor/kwant/graph/tests/__pycache__/test_core.cpython-310.pyc
+workspace/vendor/kwant/continuum/tests/__pycache__/__init__.cpython-310.pyc
+workspace/vendor/kwant/__pycache__/plotter.cpython-310.pyc
+workspace/vendor/kwant/graph/tests/__pycache__/test_scotch.cpython-310.pyc
+workspace/vendor/kwant/continuum/tests/test_landau_levels.py
+workspace/vendor/kwant/__pycache__/_plotter.cpython-310.pyc
+workspace/vendor/kwant/continuum/tests/__init__.py
+workspace/vendor/kwant/graph/tests/__pycache__/__init__.cpython-310.pyc
+workspace/vendor/kwant/__pycache__/kpm.cpython-310.pyc
+workspace/vendor/kwant/graph/tests/test_core.py
+workspace/vendor/kwant/continuum/landau_levels.py
+workspace/vendor/kwant/__pycache__/system.cpython-310.pyc
+workspace/vendor/kwant/graph/tests/test_scotch.py
+workspace/vendor/kwant/continuum/_common.py
+workspace/vendor/kwant/__pycache__/lattice.cpython-310.pyc
+workspace/vendor/kwant/graph/tests/__init__.py
+workspace/vendor/kwant/__pycache__/digest.cpython-310.pyc
+workspace/vendor/kwant/qsymm.py
+workspace/vendor/kwant/graph/dijkstra.cpython-310-x86_64-linux-gnu.so
+workspace/vendor/kwant/__pycache__/__init__.cpython-310.pyc
+workspace/vendor/kwant/_kwant_version.py
+workspace/vendor/kwant/graph/c_scotch.pxd
+workspace/vendor/kwant/__pycache__/_colormaps.cpython-310.pyc
+workspace/vendor/kwant/plotter.py
+workspace/vendor/kwant/builder.py
+workspace/vendor/kwant/_common.py
+workspace/vendor/kwant/__init__.py
+workspace/vendor/kwant/operator.pxd
+workspace/vendor/tinyarray.cpython-310-x86_64-linux-gnu.so
+workspace/vendor/kwant/digest.py
+workspace/vendor/kwant/_system.cpython-310-x86_64-linux-gnu.so
+workspace/vendor/kwant/__pycache__/_kwant_version.cpython-310.pyc
+workspace/vendor/kwant/__pycache__/version.cpython-310.pyc
+workspace/vendor/kwant/graph/defs.pxd
+workspace/vendor/kwant/graph/__init__.py
+workspace/vendor/kwant/physics/leads.py
+workspace/vendor/kwant/physics/noise.py
+workspace/vendor/kwant/tests/test_builder.py
+workspace/vendor/kwant/tests/test_system.py
+workspace/vendor/kwant/tests/test_comprehensive.py
+workspace/vendor/kwant/tests/test_kpm.py
+workspace/vendor/kwant/physics/__pycache__/symmetry.cpython-310.pyc
+workspace/vendor/kwant/physics/__pycache__/dispersion.cpython-310.pyc
+workspace/vendor/kwant/physics/__pycache__/noise.cpython-310.pyc
+workspace/vendor/kwant/physics/__pycache__/leads.cpython-310.pyc
+workspace/vendor/kwant/physics/__pycache__/__init__.cpython-310.pyc
+workspace/vendor/kwant/physics/__pycache__/gauge.cpython-310.pyc
+workspace/vendor/kwant/linalg/lapack.cpython-310-x86_64-linux-gnu.so
+workspace/vendor/kwant/physics/tests/test_noise.py
+workspace/vendor/kwant/physics/tests/__init__.py
+workspace/vendor/kwant/physics/symmetry.py
+workspace/vendor/kwant/physics/dispersion.py
+workspace/vendor/kwant/physics/gauge.py
+workspace/vendor/kwant/physics/__init__.py
+workspace/vendor/kwant/physics/tests/test_gauge.py
+workspace/vendor/kwant/physics/tests/test_symmetry.py
+workspace/vendor/kwant/physics/tests/test_leads.py
+workspace/vendor/kwant/physics/tests/test_dispersion.py
+workspace/vendor/kwant/linalg/mumps.py
+workspace/vendor/kwant/linalg/fortran_helpers.py
+workspace/vendor/kwant/linalg/cmumps.py
+workspace/vendor/kwant/linalg/__init__.py
+workspace/vendor/kwant/linalg/lll.py
+workspace/vendor/kwant/linalg/cmumps.pxd
+workspace/vendor/kwant/tests/__pycache__/test_wraparound.cpython-310.pyc
+workspace/vendor/kwant/tests/__pycache__/test_builder.cpython-310.pyc
+workspace/vendor/kwant/tests/__pycache__/test_plotter.cpython-310.pyc
+workspace/vendor/kwant/tests/__pycache__/test_operator.cpython-310.pyc
+workspace/vendor/kwant/tests/__pycache__/test_qsymm.cpython-310.pyc
+workspace/vendor/kwant/tests/__pycache__/test_system.cpython-310.pyc
+workspace/vendor/kwant/tests/__pycache__/test_kpm.cpython-310.pyc
+workspace/vendor/kwant/tests/__pycache__/test_lattice.cpython-310.pyc
+workspace/vendor/kwant/tests/__pycache__/test_rmt.cpython-310.pyc
+workspace/vendor/kwant/tests/__pycache__/__init__.cpython-310.pyc
+workspace/vendor/kwant/tests/__pycache__/test_comprehensive.cpython-310.pyc
+workspace/vendor/kwant/tests/test_operator.py
+workspace/vendor/kwant/tests/test_wraparound.py
+workspace/vendor/kwant/tests/test_lattice.py
+workspace/vendor/kwant/tests/test_plotter.py
+workspace/vendor/kwant/tests/test_qsymm.py
+workspace/vendor/kwant/tests/test_rmt.py
+workspace/vendor/kwant/tests/__init__.py
+workspace/vendor/kwant/linalg/decomp_schur.py
+workspace/vendor/kwant/linalg/__pycache__/decomp_schur.cpython-310.pyc
+workspace/vendor/kwant/physics/tests/__pycache__/test_dispersion.cpython-310.pyc
+workspace/vendor/kwant/linalg/__pycache__/lll.cpython-310.pyc
+workspace/vendor/kwant/physics/tests/__pycache__/test_gauge.cpython-310.pyc
+workspace/vendor/kwant/physics/tests/__pycache__/__init__.cpython-310.pyc
+workspace/vendor/kwant/physics/tests/__pycache__/test_noise.cpython-310.pyc
+workspace/vendor/kwant/physics/tests/__pycache__/test_leads.cpython-310.pyc
+workspace/vendor/kwant/physics/tests/__pycache__/test_symmetry.cpython-310.pyc
+workspace/vendor/kwant/linalg/__pycache__/fortran_helpers.cpython-310.pyc
+workspace/vendor/kwant/linalg/__pycache__/cmumps.cpython-310.pyc
+workspace/vendor/kwant/linalg/__pycache__/mumps.cpython-310.pyc
+workspace/vendor/kwant/linalg/__pycache__/__init__.cpython-310.pyc
+workspace/vendor/kwant/linalg/tests/test_mumps.py
+workspace/vendor/kwant/linalg/tests/__pycache__/_test_utils.cpython-310.pyc
+workspace/vendor/kwant/linalg/tests/__pycache__/test_mumps.cpython-310.pyc
+workspace/vendor/kwant/linalg/tests/__pycache__/test_linalg.cpython-310.pyc
+workspace/vendor/kwant/linalg/tests/__pycache__/test_lll.cpython-310.pyc
+workspace/vendor/kwant/linalg/tests/__pycache__/__init__.cpython-310.pyc
+workspace/vendor/kwant/linalg/tests/test_lll.py
+workspace/vendor/kwant/linalg/tests/test_linalg.py
+workspace/vendor/kwant/linalg/tests/__init__.py
+workspace/vendor/kwant/linalg/tests/_test_utils.py
+
+  → Inspect model and numerical constraints
+  • Implement calibrated sparse spectral solver
+  • Test accuracy and runtime on inputs
+  • Finalize executable and usage documentation
+exec
+/bin/bash -c "cat workspace/clean_model.py workspace/clean_geometry.py workspace/random_field.py input/request.json; printf '\\n---ENV---\\n'; python -V; which python; ls -la ../attempt; env | sort | rg 'BLAS|OMP|PYTHON|CONDA'; ls /usr/lib/x86_64-linux-gnu/*mumps* /usr/lib/x86_64-linux-gnu/*metis* 2>/dev/null" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ exited 2 in 14853ms:
+import cmath
+import sys
+from pathlib import Path
+
+import numpy as np
+import scipy.constants as constants
+import scipy.sparse.linalg as sparse_linalg
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "vendor"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import clean_geometry
+from kwant.continuum import discretizer
+
+
+class NumericPrinter(discretizer._NumericPrinter):
+    def __init__(self):
+        super().__init__()
+        self.known_functions.update({"sin": "sin", "cos": "cos", "exp": "exp"})
+
+
+discretizer._NumericPrinter = NumericPrinter
+
+
+def parameters(field_T, phase_rad):
+    energy_unit = constants.eV * 1e-3
+    return dict(
+        m_eff=0.02 * constants.m_e / energy_unit / 1e18,
+        hbar=constants.hbar / energy_unit,
+        mu_B=constants.physical_constants["Bohr magneton"][0] / energy_unit,
+        exp=cmath.exp,
+        cos=cmath.cos,
+        sin=cmath.sin,
+        g_factor_middle=26,
+        g_factor_left=0,
+        g_factor_right=0,
+        mu=10,
+        alpha_middle=20,
+        alpha_left=0,
+        alpha_right=0,
+        Delta_left=1,
+        Delta_right=1,
+        B_x=field_T,
+        B_y=0,
+        B_z=0,
+        phase=phase_rad,
+        V=0,
+    )
+
+
+def make_system(amplitude_nm):
+    return clean_geometry.system(
+        W=200,
+        L_x=3900,
+        L_sc_up=300,
+        L_sc_down=300,
+        z_x=1300,
+        z_y=amplitude_nm,
+        a=10,
+        shape="parallel_curve",
+        transverse_soi=True,
+        mu_from_bottom_of_spin_orbit_bands=True,
+        k_x_in_sc=True,
+        wraparound=True,
+        infinite=True,
+    )
+
+
+def clean_gap(system, params, samples=5):
+    energies = []
+    for phase in np.linspace(0, np.pi, samples):
+        matrix = system.hamiltonian_submatrix(params=dict(params, k_x=float(phase)), sparse=True)
+        spectrum = sparse_linalg.eigsh(matrix, k=4, sigma=0, return_eigenvectors=False)
+        energies.append(float(np.min(np.abs(spectrum))))
+    return min(energies)
+#!/usr/bin/env python3
+
+import cmath
+import functools
+import itertools
+import math
+import operator
+import re
+import warnings
+
+import kwant
+from kwant.builder import Site
+from kwant.continuum import discretize
+import numpy as np
+import scipy.constants
+import scipy.interpolate
+import scipy.optimize
+import scipy.sparse as sp
+import scipy.sparse.linalg as sla
+
+
+constants = dict(
+    # effective mass in kg,
+    m_eff=0.023 * scipy.constants.m_e / (scipy.constants.eV * 1e-3) / 1e18,
+    hbar=scipy.constants.hbar / (scipy.constants.eV * 1e-3),
+    mu_B=scipy.constants.physical_constants["Bohr magneton"][0]
+    / (scipy.constants.eV * 1e-3),
+    exp=cmath.exp,
+    cos=cmath.cos,
+    sin=cmath.sin,
+)
+
+
+def remove_phs(H):
+    return re.sub(r"kron\((sigma_[xyz0]), sigma_[xzy0]\)", r"\1", H)
+
+
+@functools.lru_cache()
+def get_template_strings(
+    transverse_soi,
+    mu_from_bottom_of_spin_orbit_bands=True,
+    k_x_in_sc=False,
+    with_k_z=False,
+    no_phs=False,
+    phs_breaking_potential=False,
+    substitutions=None,
+):
+    kinetic = "(hbar^2 / (2*m_eff) * (k_y^2 + k_x^2 + k_z^2) - mu {}) * kron(sigma_0, sigma_z)"
+    if mu_from_bottom_of_spin_orbit_bands:
+        ham_str = kinetic.format("+ m_eff*alpha_middle^2 / (2 * hbar^2)")
+    else:
+        ham_str = kinetic.format("")
+
+    if not with_k_z:
+        ham_str = ham_str.replace("k_z", "0")
+
+    spin_orbit = "- alpha_{} * kron(sigma_y, sigma_z) * k_x"
+    ham_normal = ham_str + spin_orbit.format("middle")
+    ham_sc_top = ham_str + spin_orbit.format("left")
+    ham_sc_bot = ham_str + spin_orbit.format("right")
+
+    if transverse_soi:
+        tr_spin_orbit = """+ alpha_{} * kron(sigma_x, sigma_z) * k_y"""
+        ham_normal += tr_spin_orbit.format("middle")
+        ham_sc_top += tr_spin_orbit.format("left")
+        ham_sc_bot += tr_spin_orbit.format("right")
+
+    superconductivity = """+ Delta_{0} * (cos({1}phase / 2) * kron(sigma_0, sigma_x)
+                                          + sin({1}phase / 2) * kron(sigma_0, sigma_y))"""
+    ham_sc_top += superconductivity.format("left", "-")
+    ham_sc_bot += superconductivity.format("right", "+")
+
+    zeeman = "+ g_factor_{} * mu_B * (B_x * kron(sigma_x, sigma_0)"
+    zeeman += "+ B_y * kron(sigma_y, sigma_0)"
+    zeeman += "+ B_z * kron(sigma_z, sigma_0))"
+    ham_normal += zeeman.format("middle")
+    ham_sc_top += zeeman.format("left")
+    ham_sc_bot += zeeman.format("right")
+
+    ham_barrier = ham_normal + "+ V * kron(sigma_0, sigma_z)"
+
+    if not k_x_in_sc:
+        ham_sc_bot = ham_sc_bot.replace("k_x", "0")
+        ham_sc_top = ham_sc_top.replace("k_x", "0")
+
+    if phs_breaking_potential:
+        ham_normal += "+ V_breaking(x) * kron(sigma_0, sigma_0)"
+
+    template_strings = {
+        "barrier": ham_barrier,
+        "normal": ham_normal,
+        "sc_top": ham_sc_top,
+        "sc_bot": ham_sc_bot,
+    }
+
+    if no_phs:
+        template_strings = {k: remove_phs(v) for k, v in template_strings.items()}
+
+    substitutions = substitutions or ()
+    for old, new in substitutions:
+        for where in template_strings.keys():
+            template_strings[where] = template_strings[where].replace(old, new)
+
+    return template_strings
+
+
+class Shape:
+    """Creates callable object serving as a 'shape' function
+    to be used with `kwant.Builder`.
+
+    This class supports multiple set operations. Let `s1` and `s2` be
+    instances of the `Shape` object, then:
+    s3 = s1*s2 is the intersection of the two shapes, meaning that s3(x)
+        returns True if and only if both s1(x) and s2(x) return True.
+    s3 = s1+s2 is the union of the two shapes, meaning that s3(x) returns
+        True if and only if s1(x) and/or s2(x) returns True.
+    s3 = s1-s2 is the difference of the two shapes, meaning that s3(x) returns
+        True if and only if s1(x) returns True and s2(x) returns False.
+
+    The Shape class also contains some other useful methods to obtain the
+    inverse, the edge, and interior of the shape.
+
+    Using slice indexing one creates rectangular bounds, i.e.:
+    if s = Shape()[:0, :],
+    then s(x, y) returns True if and only if x<=0.
+
+    Arguments
+    ---------
+    shape : callable, optional
+        shape(kwant.Site) -> bool (default always returns True).
+    """
+
+    def __init__(self, shape=None):
+        self.shape = shape if shape is not None else lambda site: True
+        prod = itertools.product([-1, 0, 1], repeat=2)
+        self._directions = [tup for tup in prod if tup != (0, 0)]
+
+    def __call__(self, site):
+        return self.shape(site)
+
+    def __add__(self, other_shape):
+        shapes = (self.shape, other_shape.shape)
+        union = lambda site: any(shape(site) for shape in shapes)
+        return Shape(union)
+
+    def __sub__(self, other_shape):
+        shape_A, shape_B = (self.shape, other_shape.shape)
+        difference = lambda site: shape_A(site) and not shape_B(site)
+        return Shape(difference)
+
+    def __mul__(self, other_shape):
+        shapes = (self.shape, other_shape.shape)
+        intersection = lambda site: all(shape(site) for shape in shapes)
+        return Shape(intersection)
+
+    @staticmethod
+    def slice_func(_slice):
+        def _func(x):
+            y = True
+            if _slice.start is not None:
+                y &= _slice.start <= x
+            if _slice.stop is not None:
+                y &= x < _slice.stop
+            return y
+
+        return _func
+
+    def __getitem__(self, item):
+        if not isinstance(item, tuple):
+            # Make sure that item is iterable
+            item = (item,)
+        shapes = [
+            Shape(lambda s, i=i, x=x: self.slice_func(x)(s.pos[i]))
+            for i, x in enumerate(item)
+        ]
+        return functools.reduce(operator.mul, [self] + shapes)
+
+    def inverse(self):
+        """Returns inverse of shape."""
+
+        return Shape(lambda site: not self.shape(site))
+
+    def edge(self, which="inner"):
+        """Returns edge of a 2D shape.
+
+        If which is 'inner' ('outer'), the inner (outer) edge of the shape
+        is returned, meaning the familiy of sites which lie inside (outside)
+        the shape, but have at least one neighbor outside (inside) of the shape.
+        """
+
+        def edge_shape(site):
+            in_shape = lambda x: self.shape(Site(site.family, site.tag + x))
+            sites = [in_shape(x) for x in self._directions]
+            if which == "inner":
+                return self.shape(site) and not all(sites)
+            elif which == "outer":
+                return not self.shape(site) and any(sites)
+
+        return Shape(edge_shape)
+
+    def interior(self):
+        """Returns shape minus its edge."""
+        return Shape(self - self.edge("inner"))
+
+    @classmethod
+    def below_curve(cls, curve):
+        """Returns instance of Shape which returns True if a site (x, y)
+        is such that y < curve(x)."""
+
+        def _shape(site):
+            x, y = site.pos
+            return y < curve(x)
+
+        return Shape(_shape)
+
+    @classmethod
+    def above_curve(cls, curve):
+        """Returns instance of Shape which returns True if a
+        site (x, y) is such that y >= curve(x)."""
+        return Shape.below_curve(curve).inverse()
+
+    @classmethod
+    def left_of_curve(cls, curve):
+        """Returns instance of Shape which returns True if a
+        site (x, y) is such that x < curve(y)."""
+
+        def _shape(site):
+            x, y = site.pos
+            return x < curve(y)
+
+        return Shape(_shape)
+
+    @classmethod
+    def right_of_curve(cls, curve):
+        """Returns instance of Shape which returns True if a site (x, y)
+        is such that x >= curve(y)."""
+        return Shape.left_of_curve(curve).inverse()
+
+
+def create_parallel_sine(distance, z_x, z_y, rough_edge=None):
+    def _parallel_sine(x, distance, z_x, z_y):
+        def g(t):
+            return z_y * math.sin(2 * np.pi / z_x * t)
+
+        def g_prime(t):
+            return z_y * 2 * np.pi / z_x * math.cos(2 * np.pi / z_x * t)
+
+        def _x(t):
+            return t - distance * g_prime(t) / np.sqrt(1 + g_prime(t) ** 2) - x
+
+        def y(t):
+            return g(t) + distance / np.sqrt(1 + g_prime(t) ** 2)
+
+        t = scipy.optimize.fsolve(_x, x)
+        return y(t)
+
+    xs = np.linspace(0, z_x, 1000)
+    ys = [_parallel_sine(x, distance, z_x, z_y) for x in xs]
+
+    if rough_edge is not None:
+        X, Y, salt = rough_edge
+
+        # Calculate the unit vector to the sine
+        tck = scipy.interpolate.splrep(xs, ys)
+        dydx = scipy.interpolate.splev(xs, tck, der=1)
+        unit_vectors = 1 / (1 + dydx ** 2) * np.array([-dydx, np.ones_like(dydx)])
+
+        # Generate a disordered boundary parameterized by (X, Y, salt)
+        rands = [
+            X * kwant.digest.uniform(str(i), salt=str(salt))
+            for i in range(int(z_x / Y) - 2)
+        ]
+        rands = [
+            0,
+            *rands,
+            0,
+        ]  # make sure that it starts and ends with 0 (for periodicity)
+        ys_disorder = scipy.interpolate.interp1d(
+            np.linspace(0, z_x, len(rands)), rands, kind="quadratic"
+        )(xs)
+        ys_disorder -= ys_disorder.mean()
+
+        # Disorder in the direction normal to the sine
+        dxys = ys_disorder * unit_vectors
+
+        # Modify xs and ys to include the disorder
+        xs[1:-1] += dxys[0, 1:-1]
+        ys[1:-1] += dxys[1, 1:-1]
+
+    parallel_sine = scipy.interpolate.interp1d(xs, ys)
+
+    return lambda x: parallel_sine(x % z_x)
+
+
+def get_shapes(shape, a, z_x, z_y, W, L_x, L_sc_down, L_sc_up, rough_edge=None):
+    if shape == "parallel_curve":
+        curve = create_parallel_sine(0, z_x, z_y, rough_edge=None)
+
+        _curve_top = create_parallel_sine(W // 2, z_x, z_y, rough_edge=rough_edge)
+        _below_shape = Shape.below_curve(_curve_top)
+
+        if rough_edge is not None:  # Change salt for the order boundary
+            X, Y, salt = rough_edge
+            rough_edge = (X, Y, -salt)
+
+        _curve_bottom = create_parallel_sine(-W // 2, z_x, z_y, rough_edge=rough_edge)
+        _above_shape = Shape.above_curve(_curve_bottom)
+
+        _middle_shape = (_below_shape * _above_shape)[0:L_x, :]
+        sc_top_initial_site = (z_x // 4, W // 2 + z_y + L_sc_up // 2)
+        sc_top_shape = _middle_shape.inverse()[0:L_x, : L_sc_up + W // 2 + z_y]
+        sc_bot_initial_site = (z_x // 4, -W // 2 - z_y - L_sc_down // 2)
+        sc_bot_shape = _middle_shape.inverse()[0:L_x, -L_sc_down - W // 2 - z_y :]
+    elif shape == "sawtooth":
+
+        def curve(x):
+            x += z_x / 4
+            if x % z_x < z_x / 2:
+                return 4 * z_y / z_x * (x % (z_x / 2)) - z_y
+            else:
+                return -4 * z_y / z_x * (x % (z_x / 2)) + z_y
+
+        y_offset = W / np.cos(np.arctan(4 * z_y / z_x)) if z_y != 0 else W
+
+        _below_shape = Shape.below_curve(lambda x: curve(x) + y_offset // 2)
+        _above_shape = Shape.above_curve(lambda x: curve(x) - y_offset // 2)
+
+        _middle_shape = (_below_shape * _above_shape)[0:L_x, :]
+        sc_top_initial_site = (0, y_offset // 2 + a)
+        sc_top_shape = _middle_shape.inverse()[0:L_x, : L_sc_up + y_offset // 2 + z_y]
+        sc_bot_initial_site = (0, -y_offset // 2 - a)
+        sc_bot_shape = _middle_shape.inverse()[
+            0:L_x, -L_sc_down - y_offset // 2 - z_y :
+        ]
+    else:
+        raise ValueError('Only "parallel_curve" and "sawtooth" are implemented.')
+
+    edge_shape = (
+        _middle_shape.edge("inner")
+        * sc_bot_shape.edge("outer")
+        * sc_top_shape.edge("outer")
+    )
+
+    interior_shape = _middle_shape - edge_shape
+    interior_initial_site = (a, a)
+
+    return {
+        "sc_top": (sc_top_shape, sc_top_initial_site),
+        "sc_bot": (sc_bot_shape, sc_bot_initial_site),
+        "normal": (interior_shape, interior_initial_site),
+        "edge": edge_shape,
+    }
+
+
+@functools.lru_cache()
+def system(
+    W,
+    L_x,
+    L_sc_up,
+    L_sc_down,
+    z_x,
+    z_y,
+    a,
+    shape,
+    transverse_soi,
+    mu_from_bottom_of_spin_orbit_bands,
+    k_x_in_sc,
+    wraparound,
+    infinite,
+    sc_leads=False,
+    no_phs=False,
+    rough_edge=None,
+    phs_breaking_potential=False,
+    substitutions=None,
+):
+    """Create zigzag system
+
+    Parameters
+    ----------
+    W : float
+        Width of the semiconductor (or contact seperation of the junction.)
+    L_x : float
+        Length of the system (x-dimension).
+    L_sc_up : float
+        Minimum width of the top superconductor.
+    L_sc_down : float
+        Minimum width of the bottom superconductor.
+    z_x : float
+        Period of zigzag.
+    z_y : float
+        Amplitude of zigzag.
+    a : float
+        Lattice spacing.
+    shape : string
+        Can be either 'sawtooth' for zigzag shape, or 'parallel_curve'
+        for a shape formed by curve parallel to a sine curve.
+    transverse_soi : bool
+        Toggle Rashba spin-orbit in the y-direction.
+    mu_from_bottom_of_spin_orbit_bands : bool
+        Toggle counting chemical potential from bottom of spin orbit band.
+    k_x_in_sc : bool
+        Toggle whether superconductor have hopping in the x-direction.
+    wraparound : bool
+        Toggle a wraparound system, such that the translational invariance
+        is transformed into the momentum parameter k_x.
+    infinite : bool
+        Toggle whether the system contains a z_x periodic
+        translational invariance.
+    sc_leads : bool, optional
+        Toggle superconducting leads in y-direction.
+    no_phs : bool, optional
+        Remove particle-hole symmetry by removing the electron-hole orbital.
+    rough_edge : bool, optional
+        Toggle roughened edges to shape.
+    phs_breaking_potential : bool, optional
+        Add particle-hole symmetry breaking potential to allow for a
+        computationally cheaper way to calculate the Majorana decay length.
+    substitutions : tuple of tuples, optional
+        Substitutions in the Hamiltonian string.
+
+    Returns
+    -------
+    kwant.builder.FiniteSystem or kwant.builder.InfiniteSystem
+
+    """
+    if wraparound and not infinite:
+        raise ValueError("If you want to use wraparound, infinite must be True.")
+    if sc_leads and not infinite or sc_leads and not wraparound:
+        raise ValueError(
+            "If you want to use sc_leads, infinite and wraparound must be True."
+        )
+
+    template_strings = get_template_strings(
+        transverse_soi,
+        mu_from_bottom_of_spin_orbit_bands,
+        k_x_in_sc,
+        False,
+        no_phs,
+        phs_breaking_potential,
+        substitutions,
+    )
+
+    template = {
+        k: discretize(v, coords=("x", "y"), grid=a) for k, v in template_strings.items()
+    }
+
+    shapes = get_shapes(shape, a, z_x, z_y, W, L_x, L_sc_down, L_sc_up, rough_edge)
+
+    syst = kwant.Builder(kwant.TranslationalSymmetry([L_x, 0]) if infinite else None)
+
+    for y in np.arange(-W - L_sc_down, W + L_sc_up, a):
+        # We're unsure about the location of the barrier
+        # so we loop over all possible sites.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            sites = syst.fill(template["barrier"], shapes["edge"], (0, y))
+
+    syst.fill(template["normal"], *shapes["normal"])
+
+    if L_sc_up > 0:
+        syst.fill(template["sc_top"], *shapes["sc_top"])
+
+    if L_sc_down > 0:
+        syst.fill(template["sc_bot"], *shapes["sc_bot"])
+
+    if infinite and wraparound:
+        syst = kwant.wraparound.wraparound(syst)
+        if sc_leads:
+            lead_up = kwant.Builder(kwant.TranslationalSymmetry([L_x, 0], [0, a]))
+            lead_down = kwant.Builder(kwant.TranslationalSymmetry([L_x, 0], [0, -a]))
+            lead_up = kwant.wraparound.wraparound(lead_up, keep=1)
+            lead_down = kwant.wraparound.wraparound(lead_down, keep=1)
+            lead_up.fill(template["sc_top"], lambda s: 0 <= s.pos[0] < L_x, (0, 0))
+            lead_down.fill(template["sc_bot"], lambda s: 0 <= s.pos[0] < L_x, (0, 0))
+            syst.attach_lead(lead_up)
+            syst.attach_lead(lead_down)
+
+    return syst.finalized()
+
+
+def mumps_eigsh(matrix, k, sigma, **kwargs):
+    """Call sla.eigsh with mumps support.
+
+    Please see scipy.sparse.linalg.eigsh for documentation.
+    """
+
+    class LuInv(sla.LinearOperator):
+        def __init__(self, matrix):
+            instance = kwant.linalg.mumps.MUMPSContext()
+            instance.analyze(matrix, ordering="pord")
+            instance.factor(matrix)
+            self.solve = instance.solve
+            sla.LinearOperator.__init__(self, matrix.dtype, matrix.shape)
+
+        def _matvec(self, x):
+            return self.solve(x.astype(self.dtype))
+
+    opinv = LuInv(matrix - sigma * sp.identity(matrix.shape[0]))
+    return sla.eigsh(matrix, k, sigma=sigma, OPinv=opinv, **kwargs)
+
+
+def spectrum(syst, params, k=20):
+    """Compute the k smallest magnitude eigenvalues and
+    corresponding eigenvectors of a system.
+
+    Parameters
+    ----------
+    syst : `kwant.FiniteSystem` or `kwant.InfiniteSystem`
+        System of which the spectrum will be computed.
+    params : dict
+        Dictionary containing the parameters.
+    k : int
+        Number of eigenvalues to calculate.
+
+    Returns
+    -------
+    energies : numpy array
+        Array containing smallest magnitude eigenvalues.
+    wfs : numpy array
+        Array containing eigenvectors corresponding to eigenvalues.
+    """
+    ham = syst.hamiltonian_submatrix(params=params, sparse=True)
+    (energies, wfs) = mumps_eigsh(ham, k=k, sigma=0)
+    return energies, wfs
+
+
+def translation_ev(h, t, tol=1e6):
+    """Compute the eigenvalues of the translation operator of a lead.
+
+    Adapted from kwant.physics.leads.modes.
+
+    Parameters
+    ----------
+    h : numpy array, real or complex, shape (N, N) The unit cell
+        Hamiltonian of the lead unit cell.
+    t : numpy array, real or complex, shape (N, M)
+        The hopping matrix from a lead cell to the one on which self-energy
+        has to be calculated (and any other hopping in the same direction).
+    tol : float
+        Numbers and differences are considered zero when they are smaller
+        than `tol` times the machine precision.
+
+    Returns
+    -------
+    ev : numpy array
+        Eigenvalues of the translation operator in the form lambda=r*exp(i*k),
+        for |r|=1 they are propagating modes.
+    """
+    a, b = kwant.physics.leads.setup_linsys(h, t, tol, None).eigenproblem
+    ev = kwant.physics.leads.unified_eigenproblem(a, b, tol=tol)[0]
+    return ev
+
+
+def cell_mats(lead, params, bias=0):
+    h = lead.cell_hamiltonian(params=params)
+    h -= bias * np.identity(len(h))
+    t = lead.inter_cell_hopping(params=params)
+    return h, t
+
+
+def gap_minimizer(lead, params, energy):
+    """Function that minimizes a function to find the band gap.
+    This objective function checks if there are progagating modes at a
+    certain energy. Returns zero if there is a propagating mode.
+
+    Parameters
+    ----------
+    lead : kwant.builder.InfiniteSystem object
+        The finalized infinite system.
+    params : dict
+        A dict that is used to store Hamiltonian parameters.
+    energy : float
+        Energy at which this function checks for propagating modes.
+
+    Returns
+    -------
+    minimized_scalar : float
+        Value that is zero when there is a propagating mode.
+    """
+    h, t = cell_mats(lead, params, bias=energy)
+    ev = translation_ev(h, t)
+    norm = (ev * ev.conj()).real
+    return np.min(np.abs(norm - 1))
+
+
+def gap_from_modes(lead, params, tol=1e-6):
+    """Finds the gapsize by peforming a binary search of the modes with a
+    tolarance of tol.
+
+    Parameters
+    ----------
+    lead : kwant.builder.InfiniteSystem object
+        The finalized infinite system.
+    params : dict
+        A dict that is used to store Hamiltonian parameters.
+    tol : float
+        The precision of the binary search.
+
+    Returns
+    -------
+    gap : float
+        Size of the gap.
+
+    Notes
+    -----
+    For use with `lead = funcs.make_lead()`.
+    """
+    Es = kwant.physics.Bands(lead, params=params)(k=0)
+    lim = [0, np.abs(Es).min()]
+    if gap_minimizer(lead, params, energy=0) < 1e-15:
+        # No band gap
+        gap = 0
+    else:
+        while lim[1] - lim[0] > tol:
+            energy = sum(lim) / 2
+            par = gap_minimizer(lead, params, energy)
+            if par < 1e-10:
+                lim[1] = energy
+            else:
+                lim[0] = energy
+        gap = sum(lim) / 2
+    return gap
+
+
+def gap_from_band_structure(lead, params, Ns=31):
+    def energies(k_x):
+        Es = spectrum(lead, dict(params, k_x=float(k_x)), k=4)[0]
+        return np.abs(Es).min()
+
+    return float(
+        scipy.optimize.brute(energies, ranges=((0, np.pi),), Ns=Ns, full_output=True)[1]
+    )
+
+
+def phase_bounds_operator(lead, params, k_x=0):
+    h_k = lead.hamiltonian_submatrix(params=dict(params, mu=0, k_x=k_x), sparse=True)
+    sigma_z = sp.csc_matrix(np.array([[1, 0], [0, -1]]))
+    _operator = sp.kron(sp.eye(h_k.shape[0] // 2), sigma_z) @ h_k
+    return _operator
+
+
+def phase_bounds(lead, params, k_x=0, num_bands=20, sigma=0):
+    """Find the phase boundaries.
+    Solve an eigenproblem that finds values of chemical potential at which the
+    gap closes at momentum k=0. We are looking for all real solutions of the
+    form H*psi=0 so we solve sigma_0 * tau_z H * psi = mu * psi.
+
+    Parameters
+    -----------
+    lead : kwant.builder.InfiniteSystem object
+        The finalized infinite system.
+    params : dict
+        A dictionary that is used to store Hamiltonian parameters.
+    k_x : float
+        Momentum value, by default set to 0.
+
+    Returns
+    --------
+    chemical_potential : numpy array
+        Twenty values of chemical potential at which a bandgap closes at k=0.
+    """
+    chemical_potentials = phase_bounds_operator(lead, params, k_x)
+
+    if num_bands is None:
+        mus = np.linalg.eigvals(chemical_potentials.todense())
+    else:
+        # This is not Hermitian, so we can't use mumps.
+        mus = sla.eigs(chemical_potentials, k=num_bands, sigma=sigma, which="LM")[0]
+
+    real_solutions = abs(np.angle(mus)) < 1e-10
+
+    mus[~real_solutions] = np.nan  # To ensure it returns the same shape vector
+    return np.sort(mus.real)
+
+
+def lat_from_syst(syst):
+    lats = set(s.family for s in syst.sites)
+    if len(lats) > 1:
+        raise Exception("No unique lattice in the system.")
+    return list(lats)[0]
+
+
+def majorana_size_from_modes(lead, params):
+    """Find the slowest decaying (evanescent) mode and returns the
+    Majorana size.
+
+    It uses an adapted version of the function kwant.physics.leads.modes,
+    in such a way that it returns the eigenvalues of the translation operator
+    (lamdba = |r|*e^ik). The imaginary part of the wavevector k, is the part
+    that makes it decay. The inverse of this Im(k) is the size of a Majorana
+    bound state. The norm of the eigenvalue that is closest to one is the
+    slowest decaying mode. Also called decay length.
+
+    Parameters:
+    -----------
+    lead : kwant.builder.InfiniteSystem object
+        The finalized infinite system.
+
+    Returns:
+    --------
+    majorana_length : float
+        The length of the Majorana.
+    """
+    h, t = cell_mats(lead, params, bias=0)
+    ev = translation_ev(h, t)
+    norm = ev * ev.conj()
+    idx = np.abs(norm - 1).argmin()
+    a = lat_from_syst(lead).prim_vecs[0, 0]
+    majorana_length = np.abs(a / np.log(ev[idx]).real)
+    return majorana_length
+
+
+def majorana_state(syst, params):
+    energies, wfs = spectrum(syst, params, k=2)
+    wfs = wfs[:, energies > 0]
+    energies = energies[energies > 0]
+    i_min = np.argmin(energies)
+    rho = kwant.operator.Density(syst)
+    wf = rho(wfs[:, i_min])
+    return energies[i_min], wf
+
+
+def majorana_size_from_fit(syst, params):
+    wf = majorana_state(syst, params)[1]
+
+    # Project onto the x-axis.
+    xs, ys = np.array([s.pos for s in syst.sites]).T
+    ncols = len(np.where(xs == 0)[0])
+    wf_proj = wf.reshape((-1, ncols)).sum(axis=1)
+    xs = xs.reshape((-1, ncols))[:, 0]
+
+    # Only fit the middle part of the wf.
+    N = len(xs) // 4
+    xs_fit = xs[N : 2 * N]
+    wf_proj_fit = wf_proj[N : 2 * N]
+
+    # Do the fit.
+    def flog(x, a, b, x0):
+        return np.log(a) - b * x - x0
+
+    popt, pcov = scipy.optimize.curve_fit(flog, xs_fit, np.log(wf_proj_fit))
+
+    return 1 / popt[1]
+
+
+def get_zigzag_direction_vector_function(z_x, z_y, shape, **kwargs):
+    if shape == "parallel_curve":
+
+        def g_prime(t):
+            slope = z_y * 2 * np.pi / z_x * math.cos(2 * np.pi / z_x * t)
+            hyp = np.sqrt(1 + slope ** 2)
+            return (1 / hyp, slope / hyp, 0)
+
+    if shape == "sawtooth":
+
+        def g_prime(t):
+
+            sign = 2 * ((((t + z_x / 4) % z_x) < (z_x / 2)) - 1 / 2)
+            hyp = np.sqrt((z_x / 4) ** 2 + z_y ** 2)
+            return ((z_x / 4) / hyp, sign * z_y / hyp, 0)
+
+    return g_prime
+
+
+def quiver_plot_B(syst, params, step=1):
+    ham = syst.hamiltonian_submatrix(params=dict(params, k_x=0), sparse=True).tocsr()
+    ham_b0 = syst.hamiltonian_submatrix(
+        params=dict(params, k_x=0, B=0), sparse=True
+    ).tocsr()
+
+    bs = [
+        (ham[4 * idx + 0, 4 * idx + 2] - ham_b0[4 * idx + 0, 4 * idx + 2])
+        for idx, site in enumerate(syst.sites)
+    ]
+    xs = [site.pos[0] for site in syst.sites]
+    ys = [site.pos[1] for site in syst.sites]
+
+    return plt.quiver(xs[::step], ys[::step], np.real(bs)[::step], -np.imag(bs)[::step])
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "vendor"))
+from kwant.digest import uniform
+
+
+def field(strength_meV, salt):
+    def potential(*coordinates):
+        return 2 * strength_meV * (uniform(repr(coordinates), repr(salt)) - 0.5)
+
+    return potential
+{
+  "cases": [
+    {
+      "id": "public-smoke",
+      "mfp_nm": 5000.0,
+      "salt": 0,
+      "amplitude_nm": 0,
+      "field_T": 0,
+      "phase_rad": 0
+    }
+  ]
+}
+
+---ENV---
+Python 3.10.12
+/usr/bin/python
+total 4
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 27 17:58 .
+drwx------ 4 xuandong xuandong   80 Aug 27 17:58 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 17:58 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 17:58 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 27 17:58 .git
+CONDA_EXE=/home/xuandong/anaconda3/bin/conda
+CONDA_PYTHON_EXE=/home/xuandong/anaconda3/bin/python
+CONDA_SHLVL=0
+OMP_NUM_THREADS=1
+OPENBLAS_NUM_THREADS=1
+VSCODE_PYTHON_AUTOACTIVATE_GUARD=1
+_CE_CONDA=
+/usr/lib/x86_64-linux-gnu/libcusolver_metis_static.a
+/usr/lib/x86_64-linux-gnu/libmetis_static.a
+
+**Evaluating eigensolver options**
+
+I’ve got about 57 minutes to figure this out! I need an efficient eigensolver for a complex sparse problem with dimensions 390x80, focusing on narrow geometry. Sparse LU might only take 2-10 seconds with some clever optimization techniques like nested dissection, while using SciPy's standard eigsh could take around 10 seconds with 1GB memory, but each could take about 30 seconds overall. I’ll need to benchmark the performance and read the relevant geometry boundaries too.
+exec
+/bin/bash -c "sed -n '100,410p' workspace/clean_geometry.py; sed -n '1,100p' workspace/vendor/kwant/solvers/default.py; sed -n '1,100p' workspace/vendor/kwant/digest.py; find ../attempt -name AGENTS.md -print; python - <<'PY'
+import numpy,scipy
+print(numpy.__version__,scipy.__version__)
+import importlib.util
+for name in ['pymetis','sksparse','mumps','pypardiso','threadpoolctl']:
+ print(name, importlib.util.find_spec(name))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ succeeded in 23511ms:
+    for old, new in substitutions:
+        for where in template_strings.keys():
+            template_strings[where] = template_strings[where].replace(old, new)
+
+    return template_strings
+
+
+class Shape:
+    """Creates callable object serving as a 'shape' function
+    to be used with `kwant.Builder`.
+
+    This class supports multiple set operations. Let `s1` and `s2` be
+    instances of the `Shape` object, then:
+    s3 = s1*s2 is the intersection of the two shapes, meaning that s3(x)
+        returns True if and only if both s1(x) and s2(x) return True.
+    s3 = s1+s2 is the union of the two shapes, meaning that s3(x) returns
+        True if and only if s1(x) and/or s2(x) returns True.
+    s3 = s1-s2 is the difference of the two shapes, meaning that s3(x) returns
+        True if and only if s1(x) returns True and s2(x) returns False.
+
+    The Shape class also contains some other useful methods to obtain the
+    inverse, the edge, and interior of the shape.
+
+    Using slice indexing one creates rectangular bounds, i.e.:
+    if s = Shape()[:0, :],
+    then s(x, y) returns True if and only if x<=0.
+
+    Arguments
+    ---------
+    shape : callable, optional
+        shape(kwant.Site) -> bool (default always returns True).
+    """
+
+    def __init__(self, shape=None):
+        self.shape = shape if shape is not None else lambda site: True
+        prod = itertools.product([-1, 0, 1], repeat=2)
+        self._directions = [tup for tup in prod if tup != (0, 0)]
+
+    def __call__(self, site):
+        return self.shape(site)
+
+    def __add__(self, other_shape):
+        shapes = (self.shape, other_shape.shape)
+        union = lambda site: any(shape(site) for shape in shapes)
+        return Shape(union)
+
+    def __sub__(self, other_shape):
+        shape_A, shape_B = (self.shape, other_shape.shape)
+        difference = lambda site: shape_A(site) and not shape_B(site)
+        return Shape(difference)
+
+    def __mul__(self, other_shape):
+        shapes = (self.shape, other_shape.shape)
+        intersection = lambda site: all(shape(site) for shape in shapes)
+        return Shape(intersection)
+
+    @staticmethod
+    def slice_func(_slice):
+        def _func(x):
+            y = True
+            if _slice.start is not None:
+                y &= _slice.start <= x
+            if _slice.stop is not None:
+                y &= x < _slice.stop
+            return y
+
+        return _func
+
+    def __getitem__(self, item):
+        if not isinstance(item, tuple):
+            # Make sure that item is iterable
+            item = (item,)
+        shapes = [
+            Shape(lambda s, i=i, x=x: self.slice_func(x)(s.pos[i]))
+            for i, x in enumerate(item)
+        ]
+        return functools.reduce(operator.mul, [self] + shapes)
+
+    def inverse(self):
+        """Returns inverse of shape."""
+
+        return Shape(lambda site: not self.shape(site))
+
+    def edge(self, which="inner"):
+        """Returns edge of a 2D shape.
+
+        If which is 'inner' ('outer'), the inner (outer) edge of the shape
+        is returned, meaning the familiy of sites which lie inside (outside)
+        the shape, but have at least one neighbor outside (inside) of the shape.
+        """
+
+        def edge_shape(site):
+            in_shape = lambda x: self.shape(Site(site.family, site.tag + x))
+            sites = [in_shape(x) for x in self._directions]
+            if which == "inner":
+                return self.shape(site) and not all(sites)
+            elif which == "outer":
+                return not self.shape(site) and any(sites)
+
+        return Shape(edge_shape)
+
+    def interior(self):
+        """Returns shape minus its edge."""
+        return Shape(self - self.edge("inner"))
+
+    @classmethod
+    def below_curve(cls, curve):
+        """Returns instance of Shape which returns True if a site (x, y)
+        is such that y < curve(x)."""
+
+        def _shape(site):
+            x, y = site.pos
+            return y < curve(x)
+
+        return Shape(_shape)
+
+    @classmethod
+    def above_curve(cls, curve):
+        """Returns instance of Shape which returns True if a
+        site (x, y) is such that y >= curve(x)."""
+        return Shape.below_curve(curve).inverse()
+
+    @classmethod
+    def left_of_curve(cls, curve):
+        """Returns instance of Shape which returns True if a
+        site (x, y) is such that x < curve(y)."""
+
+        def _shape(site):
+            x, y = site.pos
+            return x < curve(y)
+
+        return Shape(_shape)
+
+    @classmethod
+    def right_of_curve(cls, curve):
+        """Returns instance of Shape which returns True if a site (x, y)
+        is such that x >= curve(y)."""
+        return Shape.left_of_curve(curve).inverse()
+
+
+def create_parallel_sine(distance, z_x, z_y, rough_edge=None):
+    def _parallel_sine(x, distance, z_x, z_y):
+        def g(t):
+            return z_y * math.sin(2 * np.pi / z_x * t)
+
+        def g_prime(t):
+            return z_y * 2 * np.pi / z_x * math.cos(2 * np.pi / z_x * t)
+
+        def _x(t):
+            return t - distance * g_prime(t) / np.sqrt(1 + g_prime(t) ** 2) - x
+
+        def y(t):
+            return g(t) + distance / np.sqrt(1 + g_prime(t) ** 2)
+
+        t = scipy.optimize.fsolve(_x, x)
+        return y(t)
+
+    xs = np.linspace(0, z_x, 1000)
+    ys = [_parallel_sine(x, distance, z_x, z_y) for x in xs]
+
+    if rough_edge is not None:
+        X, Y, salt = rough_edge
+
+        # Calculate the unit vector to the sine
+        tck = scipy.interpolate.splrep(xs, ys)
+        dydx = scipy.interpolate.splev(xs, tck, der=1)
+        unit_vectors = 1 / (1 + dydx ** 2) * np.array([-dydx, np.ones_like(dydx)])
+
+        # Generate a disordered boundary parameterized by (X, Y, salt)
+        rands = [
+            X * kwant.digest.uniform(str(i), salt=str(salt))
+            for i in range(int(z_x / Y) - 2)
+        ]
+        rands = [
+            0,
+            *rands,
+            0,
+        ]  # make sure that it starts and ends with 0 (for periodicity)
+        ys_disorder = scipy.interpolate.interp1d(
+            np.linspace(0, z_x, len(rands)), rands, kind="quadratic"
+        )(xs)
+        ys_disorder -= ys_disorder.mean()
+
+        # Disorder in the direction normal to the sine
+        dxys = ys_disorder * unit_vectors
+
+        # Modify xs and ys to include the disorder
+        xs[1:-1] += dxys[0, 1:-1]
+        ys[1:-1] += dxys[1, 1:-1]
+
+    parallel_sine = scipy.interpolate.interp1d(xs, ys)
+
+    return lambda x: parallel_sine(x % z_x)
+
+
+def get_shapes(shape, a, z_x, z_y, W, L_x, L_sc_down, L_sc_up, rough_edge=None):
+    if shape == "parallel_curve":
+        curve = create_parallel_sine(0, z_x, z_y, rough_edge=None)
+
+        _curve_top = create_parallel_sine(W // 2, z_x, z_y, rough_edge=rough_edge)
+        _below_shape = Shape.below_curve(_curve_top)
+
+        if rough_edge is not None:  # Change salt for the order boundary
+            X, Y, salt = rough_edge
+            rough_edge = (X, Y, -salt)
+
+        _curve_bottom = create_parallel_sine(-W // 2, z_x, z_y, rough_edge=rough_edge)
+        _above_shape = Shape.above_curve(_curve_bottom)
+
+        _middle_shape = (_below_shape * _above_shape)[0:L_x, :]
+        sc_top_initial_site = (z_x // 4, W // 2 + z_y + L_sc_up // 2)
+        sc_top_shape = _middle_shape.inverse()[0:L_x, : L_sc_up + W // 2 + z_y]
+        sc_bot_initial_site = (z_x // 4, -W // 2 - z_y - L_sc_down // 2)
+        sc_bot_shape = _middle_shape.inverse()[0:L_x, -L_sc_down - W // 2 - z_y :]
+    elif shape == "sawtooth":
+
+        def curve(x):
+            x += z_x / 4
+            if x % z_x < z_x / 2:
+                return 4 * z_y / z_x * (x % (z_x / 2)) - z_y
+            else:
+                return -4 * z_y / z_x * (x % (z_x / 2)) + z_y
+
+        y_offset = W / np.cos(np.arctan(4 * z_y / z_x)) if z_y != 0 else W
+
+        _below_shape = Shape.below_curve(lambda x: curve(x) + y_offset // 2)
+        _above_shape = Shape.above_curve(lambda x: curve(x) - y_offset // 2)
+
+        _middle_shape = (_below_shape * _above_shape)[0:L_x, :]
+        sc_top_initial_site = (0, y_offset // 2 + a)
+        sc_top_shape = _middle_shape.inverse()[0:L_x, : L_sc_up + y_offset // 2 + z_y]
+        sc_bot_initial_site = (0, -y_offset // 2 - a)
+        sc_bot_shape = _middle_shape.inverse()[
+            0:L_x, -L_sc_down - y_offset // 2 - z_y :
+        ]
+    else:
+        raise ValueError('Only "parallel_curve" and "sawtooth" are implemented.')
+
+    edge_shape = (
+        _middle_shape.edge("inner")
+        * sc_bot_shape.edge("outer")
+        * sc_top_shape.edge("outer")
+    )
+
+    interior_shape = _middle_shape - edge_shape
+    interior_initial_site = (a, a)
+
+    return {
+        "sc_top": (sc_top_shape, sc_top_initial_site),
+        "sc_bot": (sc_bot_shape, sc_bot_initial_site),
+        "normal": (interior_shape, interior_initial_site),
+        "edge": edge_shape,
+    }
+
+
+@functools.lru_cache()
+def system(
+    W,
+    L_x,
+    L_sc_up,
+    L_sc_down,
+    z_x,
+    z_y,
+    a,
+    shape,
+    transverse_soi,
+    mu_from_bottom_of_spin_orbit_bands,
+    k_x_in_sc,
+    wraparound,
+    infinite,
+    sc_leads=False,
+    no_phs=False,
+    rough_edge=None,
+    phs_breaking_potential=False,
+    substitutions=None,
+):
+    """Create zigzag system
+
+    Parameters
+    ----------
+    W : float
+        Width of the semiconductor (or contact seperation of the junction.)
+    L_x : float
+        Length of the system (x-dimension).
+    L_sc_up : float
+        Minimum width of the top superconductor.
+    L_sc_down : float
+        Minimum width of the bottom superconductor.
+    z_x : float
+        Period of zigzag.
+    z_y : float
+        Amplitude of zigzag.
+    a : float
+        Lattice spacing.
+    shape : string
+        Can be either 'sawtooth' for zigzag shape, or 'parallel_curve'
+        for a shape formed by curve parallel to a sine curve.
+    transverse_soi : bool
+        Toggle Rashba spin-orbit in the y-direction.
+    mu_from_bottom_of_spin_orbit_bands : bool
+        Toggle counting chemical potential from bottom of spin orbit band.
+    k_x_in_sc : bool
+        Toggle whether superconductor have hopping in the x-direction.
+    wraparound : bool
+        Toggle a wraparound system, such that the translational invariance
+        is transformed into the momentum parameter k_x.
+    infinite : bool
+        Toggle whether the system contains a z_x periodic
+        translational invariance.
+    sc_leads : bool, optional
+        Toggle superconducting leads in y-direction.
+# Copyright 2011-2013 Kwant authors.
+#
+# This file is part of Kwant.  It is subject to the license terms in the file
+# LICENSE.rst found in the top-level directory of this distribution and at
+# https://kwant-project.org/license.  A list of Kwant authors can be found in
+# the file AUTHORS.rst at the top-level directory of this distribution and at
+# https://kwant-project.org/authors.
+
+__all__ = ['smatrix', 'ldos', 'wave_function', 'greens_function']
+
+# MUMPS usually works best.  Use SciPy as fallback.
+import warnings
+try:
+    from . import mumps as smodule
+except ImportError:
+    warnings.warn("MUMPS is not available, "
+                  "SciPy built-in solver will be used as a fallback. "
+                  "Performance can be very poor in this case.", RuntimeWarning)
+    from . import sparse as smodule
+
+hidden_instance = smodule.Solver()
+
+smatrix = hidden_instance.smatrix
+ldos = hidden_instance.ldos
+wave_function = hidden_instance.wave_function
+greens_function = hidden_instance.greens_function
+# Copyright 2013 Kwant authors.
+#
+# This file is part of Kwant.  It is subject to the license terms in the file
+# LICENSE.rst found in the top-level directory of this distribution and at
+# https://kwant-project.org/license.  A list of Kwant authors can be found in
+# the file AUTHORS.rst at the top-level directory of this distribution and at
+# https://kwant-project.org/authors.
+
+"""Random-access random numbers
+
+This module provides routines that given some input compute a "random" output
+that depends on the input in a (cryptographically) intractable way.
+
+This turns out to be very useful when one needs to map some irregular objects to
+random numbers in a deterministic and reproducible way.
+
+Internally, the md5 hash algorithm is used.  The randomness thus generated is
+good enough to pass the "dieharder" battery of tests: see the function `test` of
+this module.
+"""
+
+from math import pi, log, sqrt, cos
+from hashlib import md5
+from struct import unpack
+
+__all__ = ['uniform', 'gauss', 'test']
+
+
+TWOPI = 2 * pi
+BPF = 53                        # Number of bits in a Python float.
+BPF_MASK = 2**53 - 1
+RECIP_BPF = 2**-BPF
+
+
+def str_to_bytes(s):
+    """Return bytes if the input is a string, else return the object as-is."""
+    try:
+        return s.encode('utf8')
+    except AttributeError:
+        return s
+
+def uniform2(input, salt=''):
+    """Return two independent [0,1)-distributed numbers."""
+    input = str_to_bytes(input)
+    salt = str_to_bytes(salt)
+    input = memoryview(input).tobytes() + salt
+    a, b = unpack('qq', md5(input).digest())
+    a &= BPF_MASK
+    b &= BPF_MASK
+    return a * RECIP_BPF, b * RECIP_BPF
+
+
+def uniform(input, salt=''):
+    """md5-hash `input` and `salt` and map the result to the [0,1) interval.
+
+    `input` must be some object that supports the buffer protocol (i.e. a string
+    or a numpy/tinyarray array).  `salt` must be a string or a bytes object.
+    """
+    return uniform2(input, salt)[0]
+
+
+def gauss(input, salt=''):
+    """md5-hash `input` and `salt` and return the result as a standard normal
+    distributed variable.
+
+    `input` must be some object that supports the buffer protocol (i.e. a string
+    or a numpy/tinyarray array).  `salt` must be a string or a bytes object.
+    """
+    # This uses the Box-Muller transform.  Only one of the two results is
+    # computed.
+    a, b = uniform2(input, salt)
+    return cos(a * TWOPI) * sqrt(-2.0 * log(1.0 - b))
+
+
+def test(n=20000):  # skip coverage
+    """Test the generator with the dieharder suite generating n**2 samples.
+
+    Executing this function may take a very long time.
+    """
+    import os
+    import tempfile
+    import subprocess
+    from tinyarray import array
+    from struct import pack
+
+    f = tempfile.NamedTemporaryFile(delete=False)
+    try:
+        for x in range(n):
+            for y in range(n):
+                a = array((x, y))
+                i = int(2**32 * uniform(a))
+                f.write(pack('I', i))
+        f.close()
+        subprocess.call(['dieharder', '-a', '-g', '201', '-f', f.name])
+    finally:
+        os.remove(f.name)
+1.21.5 1.8.0
+pymetis None
+sksparse None
+mumps None
+pypardiso None
+threadpoolctl ModuleSpec(name='threadpoolctl', loader=<_frozen_importlib_external.SourceFileLoader object at 0x7f953a3eb9a0>, origin='/usr/lib/python3/dist-packages/threadpoolctl.py')
+
+codex
+The contract requires calibrated disorder and a full Bloch-phase search.
+
+exec
+/bin/bash -c "sed -n '250,350p' workspace/clean_geometry.py; sed -n '410,505p' workspace/clean_geometry.py; ls -la /usr/local/lib | head; command -v apply_patch" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ succeeded in 18096ms:
+
+        def y(t):
+            return g(t) + distance / np.sqrt(1 + g_prime(t) ** 2)
+
+        t = scipy.optimize.fsolve(_x, x)
+        return y(t)
+
+    xs = np.linspace(0, z_x, 1000)
+    ys = [_parallel_sine(x, distance, z_x, z_y) for x in xs]
+
+    if rough_edge is not None:
+        X, Y, salt = rough_edge
+
+        # Calculate the unit vector to the sine
+        tck = scipy.interpolate.splrep(xs, ys)
+        dydx = scipy.interpolate.splev(xs, tck, der=1)
+        unit_vectors = 1 / (1 + dydx ** 2) * np.array([-dydx, np.ones_like(dydx)])
+
+        # Generate a disordered boundary parameterized by (X, Y, salt)
+        rands = [
+            X * kwant.digest.uniform(str(i), salt=str(salt))
+            for i in range(int(z_x / Y) - 2)
+        ]
+        rands = [
+            0,
+            *rands,
+            0,
+        ]  # make sure that it starts and ends with 0 (for periodicity)
+        ys_disorder = scipy.interpolate.interp1d(
+            np.linspace(0, z_x, len(rands)), rands, kind="quadratic"
+        )(xs)
+        ys_disorder -= ys_disorder.mean()
+
+        # Disorder in the direction normal to the sine
+        dxys = ys_disorder * unit_vectors
+
+        # Modify xs and ys to include the disorder
+        xs[1:-1] += dxys[0, 1:-1]
+        ys[1:-1] += dxys[1, 1:-1]
+
+    parallel_sine = scipy.interpolate.interp1d(xs, ys)
+
+    return lambda x: parallel_sine(x % z_x)
+
+
+def get_shapes(shape, a, z_x, z_y, W, L_x, L_sc_down, L_sc_up, rough_edge=None):
+    if shape == "parallel_curve":
+        curve = create_parallel_sine(0, z_x, z_y, rough_edge=None)
+
+        _curve_top = create_parallel_sine(W // 2, z_x, z_y, rough_edge=rough_edge)
+        _below_shape = Shape.below_curve(_curve_top)
+
+        if rough_edge is not None:  # Change salt for the order boundary
+            X, Y, salt = rough_edge
+            rough_edge = (X, Y, -salt)
+
+        _curve_bottom = create_parallel_sine(-W // 2, z_x, z_y, rough_edge=rough_edge)
+        _above_shape = Shape.above_curve(_curve_bottom)
+
+        _middle_shape = (_below_shape * _above_shape)[0:L_x, :]
+        sc_top_initial_site = (z_x // 4, W // 2 + z_y + L_sc_up // 2)
+        sc_top_shape = _middle_shape.inverse()[0:L_x, : L_sc_up + W // 2 + z_y]
+        sc_bot_initial_site = (z_x // 4, -W // 2 - z_y - L_sc_down // 2)
+        sc_bot_shape = _middle_shape.inverse()[0:L_x, -L_sc_down - W // 2 - z_y :]
+    elif shape == "sawtooth":
+
+        def curve(x):
+            x += z_x / 4
+            if x % z_x < z_x / 2:
+                return 4 * z_y / z_x * (x % (z_x / 2)) - z_y
+            else:
+                return -4 * z_y / z_x * (x % (z_x / 2)) + z_y
+
+        y_offset = W / np.cos(np.arctan(4 * z_y / z_x)) if z_y != 0 else W
+
+        _below_shape = Shape.below_curve(lambda x: curve(x) + y_offset // 2)
+        _above_shape = Shape.above_curve(lambda x: curve(x) - y_offset // 2)
+
+        _middle_shape = (_below_shape * _above_shape)[0:L_x, :]
+        sc_top_initial_site = (0, y_offset // 2 + a)
+        sc_top_shape = _middle_shape.inverse()[0:L_x, : L_sc_up + y_offset // 2 + z_y]
+        sc_bot_initial_site = (0, -y_offset // 2 - a)
+        sc_bot_shape = _middle_shape.inverse()[
+            0:L_x, -L_sc_down - y_offset // 2 - z_y :
+        ]
+    else:
+        raise ValueError('Only "parallel_curve" and "sawtooth" are implemented.')
+
+    edge_shape = (
+        _middle_shape.edge("inner")
+        * sc_bot_shape.edge("outer")
+        * sc_top_shape.edge("outer")
+    )
+
+    interior_shape = _middle_shape - edge_shape
+    interior_initial_site = (a, a)
+
+    return {
+        "sc_top": (sc_top_shape, sc_top_initial_site),
+        "sc_bot": (sc_bot_shape, sc_bot_initial_site),
+        "normal": (interior_shape, interior_initial_site),
+        Toggle superconducting leads in y-direction.
+    no_phs : bool, optional
+        Remove particle-hole symmetry by removing the electron-hole orbital.
+    rough_edge : bool, optional
+        Toggle roughened edges to shape.
+    phs_breaking_potential : bool, optional
+        Add particle-hole symmetry breaking potential to allow for a
+        computationally cheaper way to calculate the Majorana decay length.
+    substitutions : tuple of tuples, optional
+        Substitutions in the Hamiltonian string.
+
+    Returns
+    -------
+    kwant.builder.FiniteSystem or kwant.builder.InfiniteSystem
+
+    """
+    if wraparound and not infinite:
+        raise ValueError("If you want to use wraparound, infinite must be True.")
+    if sc_leads and not infinite or sc_leads and not wraparound:
+        raise ValueError(
+            "If you want to use sc_leads, infinite and wraparound must be True."
+        )
+
+    template_strings = get_template_strings(
+        transverse_soi,
+        mu_from_bottom_of_spin_orbit_bands,
+        k_x_in_sc,
+        False,
+        no_phs,
+        phs_breaking_potential,
+        substitutions,
+    )
+
+    template = {
+        k: discretize(v, coords=("x", "y"), grid=a) for k, v in template_strings.items()
+    }
+
+    shapes = get_shapes(shape, a, z_x, z_y, W, L_x, L_sc_down, L_sc_up, rough_edge)
+
+    syst = kwant.Builder(kwant.TranslationalSymmetry([L_x, 0]) if infinite else None)
+
+    for y in np.arange(-W - L_sc_down, W + L_sc_up, a):
+        # We're unsure about the location of the barrier
+        # so we loop over all possible sites.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            sites = syst.fill(template["barrier"], shapes["edge"], (0, y))
+
+    syst.fill(template["normal"], *shapes["normal"])
+
+    if L_sc_up > 0:
+        syst.fill(template["sc_top"], *shapes["sc_top"])
+
+    if L_sc_down > 0:
+        syst.fill(template["sc_bot"], *shapes["sc_bot"])
+
+    if infinite and wraparound:
+        syst = kwant.wraparound.wraparound(syst)
+        if sc_leads:
+            lead_up = kwant.Builder(kwant.TranslationalSymmetry([L_x, 0], [0, a]))
+            lead_down = kwant.Builder(kwant.TranslationalSymmetry([L_x, 0], [0, -a]))
+            lead_up = kwant.wraparound.wraparound(lead_up, keep=1)
+            lead_down = kwant.wraparound.wraparound(lead_down, keep=1)
+            lead_up.fill(template["sc_top"], lambda s: 0 <= s.pos[0] < L_x, (0, 0))
+            lead_down.fill(template["sc_bot"], lambda s: 0 <= s.pos[0] < L_x, (0, 0))
+            syst.attach_lead(lead_up)
+            syst.attach_lead(lead_down)
+
+    return syst.finalized()
+
+
+def mumps_eigsh(matrix, k, sigma, **kwargs):
+    """Call sla.eigsh with mumps support.
+
+    Please see scipy.sparse.linalg.eigsh for documentation.
+    """
+
+    class LuInv(sla.LinearOperator):
+        def __init__(self, matrix):
+            instance = kwant.linalg.mumps.MUMPSContext()
+            instance.analyze(matrix, ordering="pord")
+            instance.factor(matrix)
+            self.solve = instance.solve
+            sla.LinearOperator.__init__(self, matrix.dtype, matrix.shape)
+
+        def _matvec(self, x):
+            return self.solve(x.astype(self.dtype))
+
+    opinv = LuInv(matrix - sigma * sp.identity(matrix.shape[0]))
+    return sla.eigsh(matrix, k, sigma=sigma, OPinv=opinv, **kwargs)
+
+
+def spectrum(syst, params, k=20):
+    """Compute the k smallest magnitude eigenvalues and
+    corresponding eigenvectors of a system.
+
+total 12
+drwxr-xr-x  3 nobody nogroup 4096 Feb 17  2023 .
+drwxr-xr-x 10 nobody nogroup 4096 Feb 17  2023 ..
+drwxr-xr-x  3 nobody nogroup 4096 Feb 17  2023 python3.10
+/srv/home/xuandong/.codex/tmp/arg0/codex-arg0Y8KUTj/apply_patch
+
+**Assessing matrix size and optimization**
+
+I'm examining the matrix size for amp200, which is actually 187k, but the contract is the largest at 125k. I wonder if the amplitude only varies from 0 to 50? There's a need to optimize the time. I'm considering spatial reordering at the site level with nested dissection, accounting for all orbitals. Additionally, I think MMD_AT_PLUS_A may be better for a regular lattice than COLAMD. I'll test both methods with the 125k setup. Then I'll set benchmarks in Python to validate the outputs.
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: ../attempt/benchmark.py
++import os
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++import sys
++sys.dont_write_bytecode = True
++from pathlib import Path
++import time
++import resource
++import numpy as np
++import scipy.constants as constants
++import scipy.sparse as sp
++import scipy.sparse.linalg as sla
++
++sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'participant' / 'workspace'))
++from clean_model import make_system, parameters
++from random_field import field
++
++start = time.monotonic()
++def log(*args):
++    print(round(time.monotonic() - start, 3), *args, flush=True)
++
++amplitude = float(sys.argv[1]) if len(sys.argv) > 1 else 0
++system = make_system(amplitude)
++log('built', len(system.sites))
++params = parameters(0, 0)
++matrix = system.hamiltonian_submatrix(params=dict(params, k_x=0), sparse=True).tocsc()
++energy_unit = constants.eV * 1e-3
++mass = 0.023 * constants.m_e
++velocity = np.sqrt(2 * 10 * energy_unit / mass)
++density = (10e-9)**2 * mass / (np.pi * constants.hbar**2)
++strength = np.sqrt(3 * constants.hbar * velocity / (2 * np.pi * density * 5000e-9)) / energy_unit
++potential = field(strength, 0)
++disorder = np.array([potential(*site.pos) for site in system.sites])
++matrix += sp.diags((disorder[:, None] * [1, -1, 1, -1]).ravel(), format='csc')
++matrix.eliminate_zeros()
++log('matrix', matrix.shape, matrix.nnz, 'strength', strength)
++ordering = sys.argv[2] if len(sys.argv) > 2 else 'MMD_AT_PLUS_A'
++factor = sla.splu(matrix, permc_spec=ordering)
++log('factor', ordering, factor.L.nnz, factor.U.nnz, resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
++inverse = sla.LinearOperator(matrix.shape, matvec=factor.solve, dtype=matrix.dtype)
++for count in [4, 20]:
++    energies, vectors = sla.eigsh(matrix, k=count, sigma=0, OPinv=inverse, tol=1e-8)
++    log('eigen', count, np.sort(energies), resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -u ../attempt/benchmark.py 0 > ../attempt/benchmark.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+**Exploring mathematical optimization**
+
+I'm diving into some intricate calculations for startup efficiency. I need to quickly minimize errors using a sparse solver, aiming to complete it within 600 seconds. I want to benchmark memory and runtime performance while exploring a method called partial Schur. If energy remains constant, I could generate a low-energy Hamiltonian through Schur expansion. I'm also considering the possibility of binary searching for minimum energy levels to analyze propagating modes and ensure I don't overlook opportunities in higher gaps.
+**Examining eigenvalue bounds**
+
+I'm exploring ways to leverage spectral norms and get upper bounds using sample sizes. Then I might employ a binary approach to identify the first gap if the bands are well-separated. I need to compute exact matrices for Schur, weighing dimension versus LU methods. Also, custom nested dissection could help optimize row elimination. The BdG framework allows for particle-hole symmetry, so I can work within a smaller range. At boundaries, eigenvalue behavior varies, but I can still use previous vectors to tackle degeneracies effectively.
+**Improving eigenvalue computations**
+
+I’m noticing that my current method can be slow, so I’m using ncv=24 and k=6 for robustness. By applying a uniform gauge for projection, I improve reuse and variational estimates, allowing me to calculate all low-energy eigenvectors with energies around ±<0.2. I can then approximate dispersion using Rayleigh-Ritz for all k values. However, it's worth considering that the BdG indefinite Rayleigh-Ritz might produce spurious results due to the cancellation of positive and negative states, so I need to keep that in mind for accuracy.
+exec
+/bin/bash -c "cat ../attempt/benchmark.log; ps -eo pid,etime,rss,args | rg 'benchmark.py|PID'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ succeeded in 52739ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant/workspace/vendor/kwant/solvers/default.py:16: RuntimeWarning: MUMPS is not available, SciPy built-in solver will be used as a fallback. Performance can be very poor in this case.
+  warnings.warn("MUMPS is not available, "
+7.056 built 31200
+7.847 matrix (124800, 124800) 836160 strength 1.5995099604245397
+    PID     ELAPSED   RSS COMMAND
+      1       00:02 16956 /srv/home/xuandong/.codex/tmp/arg0/codex-arg0Y8KUTj/codex-linux-sandbox --sandbox-policy-cwd /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant --command-cwd /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant --permission-profile {"type":"managed","file_system":{"type":"restricted","entries":[{"path":{"type":"path","path":"/srv/home/xuandong/.codex/packages"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/.codex/packages/standalone/releases/0.150.1-x86_64-unknown-linux-musl/bin/codex"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/.codex/tmp/arg0"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/attempt"},"access":"write"},{"path":{"type":"path","path":"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant"},"access":"read"},{"path":{"type":"special","value":{"kind":"minimal"}},"access":"read"}]},"network":"restricted"} --apply-seccomp-then-exec -- /bin/bash -c cat ../attempt/benchmark.log; ps -eo pid,etime,rss,args | rg 'benchmark.py|PID'
+      2       00:00  3304 /bin/bash -c cat ../attempt/benchmark.log; ps -eo pid,etime,rss,args | rg 'benchmark.py|PID'
+      5       00:00  4720 rg benchmark.py|PID
+
+exec
+/bin/bash -c 'tail -n 8 ../attempt/benchmark.log' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+**Benchmarking factorization procedures**
+
+I’m considering factoring block A while thinking about zero modes at the boundary. It seems there’s no notable risk involved, but then again, I'm not entirely sure. With 600 seconds per case, I might be able to complete an exact independent LU decomposition for multiple phases. Now, I feel like I should prioritize benchmarking to see how it performs. Tracking performance could be crucial moving forward. Let's explore this more!
+ succeeded in 18561ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant/workspace/vendor/kwant/solvers/default.py:16: RuntimeWarning: MUMPS is not available, SciPy built-in solver will be used as a fallback. Performance can be very poor in this case.
+  warnings.warn("MUMPS is not available, "
+7.056 built 31200
+7.847 matrix (124800, 124800) 836160 strength 1.5995099604245397
+
+**Evaluating matrix load and build process**
+
+I'm looking at creating bench2 by loading a shared NPZ matrix. I need to modify and save it before proceeding with LU, as I'm getting the feeling that the current method has passed its limits. Next, there's the task of building for 7 seconds. I'll implement a custom permutation using a recursive site XY grid, breaking it down with a separator at the highest index and recursively working from x1 to 389.
+**Exploring graph optimization**
+
+I'm thinking about placing separator lines last and maybe considering small dense leaves with a maximum of 32 sites or dimensions less than or equal to 2. It's interesting to order the leaf site degree spin while excluding the spin in physical graphs. I wonder if I can optimize block zeros, and whether Native MMD with diag0 could provide a cost-effective solution. There’s a lot to figure out here!
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: ../attempt/benchmark_order.py
++import os
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++import sys
++sys.dont_write_bytecode = True
++from pathlib import Path
++import time
++import resource
++import numpy as np
++import scipy.constants as constants
++import scipy.sparse as sp
++import scipy.sparse.linalg as sla
++sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'participant' / 'workspace'))
++from clean_model import make_system, parameters
++from random_field import field
++start = time.monotonic()
++def log(*args):
++    print(round(time.monotonic() - start, 3), *args, flush=True)
++system = make_system(0)
++log('built', len(system.sites))
++matrix = system.hamiltonian_submatrix(params=dict(parameters(0, 0), k_x=0), sparse=True).tocsc()
++potential = field(1.5995099604245397, 0)
++disorder = np.array([potential(*site.pos) for site in system.sites])
++matrix += sp.diags((disorder[:, None] * [1, -1, 1, -1]).ravel(), format='csc')
++matrix.eliminate_zeros()
++ordering = sys.argv[1] if len(sys.argv) > 1 else 'nested'
++threshold = float(sys.argv[2]) if len(sys.argv) > 2 else 0.01
++if ordering == 'nested':
++    positions = np.array([site.tag for site in system.sites])
++    def nested(indices):
++        if len(indices) <= 24:
++            return indices
++        coords = positions[indices]
++        axis = np.argmax(np.ptp(coords, axis=0))
++        values = coords[:, axis]
++        split = np.unique(values)[len(np.unique(values)) // 2]
++        return np.concatenate([nested(indices[values < split]), nested(indices[values > split]), indices[values == split]])
++    interior = np.flatnonzero(positions[:, 0] "'!= 0)
++    boundary = np.flatnonzero(positions[:, 0] == 0)
++    site_order = np.concatenate([nested(interior), boundary])
++    permutation = (4 * site_order[:, None] + np.arange(4)).ravel()
++    matrix = matrix[permutation, :][:, permutation].tocsc()
++    ordering = '"'NATURAL'
++log('matrix', matrix.shape, matrix.nnz, ordering, threshold)
++factor = sla.splu(matrix, permc_spec=ordering, diag_pivot_thresh=threshold, options={'SymmetricMode': True})
++log('factor', factor.L.nnz, factor.U.nnz, resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
++inverse = sla.LinearOperator(matrix.shape, matvec=factor.solve, dtype=matrix.dtype)
++for count in [4, 16]:
++    energies, vectors = sla.eigsh(matrix, k=count, sigma=0, OPinv=inverse, tol=1e-7)
++    residual = np.linalg.norm(matrix @ vectors - vectors * energies, axis=0).max()
++    log('eigen', count, np.sort(energies), 'residual', residual, resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+*** End Patch
+PATCH
+(timeout 420 python -u ../attempt/benchmark_order.py nested 0.01 > ../attempt/nested.log 2>&1) &
+(timeout 420 python -u ../attempt/benchmark_order.py MMD_AT_PLUS_A 0.01 > ../attempt/mmd001.log 2>&1) &
+wait" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+exec
+/bin/bash -c 'for file in ../attempt/benchmark.log ../attempt/nested.log ../attempt/mmd001.log; do echo "--- $file"; tail -n 10 "$file" 2>/dev/null; done; date -u' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ succeeded in 10783ms:
+--- ../attempt/benchmark.log
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant/workspace/vendor/kwant/solvers/default.py:16: RuntimeWarning: MUMPS is not available, SciPy built-in solver will be used as a fallback. Performance can be very poor in this case.
+  warnings.warn("MUMPS is not available, "
+7.056 built 31200
+7.847 matrix (124800, 124800) 836160 strength 1.5995099604245397
+--- ../attempt/nested.log
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant/workspace/vendor/kwant/solvers/default.py:16: RuntimeWarning: MUMPS is not available, SciPy built-in solver will be used as a fallback. Performance can be very poor in this case.
+  warnings.warn("MUMPS is not available, "
+--- ../attempt/mmd001.log
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant/workspace/vendor/kwant/solvers/default.py:16: RuntimeWarning: MUMPS is not available, SciPy built-in solver will be used as a fallback. Performance can be very poor in this case.
+  warnings.warn("MUMPS is not available, "
+Fri Aug 28 01:03:22 UTC 2026
+
+**Analyzing time factors**
+
+I’m thinking about the initial environment and how time is ticking from 17:58 to 18:03, and wow, it’s really only been about 5 minutes. But wait, I have this huge reasoning token! My first benchmark might need to account for maybe 3 minutes, but honestly, looking at the matrix, it seems I shouldn't factor in anything over 3 minutes. I need to optimize here because those nested results might still be crucial!
+The fixed BdG model and disorder convention are clear. I am benchmarking sparse orderings before choosing the phase-search implementation.
+  ✓ Inspect model and numerical constraints
+  → Implement calibrated sparse spectral solver
+  • Test accuracy and runtime on inputs
+  • Finalize executable and usage documentation
+ succeeded in 62129ms:
+Success. Updated the following files:
+A ../attempt/benchmark_order.py
+
+**Considering file management**
+
+I’m thinking about the task location and whether it aligns. If the user moves or attempts something, should I document this in the README? I want to emphasize that it shouldn’t rely on outside sources. Maybe I could copy original files, but copying them could violate some terms. I should ensure that only the valid files are kept, like keeping solve.py dependencies read-only as they are supplied. Also, should I consider multiple independent processes for resource management?
+**Calculating eigenpair residuals**
+
+I'm estimating the projected eigenpair residual using improved Rayleigh methods. I think we can return the minimum computed gaps plus the projection estimate as part of achieving this. It’s crucial to ensure the gap is reliable and there's no substitution involved. While variational projection can seem legit, I’ll focus on returning the exact minimum validated for accuracy. Once we converge, I’ll evaluate the candidates fully to minimize the actual result.
+exec
+/bin/bash -c 'for file in ../attempt/benchmark.log ../attempt/nested.log ../attempt/mmd001.log; do echo "--- $file"; tail -n 12 "$file" 2>/dev/null; done' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ succeeded in 3759ms:
+--- ../attempt/benchmark.log
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant/workspace/vendor/kwant/solvers/default.py:16: RuntimeWarning: MUMPS is not available, SciPy built-in solver will be used as a fallback. Performance can be very poor in this case.
+  warnings.warn("MUMPS is not available, "
+7.056 built 31200
+7.847 matrix (124800, 124800) 836160 strength 1.5995099604245397
+--- ../attempt/nested.log
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant/workspace/vendor/kwant/solvers/default.py:16: RuntimeWarning: MUMPS is not available, SciPy built-in solver will be used as a fallback. Performance can be very poor in this case.
+  warnings.warn("MUMPS is not available, "
+7.366 built 31200
+8.412 matrix (124800, 124800) 836160 NATURAL 0.01
+12.241 factor 11596008 11596010 1045444
+19.808 eigen 4 [-0.13754671 -0.13754671  0.13754671  0.13754671] residual 7.28358114165265e-11 1094124
+29.22 eigen 16 [-0.26714895 -0.26714895 -0.18215766 -0.18215766 -0.16758993 -0.16758993
+ -0.13754671 -0.13754671  0.13754671  0.13754671  0.16758993  0.16758993
+  0.18215766  0.18215766  0.26714895  0.26714895] residual 1.680982947213055e-09 1158884
+--- ../attempt/mmd001.log
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant/workspace/vendor/kwant/solvers/default.py:16: RuntimeWarning: MUMPS is not available, SciPy built-in solver will be used as a fallback. Performance can be very poor in this case.
+  warnings.warn("MUMPS is not available, "
+7.63 built 31200
+8.59 matrix (124800, 124800) 836160 MMD_AT_PLUS_A 0.01
+20.378 factor 14878771 15383010 1292272
+29.196 eigen 4 [-0.13754671 -0.13754671  0.13754671  0.13754671] residual 5.544658510110073e-12 1343868
+39.32 eigen 16 [-0.26714895 -0.26714895 -0.18215766 -0.18215766 -0.16758993 -0.16758993
+ -0.13754671 -0.13754671  0.13754671  0.13754671  0.16758993  0.16758993
+  0.18215766  0.18215766  0.26714895  0.26714895] residual 5.692961443772574e-10 1416624
+
+**Considering implementation strategies**
+
+I’m thinking about the runtime for eig count and whether using the ncv value is suitable for those highly degenerate min values. The 8 counts seem fine, but I want to ensure we achieve maximum accuracy across all regimes by utilizing equispaced values. Maybe starting with a count of 5 is ideal, and I can build from there until everything stabilizes. I'll hold off on further analysis until I have that implemented.
+codex
+Geometry-aware sparse ordering cuts factorization time dramatically. I’ll use it for the phase search.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: ../attempt/solve.py
++#"'!/usr/bin/env python3
++"""Calibrated spatial disorder and sparse, Bloch-minimized BdG spectra."""
++
++import os
++
++os.environ["OPENBLAS_NUM_THREADS"] = "1"
++os.environ["OMP_NUM_THREADS"] = "1"
++os.environ["MKL_NUM_THREADS"] = "1"
++os.environ["NUMEXPR_NUM_THREADS"] = "1"
++
++import argparse
++import json
++import math
++from pathlib import Path
++import sys
++import time
++import warnings
++
++sys.dont_write_bytecode = True
++
++import numpy as np
++import scipy.constants as constants
++import scipy.linalg as dense_linalg
++import scipy.optimize as optimize
++import scipy.sparse as sparse
++import scipy.sparse.linalg as sparse_linalg
++
++
++HERE = Path(__file__).resolve().parent
++MODEL_PATH = HERE.parent / "participant" / "workspace"
++if not (MODEL_PATH / "clean_model.py").is_file():
++    MODEL_PATH = HERE / "workspace"
++sys.path.insert(0, str(MODEL_PATH))
++with warnings.catch_warnings():
++    warnings.filterwarnings("ignore", message="MUMPS is not available.*")
++    from clean_model import make_system, parameters
++    from random_field import field
++
++
++def disorder_strength(mfp_nm):
++    """Return the uniform half-width U in meV, using the specified SI DOS."""
++    mean_free_path = float(mfp_nm) * 1e-9
++    if math.isinf(mean_free_path):
++        return 0.0
++    if not math.isfinite(mean_free_path) or mean_free_path <= 0:
++        raise ValueError("mfp_nm must be positive")
++    energy_unit = constants.eV * 1e-3
++    mass = 0.023 * constants.m_e
++    fermi_velocity = math.sqrt(2 * 10 * energy_unit / mass)
++    site_density = (10e-9) ** 2 * mass / (math.pi * constants.hbar ** 2)
++    variance = constants.hbar * fermi_velocity / (
++        2 * math.pi * site_density * mean_free_path
++    )
++    return math.sqrt(3 * variance) / energy_unit
++
++
++def nested_dissection(positions):
++    """Order grid separators last, including the periodic cell seam."""
++    def partition(indices):
++        if len(indices) <= 24:
++            return indices
++        coordinates = positions[indices]
++        axis = int(np.argmax(np.ptp(coordinates, axis=0)))
++        values = coordinates[:, axis]
++        unique = np.unique(values)
++        separator = unique[len(unique) // 2]
++        return np.concatenate((
++            partition(indices[values < separator]),
++            partition(indices[values > separator]),
++            indices[values == separator],
++        ))
++
++    seam = positions[:, 0] == positions[:, 0].min()
++    site_order = np.concatenate((partition(np.flatnonzero(~seam)), np.flatnonzero(seam)))
++    return (4 * site_order[:, None] + np.arange(4)).ravel()
++
++
++class JunctionSpectrum:
++    def __init__(self, case, verbose=False):
++        self.started = time.monotonic()
++        self.verbose = verbose
++        self.strength = disorder_strength(case["mfp_nm"])
++        self.system = make_system(case["amplitude_nm"])
++        self.params = parameters(case["field_T"], case["phase_rad"])
++        positions = np.asarray([site.pos for site in self.system.sites])
++        potential = field(self.strength, case["salt"])
++        disorder = np.asarray([potential(*site.pos) for site in self.system.sites])
++        matrix = self.system.hamiltonian_submatrix(
++            params=dict(self.params, k_x=0.0), sparse=True
++        ).tocsc()
++        matrix += sparse.diags(
++            (disorder[:, None] * np.array([1, -1, 1, -1])).ravel(), format="csc"
++        )
++        matrix.eliminate_zeros()
++        self.permutation = nested_dissection(positions)
++        self.matrix = matrix[self.permutation, :][:, self.permutation].tocsc()
++        self.matrix.sort_indices()
++        self.cell_steps = 390
++        reordered_x = np.repeat(positions[:, 0], 4)[self.permutation]
++        entries = self.matrix.tocoo()
++        displacement = reordered_x[entries.col] - reordered_x[entries.row]
++        displacement = (displacement + 1950) % 3900 - 1950
++        horizontal = displacement != 0
++        self.horizontal = sparse.csc_matrix(
++            (entries.data[horizontal], (entries.row[horizontal], entries.col[horizontal])),
++            shape=self.matrix.shape,
++        )
++        self.current = sparse.csc_matrix(
++            (1j * np.sign(displacement[horizontal]) * entries.data[horizontal],
++             (entries.row[horizontal], entries.col[horizontal])),
++            shape=self.matrix.shape,
++        )
++        self.samples = []
++        self.rng = np.random.default_rng(78123)
++        self.log("built", self.matrix.shape[0], "orbitals; U =", self.strength)
++
++    def log(self, *message):
++        if self.verbose:
++            print(f"[{time.monotonic() - self.started:.2f}s]", *message,
++                  file=sys.stderr, flush=True)
++
++    def coefficients(self, phase):
++        angle = phase / self.cell_steps
++        return -2 * math.sin(angle / 2) ** 2, math.sin(angle)
++
++    def hamiltonian(self, phase):
++        cosine, sine = self.coefficients(phase)
++        if phase == 0:
++            return self.matrix
++        return (self.matrix + cosine * self.horizontal + sine * self.current).tocsc()
++
++    def evaluate(self, phase, count=12):
++        phase = float(phase)
++        for sample in self.samples:
++            if abs(phase - sample["phase"]) < 2e-7:
++                return sample
++        started = time.monotonic()
++        matrix = self.hamiltonian(phase)
++        shift = 0.0
++        try:
++            factor = sparse_linalg.splu(
++                matrix, permc_spec="NATURAL", diag_pivot_thresh=0.01,
++                options={"SymmetricMode": True},
++            )
++        except RuntimeError:
++            shift = 1e-8
++            factor = sparse_linalg.splu(
++                matrix - shift * sparse.eye(matrix.shape[0], format="csc"),
++                permc_spec="NATURAL", diag_pivot_thresh=0.1,
++                options={"SymmetricMode": True},
++            )
++        inverse = sparse_linalg.LinearOperator(
++            matrix.shape, matvec=factor.solve, dtype=matrix.dtype
++        )
++        initial = self.rng.standard_normal(matrix.shape[0]).astype(complex)
++        energies, vectors = sparse_linalg.eigsh(
++            matrix, k=count, sigma=shift, OPinv=inverse,
++            v0=initial, tol=2e-9, ncv=max(32, 2 * count + 8), maxiter=800,
++        )
++        residual = float(np.max(np.linalg.norm(matrix @ vectors - vectors * energies, axis=0)))
++        if residual > 2e-7:
++            def refined_solve(rhs):
++                solution = factor.solve(rhs)
++                correction = rhs - matrix @ solution + shift * solution
++                return solution + factor.solve(correction)
++            inverse = sparse_linalg.LinearOperator(
++                matrix.shape, matvec=refined_solve, dtype=matrix.dtype
++            )
++            energies, vectors = sparse_linalg.eigsh(
++                matrix, k=count, sigma=shift, OPinv=inverse, v0=initial,
++                tol=2e-10, ncv=max(40, 2 * count + 8), maxiter=1200,
++            )
++            residual = float(np.max(np.linalg.norm(matrix @ vectors - vectors * energies, axis=0)))
++            if residual > 2e-6:
++                raise ArithmeticError(f"Unconverged eigenpairs: residual {residual}")
++        sample = dict(phase=phase, gap=float(np.min(np.abs(energies))),
++                      energies=energies, vectors=vectors,
++                      seconds=time.monotonic() - started, residual=residual)
++        self.samples.append(sample)
++        self.log("phase", f"{phase:.9f}", "gap", f"{sample['"'gap']:.10g}\",
++                 \"residual\", f\"{residual:.2g}\", \"seconds\", f\"{sample['seconds']:.2f}\")
++        return sample
++
++    def reduced_spectrum(self):
++        \"\"\"Project H(k)"'^2, not just H(k), to avoid indefinite Ritz pollution."""
++        vectors = np.asfortranarray(np.concatenate(
++            [sample["vectors"] for sample in self.samples], axis=1
++        ))
++        basis, singular_values, right = dense_linalg.svd(
++            vectors, full_matrices=False, overwrite_a=True, check_finite=False,
++            lapack_driver="gesdd",
++        )
++        del vectors, right
++        basis = np.ascontiguousarray(basis[:, singular_values > 2e-9 * singular_values[0]])
++        images = [operator @ basis for operator in
++                  (self.matrix, self.horizontal, self.current)]
++        del basis
++        products = []
++        for first in range(3):
++            for second in range(first, 3):
++                product = images[first].conj().T @ images[second]
++                if first != second:
++                    product += product.conj().T
++                else:
++                    product = (product + product.conj().T) * 0.5
++                products.append(product)
++        del images
++        base, cross_horizontal, cross_current, horizontal_squared, cross_both, current_squared = products
++        self.log("reduced dimension", base.shape[0])
++
++        def gap(phase):
++            cosine, sine = self.coefficients(float(phase))
++            projected = (base + cosine * cross_horizontal + sine * cross_current
++                         + cosine ** 2 * horizontal_squared + cosine * sine * cross_both
++                         + sine ** 2 * current_squared)
++            lowest = dense_linalg.eigh(
++                projected, eigvals_only=True, subset_by_index=(0, 0),
++                check_finite=False, overwrite_a=True,
++            )[0]
++            return math.sqrt(max(0.0, float(lowest)))
++        return gap
++
++    def candidates(self, gap):
++        phases = np.linspace(0, np.pi, 129)
++        values = np.asarray([gap(phase) for phase in phases])
++        candidates = [(float(values[0]), 0.0), (float(values[-1]), float(np.pi))]
++        for index in range(1, len(phases) - 1):
++            if values[index] <= min(values[index - 1], values[index + 1]):
++                result = optimize.minimize_scalar(
++                    gap, bounds=(phases[index - 1], phases[index + 1]),
++                    method="bounded", options={"xatol": 2e-6, "maxiter": 40},
++                )
++                candidates.append((float(result.fun), float(result.x)))
++        return sorted(candidates)
++
++    def minimum_gap(self):
++        for phase in np.linspace(0, np.pi, 5):
++            self.evaluate(phase)
++        best = min(sample["gap"] for sample in self.samples)
++        for iteration in range(4):
++            projected_gap = self.reduced_spectrum()
++            candidates = self.candidates(projected_gap)
++            self.log("projected minima", candidates)
++            added = 0
++            for prediction, phase in candidates:
++                if prediction > best + max(0.002, 0.05 * best):
++                    continue
++                separation = min(abs(phase - sample["phase"]) for sample in self.samples)
++                if separation < 2e-4:
++                    continue
++                elapsed = time.monotonic() - self.started
++                typical = max(sample["seconds"] for sample in self.samples)
++                if elapsed + 2.5 * typical > 510:
++                    break
++                sample = self.evaluate(phase)
++                added += 1
++                best = min(best, sample["gap"])
++                if added >= 3:
++                    break
++            if not added:
++                break
++            if best < 2e-6:
++                break
++            if abs(candidates[0][0] - best) < 1e-5:
++                break
++        self.log("minimum", best, "from", len(self.samples), "full sparse spectra")
++        return best
++
++
++def solve_case(case, verbose=False):
++    spectrum = JunctionSpectrum(case, verbose=verbose)
++    gap = spectrum.minimum_gap()
++    return {"id": case["id"], "strength_meV": spectrum.strength, "gap_meV": gap}
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--input", required=True, type=Path)
++    parser.add_argument("--output", required=True, type=Path)
++    parser.add_argument("--verbose", action="store_true")
++    arguments = parser.parse_args()
++    with arguments.input.open() as handle:
++        request = json.load(handle)
++    results = [solve_case(case, verbose=arguments.verbose) for case in request["cases"]]
++    with arguments.output.open("w") as handle:
++        json.dump({"results": results}, handle, allow_nan=False, indent=2)
++        handle.write("'"\\n\")
++
++
++if __name__ == \"__main__\":
++    main()
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 timeout 570 python -u ../attempt/solve.py --input input/request.json --output ../attempt/result.json --verbose > ../attempt/smoke.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+exec
+/bin/bash -c 'tail -n 16 ../attempt/smoke.log; tail -n 4 ../attempt/benchmark.log; date -u' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ exited 130 in 483804ms:
+Success. Updated the following files:
+A ../attempt/benchmark.py
+
+ succeeded in 23698ms:
+[8.88s] built 124800 orbitals; U = 1.5995099604245393
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant/workspace/vendor/kwant/solvers/default.py:16: RuntimeWarning: MUMPS is not available, SciPy built-in solver will be used as a fallback. Performance can be very poor in this case.
+  warnings.warn("MUMPS is not available, "
+7.056 built 31200
+7.847 matrix (124800, 124800) 836160 strength 1.5995099604245397
+Fri Aug 28 01:08:21 UTC 2026
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: ../attempt/validate.py
++import os
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++import sys
++sys.dont_write_bytecode = True
++import json
++import math
++import resource
++import time
++import numpy as np
++import scipy.sparse as sparse
++from solve import JunctionSpectrum, disorder_strength
++
++resource.setrlimit(resource.RLIMIT_AS, (12 * 1024**3, 12 * 1024**3))
++assert abs(disorder_strength(5000) - 1.5995099604245397) < 1e-12
++assert disorder_strength(float('inf')) == 0
++assert abs(disorder_strength(1250) / disorder_strength(5000) - 2) < 1e-14
++
++cases = [
++    dict(id='clean-validation', mfp_nm=1e6, salt=7, amplitude_nm=0, field_T=0.7, phase_rad=0),
++    dict(id='scattering-validation', mfp_nm=100, salt=14, amplitude_nm=0, field_T=0.8, phase_rad=0),
++    dict(id='phase-validation', mfp_nm=3000, salt=29, amplitude_nm=50, field_T=0.5, phase_rad=2.8),
++]
++results = []
++for case in cases:
++    print('\\nCASE', case, flush=True)
++    spectrum = JunctionSpectrum(case, verbose=True)
++    if not results:
++        phase = 1.27
++        original = spectrum.system.hamiltonian_submatrix(
++            params=dict(spectrum.params, k_x=phase), sparse=True
++        ).tocsc()
++        clean_zero = spectrum.system.hamiltonian_submatrix(
++            params=dict(spectrum.params, k_x=0), sparse=True
++        ).tocsc()
++        difference = (original - clean_zero)[spectrum.permutation, :][:, spectrum.permutation]
++        original = spectrum.matrix + difference
++        positions = np.repeat([site.pos[0] for site in spectrum.system.sites], 4)[spectrum.permutation]
++        gauge = sparse.diags(np.exp(1j * phase * positions / 3900))
++        error = sparse.linalg.norm(gauge.conj().T @ original @ gauge - spectrum.hamiltonian(phase))
++        print('GAUGE ERROR', error, flush=True)
++        assert error < 1e-8
++    minimum = spectrum.minimum_gap()
++    surrogate = spectrum.reduced_spectrum()
++    errors = []
++    for phase in np.linspace(0, np.pi, 9)[1::2]:
++        prediction = surrogate(phase)
++        sample = spectrum.evaluate(phase, count=8)
++        errors.append(abs(prediction - sample['gap']))
++        print('CHECK', phase, prediction, sample['gap'], errors[-1], flush=True)
++    result = dict(case=case, gap=minimum, validation_best=min(sample['gap'] for sample in spectrum.samples),
++                  max_projection_error=max(errors), seconds=time.monotonic() - spectrum.started,
++                  peak_kib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
++    results.append(result)
++    print('RESULT', result, flush=True)
++    with open(os.path.join(os.path.dirname(__file__), 'validation_results.json'), 'w') as handle:
++        json.dump(results, handle, indent=2)
++    del spectrum, surrogate
+*** End Patch
+PATCH
+timeout 1600 python -u ../attempt/validate.py > ../attempt/validation.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+**Exploring documentation needs**
+
+I want to document the specifics like the uniform gauge equivalent and sparse nested details, focusing on eigenpair residual and reduced H² variational interpolation. It's crucial to have an exact validation and calibration without any broadening involved. In the README, I need to include usage instructions, mentioning one thread and dependencies, along with model path and output result units. I should also consider safe runtime controls, especially if the computation might be time-heavy!
+exec
+/bin/bash -c 'date -u; tail -n 20 ../attempt/smoke.log; tail -n 16 ../attempt/validation.log; cat ../attempt/result.json 2>/dev/null; tail -n 8 ../attempt/benchmark.log' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ succeeded in 4319ms:
+Fri Aug 28 01:09:24 UTC 2026
+[8.88s] built 124800 orbitals; U = 1.5995099604245393
+[20.04s] phase 0.000000000 gap 0.137546705 residual 5.8e-09 seconds 11.16
+[29.84s] phase 0.785398163 gap 0.09381667462 residual 2.5e-11 seconds 9.72
+[41.97s] phase 1.570796327 gap 0.05834939531 residual 6.6e-09 seconds 12.08
+[52.88s] phase 2.356194490 gap 0.05346195019 residual 4e-10 seconds 10.84
+[68.16s] phase 3.141592654 gap 0.08453019187 residual 1.1e-11 seconds 15.21
+[70.55s] reduced dimension 60
+[70.58s] projected minima [(0.049938821002050084, 2.05175243079409), (0.08453019186566105, 3.141592653589793), (0.1375467050276977, 0.0)]
+
+CASE {'id': 'clean-validation', 'mfp_nm': 1000000.0, 'salt': 7, 'amplitude_nm': 0, 'field_T': 0.7, 'phase_rad': 0}
+[8.73s] built 124800 orbitals; U = 0.11310243395916182
+GAUGE ERROR 3.1338561749516798e-12
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant/workspace/vendor/kwant/solvers/default.py:16: RuntimeWarning: MUMPS is not available, SciPy built-in solver will be used as a fallback. Performance can be very poor in this case.
+  warnings.warn("MUMPS is not available, "
+7.056 built 31200
+7.847 matrix (124800, 124800) 836160 strength 1.5995099604245397
+
+ succeeded in 132371ms:
+Success. Updated the following files:
+A ../attempt/solve.py
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: ../attempt/README.md
++# Disorder-resilient junction audit
++
++Run the submission with Python 3.10 and the supplied numerical dependencies:
++
++"'```sh
++python solve.py --input ../participant/input/request.json --output result.json
++```
++
++`--verbose` optionally writes convergence and timing diagnostics to stderr.
++The JSON output contains only the requested `results` entries, with disorder
++half-widths and gaps in meV. Case identifiers do not enter the calculation.
++
++## Physical model and calibration
++
++The executable imports the read-only `participant/workspace/clean_model.py`
++and calls its `make_system` and `parameters` functions. A local `workspace/`
++beside `solve.py` is also supported. No model parameters or mesh spacings are
++changed. The supplied `random_field.field(U, salt)` is evaluated at each site'"'s
++physical coordinates, and its potential multiplies "'`diag(1, -1, 1, -1)` in
++every region of the finalized Hamiltonian.
++
++The calibration is evaluated in SI units:
++
++```
++v_F = sqrt(2 mu / m_dis)
++rho_site = a''^2 m_dis / (pi hbar''^2)
++U = sqrt(3 hbar v_F / (2 pi rho_site mfp))
++```
++
++Here `m_dis = 0.023 m_e`, `mu = 10 meV`, and `a = 10 nm`; the final `U` is
++converted back to meV. The forward model retains its distinct `0.02 m_e`
++effective mass. This calibration is not used as a gap or a broadening model.
++
++## Spectral calculation
++
++An exact unitary change of Bloch gauge distributes the full-cell phase across
++the 390 longitudinal grid steps. This makes interpolation smooth without
++changing any eigenvalues. A spatial nested-dissection permutation and sparse
++shift-invert LU/ARPACK calculations obtain low-energy eigenpairs at five
++initial phases. The eigenpair residuals are checked explicitly.
++
++The sampled eigenvectors form an orthonormal reduced basis. The solver
++projects the square of the Hamiltonian, so its interpolated absolute energies
++are variational upper bounds, without spurious zero Ritz values from mixing
++positive and negative high-energy states. It searches the entire phase
++interval and validates candidate minima using additional full sparse
++eigensolves, enriching the basis when needed. Particle-hole symmetry makes
++the absolute lowest energy even in phase, so `[0, pi]` covers the full Bloch
++zone. The reported gap is a validated full-matrix eigenvalue, not just the
++interpolation result.
++
++BLAS thread counts are set to one before importing NumPy or SciPy. No dense
++full-system matrix is constructed, and no persistent cache is required.
+*** End Patch
+PATCH
+chmod +x ../attempt/solve.py
+date -u; tail -n 18 ../attempt/smoke.log; tail -n 24 ../attempt/validation.log; cat ../attempt/result.json 2>/dev/null; free -m' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ succeeded in 8961ms:
+Success. Updated the following files:
+A ../attempt/README.md
+Fri Aug 28 01:10:48 UTC 2026
+[8.88s] built 124800 orbitals; U = 1.5995099604245393
+[20.04s] phase 0.000000000 gap 0.137546705 residual 5.8e-09 seconds 11.16
+[29.84s] phase 0.785398163 gap 0.09381667462 residual 2.5e-11 seconds 9.72
+[41.97s] phase 1.570796327 gap 0.05834939531 residual 6.6e-09 seconds 12.08
+[52.88s] phase 2.356194490 gap 0.05346195019 residual 4e-10 seconds 10.84
+[68.16s] phase 3.141592654 gap 0.08453019187 residual 1.1e-11 seconds 15.21
+[70.55s] reduced dimension 60
+[70.58s] projected minima [(0.049938821002050084, 2.05175243079409), (0.08453019186566105, 3.141592653589793), (0.1375467050276977, 0.0)]
+[82.59s] phase 2.051752431 gap 0.04993882098 residual 1.2e-11 seconds 12.01
+[82.67s] minimum 0.049938820975069645 from 6 full sparse spectra
+
+CASE {'id': 'clean-validation', 'mfp_nm': 1000000.0, 'salt': 7, 'amplitude_nm': 0, 'field_T': 0.7, 'phase_rad': 0}
+[8.73s] built 124800 orbitals; U = 0.11310243395916182
+GAUGE ERROR 3.1338561749516798e-12
+[27.92s] phase 0.000000000 gap 0.1308763366 residual 2.4e-09 seconds 17.41
+[44.40s] phase 0.785398163 gap 0.1243457062 residual 6.3e-11 seconds 16.40
+[55.97s] phase 1.570796327 gap 0.09746148867 residual 7.2e-10 seconds 11.49
+[66.78s] phase 2.356194490 gap 0.04871975116 residual 9.2e-10 seconds 10.75
+[79.15s] phase 3.141592654 gap 0.02488321444 residual 1.9e-11 seconds 12.28
+[81.28s] reduced dimension 60
+[81.31s] projected minima [(0.023550485193962713, 3.0003230213773353), (0.024883214438193958, 3.141592653589793), (0.12379390399964844, 1.0818372761134647), (0.13087633655444608, 0.0)]
+[92.17s] phase 3.000323021 gap 0.02355048511 residual 4.1e-12 seconds 10.87
+[92.24s] minimum 0.023550485108246526 from 6 full sparse spectra
+[95.00s] reduced dimension 72
+{
+  "results": [
+    {
+      "id": "public-smoke",
+      "strength_meV": 1.5995099604245393,
+      "gap_meV": 0.049938820975069645
+    }
+  ]
+}
+               total        used        free      shared  buff/cache   available
+Mem:         1541596      573997      120841      110823      846757      788855
+Swap:              0           0           0
+
+**Analyzing resource performance**
+
+I’m looking at the Hugehostmem resources and noticing we have 788GB available, which is quite ample compared to the 100GB first factor. The original benchmark was taking over 900 seconds with some slow filling. I realize we have about 48 minutes remaining, but we could complete everything in just 10 more.
+
+There’s a validation gap I’m noticing, probably due to phase bias, which makes me want to test. I'll ensure we capture exceptions for any runtime issues we encounter as we go forward.
+**Evaluating random seed and convergence**
+
+I’m examining the random seed and noticing that constant v0 uses complex numbers but starts with real ones at phase 0. Some Hamiltonian sectors have pure imaginary eigenvectors. The projection being complex with a nonzero value shows a bit of complexity. 
+
+Also, the nested degrees of freedom for 4 spins are using the correct basis. I should add system.has_parameters, but I'm wary of convergence warnings from scipy's fsolve if the output grows too large. I see some important notes about input limits that I might need to consider for deadlines.
+codex
+The smoke test passes; I’m checking three additional regimes.
+
+Implemented and ran the full solver on the supplied request. Its minimum occurs away from zero Bloch phase; additional regime and interpolation checks are running.
+  ✓ Inspect model and numerical constraints
+  ✓ Implement calibrated sparse spectral solver
+  → Test accuracy and runtime on inputs
+  • Finalize executable and usage documentation
+exec
+/bin/bash -c "date -u; tail -n 35 ../attempt/validation.log; ls -lh ../attempt; python - <<'PY'
+import ast, json
+from pathlib import Path
+root = Path('../attempt')
+ast.parse((root / 'solve.py').read_text())
+request = json.loads(Path('input/request.json').read_text())
+result = json.loads((root / 'result.json').read_text())
+assert [entry['id'] for entry in result['results']] == [entry['id'] for entry in request['cases']]
+assert all(entry['strength_meV'] >= 0 and entry['gap_meV'] >= 0 for entry in result['results'])
+print('Syntax and supplied-request output schema checks passed.')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+**Evaluating process logs and benchmarks**
+
+I’m considering how to manage the README and validation results. It seems unnecessary to include performance benchmarks and logs in the final files, especially since they weren't requested. I wonder if I should delete certain benchmarks after the processes terminate. There's this concern about handling logs while a process is still running and potential memory issues, especially with larger files. It’s better not to delete logs until I ensure everything's finished. I need to check the command for signal interruptions, too.
+**Considering tool call parameters and processes**
+
+I’m pondering whether the functions and tool call proxies work the same regardless of parameters. It seems like there's confusion about benchmarking processes versus artifacts and whether that's relevant to the user. If a terminating turn kills processes, it might be clearer. I'm also thinking we might need to introduce a signal deadline guard to keep things within limits. Evaluating performance can be tricky, especially with geometry setups that could cause complex growth behaviors in certain scenarios.
+ succeeded in 27902ms:
+Fri Aug 28 01:12:35 UTC 2026
+
+CASE {'id': 'clean-validation', 'mfp_nm': 1000000.0, 'salt': 7, 'amplitude_nm': 0, 'field_T': 0.7, 'phase_rad': 0}
+[8.73s] built 124800 orbitals; U = 0.11310243395916182
+GAUGE ERROR 3.1338561749516798e-12
+[27.92s] phase 0.000000000 gap 0.1308763366 residual 2.4e-09 seconds 17.41
+[44.40s] phase 0.785398163 gap 0.1243457062 residual 6.3e-11 seconds 16.40
+[55.97s] phase 1.570796327 gap 0.09746148867 residual 7.2e-10 seconds 11.49
+[66.78s] phase 2.356194490 gap 0.04871975116 residual 9.2e-10 seconds 10.75
+[79.15s] phase 3.141592654 gap 0.02488321444 residual 1.9e-11 seconds 12.28
+[81.28s] reduced dimension 60
+[81.31s] projected minima [(0.023550485193962713, 3.0003230213773353), (0.024883214438193958, 3.141592653589793), (0.12379390399964844, 1.0818372761134647), (0.13087633655444608, 0.0)]
+[92.17s] phase 3.000323021 gap 0.02355048511 residual 4.1e-12 seconds 10.87
+[92.24s] minimum 0.023550485108246526 from 6 full sparse spectra
+[95.00s] reduced dimension 72
+[108.38s] phase 0.392699082 gap 0.1268335441 residual 3.4e-09 seconds 13.38
+CHECK 0.39269908169872414 0.12683354413385062 0.12683354411414127 1.9709345266960554e-11
+[121.48s] phase 1.178097245 gap 0.1227261471 residual 1.9e-12 seconds 13.00
+CHECK 1.1780972450961724 0.12272614714646714 0.12272614713971419 6.7529454250703225e-12
+[134.26s] phase 1.963495408 gap 0.07256469987 residual 2.1e-12 seconds 12.70
+CHECK 1.9634954084936207 0.07256469986631252 0.07256469986558085 7.316647288035938e-13
+[145.90s] phase 2.748893572 gap 0.02882814718 residual 2.7e-12 seconds 11.57
+CHECK 2.748893571891069 0.028828147184273054 0.028828147184077307 1.957461970292229e-13
+RESULT {'case': {'id': 'clean-validation', 'mfp_nm': 1000000.0, 'salt': 7, 'amplitude_nm': 0, 'field_T': 0.7, 'phase_rad': 0}, 'gap': 0.023550485108246526, 'validation_best': 0.023550485108246526, 'max_projection_error': 1.9709345266960554e-11, 'seconds': 145.97204514901387, 'peak_kib': 1059676}
+
+CASE {'id': 'scattering-validation', 'mfp_nm': 100, 'salt': 14, 'amplitude_nm': 0, 'field_T': 0.8, 'phase_rad': 0}
+[1.03s] built 124800 orbitals; U = 11.310243395916181
+[12.10s] phase 0.000000000 gap 0.0007246022985 residual 2.5e-11 seconds 11.08
+[24.94s] phase 0.785398163 gap 0.0001463005621 residual 2.6e-11 seconds 12.77
+[35.97s] phase 1.570796327 gap 0.0005149991447 residual 1.7e-11 seconds 10.93
+[47.20s] phase 2.356194490 gap 0.001504072833 residual 6.2e-12 seconds 11.16
+[57.87s] phase 3.141592654 gap 0.002328764202 residual 8.7e-12 seconds 10.58
+[60.25s] reduced dimension 60
+[60.28s] projected minima [(0.00013807895439200128, 0.8833704881077659), (0.0007246022983541836, 0.0), (0.0023287642022824864, 3.141592653589793)]
+total 56K
+-rw-rw-r-- 1 xuandong xuandong 2.4K Aug 27 18:10 README.md
+-rw-rw-r-- 1 xuandong xuandong  471 Aug 27 18:00 benchmark.log
+-rw-rw-r-- 1 xuandong xuandong 1.9K Aug 27 18:00 benchmark.py
+-rw-rw-r-- 1 xuandong xuandong 2.5K Aug 27 18:03 benchmark_order.py
+-rw-rw-r-- 1 xuandong xuandong  854 Aug 27 18:03 mmd001.log
+-rw-rw-r-- 1 xuandong xuandong  849 Aug 27 18:03 nested.log
+-rw-rw-r-- 1 xuandong xuandong  143 Aug 27 18:09 result.json
+-rw-rw-r-- 1 xuandong xuandong  738 Aug 27 18:09 smoke.log
+-rwxrwxr-x 1 xuandong xuandong  12K Aug 27 18:08 solve.py
+-rw-rw-r-- 1 xuandong xuandong 2.7K Aug 27 18:09 validate.py
+-rw-rw-r-- 1 xuandong xuandong 2.6K Aug 27 18:12 validation.log
+-rw-rw-r-- 1 xuandong xuandong  365 Aug 27 18:11 validation_results.json
+Syntax and supplied-request output schema checks passed.
+
+**Evaluating benchmark logs**
+
+It looks like I'm considering if the benchmark logs are still running. I might remove the hook, but I'm unsure if unlinking is allowed. I need to check if I can edit the files, including deleting them, while applying patches. It seems like the source original should be deleted to keep things cleaner, but I want to ensure I'm not affecting the compilation. The runtime needs to be managed carefully, particularly with log sizes being small or huge.
+**Evaluating test phase**
+
+I'm looking at the test phase for some parameters that might yield interesting results. I'm questioning whether Kramers crossings in this context could be odd. It seems that if I alter phase to π, I might hit zero in ballistic Josephson junctions, but there's a limit with finite chemical potential around some interface steps. I'm wondering if the effects will show normal reflection gaps around 0.0001. The solver captures all this, focusing on eigenvalues and small shifts; the cost should stay under two minutes!
+exec
+/bin/bash -c 'ulimit -v 12582912; /usr/bin/time -v timeout 570 python solve.py --input ../participant/input/request.json --output result_repeat.json > repeat.log 2>&1' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/attempt
+exec
+/bin/bash -c 'date -u; tail -n 38 ../attempt/validation.log; tail -n 25 ../attempt/repeat.log; cat ../attempt/validation_results.json' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ succeeded in 10147ms:
+Fri Aug 28 01:14:09 UTC 2026
+[92.24s] minimum 0.023550485108246526 from 6 full sparse spectra
+[95.00s] reduced dimension 72
+[108.38s] phase 0.392699082 gap 0.1268335441 residual 3.4e-09 seconds 13.38
+CHECK 0.39269908169872414 0.12683354413385062 0.12683354411414127 1.9709345266960554e-11
+[121.48s] phase 1.178097245 gap 0.1227261471 residual 1.9e-12 seconds 13.00
+CHECK 1.1780972450961724 0.12272614714646714 0.12272614713971419 6.7529454250703225e-12
+[134.26s] phase 1.963495408 gap 0.07256469987 residual 2.1e-12 seconds 12.70
+CHECK 1.9634954084936207 0.07256469986631252 0.07256469986558085 7.316647288035938e-13
+[145.90s] phase 2.748893572 gap 0.02882814718 residual 2.7e-12 seconds 11.57
+CHECK 2.748893571891069 0.028828147184273054 0.028828147184077307 1.957461970292229e-13
+RESULT {'case': {'id': 'clean-validation', 'mfp_nm': 1000000.0, 'salt': 7, 'amplitude_nm': 0, 'field_T': 0.7, 'phase_rad': 0}, 'gap': 0.023550485108246526, 'validation_best': 0.023550485108246526, 'max_projection_error': 1.9709345266960554e-11, 'seconds': 145.97204514901387, 'peak_kib': 1059676}
+
+CASE {'id': 'scattering-validation', 'mfp_nm': 100, 'salt': 14, 'amplitude_nm': 0, 'field_T': 0.8, 'phase_rad': 0}
+[1.03s] built 124800 orbitals; U = 11.310243395916181
+[12.10s] phase 0.000000000 gap 0.0007246022985 residual 2.5e-11 seconds 11.08
+[24.94s] phase 0.785398163 gap 0.0001463005621 residual 2.6e-11 seconds 12.77
+[35.97s] phase 1.570796327 gap 0.0005149991447 residual 1.7e-11 seconds 10.93
+[47.20s] phase 2.356194490 gap 0.001504072833 residual 6.2e-12 seconds 11.16
+[57.87s] phase 3.141592654 gap 0.002328764202 residual 8.7e-12 seconds 10.58
+[60.25s] reduced dimension 60
+[60.28s] projected minima [(0.00013807895439200128, 0.8833704881077659), (0.0007246022983541836, 0.0), (0.0023287642022824864, 3.141592653589793)]
+[73.10s] phase 0.883370488 gap 0.0001380653137 residual 1.7e-11 seconds 12.82
+[73.19s] minimum 0.00013806531365835205 from 6 full sparse spectra
+[76.19s] reduced dimension 72
+[86.74s] phase 0.392699082 gap 0.000336219391 residual 1e-10 seconds 10.55
+CHECK 0.39269908169872414 0.0003362198157977008 0.0003362193909895362 4.248081645567142e-10
+[97.11s] phase 1.178097245 gap 0.0002114336709 residual 4e-10 seconds 10.29
+CHECK 1.1780972450961724 0.00021143371765307522 0.000211433670942674 4.671040122619999e-11
+[107.11s] phase 1.963495408 gap 0.0009813014061 residual 3.4e-09 seconds 9.92
+CHECK 1.9634954084936207 0.0009813015381534519 0.0009813014061353994 1.3201805252292809e-10
+[117.80s] phase 2.748893572 gap 0.001977051146 residual 4.5e-10 seconds 10.56
+CHECK 2.748893571891069 0.0019770520825365383 0.0019770511462851403 9.362513980239184e-10
+RESULT {'case': {'id': 'scattering-validation', 'mfp_nm': 100, 'salt': 14, 'amplitude_nm': 0, 'field_T': 0.8, 'phase_rad': 0}, 'gap': 0.00013806531365835205, 'validation_best': 0.00013806531365835205, 'max_projection_error': 9.362513980239184e-10, 'seconds': 117.88258979999227, 'peak_kib': 1134884}
+
+CASE {'id': 'phase-validation', 'mfp_nm': 3000, 'salt': 29, 'amplitude_nm': 50, 'field_T': 0.5, 'phase_rad': 2.8}
+[10.02s] built 140400 orbitals; U = 2.0649584796057088
+[23.68s] phase 0.000000000 gap 0.06164849329 residual 1.3e-09 seconds 13.66
+[40.45s] phase 0.785398163 gap 0.05979040253 residual 1.4e-10 seconds 16.69
+[
+  {
+    "case": {
+      "id": "clean-validation",
+      "mfp_nm": 1000000.0,
+      "salt": 7,
+      "amplitude_nm": 0,
+      "field_T": 0.7,
+      "phase_rad": 0
+    },
+    "gap": 0.023550485108246526,
+    "validation_best": 0.023550485108246526,
+    "max_projection_error": 1.9709345266960554e-11,
+    "seconds": 145.97204514901387,
+    "peak_kib": 1059676
+  },
+  {
+    "case": {
+      "id": "scattering-validation",
+      "mfp_nm": 100,
+      "salt": 14,
+      "amplitude_nm": 0,
+      "field_T": 0.8,
+      "phase_rad": 0
+    },
+    "gap": 0.00013806531365835205,
+    "validation_best": 0.00013806531365835205,
+    "max_projection_error": 9.362513980239184e-10,
+    "seconds": 117.88258979999227,
+    "peak_kib": 1134884
+  }
+]
+codex
+Clean and scattering checks agree with independent full-matrix spectra.
+
+ succeeded in 126362ms:
+exec
+/bin/bash -c "date -u; tail -n 25 ../attempt/validation.log; tail -n 25 ../attempt/repeat.log; if [ -f ../attempt/result_repeat.json ]; then cmp ../attempt/result.json ../attempt/result_repeat.json && echo 'Repeated output is byte-identical.'; fi" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ succeeded in 16152ms:
+Fri Aug 28 01:15:54 UTC 2026
+[76.19s] reduced dimension 72
+[86.74s] phase 0.392699082 gap 0.000336219391 residual 1e-10 seconds 10.55
+CHECK 0.39269908169872414 0.0003362198157977008 0.0003362193909895362 4.248081645567142e-10
+[97.11s] phase 1.178097245 gap 0.0002114336709 residual 4e-10 seconds 10.29
+CHECK 1.1780972450961724 0.00021143371765307522 0.000211433670942674 4.671040122619999e-11
+[107.11s] phase 1.963495408 gap 0.0009813014061 residual 3.4e-09 seconds 9.92
+CHECK 1.9634954084936207 0.0009813015381534519 0.0009813014061353994 1.3201805252292809e-10
+[117.80s] phase 2.748893572 gap 0.001977051146 residual 4.5e-10 seconds 10.56
+CHECK 2.748893571891069 0.0019770520825365383 0.0019770511462851403 9.362513980239184e-10
+RESULT {'case': {'id': 'scattering-validation', 'mfp_nm': 100, 'salt': 14, 'amplitude_nm': 0, 'field_T': 0.8, 'phase_rad': 0}, 'gap': 0.00013806531365835205, 'validation_best': 0.00013806531365835205, 'max_projection_error': 9.362513980239184e-10, 'seconds': 117.88258979999227, 'peak_kib': 1134884}
+
+CASE {'id': 'phase-validation', 'mfp_nm': 3000, 'salt': 29, 'amplitude_nm': 50, 'field_T': 0.5, 'phase_rad': 2.8}
+[10.02s] built 140400 orbitals; U = 2.0649584796057088
+[23.68s] phase 0.000000000 gap 0.06164849329 residual 1.3e-09 seconds 13.66
+[40.45s] phase 0.785398163 gap 0.05979040253 residual 1.4e-10 seconds 16.69
+[59.40s] phase 1.570796327 gap 0.06761168383 residual 1.3e-10 seconds 18.83
+[78.39s] phase 2.356194490 gap 0.07140000206 residual 4.1e-10 seconds 18.92
+[95.51s] phase 3.141592654 gap 0.07189028912 residual 1.7e-08 seconds 17.01
+[98.38s] reduced dimension 60
+[98.41s] projected minima [(0.059372366439504554, 0.5762572282247101), (0.0616484932944094, 0.0), (0.07189028911669608, 3.141592653589793)]
+[117.20s] phase 0.576257228 gap 0.05937235167 residual 4.1e-10 seconds 18.79
+[117.77s] minimum 0.059372351672452216 from 6 full sparse spectra
+[122.27s] reduced dimension 72
+[136.80s] phase 0.392699082 gap 0.05967490137 residual 2.9e-10 seconds 14.53
+CHECK 0.39269908169872414 0.05967490141052907 0.05967490137262659 3.7902479765872243e-11
+	Command being timed: "timeout 570 python solve.py --input ../participant/input/request.json --output result_repeat.json"
+	User time (seconds): 86.74
+	System time (seconds): 3.39
+	Percent of CPU this job got: 98%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:31.11
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 891036
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 1068925
+	Voluntary context switches: 4
+	Involuntary context switches: 290
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 8
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+Repeated output is byte-identical.
+
+ succeeded in 457874ms:
+Success. Updated the following files:
+A ../attempt/validate.py
+
+The supplied request is reproducible byte-for-byte and completes in 91 seconds under a 12 GiB address-space limit. All three additional regimes produce converged spectra; final cross-checks and cleanup remain.
+  ✓ Inspect model and numerical constraints
+  ✓ Implement calibrated sparse spectral solver
+  ✓ Test accuracy and runtime on inputs
+  → Finalize executable and usage documentation
+**Finalizing checks**
+
+I’m marking that tests are complete, but it seems additional cross-checks aren't fully done. I think I’ll verify everything related to the final phases and ensure the solver passed all three regimes. The spectral points have been verified, but it’s still not finalized. I need to prepare for step four, which includes those last checks. Also, I should ensure there are no unwanted agents in the read-only directories or modifications before performing the final validation.
+codex
+All three regimes converge. I’ll finish documentation and cleanup.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: ../attempt/README.md
+@@
+ BLAS thread counts are set to one before importing NumPy or SciPy. No dense
+ full-system matrix is constructed, and no persistent cache is required.
++
++## Validation
++
++The supplied request produces "'`U = 1.5995099604245393 meV` and
++`gap = 0.049938820975069645 meV`, with the minimum near full-cell Bloch phase
++`2.051752431`. A repeated execution produces byte-identical JSON. The complete
++CLI run takes 91.11 seconds and peaks at about 870 MiB resident memory, with a
++12 GiB address-space limit imposed during the test.
++
++Additional clean-like, scattering-dominated, and phase-biased cases are
++recorded in `validation_results.json`. Each is checked against four additional
++full-matrix sparse spectra between the initial sample phases. A direct
++comparison against the original Kwant Bloch Hamiltonian also verifies the
++uniform-gauge transformation, to a matrix-norm difference below `4e-12`.
+*** Delete File: ../attempt/benchmark.py
+*** Delete File: ../attempt/benchmark_order.py
+*** Delete File: ../attempt/benchmark.log
+*** Delete File: ../attempt/mmd001.log
+*** Delete File: ../attempt/nested.log
+*** End Patch
+PATCH
+tail -n 14 ../attempt/validation.log; cat ../attempt/validation_results.json' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+**Finalizing submission process**
+
+I need to submit everything completely within the time frame. My final deadline is around 18:19, and I've got nearly 20 minutes remaining. I can wait for the validation process, which should yield results in about 60 seconds. There’s no other work blocking this until the results come back, so that gives me time to focus on getting everything done properly.
+ succeeded in 13134ms:
+Success. Updated the following files:
+M ../attempt/README.md
+D ../attempt/benchmark.py
+D ../attempt/benchmark_order.py
+D ../attempt/benchmark.log
+D ../attempt/mmd001.log
+D ../attempt/nested.log
+[98.38s] reduced dimension 60
+[98.41s] projected minima [(0.059372366439504554, 0.5762572282247101), (0.0616484932944094, 0.0), (0.07189028911669608, 3.141592653589793)]
+[117.20s] phase 0.576257228 gap 0.05937235167 residual 4.1e-10 seconds 18.79
+[117.77s] minimum 0.059372351672452216 from 6 full sparse spectra
+[122.27s] reduced dimension 72
+[136.80s] phase 0.392699082 gap 0.05967490137 residual 2.9e-10 seconds 14.53
+CHECK 0.39269908169872414 0.05967490141052907 0.05967490137262659 3.7902479765872243e-11
+[151.13s] phase 1.178097245 gap 0.06275141748 residual 3.3e-09 seconds 14.20
+CHECK 1.1780972450961724 0.06275141756506053 0.0627514174798589 8.520162353420346e-11
+[164.66s] phase 1.963495408 gap 0.07094508383 residual 4.5e-09 seconds 13.44
+CHECK 1.9634954084936207 0.07094508405898173 0.07094508382561394 2.333677834309711e-10
+[182.50s] phase 2.748893572 gap 0.07150744835 residual 3e-12 seconds 17.73
+CHECK 2.748893571891069 0.0715074494149684 0.07150744835043919 1.0645292009003882e-09
+RESULT {'case': {'id': 'phase-validation', 'mfp_nm': 3000, 'salt': 29, 'amplitude_nm': 50, 'field_T': 0.5, 'phase_rad': 2.8}, 'gap': 0.059372351672452216, 'validation_best': 0.059372351672452216, 'max_projection_error': 1.0645292009003882e-09, 'seconds': 182.6458534990088, 'peak_kib': 1320500}
+[
+  {
+    "case": {
+      "id": "clean-validation",
+      "mfp_nm": 1000000.0,
+      "salt": 7,
+      "amplitude_nm": 0,
+      "field_T": 0.7,
+      "phase_rad": 0
+    },
+    "gap": 0.023550485108246526,
+    "validation_best": 0.023550485108246526,
+    "max_projection_error": 1.9709345266960554e-11,
+    "seconds": 145.97204514901387,
+    "peak_kib": 1059676
+  },
+  {
+    "case": {
+      "id": "scattering-validation",
+      "mfp_nm": 100,
+      "salt": 14,
+      "amplitude_nm": 0,
+      "field_T": 0.8,
+      "phase_rad": 0
+    },
+    "gap": 0.00013806531365835205,
+    "validation_best": 0.00013806531365835205,
+    "max_projection_error": 9.362513980239184e-10,
+    "seconds": 117.88258979999227,
+    "peak_kib": 1134884
+  },
+  {
+    "case": {
+      "id": "phase-validation",
+      "mfp_nm": 3000,
+      "salt": 29,
+      "amplitude_nm": 50,
+      "field_T": 0.5,
+      "phase_rad": 2.8
+    },
+    "gap": 0.059372351672452216,
+    "validation_best": 0.059372351672452216,
+    "max_projection_error": 1.0645292009003882e-09,
+    "seconds": 182.6458534990088,
+    "peak_kib": 1320500
+  }
+]
+2026-08-28T01:17:33.664526Z ERROR codex_core::tools::router: error=write_stdin failed: stdin is closed for this session; rerun exec_command with tty=true to keep stdin open
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Delete File: ../attempt/validate.py
+*** Delete File: ../attempt/validation.log
+*** Delete File: ../attempt/smoke.log
+*** Delete File: ../attempt/repeat.log
+*** Delete File: ../attempt/result_repeat.json
+*** End Patch
+PATCH
+python - <<'PY'
+import ast
+import json
+import math
+import os
+from pathlib import Path
+root = Path('../attempt')
+ast.parse((root / 'solve.py').read_text())
+assert os.access(root / 'solve.py', os.X_OK)
+results = json.loads((root / 'result.json').read_text())['results']
+assert len(results) == 1
+assert set(results[0]) == {'id', 'strength_meV', 'gap_meV'}
+assert all(math.isfinite(results[0][name]) and results[0][name] >= 0 for name in ('strength_meV', 'gap_meV'))
+checks = json.loads((root / 'validation_results.json').read_text())
+assert len(checks) == 3
+assert max(check['max_projection_error'] for check in checks) < 2e-9
+assert all(check['gap'] == check['validation_best'] for check in checks)
+assert all(check['seconds'] < 600 and check['peak_kib'] < 12 * 1024**2 for check in checks)
+print('Final checks passed: executable, JSON schema, finite values, three regimes, and resource limits.')
+print('Maximum independent spectral check error:', max(check['max_projection_error'] for check in checks), 'meV')
+for path in sorted(root.iterdir()):
+    if path.is_file():
+        print(path.name, path.stat().st_size, 'bytes')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v3/enhanced_proximity_effect_in_zigzag_shaped_majorana_josephson_junction__1903_06168/pilots/02_disorder_ensemble/participant
+ succeeded in 70429ms:
+Success. Updated the following files:
+D ../attempt/validate.py
+D ../attempt/validation.log
+D ../attempt/smoke.log
+D ../attempt/repeat.log
+D ../attempt/result_repeat.json
+Final checks passed: executable, JSON schema, finite values, three regimes, and resource limits.
+Maximum independent spectral check error: 1.0645292009003882e-09 meV
+README.md 3172 bytes
+result.json 143 bytes
+solve.py 12064 bytes
+validation_results.json 1092 bytes
+
+Finished implementation, resource-limited reproducibility testing, three-regime spectral cross-checks, documentation, and cleanup. Only the executable, documentation, supplied result, and validation summary remain.
+  ✓ Inspect model and numerical constraints
+  ✓ Implement calibrated sparse spectral solver
+  ✓ Test accuracy and runtime on inputs
+  ✓ Finalize executable and usage documentation
+codex
+Implemented `../attempt/solve.py:1` with calibrated disorder and sparse Bloch-phase gap minimization.
+
+- Supplied result: strength **1.5995099604 meV**, gap **0.0499388210 meV**.
+- Tested all three regimes and verified byte-identical repeat output.
+- Smoke test: **91 seconds**, approximately **870 MiB** RAM.
+- Output: `../attempt/result.json:1`; usage and validation details: `../attempt/README.md:1`.
+tokens used
+107,412
+Implemented `../attempt/solve.py:1` with calibrated disorder and sparse Bloch-phase gap minimization.
+
+- Supplied result: strength **1.5995099604 meV**, gap **0.0499388210 meV**.
+- Tested all three regimes and verified byte-identical repeat output.
+- Smoke test: **91 seconds**, approximately **870 MiB** RAM.
+- Output: `../attempt/result.json:1`; usage and validation details: `../attempt/README.md:1`.
