@@ -1,0 +1,1075 @@
+# Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+# All rights reserved.
+#
+# SPDX-License-Identifier: MIT
+#
+# Licensed under the MIT License
+
+"""Class for working with representations of Pauli operators."""
+
+from __future__ import annotations
+
+import math
+from typing import TYPE_CHECKING, NamedTuple
+
+import numpy as np
+
+from mqt.qecc import mod2
+
+from .symplectic import SymplecticMatrix, SymplecticVector, symplectic_product
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Sequence
+
+    import numpy.typing as npt
+    import stim
+
+
+_PHASE_PREFIX_TO_EXPONENT: dict[str, int] = {"": 0, "+": 0, "+i": 1, "-": 2, "-i": 3}
+_EXPONENT_TO_PHASE_PREFIX: dict[int, str] = {0: "", 1: "+i", 2: "-", 3: "-i"}
+
+
+def _binary_dot(a: npt.NDArray[np.integer], b: npt.NDArray[np.integer]) -> int:
+    """Dot two binary vectors, accumulating in a width that cannot wrap.
+
+    The symplectic arrays are int8, so a dot product over more than 127 set positions
+    would wrap. Results here only ever feed a modulo 2 or 4, and 256 is divisible by
+    four, so the wrapped value happens to stay correct -- but relying on that is
+    fragile, so widen explicitly.
+    """
+    return int(np.dot(np.asarray(a, dtype=np.int64), np.asarray(b, dtype=np.int64)))
+
+
+def _split_pauli_string_prefix(p: str) -> tuple[int, str]:
+    """Split a Pauli string into its phase-prefix exponent and its letter body."""
+    for prefix in ("+i", "-i"):
+        if p.startswith(prefix):
+            return _PHASE_PREFIX_TO_EXPONENT[prefix], p[len(prefix) :]
+    if p[:1] in {"+", "-"}:
+        return _PHASE_PREFIX_TO_EXPONENT[p[0]], p[1:]
+    return 0, p
+
+
+class PauliRowEchelon(NamedTuple):
+    """The result of a phase-sensitive row reduction of a :class:`PauliTableau`.
+
+    Attributes:
+        reduced: The reduced tableau, with dependent rows retained as scalar Paulis.
+        rank: The Pauli subgroup rank, i.e. ``log2`` of the order of the generated
+            subgroup, including the contribution of the global phases.
+        n_global_phases: How many global phases the subgroup contains: 1 for ``{I}``,
+            2 for ``{I, -I}``, 4 for ``{I, iI, -I, -iI}``. This is a count, not a rank.
+        transform: The binary matrix ``T`` with ``T @ input.symplectic % 2 == reduced.symplectic``.
+        pivot_cols: The pivot column indices. Their number is the *symplectic* rank,
+            which can be smaller than ``rank``.
+    """
+
+    reduced: PauliTableau
+    rank: int
+    n_global_phases: int
+    transform: npt.NDArray[np.int8]
+    pivot_cols: list[int]
+
+
+def pauli_row_echelon(p: PauliTableau) -> PauliRowEchelon:
+    """Compute a phase-sensitive reduced row echelon form of a PauliTableau.
+
+    Unlike a plain mod-2 row reduction, this tracks the phase picked up when Pauli
+    rows are combined, so it is the correct reduction to use on a signed tableau.
+
+    Args:
+        p: The PauliTableau. It is not modified.
+
+    Returns:
+        A :class:`PauliRowEchelon` describing the reduction.
+    """
+    n = p.n
+    n_rows = p.n_rows
+
+    # Work on the raw arrays rather than a list of Paulis: the elimination is
+    # O(rows * n) multiplications, which is far too slow row-by-row in Python.
+    # int64 throughout, because x.z sums over n qubits overflow int8.
+    symplectic = p.tableau.data.astype(np.int8).copy()
+    phases = p.phase_exponents.astype(np.int64).copy()
+
+    transform_matrix = np.eye(n_rows, dtype=np.int8)
+    pivot_row = 0
+    pivot_cols: list[int] = []
+
+    for col in range(2 * n):
+        below = np.flatnonzero(symplectic[pivot_row:, col])
+        if below.size == 0:
+            continue
+        pivot = pivot_row + int(below[0])
+
+        if pivot != pivot_row:
+            symplectic[[pivot_row, pivot]] = symplectic[[pivot, pivot_row]]
+            phases[[pivot_row, pivot]] = phases[[pivot, pivot_row]]
+            transform_matrix[[pivot_row, pivot]] = transform_matrix[[pivot, pivot_row]]
+
+        pivot_x = symplectic[pivot_row, :n].astype(np.int64)
+        pivot_z = symplectic[pivot_row, n:].astype(np.int64)
+        # Multiplying by the inverse of the pivot row: same support, negated phase.
+        inverse_phase = (-phases[pivot_row] + 2 * int(pivot_x @ pivot_z)) % 4
+
+        targets = symplectic[:, col].astype(bool)
+        targets[pivot_row] = False
+        if targets.any():
+            # ``row * pivot^-1`` picks up 2 * (z_row . x_pivot) from commuting Z past X.
+            z_dot_x = (symplectic[targets][:, n:].astype(np.int64) @ pivot_x) % 2
+            phases[targets] = (phases[targets] + inverse_phase + 2 * z_dot_x) % 4
+            symplectic[targets] ^= symplectic[pivot_row]
+            transform_matrix[targets] ^= transform_matrix[pivot_row]
+
+        pivot_cols.append(col)
+        pivot_row += 1
+        if pivot_row == n_rows:
+            break
+
+    reduced = PauliTableau(SymplecticMatrix(symplectic), phases.astype(np.int8)) if n_rows else PauliTableau.empty(n)
+
+    # global phases of unrestricted pauli subgroups induced by...
+    # ...general pauli multiplication: {I}, {I, -I}, or {I, iI, -I, -iI}
+    global_phases = [int(v) for v in phases[pivot_row:]]
+    # ...pauli squares: {I}, or {I, -I}, since P^2 = i^(2p + 2 x.z)
+    pivot_x_part = symplectic[:pivot_row, :n].astype(np.int64)
+    pivot_z_part = symplectic[:pivot_row, n:].astype(np.int64)
+    squares = (2 * phases[:pivot_row] + 2 * (pivot_x_part * pivot_z_part).sum(axis=1)) % 4
+    global_phases.extend(int(v) for v in squares)
+    # ...anticommuting pairs: {I}, or {I, -I}
+    if pivot_row > 1 and np.any(symplectic_product(symplectic[:pivot_row], symplectic[:pivot_row])):
+        global_phases.append(2)
+
+    global_phase_step = math.gcd(4, *global_phases)
+    global_phase_rank = {4: 0, 2: 1, 1: 2}[global_phase_step]
+    # potentially restrict to Hermitian rows, thus global phases {I, -I}, as use case for general subgroups not really present
+
+    return PauliRowEchelon(reduced, pivot_row + global_phase_rank, 4 // global_phase_step, transform_matrix, pivot_cols)
+
+
+def pauli_rank(p: PauliTableau) -> int:
+    """Compute the rank of the Pauli subgroup generated by a tableau.
+
+    Args:
+        p: The PauliTableau.
+
+    Returns:
+        ``log2`` of the number of elements in the generated Pauli subgroup.
+    """
+    return pauli_row_echelon(p).rank
+
+
+def pauli_in_reduced_subgroup(
+    reduced: PauliTableau,
+    n_global_phases: int,
+    pivot_cols: list[int],
+    p: Pauli,
+) -> bool:
+    """Decide subgroup membership against a precomputed :func:`pauli_row_echelon` result.
+
+    Reducing the candidate against the echelon rows costs ``O(rows * n)``, so callers
+    that test many Paulis against the same subgroup should compute the echelon form
+    once and reuse it rather than calling :meth:`PauliTableau.is_in_subgroup` per query.
+
+    Args:
+        reduced: The reduced tableau returned by :func:`pauli_row_echelon`.
+        n_global_phases: The number of global phases returned by :func:`pauli_row_echelon`.
+        pivot_cols: The pivot columns returned by :func:`pauli_row_echelon`.
+        p: The Pauli operator to test.
+
+    Returns:
+        True if ``p`` lies in the subgroup the echelon form describes.
+    """
+    if p.n != reduced.n:
+        return False
+
+    # Clear the pivot columns; the echelon form is reduced, so each step touches
+    # exactly one pivot column and never reintroduces an earlier one.
+    residual = p
+    for row, col in enumerate(pivot_cols):
+        if residual.symplectic[col]:
+            residual *= reduced[row].inverse()
+
+    if np.any(residual.symplectic.data):
+        return False  # the support is not in the span of the generators
+
+    # The residual is the scalar i^phase; it is in the subgroup exactly when it lies
+    # in the subgroup {i^k : k % step == 0} of global phases, where step = 4 / count.
+    phase_step = 4 // n_global_phases
+    return residual.phase_exponent % phase_step == 0
+
+
+class Pauli:
+    """Class representing an n-qubit Pauli operator.
+
+    Internally, a Pauli operator is stored as a binary symplectic support (x|z) together with a phase exponent p, representing Q(x,z,p) = i^p X^x Z^z.
+    """
+
+    def __init__(self, symplectic: SymplecticVector, phase_exponent: int | None = None) -> None:
+        """Create a new Pauli operator.
+
+        Args:
+            symplectic: A 2n x 1 binary matrix representing the symplectic form of the Pauli operator. The first n entries correspond to X operators, and the second n entries correspond to Z operators.
+            phase_exponent: The phase exponent p in {0,1,2,3} such that this Pauli equals i^p X^x Z^z, normalized modulo four. If None, use canonical positive Hermitian phase.
+        """
+        self.n = symplectic.n
+        self.symplectic = symplectic
+        if phase_exponent is None:
+            x_part = np.asarray(symplectic[: self.n], dtype=np.int8)
+            z_part = np.asarray(symplectic[self.n :], dtype=np.int8)
+            phase_exponent = _binary_dot(x_part, z_part)
+        self.phase_exponent = int(phase_exponent) % 4
+
+    @classmethod
+    def from_pauli_string(cls, p: str) -> Pauli:
+        """Create a new Pauli operator from a Pauli string.
+
+        Accepts an optional phase prefix of '+' (default), '+i', '-', or '-i' followed by a sequence of I, X, Y, and Z letters.
+        """
+        if not is_pauli_string(p):
+            msg = f"Invalid Pauli string: {p}"
+            raise InvalidPauliError(msg)
+        prefix_exponent, body = _split_pauli_string_prefix(p)
+        x_part = np.array([c in "XY" for c in body]).astype(np.int8)
+        z_part = np.array([c in "ZY" for c in body]).astype(np.int8)
+        base_exponent = _binary_dot(x_part, z_part)
+        phase = (base_exponent + prefix_exponent) % 4
+        return cls(SymplecticVector(np.concatenate((x_part, z_part))), phase)
+
+    @classmethod
+    def from_stim(cls, p: stim.PauliString) -> Pauli:
+        """Create a new Pauli operator from Stim representation."""
+        return cls.from_pauli_string(str(p))
+
+    @classmethod
+    def from_symplectic_and_sign(cls, symplectic: SymplecticVector, sign: int) -> Pauli:
+        """Create a Hermitian Pauli operator from its support and a binary sign.
+
+        Args:
+            symplectic: The binary symplectic support (x|z) of the operator.
+            sign: 0 for a plus sign, 1 for a minus sign, in
+                ``(-1)^sign i^(x.z) X^x Z^z``.
+        """
+        x_part = np.asarray(symplectic[: symplectic.n], dtype=np.int8)
+        z_part = np.asarray(symplectic[symplectic.n :], dtype=np.int8)
+        xz = _binary_dot(x_part, z_part)
+        phase = (xz + 2 * int(sign)) % 4
+        return cls(symplectic, phase)
+
+    def _xz_mod4(self) -> int:
+        """Return x . z mod 4, the phase exponent of the "canonical" Hermitian choice for this support."""
+        return _binary_dot(self.x_part(), self.z_part()) % 4
+
+    def is_hermitian(self) -> bool:
+        """Check whether this Pauli operator is Hermitian, i.e. p == x.z (mod 2)."""
+        return self.phase_exponent % 2 == self._xz_mod4() % 2
+
+    def sign(self) -> int:
+        """Return the conventional binary sign r of a Hermitian Pauli, in (-1)^r i^(x.z) X^x Z^z.
+
+        Raises:
+            InvalidPauliError: If this Pauli operator is not Hermitian.
+        """
+        if not self.is_hermitian():
+            msg = f"Pauli operator {self!r} is not Hermitian and has no binary sign."
+            raise InvalidPauliError(msg)
+        return ((self.phase_exponent - self._xz_mod4()) // 2) % 2
+
+    def inverse(self) -> Pauli:
+        """Return the inverse of this Pauli operator."""
+        return Pauli(self.symplectic, (-self.phase_exponent + 2 * self._xz_mod4()) % 4)
+
+    def commute(self, other: Pauli) -> bool:
+        """Check if this Pauli operator commutes with another Pauli operator."""
+        return self.symplectic @ other.symplectic == 0
+
+    def anticommute(self, other: Pauli) -> bool:
+        """Check if this Pauli operator anticommutes with another Pauli operator."""
+        return not self.commute(other)
+
+    def __mul__(self, other: Pauli) -> Pauli:
+        """Multiply this Pauli operator by another Pauli operator."""
+        if self.n != other.n:
+            msg = "Pauli operators must have the same number of qubits."
+            raise InvalidPauliError(msg)
+        z_dot_x_prime = _binary_dot(self.z_part(), other.x_part())
+        phase_exponent = (self.phase_exponent + other.phase_exponent + 2 * z_dot_x_prime) % 4
+        return Pauli(self.symplectic + other.symplectic, phase_exponent)
+
+    def __repr__(self) -> str:
+        """Return a string representation of the Pauli operator."""
+        x_part = self.symplectic[: self.n]
+        z_part = self.symplectic[self.n :]
+        assert isinstance(x_part, np.ndarray)
+        assert isinstance(z_part, np.ndarray)
+        pauli = [
+            "X" if x and not z else "Z" if z and not x else "Y" if x and z else "I"
+            for x, z in zip(x_part, z_part, strict=False)
+        ]
+        prefix_exponent = (self.phase_exponent - self._xz_mod4()) % 4
+        return _EXPONENT_TO_PHASE_PREFIX[prefix_exponent] + "".join(pauli)
+
+    def as_vector(self) -> npt.NDArray[np.int8]:
+        """Convert the Pauli operator to a vector.
+
+        The first 2n entries are the binary symplectic support; the last
+        entry is the phase exponent p.
+        """
+        return np.concatenate((self.symplectic.data, np.array([self.phase_exponent])))
+
+    def __len__(self) -> int:
+        """Return the number of qubits in the Pauli operator."""
+        return int(self.n)
+
+    def __getitem__(self, key: int) -> str:
+        """Return the Pauli operator for a single qubit."""
+        if key < 0 or key >= self.n:
+            msg = "Index out of range."
+            raise IndexError(msg)
+        x = self.symplectic[key]
+        z = self.symplectic[key + self.n]
+        return "X" if x and not z else "Z" if z and not x else "Y" if x and z else "I"
+
+    def x_part(self) -> npt.NDArray[np.int8]:
+        """Return the X part of the Pauli operator."""
+        return np.asarray(self.symplectic[: self.n], dtype=np.int8)
+
+    def z_part(self) -> npt.NDArray[np.int8]:
+        """Return the Z part of the Pauli operator."""
+        return np.asarray(self.symplectic[self.n :], dtype=np.int8)
+
+    def __eq__(self, other: object) -> bool:
+        """Check if this Pauli operator is equal to another Pauli operator."""
+        if not isinstance(other, Pauli):
+            return False
+        return self.symplectic == other.symplectic and self.phase_exponent == other.phase_exponent
+
+    def __ne__(self, other: object) -> bool:
+        """Check if this Pauli operator is not equal to another Pauli operator."""
+        return not self == other
+
+    def __neg__(self) -> Pauli:
+        """Return the negation of this Pauli operator."""
+        return Pauli(self.symplectic, (self.phase_exponent + 2) % 4)
+
+    def __hash__(self) -> int:
+        """Return a hash of the Pauli operator."""
+        return hash((self.symplectic, self.phase_exponent))
+
+
+class PauliTableau:
+    """An ordered collection of signed Pauli rows in binary symplectic form.
+
+    Used for stabilizer generators, logical operators, Clifford tableaus,
+    destabilizers, and arbitrary Pauli subgroups.
+    """
+
+    def __init__(
+        self, tableau: SymplecticMatrix | npt.NDArray[np.int8], phase_exponents: npt.NDArray[np.int8] | None = None
+    ) -> None:
+        """Create a new stabilizer tableau.
+
+        Args:
+            tableau: Symplectic matrix representing the stabilizer tableau.
+            phase_exponents: A vector of per-row phase exponents in {0,1,2,3}, such that row i
+                equals i^phase_exponents[i] X^x_i Z^z_i. These are exponents, not binary signs;
+                use :meth:`phase_from_signs` to convert. Not restricted to Hermitian (real-sign)
+                rows. If None, use canonical positive Hermitian phase for each row.
+        """
+        if isinstance(tableau, np.ndarray):
+            self.tableau = SymplecticMatrix(tableau)
+        else:
+            self.tableau = tableau
+        if phase_exponents is None:
+            signs = np.zeros(self.tableau.shape[0], dtype=np.int8)
+            phase_exponents = self.phase_from_signs(self.tableau.data, signs)
+        if self.tableau.shape[0] != phase_exponents.shape[0]:
+            msg = "The number of rows in the tableau must match the number of phases."
+            raise InvalidPauliError(msg)
+        self.n = self.tableau.n
+        self.n_rows = int(self.tableau.shape[0])
+        self.phase_exponents = np.asarray(phase_exponents, dtype=np.int8) % 4
+        self.shape = (self.n_rows, self.n)
+
+    @classmethod
+    def from_stim_circuit(cls, circ: stim.Circuit) -> PauliTableau:
+        """Create a PauliTableau from a stim.Circuit.
+
+        Args:
+            circ: A stim.Circuit object.
+
+        Returns:
+            A PauliTableau instance.
+        """
+        return cls.from_stim_tableau(circ.to_tableau())
+
+    @classmethod
+    def from_stim_tableau(cls, stim_tableau: stim.Tableau) -> PauliTableau:
+        """Create a PauliTableau from a stim.Tableau.
+
+        Args:
+            stim_tableau: A stim.Tableau object.
+
+        Returns:
+            A PauliTableau instance.
+        """
+        x2x, x2z, z2x, z2z, x_signs, z_signs = stim_tableau.to_numpy(bit_packed=False)
+
+        tableau_matrix = np.block([
+            [x2x.astype(np.int8), x2z.astype(np.int8)],
+            [z2x.astype(np.int8), z2z.astype(np.int8)],
+        ]).astype(np.int8)
+
+        signs = np.concatenate((x_signs.astype(np.int8), z_signs.astype(np.int8)))
+        phase = cls.phase_from_signs(tableau_matrix, signs)
+        return cls(SymplecticMatrix(tableau_matrix), phase)
+
+    @classmethod
+    def from_pauli_strings(cls, pauli_strings: Sequence[str]) -> PauliTableau:
+        """Create a new stabilizer tableau from a list of Pauli strings."""
+        if len(pauli_strings) == 0:
+            msg = "At least one Pauli string is required."
+            raise InvalidPauliError(msg)
+
+        paulis = [Pauli.from_pauli_string(p) for p in pauli_strings]
+        return cls.from_paulis(paulis)
+
+    @classmethod
+    def from_paulis(cls, paulis: Sequence[Pauli]) -> PauliTableau:
+        """Create a new stabilizer tableau from a list of Pauli operators."""
+        if len(paulis) == 0:
+            msg = "At least one Pauli operator is required."
+            raise InvalidPauliError(msg)
+        n = paulis[0].n
+        if not all(p.n == n for p in paulis):
+            msg = "All Pauli operators must have the same number of qubits."
+            raise InvalidPauliError(msg)
+        mat = SymplecticMatrix.zeros(len(paulis), n)
+        phase = np.zeros((len(paulis)), dtype=np.int8)
+        for i, p in enumerate(paulis):
+            mat[i] = p.symplectic.data
+            phase[i] = p.phase_exponent
+        return cls(mat, phase)
+
+    @staticmethod
+    def phase_from_signs(symplectic_matrix: npt.NDArray[np.int8], signs: npt.NDArray[np.int8]) -> npt.NDArray[np.int8]:
+        """Convert per-row binary signs of a symplectic tableau into {0,1,2,3} phase exponents.
+
+        Args:
+            symplectic_matrix: A r x 2n binary symplectic support matrix.
+            signs: A length-r vector of binary signs (0 for plus, 1 for minus), one per row.
+
+        Returns:
+            A length-r vector of phase exponents p in {0,1,2,3} such that row i equals
+            (-1)^signs[i] i^(x_i.z_i) X^x_i Z^z_i.
+        """
+        n = symplectic_matrix.shape[1] // 2
+        x_part = symplectic_matrix[:, :n].astype(np.int32)
+        z_part = symplectic_matrix[:, n:].astype(np.int32)
+        xz_mod4 = (x_part * z_part).sum(axis=1) % 4
+        return ((xz_mod4 + 2 * np.asarray(signs, dtype=np.int32)) % 4).astype(np.int8)
+
+    @classmethod
+    def empty(cls, n: int) -> PauliTableau:
+        """Create a new empty stabilizer tableau."""
+        return cls(SymplecticMatrix.empty(n), np.zeros(0, dtype=np.int8))
+
+    @classmethod
+    def identity(cls, n: int) -> PauliTableau:
+        """Create a new identity stabilizer tableau."""
+        return cls(SymplecticMatrix.identity(n), np.zeros(2 * n, dtype=np.int8))
+
+    @classmethod
+    def from_matrix(cls, matrix: npt.NDArray[np.int8]) -> PauliTableau:
+        """Create a PauliTableau from a symplectic matrix.
+
+        Args:
+            matrix: A r x 2n symplectic matrix representing the stabilizer tableau.
+
+        Returns:
+            A PauliTableau instance.
+        """
+        symplectic_matrix = SymplecticMatrix(matrix)  # validity checks delegated to SymplecticMatrix
+        return cls(symplectic_matrix)
+
+    @classmethod
+    def from_check_matrix(cls, check_matrix: CheckMatrix) -> PauliTableau:
+        """Create a PauliTableau from a CSS check matrix.
+
+        Args:
+            check_matrix: A CheckMatrix object representing the CSS check matrix.
+
+        Returns:
+            A PauliTableau instance.
+        """
+        if check_matrix.is_x_type():
+            x_part = check_matrix.matrix
+            z_part = np.zeros_like(x_part)
+        elif check_matrix.is_z_type():
+            z_part = check_matrix.matrix
+            x_part = np.zeros_like(z_part)
+        else:
+            msg = "Check matrix must be of type 'X' or 'Z'."
+            raise ValueError(msg)
+
+        symplectic_matrix = SymplecticMatrix(np.hstack((x_part, z_part)))
+        return cls(symplectic_matrix)
+
+    def __eq__(self, other: object) -> bool:
+        """Check if two stabilizer tableaus are equal."""
+        if not isinstance(other, PauliTableau):
+            return False
+        return bool(self.tableau == other.tableau and np.all(self.phase_exponents == other.phase_exponents))
+
+    def __ne__(self, other: object) -> bool:
+        """Check if two stabilizer tableaus are not equal."""
+        return not self == other
+
+    def __len__(self) -> int:
+        """Return the number of Paulis in the tableau."""
+        return len(self.tableau)
+
+    @property
+    def symplectic(self) -> npt.NDArray[np.int8]:
+        """The binary symplectic matrix of the tableau, shape ``(num_rows, 2n)``."""
+        return self.tableau.data
+
+    def all_commute(self, other: PauliTableau) -> bool:
+        """Check if all Pauli operators in this tableau commute with all Pauli operators in another tableau."""
+        return bool(np.all(symplectic_product(self.symplectic, other.symplectic) == 0))
+
+    def __getitem__(self, key: int) -> Pauli:
+        """Get a Pauli operator from the stabilizer tableau.
+
+        The returned Pauli owns its symplectic support, so mutating it does not
+        write through to the tableau.
+        """
+        return Pauli(SymplecticVector(np.array(self.tableau[key], dtype=np.int8)), self.phase_exponents[key])
+
+    def multiply_rows(self, target: int, source: int) -> None:
+        """Left-multiply row ``target`` by row ``source`` in place, tracking the phase.
+
+        Row ``target`` becomes ``P_target * P_source``; all other rows are unchanged.
+        This is the phase-sensitive analogue of XOR-ing one symplectic row onto
+        another, and is the only correct way to combine rows of a signed tableau.
+
+        Args:
+            target: Index of the row that is overwritten.
+            source: Index of the row that is multiplied onto ``target``.
+        """
+        product = self[target] * self[source]
+        self.tableau[target] = product.symplectic.data
+        self.phase_exponents[target] = product.phase_exponent
+
+    def signs(self) -> npt.NDArray[np.int8]:
+        """Return the derived binary sign for each row, in (-1)^r i^(x.z) X^x Z^z.
+
+        Raises:
+            InvalidPauliError: If any row is not Hermitian.
+        """
+        x_part = self.get_x_part().astype(np.int32)
+        z_part = self.get_z_part().astype(np.int32)
+        xz_mod4 = (x_part * z_part).sum(axis=1) % 4
+        if not np.all(self.phase_exponents % 2 == xz_mod4 % 2):
+            msg = "PauliTableau contains non-Hermitian rows; signs() is only defined for Hermitian rows."
+            raise InvalidPauliError(msg)
+        return (((self.phase_exponents.astype(np.int32) - xz_mod4) // 2) % 2).astype(np.int8)
+
+    def is_hermitian(self) -> bool:
+        """Check if all rows of the stabilizer tableau are Hermitian."""
+        x_part = self.get_x_part().astype(np.int32)
+        z_part = self.get_z_part().astype(np.int32)
+        xz_mod4 = (x_part * z_part).sum(axis=1) % 4
+        return bool(np.all(self.phase_exponents % 2 == xz_mod4 % 2))
+
+    def __hash__(self) -> int:
+        """Compute the hash of the stabilizer tableau."""
+        return hash((self.tableau, self.phase_exponents.tobytes()))
+
+    def __iter__(self) -> Iterator[Pauli]:
+        """Iterate over the Pauli operators in the stabilizer tableau."""
+        for i in range(self.n_rows):
+            yield self[i]
+
+    def as_matrix(self) -> npt.NDArray[np.int8]:
+        """Convert the stabilizer tableau to a matrix."""
+        return np.hstack((self.tableau.data, self.phase_exponents[..., np.newaxis]))
+
+    def as_hermitian_matrix(self) -> npt.NDArray[np.int8]:
+        """Convert the stabilizer tableau to a binary matrix."""
+        if not self.is_hermitian():
+            msg = "Stabilizer tableau contains non-Hermitian rows; as_hermitian_matrix() is only defined for Hermitian rows."
+            raise InvalidPauliError(msg)
+        return np.hstack((self.tableau.data, self.signs()[..., np.newaxis]))
+
+    def is_in_subgroup(self, p: Pauli) -> bool:
+        """Check if a Pauli operator is in the subgroup generated by the rows of the PauliTableau.
+
+        To test many Paulis against the same subgroup, compute :func:`pauli_row_echelon`
+        once and call :func:`pauli_in_reduced_subgroup` instead; this method redoes the
+        elimination on every call.
+        """
+        if p.n != self.n:
+            return False
+
+        echelon = pauli_row_echelon(self)
+        return pauli_in_reduced_subgroup(echelon.reduced, echelon.n_global_phases, echelon.pivot_cols, p)
+
+    def apply_h(self, qubit: int) -> None:
+        """Apply the Hadamard gate to the stabilizer tableau.
+
+        Args:
+            qubit: The index of the qubit to apply the Hadamard gate to.
+        """
+        self.phase_exponents = (self.phase_exponents + 2 * self.tableau[:, qubit] * self.tableau[:, qubit + self.n]) % 4
+        self.tableau[:, [qubit, qubit + self.n]] = self.tableau[:, [qubit + self.n, qubit]]
+
+    def apply_cx(self, ctrl: int, tar: int) -> None:
+        """Apply the CNOT gate to the stabilizer tableau.
+
+        CX is a tensor product of single-qubit generator conjugations that never
+        reorders an X past a Z on the same qubit, so it never contributes a phase:
+        the exponent p is unchanged, only the support is relabeled.
+
+        Args:
+            ctrl: The index of the control qubit.
+            tar: The index of the target qubit.
+        """
+        self.tableau[:, tar] = (self.tableau[:, tar] + self.tableau[:, ctrl]) % 2
+        self.tableau[:, ctrl + self.n] = (self.tableau[:, tar + self.n] + self.tableau[:, ctrl + self.n]) % 2
+
+    def apply_cz(self, ctrl: int, tar: int) -> None:
+        """Apply the CZ gate to the stabilizer tableau.
+
+        Args:
+            ctrl: The index of the control qubit.
+            tar: The index of the target qubit.
+        """
+        self.apply_h(tar)
+        self.apply_cx(ctrl, tar)
+        self.apply_h(tar)
+
+    def apply_swap(self, q1: int, q2: int) -> None:
+        """Apply the SWAP gate to the stabilizer tableau.
+
+        Args:
+            q1: The index of the first qubit.
+            q2: The index of the second qubit.
+        """
+        self.apply_cx(q1, q2)
+        self.apply_cx(q2, q1)
+        self.apply_cx(q1, q2)
+
+    def apply_s(self, qubit: int) -> None:
+        """Apply the S gate to the stabilizer tableau.
+
+        Args:
+            qubit: The index of the qubit to apply the S gate to.
+        """
+        self.phase_exponents = (self.phase_exponents + self.tableau[:, qubit]) % 4
+        self.tableau[:, qubit + self.n] ^= self.tableau[:, qubit]
+
+    def apply_sdg(self, qubit: int) -> None:
+        """Apply the S† gate to the stabilizer tableau."""
+        self.apply_s(qubit)
+        self.apply_z(qubit)
+
+    def apply_x(self, qubit: int) -> None:
+        """Apply the X gate to the stabilizer tableau."""
+        self.phase_exponents = (self.phase_exponents + 2 * self.tableau[:, qubit + self.n]) % 4
+
+    def apply_z(self, qubit: int) -> None:
+        """Apply the Z gate to the stabilizer tableau."""
+        self.phase_exponents = (self.phase_exponents + 2 * self.tableau[:, qubit]) % 4
+
+    def apply_y(self, qubit: int) -> None:
+        """Apply the Y gate to the stabilizer tableau."""
+        self.apply_x(qubit)
+        self.apply_z(qubit)
+
+    def copy(self) -> PauliTableau:
+        """Return a copy of the stabilizer tableau."""
+        return PauliTableau(self.tableau.copy(), self.phase_exponents.copy())
+
+    def to_pauli_list(self) -> list[Pauli]:
+        """Return the tableau as a list of Paulis that do not alias the tableau."""
+        return [self[i] for i in range(self.n_rows)]
+
+    def to_numpy(self) -> npt.NDArray[np.int8]:
+        """Convert the stabilizer tableau to a NumPy array.
+
+        Returns:
+            A NumPy array where the first 2n columns represent the symplectic matrix
+            and the last column represents the phase vector.
+        """
+        return np.hstack((self.tableau.data, self.phase_exponents[:, np.newaxis]))
+
+    def is_css(self) -> bool:
+        """Check if the stabilizer tableau is in CSS form."""
+        x_part = self.tableau.data[:, : self.n]
+        z_part = self.tableau.data[:, self.n :]
+        return bool(np.all(x_part[z_part.any(axis=1)] == 0) and np.all(z_part[x_part.any(axis=1)] == 0))
+
+    def to_css(self) -> tuple[CheckMatrix, CheckMatrix]:
+        """Convert the stabilizer tableau to CSS check matrices.
+
+        Returns:
+            A tuple containing the X and Z check matrices.
+        """
+        if not self.is_css():
+            msg = "Stabilizer tableau is not in CSS form."
+            raise InvalidPauliError(msg)
+        x_part = self.get_x_part()
+        z_part = self.get_z_part()
+        x_checks: npt.NDArray[np.int8] = x_part[np.any(x_part, axis=1)]
+        z_checks: npt.NDArray[np.int8] = z_part[np.any(z_part, axis=1)]
+        return CheckMatrix(x_checks, "X"), CheckMatrix(z_checks, "Z")
+
+    def get_x_part(self) -> npt.NDArray[np.int8]:
+        """Get the X part of the stabilizer tableau."""
+        return self.tableau.data[:, : self.n]
+
+    def get_z_part(self) -> npt.NDArray[np.int8]:
+        """Get the Z part of the stabilizer tableau."""
+        return self.tableau.data[:, self.n :]
+
+    def symplectic_submatrix(self, q: int) -> npt.NDArray[np.int8]:
+        """Get the 2x2 symplectic submatrix for a given qubit.
+
+        Args:
+            q: The index of the qubit.
+
+        Returns:
+            A 2x2 NumPy array representing the symplectic submatrix for the given
+            qubit.
+        """
+        if self.n_rows != 2 * self.n:
+            msg = "symplectic_submatrix requires a full 2n x 2n tableau."
+            raise ValueError(msg)
+
+        return np.array(
+            [
+                [int(self.tableau[q, q]), int(self.tableau[q, q + self.n])],
+                [int(self.tableau[q + self.n, q]), int(self.tableau[q + self.n, q + self.n])],
+            ],
+            dtype=np.int8,
+        )
+
+    def is_identity(self) -> bool:
+        """Check if the stabilizer tableau is the identity.
+
+        Returns:
+            True if the stabilizer tableau is the identity, False otherwise.
+        """
+        return bool(
+            np.array_equal(
+                self.tableau.data,
+                SymplecticMatrix.identity(self.n).data,
+            )
+            and np.all(self.phase_exponents == 0)
+        )
+
+    def independent_rows(self) -> PauliTableau:
+        """Return a new tableau containing an independent subset of the rows, phase-insensitive."""
+        independent_indices = mod2.row_echelon(self.tableau.data.T)[3]
+        return PauliTableau(
+            SymplecticMatrix(self.tableau.data[independent_indices].copy()),
+            self.phase_exponents[independent_indices].copy(),
+        )
+
+    def __str__(self) -> str:
+        """Return a string representation of the stabilizer tableau."""
+        paulis = [str(self[i]) for i in range(self.n_rows)]
+        return "\n".join(paulis)
+
+    def __repr__(self) -> str:
+        """Return a detailed string representation of the stabilizer tableau."""
+        return f"PauliTableau(n={self.n}, n_rows={self.n_rows}, tableau=\n{self.tableau.data},\nphase={self.phase_exponents})"
+
+    def num_rows(self) -> int:
+        """Return the number of rows in the stabilizer tableau."""
+        return self.n_rows
+
+    def is_row(self, pauli: Pauli) -> bool:
+        """Check if a given Pauli operator is a stabilizer of the tableau.
+
+        Args:
+            pauli: A Pauli operator to check.
+
+        Returns:
+            True if the Pauli operator is a stabilizer, False otherwise.
+        """
+        symplectic_vector = pauli.symplectic
+        for i in range(self.n_rows):
+            stab_vector = SymplecticVector(self.tableau[i])
+            if symplectic_vector == stab_vector and pauli == Pauli(stab_vector, self.phase_exponents[i]):
+                return True
+        return False
+
+
+StabilizerTableau = PauliTableau
+"""Deprecated alias for :class:`PauliTableau`; use :class:`PauliTableau` instead."""
+
+
+def complete_stabilizer_tableau_with_destabilizers(
+    stabilizers: PauliTableau, stab_rows: list[int] | None = None
+) -> PauliTableau:
+    """Given a tableau of stabilizers, complete it to a full tableau by adding destabilizers.
+
+    Destabilizer d_i anticommutes with stabilizer s_i but commutes with all other stabilizers,
+    destabilizers, and logical operators.
+
+    Args:
+        stabilizers: A tableau representing the stabilizers (and possibly some logical operators) of the code.
+        stab_rows: List of row indices that are stabilizers. If None, assumes all rows are stabilizers.
+            Destabilizers will be added for each row specified in stab_rows.
+
+    Returns:
+        A tableau ordered as: logical X, destabilizers, logical Z, stabilizers.
+
+    Note:
+        This function assumes that all rows not specified in stab_rows are logical operators.
+        These rows are split by position: the first half are treated as logical X operators,
+        and the second half as logical Z operators. Any pre-existing destabilizers in the input
+        tableau that are not identified in stab_rows will be treated as logical operators and
+        may be reordered or reinterpreted according to this convention.
+
+    Raises:
+        ValueError: If any row index in stab_rows is out of bounds or if valid destabilizers cannot be found.
+    """
+    n = stabilizers.n
+    m_total = stabilizers.num_rows()
+
+    if stab_rows is None:
+        stab_rows = list(range(m_total))
+
+    if not stab_rows:
+        return stabilizers.copy()
+
+    if max(stab_rows) >= m_total or min(stab_rows) < 0:
+        msg = f"Row indices in stab_rows must be between 0 and {m_total - 1}."
+        raise ValueError(msg)
+
+    m = len(stab_rows)
+
+    if m > n:
+        msg = "Cannot have more stabilizers than qubits."
+        raise ValueError(msg)
+
+    stab_row_set = set(stab_rows)
+
+    other_rows = [
+        (i, stabilizers.tableau[i].copy(), stabilizers.phase_exponents[i])
+        for i in range(m_total)
+        if i not in stab_row_set
+    ]
+
+    if len(other_rows) % 2 != 0:
+        msg = (
+            "complete_stabilizer_tableau_with_destabilizers requires non-stabilizer rows "
+            f"to come in matched logical X/Z pairs; got {len(other_rows)} rows."
+        )
+        raise ValueError(msg)
+
+    k = len(other_rows) // 2
+    logical_x_rows = other_rows[:k]
+    logical_z_rows = other_rows[k:]
+
+    destabilizers: list[npt.NDArray[np.int8]] = []
+    for idx, stab_row_idx in enumerate(stab_rows):
+        stab_i = SymplecticVector(stabilizers.tableau[stab_row_idx])
+
+        remaining_stab_indices = [stab_rows[j] for j in range(idx + 1, m)]
+
+        d_i = _initialize_destabilizer_from_nullspace(stab_i, remaining_stab_indices, stabilizers)
+
+        if d_i is None:
+            msg = f"Could not find valid initial destabilizer for stabilizer at row {stab_row_idx}."
+            raise ValueError(msg)
+
+        for other_idx_pos in range(idx):
+            s_j = SymplecticVector(stabilizers.tableau[stab_rows[other_idx_pos]])
+            if d_i @ s_j == 1:
+                d_j = SymplecticVector(destabilizers[other_idx_pos])
+                d_i += d_j
+
+        for other_idx_pos in range(idx):
+            d_j = SymplecticVector(destabilizers[other_idx_pos])
+            if d_i @ d_j == 1:
+                s_j = SymplecticVector(stabilizers.tableau[stab_rows[other_idx_pos]])
+                d_i += s_j
+
+        for logical_idx, (_, logical_row, _) in enumerate(other_rows):
+            log = SymplecticVector(logical_row)
+            if d_i @ log == 1:
+                if logical_idx < k:
+                    l_z = SymplecticVector(other_rows[logical_idx + k][1])
+                    d_i += l_z
+                else:
+                    l_x = SymplecticVector(other_rows[logical_idx - k][1])
+                    d_i += l_x
+
+        if d_i @ stab_i != 1:
+            msg = f"Destabilizer construction failed for stabilizer at row {stab_row_idx}."
+            raise ValueError(msg)
+
+        destabilizers.append(d_i.data.copy())
+
+    if len(destabilizers) != m:
+        msg = f"Could not find {m} valid destabilizers, only found {len(destabilizers)}."
+        raise ValueError(msg)
+
+    new_rows = []
+    new_phases = []
+
+    for _, row, phase in logical_x_rows:
+        new_rows.append(row)
+        new_phases.append(phase)
+
+    for destab in destabilizers:
+        new_rows.append(destab)
+        new_phases.append(int(PauliTableau.phase_from_signs(destab.reshape(1, -1), np.zeros(1, dtype=np.int8))[0]))
+
+    for _, row, phase in logical_z_rows:
+        new_rows.append(row)
+        new_phases.append(phase)
+
+    for stab_row_idx in stab_rows:
+        new_rows.append(stabilizers.tableau[stab_row_idx].copy())
+        new_phases.append(stabilizers.phase_exponents[stab_row_idx])
+
+    combined_matrix = np.vstack(new_rows)
+    combined_phase = np.array(new_phases, dtype=np.int8)
+
+    return PauliTableau(SymplecticMatrix(combined_matrix), combined_phase)
+
+
+def _initialize_destabilizer_from_nullspace(
+    stab_i: SymplecticVector,
+    remaining_stab_indices: list[int],
+    stabilizers: PauliTableau,
+) -> SymplecticVector | None:
+    """Initialize destabilizer from nullspace of remaining stabilizers."""
+    n = stabilizers.n
+
+    if not remaining_stab_indices:
+        for q in range(n):
+            for x, z in [(1, 0), (0, 1), (1, 1)]:
+                candidate = SymplecticVector.zeros(n)
+                candidate[q] = x
+                candidate[q + n] = z
+                if candidate @ stab_i == 1:
+                    return candidate
+        return None
+
+    constraint_rows = []
+    for stab_idx in remaining_stab_indices:
+        s = stabilizers.tableau[stab_idx]
+        s_x = s[:n]
+        s_z = s[n:]
+        constraint_row = np.concatenate([s_z, s_x])
+        constraint_rows.append(constraint_row)
+
+    constraint_matrix = np.vstack(constraint_rows)
+
+    null = mod2.nullspace(constraint_matrix)
+
+    if null.shape[0] == 0:
+        return None
+
+    for basis_vec in null:
+        candidate = SymplecticVector(basis_vec)
+        if candidate @ stab_i == 1:
+            return candidate
+
+    return None
+
+
+def is_pauli_string(p: str) -> bool:
+    """Check if a string is a valid Pauli string."""
+    if len(p) == 0:
+        return False
+    _, body = _split_pauli_string_prefix(p)
+    return len(body) > 0 and all(c in {"_", "I", "X", "Y", "Z"} for c in body)
+
+
+class InvalidPauliError(ValueError):
+    """Exception raised when an invalid Pauli operator is encountered."""
+
+    def __init__(self, message: str) -> None:
+        """Create a new InvalidPauliError."""
+        super().__init__(message)
+
+
+class CheckMatrix:
+    """Type alias for CSS check matrices."""
+
+    matrix: npt.NDArray[np.int8]
+    type: str
+
+    def __init__(self, matrix: npt.NDArray[np.int8], pauli_type: str) -> None:
+        """Initialize the check matrix.
+
+        Args:
+            matrix: The binary check matrix.
+            pauli_type: The type of the check matrix, either 'X' or 'Z'.
+        """
+        if pauli_type not in {"X", "Z"}:
+            msg = f"Check matrix type must be either 'X' or 'Z', got {pauli_type!r}."
+            raise ValueError(msg)
+        assert matrix.ndim == 2, "Matrix must be 2D."
+        # Normalize to int8 so downstream (numba-dispatched) routines always receive a supported
+        # dtype. Check matrices are binary GF(2) arrays, so int8 is lossless; without this, integer
+        # dtypes such as uint8/int16 propagate through and raise a numba "No matching definition"
+        # dispatch error (see issue #775).
+        self.matrix = np.array(matrix, dtype=np.int8)
+        self.type = pauli_type
+
+    def is_x_type(self) -> bool:
+        """Check if the check matrix is of type 'X'."""
+        return self.type == "X"
+
+    def is_z_type(self) -> bool:
+        """Check if the check matrix is of type 'Z'."""
+        return self.type == "Z"
+
+    def copy(self) -> CheckMatrix:
+        """Create a copy of the check matrix."""
+        return CheckMatrix(self.matrix.copy(), self.type)
+
+    def is_identity(self) -> bool:
+        """Check if the check matrix is an identity matrix."""
+        n = self.matrix.shape[1]
+        identity = np.eye(n, dtype=np.int8)
+        return np.array_equal(self.matrix, identity)
+
+    def __eq__(self, o: object) -> bool:
+        """Check equality with another CheckMatrix."""
+        if not isinstance(o, CheckMatrix):
+            return NotImplemented
+        return np.array_equal(self.matrix, o.matrix) and self.type == o.type
+
+    def __hash__(self) -> int:
+        """Compute the hash of the check matrix."""
+        return hash((self.matrix.shape, self.matrix.tobytes(), self.type))
+
+    def num_qubits(self) -> int:
+        """Get the number of qubits represented by the check matrix."""
+        return int(self.matrix.shape[1])
+
+    def num_rows(self) -> int:
+        """Get the number of rows in the check matrix."""
+        return int(self.matrix.shape[0])
+
+    def equ_span(self, other: CheckMatrix | npt.NDArray[np.int8]) -> bool:
+        """Check if the row spans of this check matrix and another check matrix are equal."""
+        other_mat = other.matrix if isinstance(other, CheckMatrix) else other
+        combined = np.vstack((self.matrix, other_mat))
+        rank_combined = mod2.rank(combined)
+        rank_self = mod2.rank(self.matrix)
+        rank_other = mod2.rank(other_mat)
+        return bool(rank_combined == rank_self == rank_other)
+
+    def __repr__(self) -> str:
+        """Return a string representation of the check matrix."""
+        return f"CheckMatrix(type={self.type}, matrix=\n{self.matrix})"
