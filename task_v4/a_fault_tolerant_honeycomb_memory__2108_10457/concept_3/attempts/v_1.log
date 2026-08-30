@@ -1,0 +1,1361 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_3/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a04926-9041-7bf3-adbc-ba2db3a7bb43
+--------
+user
+Solve the task in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_3/participant/TASK.md. You have up to one hour. Read only the supplied participant assets and place your complete submission in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_3/attempts/v_1. The participant tree is read-only; write all code, temporary work, and caches inside your output directory. You may use a persistent shell session if command sandbox startup is slow. Do not search for other task directories or use external data. Follow TASK.md's executable interface. Use the available time to investigate, implement, and test your best solution. A submission that merely copies the baseline does not meet an improvement objective.
+codex
+I’ll read the task and assets, then implement and test a solution in the output directory.
+
+exec
+/bin/bash -lc 'pwd && ls -la && cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_3/participant
+ succeeded in 11636ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_3/participant
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 09:11 .
+drwx------ 4 xuandong xuandong   80 Aug 28 09:15 ..
+-rw-rw-r-- 1 xuandong xuandong 1828 Aug 28 09:11 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 09:07 baseline
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 09:07 input
+drwxrwxr-x 4 xuandong xuandong 4096 Aug 28 09:11 workspace
+# Predict held-out quantum-memory failure rates
+
+Build a predictor of logical failure probability using the recorded Monte Carlo experiments in `input/train.csv`. Predict every configuration in `input/queries.csv`. The queries include larger code distances and smaller physical-noise rates absent from training, across honeycomb and surface memories, several noise models, two decoders, and separate preserved observables.
+
+The target is the named decoder's probability of failing the named observable over the **entire supplied experiment**, not a per-round rate or a new decoder. Experiments last three times their code distance in rounds. Training provides shot and correct-decoding counts; held-out counts and runtimes are private. Zero observed failures do not establish zero probability.
+
+Submit a directory containing `solve.py`. It receives three positional paths:
+
+```text
+python solve.py TRAIN_CSV QUERY_CSV OUTPUT_CSV
+```
+
+Write exactly `query_id,p_failure` CSV, one finite probability per query. The detailed schema, allowed probability range, execution contract, and scoring equations are in `workspace/INTERFACE.md`. A runnable starter is supplied in `baseline/solve.py`.
+
+The primary score measures the worst of 20 predeclared family/extrapolation cells, after accounting for count-likelihood uncertainty. Success requires **score >= 0.5**, meaning no cell exceeds a factor-two RMS multiplicative discrepancy beyond that uncertainty. Of 692 queries, 612 affect this score; 80 extreme low-noise/large-size cases are upper-bound diagnostics only.
+
+Execution allows 120 seconds and 2 GiB memory, with no network and only allowlisted files. Use the supplied training data, not retrieved or precomputed held-out labels. You may choose any prediction method; no report, ablation, or investigation sequence is required.
+
+exec
+/bin/bash -c 'find . -name AGENTS.md -print; ls -l input baseline workspace; cat workspace/INTERFACE.md; cat baseline/solve.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_3/participant
+  → Inspect data and evaluation contract
+  • Develop physics-informed extrapolation models
+  • Validate models on held-out training
+  • Finalize and test executable submission
+ succeeded in 9937ms:
+baseline:
+total 4
+-rw-rw-r-- 1 xuandong xuandong 2720 Aug 28 09:07 solve.py
+
+input:
+total 132
+-rw-rw-r-- 1 xuandong xuandong   959 Aug 28 09:07 protocol.json
+-rw-rw-r-- 1 xuandong xuandong 55082 Aug 28 09:07 queries.csv
+-rw-rw-r-- 1 xuandong xuandong   653 Aug 28 09:07 schema.json
+-rw-rw-r-- 1 xuandong xuandong 69272 Aug 28 09:07 train.csv
+
+workspace:
+total 20
+-rw-rw-r--  1 xuandong xuandong 4755 Aug 28 09:11 INTERFACE.md
+-rw-rw-r--  1 xuandong xuandong  245 Aug 28 09:07 README.md
+drwxrwxr-x 21 xuandong xuandong 4096 Aug 28 08:49 numpy
+drwxrwxr-x  2 xuandong xuandong 4096 Aug 28 08:49 numpy.libs
+# Predict larger, quieter quantum memories
+
+Fit a predictor of logical failure probability from the recorded Monte Carlo experiments supplied in `input/train.csv`. Predict every configuration in `input/queries.csv`, including larger code distances and physical-noise values absent from training. This is prediction of a fixed decoder's performance, not a decoder implementation or a new circuit design.
+
+## Interface
+
+Submit a directory containing `solve.py`. The evaluator runs:
+
+```text
+python solve.py TRAIN_CSV QUERY_CSV OUTPUT_CSV
+```
+
+Write UTF-8 CSV with exactly the header `query_id,p_failure` and exactly one row per query, in any order. Probabilities must be finite numbers in `[1e-15, 1-1e-15]`. No extra columns or IDs. The output is a probability, not a failure count, log probability, per-round rate, or code-cell rate.
+
+`TASK_ROOT` points to this participant directory. `workspace` contains NumPy; system SciPy is also available. The process has 120 seconds, 2 GiB address space, no network, read-only participant/submission access, and a writable temporary working directory. Only the participant tree and your submission are contestant materials. Do not retrieve the original public data or use precomputed held-out labels. No particular model, method, ablation, or report is required.
+
+Run the starter outside evaluation with:
+
+```text
+PYTHONPATH=workspace python baseline/solve.py input/train.csv input/queries.csv predictions.csv
+```
+
+## Data and target
+
+Each record specifies geometry, rounds, physical noise, circuit/noise style, preserved observable, nominal code distance, qubit count, and decoder. Training additionally includes shot counts and correct-decoding counts: failures equal `num_shots - num_correct`. Query IDs are opaque.
+
+Predict the probability that the named decoder fails the named observable over the **entire experiment**. Every experiment lasts `3 * code_distance` rounds. Do not divide by rounds or combine the two observables. The original observations use adaptive stopping, so query shot counts and runtimes are deliberately withheld. A zero-failure training row is finite evidence for a small probability, not proof of probability zero. Small samples may have observed failure fractions greater than one half.
+
+The five styles are honeycomb EM3_v2, SD6, SI1000 and surface SD6, SI1000, each with internal and internal-correlated decoders. Honeycomb observables are H/V; surface observables are X/Z. PC3 is not part of this task.
+
+Training has 780 rows: honeycomb distances 4/8/12, surface distances 3/7/11, and physical noise at least 0.0003. Queries comprise 492 larger-distance cases at those noise values, 120 small-distance cases at noise 0.0001/0.0002, and 80 joint large-distance/low-noise diagnostics. Both observables and both decoders of a physical configuration stay together across every split. Missing source configurations are not synthesized.
+
+All tuning must use public training labels; final evaluation is not a development oracle.
+
+## Fixed evaluation
+
+The grader uses actual hidden counts, independent of the starter's predictions. For each row it constructs the probability interval whose Bernoulli count likelihood is at least 1/1000 of the maximum likelihood. This is a **likelihood-support interval**, not a claimed 95% confidence interval under adaptive stopping.
+
+The row error is the distance in log10 probability to that interval, zero inside it. A zero-event row imposes only an upper constraint. Within each style/decoder/stress cell, average squared errors separately for each observable, then average the two observable means and take the square root. The primary loss is the worst of the 20 fixed cells: ten style/decoder families times size/noise extrapolation. Score is `10 ** (-primary_loss)`; higher is better.
+
+Success requires score at least **0.5**, equivalently worst-cell RMS log10 error at most `log10(2)`. This allows a factor-two residual multiplicative discrepancy after statistical uncertainty, in every family/stress cell. The 80 extreme joint cases are reported separately and do not change success: most cannot resolve an ultralow point probability from their observed counts. Full scoring constants are in `input/protocol.json`.
+
+Evaluator results include `core_score` (macro-cell RMS accuracy transformed by `10**(-loss)`), `worst_family_score` (the primary score), `runtime_seconds`, `runtime_score`, `resource_score`, `valid`, `passed`, and `reason`. Runtime/resource score is `max(0, 1-runtime_seconds/120)` for valid executions, zero for invalid ones; the 2 GiB memory limit is enforced rather than reported as a measured peak. Runtime score does not change the fixed quality target. Invalid executions or outputs have zero scores and `passed: false`.
+import csv
+import os
+from pathlib import Path
+import sys
+
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "workspace"))
+
+import numpy as np
+from scipy.optimize import minimize
+from scipy.special import expit
+
+
+def read_rows(path):
+    with open(path, newline="") as stream:
+        return list(csv.DictReader(stream))
+
+
+def family(row):
+    return row["circuit_style"], row["decoder"], row["preserved_observable"]
+
+
+def features(rows):
+    distance = np.array([float(row["code_distance"]) / 10 for row in rows])
+    noise = np.log([float(row["noise"]) / 0.001 for row in rows])
+    return np.column_stack([np.ones(len(rows)), distance, noise, distance * noise])
+
+
+def fit(rows):
+    matrix = features(rows)
+    shots = np.array([int(row["num_shots"]) for row in rows], dtype=float)
+    errors = shots - np.array([int(row["num_correct"]) for row in rows], dtype=float)
+    empirical = np.clip((errors + 0.5) / (shots + 1), 1e-12, 0.499)
+    target = np.log(2 * empirical) - np.log1p(-2 * empirical)
+    weights = np.sqrt(np.minimum(errors + 0.5, 1000))
+    initial = np.linalg.lstsq(matrix * weights[:, None], target * weights, rcond=None)[0]
+    scale = max(float(errors.sum()), 1)
+
+    def objective(coefficients):
+        probability = np.clip(0.5 * expit(matrix @ coefficients), 1e-15, 0.5)
+        loss = -np.sum(errors * np.log(probability) + (shots - errors) * np.log1p(-probability)) / scale
+        derivative = (shots * probability - errors) * (1 - 2 * probability) / (1 - probability)
+        gradient = matrix.T @ derivative / scale
+        return loss + 1e-6 * np.sum(coefficients**2), gradient + 2e-6 * coefficients
+
+    result = minimize(objective, initial, jac=True, method="L-BFGS-B",
+                      bounds=[(-100, 100)] * matrix.shape[1],
+                      options={"maxiter": 600, "ftol": 1e-12, "gtol": 1e-8})
+    if not np.isfinite(result.x).all():
+        raise ValueError("nonfinite fitted parameters")
+    return result.x
+
+
+def main():
+    training_path, query_path, output_path = sys.argv[1:]
+    training = read_rows(training_path)
+    queries = read_rows(query_path)
+    coefficients = {key: fit([row for row in training if family(row) == key])
+                    for key in sorted({family(row) for row in training})}
+    with open(output_path, "w", newline="") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(["query_id", "p_failure"])
+        for row in queries:
+            probability = float(np.clip(0.5 * expit(features([row]) @ coefficients[family(row)])[0], 1e-15, 0.5))
+            writer.writerow([row["query_id"], format(probability, ".17g")])
+
+
+if __name__ == "__main__":
+    main()
+
+**Evaluating physics model setup**
+
+I realize I have about an hour to create a robust physics model. First, I need to inspect the data stats tables. Should I set a persistent shell to avoid those 8-second startup times? I'm thinking commands could take around 10 seconds, so maybe using exec with tty bash login set to false would help. It seems I can run things grouped, and I need to make sure numpy is included via PYTHONPATH. Also, I want to ensure there’s no output from AGENTS. I’ll need to follow the data schema for reading and sampling.
+exec
+/bin/bash -c 'cat input/schema.json input/protocol.json workspace/README.md; head -6 input/train.csv; head -6 input/queries.csv; mkdir -p /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_3/attempts/v_1; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_3/participant
+**Considering persistent sessions**
+
+I’m thinking about starting a persistent session to boost efficiency. It seems like a smart way to save time and keep track of ongoing tasks or conversations. By doing this, I could help wrap things up more quickly in future interactions. It’s intriguing how a consistent setup could streamline everything. I wonder what other benefits might come from having a persistent approach! Let's see how it goes!
+**Evaluating integrated model needs**
+
+I’ve got a 20-second startup, and I’m at the 57-minute mark. I need to build an analysis for the integrated model. I’m wondering about honeycomb distances and the effective error scaling with d/2. I should check the honeycomb code distance baseline, which includes queries like 4, 8, 12, and then look at 16, 20, 24, 28, and 32. For now, I’m waiting to inspect the data.
+ succeeded in 26848ms:
+{
+  "training": [
+    "query_id",
+    "data_width",
+    "data_height",
+    "rounds",
+    "noise",
+    "circuit_style",
+    "preserved_observable",
+    "code_distance",
+    "num_qubits",
+    "decoder",
+    "num_shots",
+    "num_correct"
+  ],
+  "query": [
+    "query_id",
+    "data_width",
+    "data_height",
+    "rounds",
+    "noise",
+    "circuit_style",
+    "preserved_observable",
+    "code_distance",
+    "num_qubits",
+    "decoder"
+  ],
+  "output": [
+    "query_id",
+    "p_failure"
+  ],
+  "hidden_only": [
+    "num_shots",
+    "num_correct",
+    "total_processing_seconds"
+  ],
+  "query_rows": 692,
+  "primary_rows": 612,
+  "diagnostic_rows": 80
+}
+{
+  "mode": "D",
+  "version": 1,
+  "target": "raw full-experiment logical failure probability",
+  "training_rows": 780,
+  "scored_rows": 612,
+  "diagnostic_rows": 80,
+  "likelihood_ratio": 1000.0,
+  "worst_cell_rms_log10_max": 0.3010299956639812,
+  "score_min": 0.5,
+  "probability_min": 1e-15,
+  "probability_max": 0.999999999999999,
+  "seconds": 120,
+  "memory_mib": 2048,
+  "output_bytes_max": 1048576,
+  "submission_bytes_max": 67108864,
+  "family": [
+    "circuit_style",
+    "decoder"
+  ],
+  "scored_stresses": [
+    "size",
+    "noise"
+  ],
+  "aggregation": "mean squared log10 distance to likelihood-support interval within observable; average observables; sqrt; maximum over 20 family/stress cells",
+  "score": "10 ** (-worst_cell_rms_log10)",
+  "fixed_before_first_attempt": true,
+  "threshold_rationale": "At most a factor-two RMS multiplicative discrepancy beyond finite-sampling likelihood uncertainty in every predeclared family/stress cell."
+}
+# Runtime
+
+The builder copies only NumPy from the prepared dependency directory. The installed system SciPy is available through the normal Python search path. No original paper CSV, plots, simulator data, or evaluator labels are included here.
+query_id,data_width,data_height,rounds,noise,circuit_style,preserved_observable,code_distance,num_qubits,decoder,num_shots,num_correct
+000fa11026a1e1e69ddc9e71,12,18,36,0.001,honeycomb_EM3_v2,V,12,216,internal_correlated,100000000,99999999
+0014272a326c5e935a2f67b6,3,3,9,0.002,surface_SD6,Z,3,17,internal_correlated,51175,49636
+00ae47be1c054c4b61d24e14,11,11,33,0.02,surface_SI1000,Z,11,241,internal_correlated,775,400
+01cf144e90b8c71cc69b0662,11,11,33,0.0005,surface_SI1000,Z,11,241,internal,100000000,99999944
+021b75a6ed176813ec93e148,8,12,24,0.003,honeycomb_SD6,H,8,240,internal,3175,1992
+query_id,data_width,data_height,rounds,noise,circuit_style,preserved_observable,code_distance,num_qubits,decoder
+00679de4687adb1915b28dd8,16,24,48,0.0002,honeycomb_SI1000,H,16,960,internal
+00ddbaaa385287f408295520,19,19,57,0.0002,surface_SI1000,Z,19,721,internal
+00de11241c4b24b5b53063c4,15,15,45,0.01,surface_SI1000,Z,15,449,internal_correlated
+01232cea61f74da3730adbfb,15,15,45,0.03,surface_SI1000,X,15,449,internal_correlated
+01299b5f199b57a3149d6ebe,20,30,60,0.0005,honeycomb_EM3_v2,H,20,600,internal_correlated
+Fri Aug 28 09:16:45 PDT 2026
+
+exec
+/bin/bash -c 'bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_3/attempts/v_1
+codex
+The data show distinct scaling regimes; I’ll test saturation-aware models on distance and noise holdouts.
+
+  ✓ Inspect data and evaluation contract
+  → Develop physics-informed extrapolation models
+  • Validate models on held-out training
+  • Finalize and test executable submission
+**Optimizing processes**
+
+I'm looking to optimize an operation involving 14*18*4 to fit within 1000, ideally taking 10-30 seconds. I need to think about using a separate terminal shell for this task, ideally one that doesn't require a startup and just allows my commands to persist. It would also make sense to send a command to tail the output after the queued processes finish, to keep everything running smoothly. I'm curious how best to implement that!
+**Improving regression fits**
+
+I’m considering faster custom local fits based on distance. Our current method with parametric sigmoids has issues when dealing with large parameters, as gradients can get stuck due to poor initialization in polynomial fits. I see that fitting only low values may not accurately represent saturation, leading to unrealistic high-degree extrapolation. To enforce robust probability, I might need to explore thresholding, especially in high-noise environments. Ultimately, validating my approach with log powers could help enhance fits effectively.
+**Exploring noise-specific fits**
+
+I’m thinking about how to fit models based on size and noise levels specifically for dimensions d8 and d12. It seems like using an exponential extrapolation here can yield high accuracy compared to the baseline bilinear method, which struggles with curvature. I’ll focus on nonparametric noise interpolation for existing queries and validate my model while excluding certain dimensions. When finalizing models with three dimensions, adjusting local curvature is essential. Plus, I may need to consider the sensitivity of noise when predicting outcomes.
+**Refining honeycomb fits**
+
+I’m considering how the honeycomb model can approximate small corrections with the equation f = a + b*d + c/d, which saturates in certain conditions. For better accuracy, I want to apply an unregularized fit across all three bins and smooth curves over log p for beta. Handling low p data, especially at d12, is tricky because extrapolating from low counts can lead to overpredictions. I should also watch the tail for p values and aim for a solid fit ratio at d8 and d12.
+**Evaluating penalty parameters**
+
+I’m thinking about fitting a β1 (noise centered) penalty and considering its likely shape. Right now, I'm focusing on latent noise fields, acknowledging that increased interactions could lead to overfitting when there's high p noise. It seems essential to pay attention to known p, as it’s important. I want to ensure I'm approaching this correctly to avoid potential pitfalls in overfitting, especially as I analyze the relationships within the data!
+codex
+Local low-noise fits look promising. I’ll now refine distance extrapolation and compare against the starter.
+
+  ✓ Inspect data and evaluation contract
+  ✓ Develop physics-informed extrapolation models
+  → Validate models on held-out training
+  • Finalize and test executable submission
+**Implementing noise envelope**
+
+I think I need to focus on implementing the monotone noise envelope as the final step in my solution. It's crucial to ensure that this aspect is effectively integrated. I should carefully consider how it interacts with the rest of the components in the project. This should enhance the overall functionality and performance. Let me organize my thoughts and start drafting a clear plan for the implementation process!
+**Finalizing cross-validation scores**
+
+I’m looking at the cross-validation scores, which are .9—that's pretty good! I need to consider the best way to finalize this. I wonder if I can fit everything in before the hour's up. Wait, do I really have only 30 minutes left? Okay, that’s tight, but I’ll see what I can do to optimize my approach and make sure everything is ready. Let me plan my next steps quickly!
+**Considering optimization setup**
+
+I’m working on writing solve.py and validation.py, focusing on random permutation orders. I need to test a memory limit of 2GiB by using `ulimit -v` and `/usr/bin/time`. The user mentioned restricted access to some system files, which keeps our libraries fine, but we should avoid unnecessary system access. If optimization fails, I might implement a fallback that uses the lowest NLL options. It’s crucial to check for convergence success on all models as well.
+**Assessing token budget and data validation**
+
+I have plenty of time, but I’m trying to figure out the token budget. I started with 34k tokens, and I think I have about 29k remaining. It looks like I might need some final validation techniques for a complex category setup. I'll use local tools and focus on improving the data. I'll also evaluate measures to enhance my score and work on building a final solution with the right classifiers. I need to wait on the series as well.
+**Evaluating noise models**
+
+I'm comparing different noise models, focusing on noise3HC's internal performance. The .17 version seems better than .12, while .09 performs the worst. I believe blending four models could improve robustness despite the worst outcomes. Specifically, noise3 may show artifact reductions if the predicted values are extremely low and poorly optimized. I need to inspect the main errors in the curves to gauge which model is the most suitable.
+codex
+The physical low-noise model also validates well. I’ll assemble the standalone solver and run end-to-end checks.
+
+**Evaluating model setup**
+
+I’m considering how to finalize the model's stable setup regarding data types. I wonder if I can use `sys.path` to solve issues without needing the TASK_ROOT environment. It seems like the validation environment is okay. If I run the submission and Python setup with no PYTHONPATH or TASK_ROOT set, I think it should work. I might need about 15 minutes for that. But I need to confirm the baseline improvements and check for any warnings.
+**Finalizing submission details**
+
+I need to make sure the final submission directory only contains the files: `solve.py`, `README.md`, `validation.py`, along with results and predictions. That makes five scripts and logs. I have to be cautious about rechecking any files that are patched, since the git repo is not set up properly. I'll grab the reference from `solve.py` and include a README explaining the model methods and validation without claiming scores. Validation outputs will also be included in the tabular format.
+codex
+All four validation splits beat the starter. I’ll check memory limits and standalone execution next.
+
+  ✓ Inspect data and evaluation contract
+  ✓ Develop physics-informed extrapolation models
+  ✓ Validate models on held-out training
+  → Finalize and test executable submission
+**Evaluating development files**
+
+I'm considering development files and how they could be useful for resource management, but maybe there's actually no need for them at this point. I think I’ll just delete them while applying the patch for the multi diff. It could streamline things if I don't clutter my workspace with unnecessary files. Sometimes less is more, and keeping things tidy helps me stay organized!
+codex
+Standalone checks passed; the submission and validation results are ready.
+
+  ✓ Inspect data and evaluation contract
+  ✓ Develop physics-informed extrapolation models
+  ✓ Validate models on held-out training
+  ✓ Finalize and test executable submission
+ succeeded in 984712ms:
+bash: cannot set terminal process group (1): Inappropriate ioctl for device
+bash: no job control in this shell
+bash-5.1$ <_honeycomb_memory__2108_10457/concept_3/participant
+bash-5.1$ <PENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 TMPDIR=$PWD
+bash-5.1$ python - <<'PY'
+> import csv, collections
+> <__('os').environ['TASK_ROOT']+'/input/train.csv')))
+> <('os').environ['TASK_ROOT']+'/input/queries.csv')))
+> for k in r[0]:
+>  if k not in ('query_id','num_shots','num_correct'):
+> <r x in r)), 'queries',sorted(set(x[k] for x in q)))
+> for style in sorted(set(x['circuit_style'] for x in r)):
+>  for dec in ('internal','internal_correlated'):
+>   print('\n',style,dec)
+> <ervable'] for x in r if x['circuit_style']==style))
+> <stance']) for x in r if x['circuit_style']==style))
+>   print('noise ', [(d,o) for d in dr for o in obs])
+> <noise']) for x in r if x['circuit_style']==style)):
+> <oat(x['noise'])==p),None) for d in dr for o in obs]
+> <num_correct'])) if x else 'missing' for x in rows))
+> PY
+data_width ['11', '12', '3', '4', '7', '8'] queries ['11', '12', '15', '16', '19', '20', '3', '4', '7', '8']
+data_height ['11', '12', '18', '3', '6', '7'] queries ['11', '12', '15', '18', '19', '24', '3', '30', '6', '7']
+rounds ['12', '21', '24', '33', '36', '9'] queries ['12', '21', '24', '33', '36', '45', '48', '57', '60', '9']
+noise ['0.0003', '0.0005', '0.0007', '0.001', '0.0015', '0.002', '0.003', '0.005', '0.007', '0.01', '0.015', '0.02', '0.03'] queries ['0.0001', '0.0002', '0.0003', '0.0005', '0.0007', '0.001', '0.0015', '0.002', '0.003', '0.005', '0.007', '0.01', '0.015', '0.02', '0.03']
+circuit_style ['honeycomb_EM3_v2', 'honeycomb_SD6', 'honeycomb_SI1000', 'surface_SD6', 'surface_SI1000'] queries ['honeycomb_EM3_v2', 'honeycomb_SD6', 'honeycomb_SI1000', 'surface_SD6', 'surface_SI1000']
+preserved_observable ['H', 'V', 'X', 'Z'] queries ['H', 'V', 'X', 'Z']
+code_distance ['11', '12', '3', '4', '7', '8'] queries ['11', '12', '15', '16', '19', '20', '3', '4', '7', '8']
+num_qubits ['17', '216', '24', '240', '241', '540', '60', '96', '97'] queries ['1500', '17', '216', '24', '240', '241', '384', '449', '540', '60', '600', '721', '96', '960', '97']
+decoder ['internal', 'internal_correlated'] queries ['internal', 'internal_correlated']
+
+ honeycomb_EM3_v2 internal
+noise  [(4, 'H'), (4, 'V'), (8, 'H'), (8, 'V'), (12, 'H'), (12, 'V')]
+  0.0003   0.00278( 1140)   0.00142( 1166)  3.95e-06(  395)   8.6e-07(   86)     1e-08(    1)         0(    0)
+  0.0005   0.00472( 1932)   0.00241( 1978)   1.3e-05( 1000)  3.09e-06(  309)     1e-07(   10)         0(    0)
+  0.0007   0.00663( 1357)   0.00326( 1337)  2.99e-05( 1034)  6.61e-06(  661)   2.3e-07(   23)     1e-08(    1)
+   0.001    0.0099( 1014)   0.00524( 1074)  7.38e-05( 1007)  1.83e-05( 1018)   7.2e-07(   72)   1.1e-07(   11)
+  0.0015    0.0145( 1481)   0.00805( 1648)  0.000223( 1034)  6.16e-05( 1025)   4.6e-06(  460)   5.6e-07(   56)
+   0.002    0.0208( 1066)    0.0109( 1118)  0.000483( 1274)  0.000141( 1075)  1.62e-05( 1013)  2.14e-06(  214)
+   0.003     0.033( 1688)     0.019( 1947)   0.00161( 1320)  0.000506( 1335)  8.67e-05( 1009)  1.74e-05( 1003)
+   0.005    0.0609( 1557)    0.0375( 1917)   0.00718( 1470)   0.00282( 1156)  0.000947( 1552)   0.00027( 1251)
+   0.007    0.0986( 1259)    0.0575( 1470)     0.021( 1074)   0.00957( 1960)   0.00518( 1061)   0.00173( 1418)
+    0.01      0.15( 1918)    0.0988( 1262)    0.0638( 1632)    0.0358( 1833)    0.0282( 1442)    0.0131( 1343)
+   0.015     0.224( 1426)      0.17( 1086)     0.193( 1232)     0.128( 1634)     0.175( 1115)     0.125( 1600)
+    0.02     0.319( 1014)     0.238( 1517)     0.342( 1086)     0.275( 1754)      0.64(   16)     0.348( 1104)
+    0.03     0.422( 1341)     0.356( 1129)     0.485(  764)     0.485(  376)      0.48(   12)     0.483(  374)
+
+ honeycomb_EM3_v2 internal_correlated
+noise  [(4, 'H'), (4, 'V'), (8, 'H'), (8, 'V'), (12, 'H'), (12, 'V')]
+  0.0003   0.00146( 1194)  0.000746( 1223)  1.08e-06(  108)   2.2e-07(   22)         0(    0)         0(    0)
+  0.0005   0.00251( 1028)   0.00124( 1015)  3.17e-06(  317)   6.5e-07(   65)         0(    0)         0(    0)
+  0.0007   0.00353( 1444)   0.00176( 1440)   7.4e-06(  740)  1.71e-06(  171)     1e-08(    1)         0(    0)
+   0.001   0.00531( 1088)   0.00262( 1073)  1.78e-05( 1009)  4.18e-06(  418)     8e-08(    8)     1e-08(    1)
+  0.0015   0.00804( 1647)   0.00415( 1698)  4.98e-05( 1027)  1.19e-05( 1007)   3.6e-07(   36)     4e-08(    4)
+   0.002    0.0114( 1172)   0.00606( 1241)   0.00011( 1062)  2.69e-05( 1013)  1.56e-06(  156)   1.2e-07(   12)
+   0.003    0.0198( 1014)   0.00986( 1009)  0.000394( 1040)  0.000105( 1116)  1.06e-05( 1001)   1.5e-06(  150)
+   0.005    0.0363( 1858)    0.0201( 1030)   0.00206( 1690)  0.000662( 1084)  0.000132( 1011)  2.96e-05( 1024)
+   0.007    0.0592( 1515)    0.0343( 1753)   0.00664( 1359)   0.00253( 1035)   0.00082( 1344)  0.000226( 1050)
+    0.01     0.101( 1294)    0.0626( 1601)    0.0235( 1203)    0.0113( 1160)   0.00631( 1293)   0.00227( 1862)
+   0.015     0.189( 1206)     0.124( 1590)    0.0962( 1229)    0.0586( 1498)     0.064( 1636)    0.0355( 1815)
+    0.02     0.255( 1627)     0.186( 1184)     0.234( 1494)     0.163( 1036)     0.246( 1567)     0.179( 1141)
+    0.03     0.363( 1151)     0.312( 1990)     0.468( 1485)      0.48(   12)     0.484(  375)     0.485(  764)
+
+ honeycomb_SD6 internal
+noise  [(4, 'H'), (4, 'V'), (8, 'H'), (8, 'V'), (12, 'H'), (12, 'V')]
+  0.0003   0.00468( 1915)   0.00277( 1133)  0.000116( 1001)  2.38e-05( 1013)  2.36e-06(  236)   2.3e-07(   23)
+  0.0005    0.0139( 1426)   0.00786( 1610)  0.000784( 1285)  0.000224( 1041)  3.81e-05( 1014)  6.17e-06(  622)
+  0.0007    0.0269( 1375)    0.0153( 1569)   0.00265( 1085)  0.000991( 1623)    0.0003( 1091)  6.54e-05( 1023)
+   0.001    0.0518( 1325)    0.0313( 1604)    0.0111( 2422)   0.00485( 1985)   0.00245( 1005)  0.000797( 1305)
+  0.0015     0.101( 1287)    0.0694( 1774)    0.0544( 1391)    0.0294( 1507)    0.0269( 1377)    0.0136( 1388)
+   0.002     0.169( 1075)     0.118( 1512)     0.138( 1765)    0.0935( 1194)     0.124( 1585)    0.0816( 1043)
+   0.003     0.287( 1829)     0.233( 1483)     0.373( 1183)     0.323( 1024)     0.442( 1402)     0.418( 1326)
+   0.005     0.449( 1426)       0.6(   15)     0.492(  197)      0.52(  104)      0.52(   13)     0.484(  762)
+   0.007      0.56(   14)     0.493(   37)      0.56(   14)     0.485(  182)      0.48(   12)       0.6(   15)
+    0.01      0.52(   13)     0.491(   86)       0.6(   15)       0.6(   15)      0.64(   16)      0.56(   42)
+   0.015      0.56(   14)      0.56(   14)     0.485(  182)      0.56(   14)     0.493(  185)      0.52(   13)
+    0.02      0.48(  372)      0.52(   13)      0.52(   13)       0.6(   15)      0.52(   13)      0.56(   14)
+    0.03      0.48(   84)      0.48(   36)      0.48(   12)      0.72(   18)      0.56(   14)       0.6(   15)
+
+ honeycomb_SD6 internal_correlated
+noise  [(4, 'H'), (4, 'V'), (8, 'H'), (8, 'V'), (12, 'H'), (12, 'V')]
+  0.0003   0.00269( 1101)   0.00142( 1166)  3.12e-05( 1011)  4.13e-06(  413)     2e-07(   20)         0(    0)
+  0.0005   0.00759( 1554)   0.00385( 1577)  0.000204( 1148)  4.16e-05( 1024)  4.77e-06(  477)   6.4e-07(   64)
+  0.0007    0.0146( 1494)   0.00766( 1568)  0.000787( 1290)   0.00019( 1074)  3.81e-05( 1015)  6.03e-06(  603)
+   0.001    0.0308( 1575)     0.018( 1839)   0.00336( 1376)   0.00112( 1837)  0.000352( 1279)  7.57e-05( 1033)
+  0.0015    0.0689( 1763)     0.042( 1075)    0.0183( 3415)   0.00806( 2856)   0.00451( 1847)   0.00162( 1323)
+   0.002     0.123( 1566)    0.0802( 1024)     0.061( 1559)    0.0334( 1710)    0.0301( 1542)    0.0147( 1506)
+   0.003     0.235( 1500)     0.174( 1109)      0.26( 1658)     0.185( 1181)     0.289( 1840)     0.219( 1395)
+   0.005     0.416( 1322)     0.362( 1148)     0.547(   41)       0.6(   15)     0.493(   37)      0.48(   84)
+   0.007       0.6(   15)     0.454( 1442)     0.493(   37)     0.491(  773)      0.52(   13)     0.504(  189)
+    0.01     0.483(  181)       0.6(   15)     0.543(   95)     0.507(   38)      0.64(   16)      0.56(   14)
+   0.015     0.501(  388)      0.48(   12)      0.48(   12)     0.493(   37)      0.52(   13)      0.56(   14)
+    0.02       0.6(   15)      0.52(   13)      0.48(   12)      0.48(   12)      0.52(   13)     0.495(  780)
+    0.03       0.6(   15)     0.493(   37)      0.48(   12)      0.52(   13)      0.52(   13)      0.48(  180)
+
+ honeycomb_SI1000 internal
+noise  [(4, 'H'), (4, 'V'), (8, 'H'), (8, 'V'), (12, 'H'), (12, 'V')]
+  0.0003    0.0199( 2042)    0.0126( 1292)   0.00162( 1328)  0.000549( 1449)  0.000135( 1064)  2.63e-05( 1008)
+  0.0005    0.0505( 1292)    0.0336( 1719)     0.012( 1232)   0.00546( 1119)   0.00288( 1179)  0.000955( 1564)
+  0.0007    0.0956( 1221)    0.0658( 1684)     0.045( 1152)    0.0245( 1252)    0.0214( 1097)    0.0103( 1057)
+   0.001     0.165( 1049)     0.126( 1615)     0.144( 1834)     0.102( 1306)     0.148( 1887)     0.103( 1320)
+  0.0015     0.289( 1845)     0.237( 1512)     0.398( 1265)     0.326( 1034)      0.46( 1462)      0.42( 1334)
+   0.002     0.392( 1246)      0.32( 1016)      0.48(   12)      0.52(   13)      0.64(   16)      0.52(   13)
+   0.003      0.52(   13)     0.442( 1404)      0.48(   84)      0.48(   36)      0.48(   36)      0.64(   16)
+   0.005      0.54(   27)      0.52(   39)      0.52(   13)       0.6(   15)     0.485(  182)      0.56(   42)
+   0.007     0.501(  188)       0.6(   15)      0.52(   13)      0.68(   17)     0.488(  378)     0.483( 1534)
+    0.01     0.503(   88)      0.68(   17)      0.72(   18)      0.68(   17)      0.52(   13)     0.493(   37)
+   0.015      0.48(   36)       0.6(   15)      0.48(   84)      0.48(   12)      0.64(   16)      0.52(   13)
+    0.02      0.64(   16)     0.493(   37)      0.64(   16)      0.56(   14)      0.56(   14)      0.48(   36)
+    0.03      0.48(   12)       0.6(   15)      0.56(   14)      0.68(   17)      0.48(   36)       0.6(   15)
+
+ honeycomb_SI1000 internal_correlated
+noise  [(4, 'H'), (4, 'V'), (8, 'H'), (8, 'V'), (12, 'H'), (12, 'V')]
+  0.0003    0.0119( 1219)   0.00622( 1274)  0.000591( 1560)  0.000143( 1094)  2.85e-05( 1002)   3.8e-06(  380)
+  0.0005    0.0322( 1647)    0.0197( 1009)    0.0043( 1762)   0.00148( 1210)  0.000548( 1347)  0.000131( 1071)
+  0.0007    0.0629( 1608)     0.039( 1997)    0.0159( 1626)   0.00729( 1493)   0.00435( 1782)   0.00153( 1250)
+   0.001     0.126( 1605)    0.0774( 1979)    0.0675( 1726)    0.0369( 1889)    0.0385( 1969)    0.0198( 2028)
+  0.0015     0.228( 2911)     0.165( 2107)     0.256( 1632)     0.198( 1264)     0.292( 1863)     0.233( 1488)
+   0.002     0.335( 1065)     0.264( 1681)     0.426( 1353)      0.56(   14)      0.48(   12)     0.486(   85)
+   0.003      0.48(   12)     0.408( 1295)      0.48(   12)      0.52(   13)      0.64(   16)     0.491(  774)
+   0.005      0.48(   36)      0.52(   13)      0.48(   12)      0.52(   39)      0.48(   84)      0.56(   14)
+   0.007      0.64(   16)      0.52(   13)     0.507(   38)      0.52(   13)      0.48(   12)      0.48(   36)
+    0.01      0.64(   16)      0.56(   14)     0.547(   41)      0.48(   12)      0.56(   14)     0.533(   40)
+   0.015      0.48(   12)     0.483(  181)      0.52(   13)      0.56(   14)      0.52(   13)      0.64(   16)
+    0.02      0.52(   13)      0.48(   12)      0.64(   16)      0.48(   12)      0.52(   13)      0.48(   12)
+    0.03      0.56(   14)      0.48(   36)       0.6(   15)      0.48(   12)      0.48(   12)     0.486(   85)
+
+ surface_SD6 internal
+noise  [(3, 'X'), (3, 'Z'), (7, 'X'), (7, 'Z'), (11, 'X'), (11, 'Z')]
+  0.0003  0.000999( 1637)   0.00102( 1672)  4.77e-06(  477)  4.99e-06(  499)     1e-08(    1)     1e-08(    1)
+  0.0005   0.00254( 1039)   0.00275( 1127)  3.68e-05( 1018)  3.64e-05( 1005)   1.7e-07(   17)   2.9e-07(   29)
+  0.0007   0.00519( 1063)   0.00506( 1037)  0.000138( 1054)   0.00014( 1069)  1.99e-06(  199)  2.18e-06(  218)
+   0.001   0.00989( 2026)   0.00992( 1016)  0.000592( 1562)  0.000612( 1002)   1.9e-05( 1018)  1.98e-05( 1021)
+  0.0015    0.0222( 1135)    0.0226( 1156)   0.00285( 1168)   0.00282( 1153)  0.000232( 1075)  0.000232( 1076)
+   0.002    0.0376( 1923)    0.0386( 1974)   0.00861( 1763)   0.00855( 1750)   0.00131( 1075)   0.00136( 1117)
+   0.003    0.0766( 1958)    0.0768( 1963)      0.04( 1022)    0.0392( 2008)    0.0149( 1523)     0.015( 1537)
+   0.005     0.178( 1133)     0.174( 1110)      0.19( 1212)     0.191( 1220)      0.19( 1209)     0.187( 1194)
+   0.007      0.48(   12)     0.278( 1770)     0.391( 1241)      0.48(   36)     0.425( 1348)      0.48(   12)
+    0.01      0.48(   12)     0.372( 1182)      0.76(   19)      0.48(   36)      0.56(   14)       0.6(   15)
+   0.015     0.471( 1494)      0.52(   13)     0.493(  185)      0.52(   39)      0.52(   13)      0.52(   13)
+    0.02      0.48(   12)     0.488(  769)      0.48(   84)     0.554(   97)     0.571(  100)      0.48(   12)
+    0.03      0.49(  380)       0.6(   15)     0.573(   43)       0.6(   15)      0.52(   13)      0.56(   14)
+
+ surface_SD6 internal_correlated
+noise  [(3, 'X'), (3, 'Z'), (7, 'X'), (7, 'Z'), (11, 'X'), (11, 'Z')]
+  0.0003  0.000839( 1374)  0.000831( 1361)     2e-06(  200)  1.86e-06(  186)     1e-08(    1)         0(    0)
+  0.0005   0.00217( 1781)    0.0022( 1804)  1.36e-05( 1005)  1.35e-05( 1007)     2e-08(    2)     4e-08(    4)
+  0.0007   0.00411( 1685)   0.00432( 1770)  4.96e-05( 1023)  5.18e-05( 1017)   2.4e-07(   24)   3.1e-07(   31)
+   0.001   0.00824( 1687)   0.00824( 1687)  0.000216( 1000)   0.00021( 1184)  2.99e-06(  299)  3.24e-06(  324)
+  0.0015    0.0176( 1804)    0.0177( 1807)   0.00117( 1916)   0.00115( 1881)   4.7e-05( 1017)  4.38e-05( 1036)
+   0.002    0.0313( 1601)    0.0301( 1539)   0.00396( 1621)   0.00362( 1484)  0.000311( 1132)  0.000301( 1096)
+   0.003    0.0649( 1661)     0.068( 1739)    0.0206( 1053)     0.021( 1075)   0.00438( 1795)   0.00433( 1774)
+   0.005     0.153( 1957)     0.154( 1972)     0.133( 1697)     0.139( 1775)     0.101( 1289)    0.0986( 1260)
+   0.007      0.26( 1659)     0.239( 1521)      0.56(   14)     0.327( 1037)     0.374( 1186)     0.368( 1169)
+    0.01     0.368( 1169)     0.369( 1172)     0.577(  101)      0.52(   13)     0.497(   87)      0.48(   12)
+   0.015     0.449( 1424)      0.48(   84)      0.64(   16)     0.509(   89)      0.52(   13)     0.483(  374)
+    0.02      0.48(   84)      0.52(   13)      0.48(   12)      0.56(   14)      0.84(   21)     0.503(   88)
+    0.03      0.52(   13)      0.68(   17)      0.56(   14)      0.56(   14)      0.48(   12)      0.48(   84)
+
+ surface_SI1000 internal
+noise  [(3, 'X'), (3, 'Z'), (7, 'X'), (7, 'Z'), (11, 'X'), (11, 'Z')]
+  0.0003   0.00111( 1822)    0.0011( 1800)  6.78e-06(  678)  7.19e-06(  719)         0(    0)     2e-08(    2)
+  0.0005   0.00308( 1263)    0.0031( 1268)  5.11e-05( 1003)  5.29e-05( 1039)   6.6e-07(   66)   5.6e-07(   56)
+  0.0007   0.00584( 1195)   0.00587( 1203)  0.000212( 1196)  0.000221( 1023)  4.77e-06(  477)  4.46e-06(  446)
+   0.001    0.0119( 1219)    0.0113( 1161)  0.000911( 1493)  0.000898( 1472)  4.54e-05( 1028)  4.42e-05( 1001)
+  0.0015    0.0251( 1285)    0.0244( 1247)   0.00494( 1012)   0.00455( 1864)   0.00056( 1477)  0.000582( 1536)
+   0.002    0.0423( 1082)    0.0422( 1079)    0.0143( 1467)    0.0142( 1457)   0.00337( 1382)   0.00353( 1446)
+   0.003    0.0835( 1067)    0.0841( 1074)    0.0624( 1595)    0.0617( 1577)    0.0399( 1020)    0.0392( 2007)
+   0.005     0.187( 1193)     0.193( 1230)     0.288( 1836)     0.283( 1807)     0.353( 1121)     0.342( 1085)
+   0.007      0.29( 1850)     0.289( 1840)     0.443( 1407)     0.507(   38)     0.484(  375)      0.52(   39)
+    0.01      0.52(   13)      0.48(   12)      0.52(   39)     0.493(   37)      0.68(   17)      0.52(   13)
+   0.015      0.52(   13)      0.52(   13)      0.56(   14)      0.56(   14)      0.56(   14)      0.52(   13)
+    0.02      0.52(   13)      0.72(   18)     0.485(  376)      0.48(   12)     0.507(   38)      0.52(   39)
+    0.03      0.64(   16)      0.64(   16)     0.491(  773)       0.6(   15)      0.52(   13)       0.6(   15)
+
+ surface_SI1000 internal_correlated
+noise  [(3, 'X'), (3, 'Z'), (7, 'X'), (7, 'Z'), (11, 'X'), (11, 'Z')]
+  0.0003   0.00112( 1835)  0.000965( 1581)  2.31e-06(  231)  2.85e-06(  285)         0(    0)         0(    0)
+  0.0005   0.00243( 1988)   0.00251( 1027)  2.27e-05( 1013)  2.04e-05( 1012)     6e-08(    6)     8e-08(    8)
+  0.0007   0.00486( 1991)   0.00479( 1960)   8.2e-05( 1036)  8.41e-05( 1063)   7.9e-07(   79)   9.3e-07(   93)
+   0.001   0.00946( 1938)    0.0101( 1036)  0.000371( 1351)   0.00036( 1311)  8.18e-06(  818)  8.85e-06(  885)
+  0.0015     0.021( 1073)    0.0205( 1047)   0.00206( 1688)   0.00211( 1726)  0.000135( 1032)  0.000135( 1032)
+   0.002    0.0374( 1916)    0.0379( 1938)   0.00701( 1436)   0.00713( 1461)  0.000947( 1552)  0.000933( 1529)
+   0.003    0.0775( 1983)    0.0798( 1020)    0.0363( 1856)    0.0381( 1951)    0.0148( 1512)    0.0147( 1510)
+   0.005     0.182( 1160)     0.177( 1129)     0.227( 1448)     0.224( 1426)     0.259( 1651)     0.254( 1621)
+   0.007     0.277( 1763)     0.281( 1791)      0.48(   12)     0.429( 1363)     0.504(  189)      0.64(   16)
+    0.01     0.388( 1231)     0.387( 1229)      0.64(   16)     0.503(   88)      0.56(   14)      0.64(   16)
+   0.015     0.484(  762)      0.48(   36)      0.72(   18)      0.52(   13)      0.48(   12)      0.52(   39)
+    0.02       0.6(   15)      0.48(   12)      0.56(   42)      0.56(   14)      0.64(   16)     0.484(  375)
+    0.03     0.509(  191)       0.6(   15)       0.6(   15)      0.48(   12)      0.56(   14)      0.56(   14)
+bash-5.1$ stty -echo
+bash-5.1$ > > > > > > > > > > > 
+ honeycomb_SD6 internal
+noise  [(4, 'H'), (4, 'V'), (8, 'H'), (8, 'V'), (12, 'H'), (12, 'V')]
+  0.0003   0.00468( 1915)   0.00277( 1133)  0.000116( 1001)  2.38e-05( 1013)  2.36e-06(  236)   2.3e-07(   23)
+  0.0005    0.0139( 1426)   0.00786( 1610)  0.000784( 1285)  0.000224( 1041)  3.81e-05( 1014)  6.17e-06(  622)
+  0.0007    0.0269( 1375)    0.0153( 1569)   0.00265( 1085)  0.000991( 1623)    0.0003( 1091)  6.54e-05( 1023)
+   0.001    0.0518( 1325)    0.0313( 1604)    0.0111( 2422)   0.00485( 1985)   0.00245( 1005)  0.000797( 1305)
+  0.0015     0.101( 1287)    0.0694( 1774)    0.0544( 1391)    0.0294( 1507)    0.0269( 1377)    0.0136( 1388)
+   0.002     0.169( 1075)     0.118( 1512)     0.138( 1765)    0.0935( 1194)     0.124( 1585)    0.0816( 1043)
+   0.003     0.287( 1829)     0.233( 1483)     0.373( 1183)     0.323( 1024)     0.442( 1402)     0.418( 1326)
+   0.005     0.449( 1426)       0.6(   15)     0.492(  197)      0.52(  104)      0.52(   13)     0.484(  762)
+   0.007      0.56(   14)     0.493(   37)      0.56(   14)     0.485(  182)      0.48(   12)       0.6(   15)
+    0.01      0.52(   13)     0.491(   86)       0.6(   15)       0.6(   15)      0.64(   16)      0.56(   42)
+   0.015      0.56(   14)      0.56(   14)     0.485(  182)      0.56(   14)     0.493(  185)      0.52(   13)
+    0.02      0.48(  372)      0.52(   13)      0.52(   13)       0.6(   15)      0.52(   13)      0.56(   14)
+    0.03      0.48(   84)      0.48(   36)      0.48(   12)      0.72(   18)      0.56(   14)       0.6(   15)
+
+ honeycomb_SD6 internal_correlated
+noise  [(4, 'H'), (4, 'V'), (8, 'H'), (8, 'V'), (12, 'H'), (12, 'V')]
+  0.0003   0.00269( 1101)   0.00142( 1166)  3.12e-05( 1011)  4.13e-06(  413)     2e-07(   20)         0(    0)
+  0.0005   0.00759( 1554)   0.00385( 1577)  0.000204( 1148)  4.16e-05( 1024)  4.77e-06(  477)   6.4e-07(   64)
+  0.0007    0.0146( 1494)   0.00766( 1568)  0.000787( 1290)   0.00019( 1074)  3.81e-05( 1015)  6.03e-06(  603)
+   0.001    0.0308( 1575)     0.018( 1839)   0.00336( 1376)   0.00112( 1837)  0.000352( 1279)  7.57e-05( 1033)
+  0.0015    0.0689( 1763)     0.042( 1075)    0.0183( 3415)   0.00806( 2856)   0.00451( 1847)   0.00162( 1323)
+   0.002     0.123( 1566)    0.0802( 1024)     0.061( 1559)    0.0334( 1710)    0.0301( 1542)    0.0147( 1506)
+   0.003     0.235( 1500)     0.174( 1109)      0.26( 1658)     0.185( 1181)     0.289( 1840)     0.219( 1395)
+   0.005     0.416( 1322)     0.362( 1148)     0.547(   41)       0.6(   15)     0.493(   37)      0.48(   84)
+   0.007       0.6(   15)     0.454( 1442)     0.493(   37)     0.491(  773)      0.52(   13)     0.504(  189)
+    0.01     0.483(  181)       0.6(   15)     0.543(   95)     0.507(   38)      0.64(   16)      0.56(   14)
+   0.015     0.501(  388)      0.48(   12)      0.48(   12)     0.493(   37)      0.52(   13)      0.56(   14)
+    0.02       0.6(   15)      0.52(   13)      0.48(   12)      0.48(   12)      0.52(   13)     0.495(  780)
+    0.03       0.6(   15)     0.493(   37)      0.48(   12)      0.52(   13)      0.52(   13)      0.48(  180)
+
+ honeycomb_SI1000 internal
+noise  [(4, 'H'), (4, 'V'), (8, 'H'), (8, 'V'), (12, 'H'), (12, 'V')]
+  0.0003    0.0199( 2042)    0.0126( 1292)   0.00162( 1328)  0.000549( 1449)  0.000135( 1064)  2.63e-05( 1008)
+  0.0005    0.0505( 1292)    0.0336( 1719)     0.012( 1232)   0.00546( 1119)   0.00288( 1179)  0.000955( 1564)
+  0.0007    0.0956( 1221)    0.0658( 1684)     0.045( 1152)    0.0245( 1252)    0.0214( 1097)    0.0103( 1057)
+   0.001     0.165( 1049)     0.126( 1615)     0.144( 1834)     0.102( 1306)     0.148( 1887)     0.103( 1320)
+  0.0015     0.289( 1845)     0.237( 1512)     0.398( 1265)     0.326( 1034)      0.46( 1462)      0.42( 1334)
+   0.002     0.392( 1246)      0.32( 1016)      0.48(   12)      0.52(   13)      0.64(   16)      0.52(   13)
+   0.003      0.52(   13)     0.442( 1404)      0.48(   84)      0.48(   36)      0.48(   36)      0.64(   16)
+   0.005      0.54(   27)      0.52(   39)      0.52(   13)       0.6(   15)     0.485(  182)      0.56(   42)
+   0.007     0.501(  188)       0.6(   15)      0.52(   13)      0.68(   17)     0.488(  378)     0.483( 1534)
+    0.01     0.503(   88)      0.68(   17)      0.72(   18)      0.68(   17)      0.52(   13)     0.493(   37)
+   0.015      0.48(   36)       0.6(   15)      0.48(   84)      0.48(   12)      0.64(   16)      0.52(   13)
+    0.02      0.64(   16)     0.493(   37)      0.64(   16)      0.56(   14)      0.56(   14)      0.48(   36)
+    0.03      0.48(   12)       0.6(   15)      0.56(   14)      0.68(   17)      0.48(   36)       0.6(   15)
+
+ honeycomb_SI1000 internal_correlated
+noise  [(4, 'H'), (4, 'V'), (8, 'H'), (8, 'V'), (12, 'H'), (12, 'V')]
+  0.0003    0.0119( 1219)   0.00622( 1274)  0.000591( 1560)  0.000143( 1094)  2.85e-05( 1002)   3.8e-06(  380)
+  0.0005    0.0322( 1647)    0.0197( 1009)    0.0043( 1762)   0.00148( 1210)  0.000548( 1347)  0.000131( 1071)
+  0.0007    0.0629( 1608)     0.039( 1997)    0.0159( 1626)   0.00729( 1493)   0.00435( 1782)   0.00153( 1250)
+   0.001     0.126( 1605)    0.0774( 1979)    0.0675( 1726)    0.0369( 1889)    0.0385( 1969)    0.0198( 2028)
+  0.0015     0.228( 2911)     0.165( 2107)     0.256( 1632)     0.198( 1264)     0.292( 1863)     0.233( 1488)
+   0.002     0.335( 1065)     0.264( 1681)     0.426( 1353)      0.56(   14)      0.48(   12)     0.486(   85)
+   0.003      0.48(   12)     0.408( 1295)      0.48(   12)      0.52(   13)      0.64(   16)     0.491(  774)
+   0.005      0.48(   36)      0.52(   13)      0.48(   12)      0.52(   39)      0.48(   84)      0.56(   14)
+   0.007      0.64(   16)      0.52(   13)     0.507(   38)      0.52(   13)      0.48(   12)      0.48(   36)
+    0.01      0.64(   16)      0.56(   14)     0.547(   41)      0.48(   12)      0.56(   14)     0.533(   40)
+   0.015      0.48(   12)     0.483(  181)      0.52(   13)      0.56(   14)      0.52(   13)      0.64(   16)
+    0.02      0.52(   13)      0.48(   12)      0.64(   16)      0.48(   12)      0.52(   13)      0.48(   12)
+    0.03      0.56(   14)      0.48(   36)       0.6(   15)      0.48(   12)      0.48(   12)     0.486(   85)
+
+ surface_SD6 internal
+noise  [(3, 'X'), (3, 'Z'), (7, 'X'), (7, 'Z'), (11, 'X'), (11, 'Z')]
+  0.0003  0.000999( 1637)   0.00102( 1672)  4.77e-06(  477)  4.99e-06(  499)     1e-08(    1)     1e-08(    1)
+  0.0005   0.00254( 1039)   0.00275( 1127)  3.68e-05( 1018)  3.64e-05( 1005)   1.7e-07(   17)   2.9e-07(   29)
+  0.0007   0.00519( 1063)   0.00506( 1037)  0.000138( 1054)   0.00014( 1069)  1.99e-06(  199)  2.18e-06(  218)
+   0.001   0.00989( 2026)   0.00992( 1016)  0.000592( 1562)  0.000612( 1002)   1.9e-05( 1018)  1.98e-05( 1021)
+  0.0015    0.0222( 1135)    0.0226( 1156)   0.00285( 1168)   0.00282( 1153)  0.000232( 1075)  0.000232( 1076)
+   0.002    0.0376( 1923)    0.0386( 1974)   0.00861( 1763)   0.00855( 1750)   0.00131( 1075)   0.00136( 1117)
+   0.003    0.0766( 1958)    0.0768( 1963)      0.04( 1022)    0.0392( 2008)    0.0149( 1523)     0.015( 1537)
+   0.005     0.178( 1133)     0.174( 1110)      0.19( 1212)     0.191( 1220)      0.19( 1209)     0.187( 1194)
+   0.007      0.48(   12)     0.278( 1770)     0.391( 1241)      0.48(   36)     0.425( 1348)      0.48(   12)
+    0.01      0.48(   12)     0.372( 1182)      0.76(   19)      0.48(   36)      0.56(   14)       0.6(   15)
+   0.015     0.471( 1494)      0.52(   13)     0.493(  185)      0.52(   39)      0.52(   13)      0.52(   13)
+    0.02      0.48(   12)     0.488(  769)      0.48(   84)     0.554(   97)     0.571(  100)      0.48(   12)
+    0.03      0.49(  380)       0.6(   15)     0.573(   43)       0.6(   15)      0.52(   13)      0.56(   14)
+
+ surface_SD6 internal_correlated
+noise  [(3, 'X'), (3, 'Z'), (7, 'X'), (7, 'Z'), (11, 'X'), (11, 'Z')]
+  0.0003  0.000839( 1374)  0.000831( 1361)     2e-06(  200)  1.86e-06(  186)     1e-08(    1)         0(    0)
+  0.0005   0.00217( 1781)    0.0022( 1804)  1.36e-05( 1005)  1.35e-05( 1007)     2e-08(    2)     4e-08(    4)
+  0.0007   0.00411( 1685)   0.00432( 1770)  4.96e-05( 1023)  5.18e-05( 1017)   2.4e-07(   24)   3.1e-07(   31)
+   0.001   0.00824( 1687)   0.00824( 1687)  0.000216( 1000)   0.00021( 1184)  2.99e-06(  299)  3.24e-06(  324)
+  0.0015    0.0176( 1804)    0.0177( 1807)   0.00117( 1916)   0.00115( 1881)   4.7e-05( 1017)  4.38e-05( 1036)
+   0.002    0.0313( 1601)    0.0301( 1539)   0.00396( 1621)   0.00362( 1484)  0.000311( 1132)  0.000301( 1096)
+   0.003    0.0649( 1661)     0.068( 1739)    0.0206( 1053)     0.021( 1075)   0.00438( 1795)   0.00433( 1774)
+   0.005     0.153( 1957)     0.154( 1972)     0.133( 1697)     0.139( 1775)     0.101( 1289)    0.0986( 1260)
+   0.007      0.26( 1659)     0.239( 1521)      0.56(   14)     0.327( 1037)     0.374( 1186)     0.368( 1169)
+    0.01     0.368( 1169)     0.369( 1172)     0.577(  101)      0.52(   13)     0.497(   87)      0.48(   12)
+   0.015     0.449( 1424)      0.48(   84)      0.64(   16)     0.509(   89)      0.52(   13)     0.483(  374)
+    0.02      0.48(   84)      0.52(   13)      0.48(   12)      0.56(   14)      0.84(   21)     0.503(   88)
+    0.03      0.52(   13)      0.68(   17)      0.56(   14)      0.56(   14)      0.48(   12)      0.48(   84)
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A investigate.py
+bash-5.1$ bash-5.1$ {'extra': 'p', 'beta': 2}
+  noise1 worst 0.142 macro 0.061 h_EM3_v2:i=0.07 h_EM3_v2:i_correlated=0.14 h_SD6:i=0.05 h_SD6:i_correlated=0.00 h_SI1000:i=0.04 h_SI1000:i_correlated=0.08 s_SD6:i=0.00 s_SD6:i_correlated=0.02 s_SI1000:i=0.01 s_SI1000:i_correlated=0.02
+  noise2 worst 0.131 macro 0.066 h_EM3_v2:i=0.09 h_EM3_v2:i_correlated=0.13 h_SD6:i=0.06 h_SD6:i_correlated=0.02 h_SI1000:i=0.09 h_SI1000:i_correlated=0.07 s_SD6:i=0.00 s_SD6:i_correlated=0.04 s_SI1000:i=0.01 s_SI1000:i_correlated=0.02
+  noise3 worst 0.313 macro 0.132 h_EM3_v2:i=0.09 h_EM3_v2:i_correlated=0.15 h_SD6:i=0.08 h_SD6:i_correlated=0.05 h_SI1000:i=0.31 h_SI1000:i_correlated=0.18 s_SD6:i=0.00 s_SD6:i_correlated=0.05 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+  size worst 0.208 macro 0.140 h_EM3_v2:i=0.20 h_EM3_v2:i_correlated=0.21 h_SD6:i=0.14 h_SD6:i_correlated=0.14 h_SI1000:i=0.14 h_SI1000:i_correlated=0.14 s_SD6:i=0.09 s_SD6:i_correlated=0.09 s_SI1000:i=0.10 s_SI1000:i_correlated=0.10
+{'extra': 'sqrtp', 'beta': 0}
+  noise1 worst 0.050 macro 0.030 h_EM3_v2:i=0.02 h_EM3_v2:i_correlated=0.02 h_SD6:i=0.04 h_SD6:i_correlated=0.03 h_SI1000:i=0.03 h_SI1000:i_correlated=0.05 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.03 s_SI1000:i_correlated=0.03
+  noise2 worst 0.098 macro 0.054 h_EM3_v2:i=0.04 h_EM3_v2:i_correlated=0.03 h_SD6:i=0.07 h_SD6:i_correlated=0.04 h_SI1000:i=0.03 h_SI1000:i_correlated=0.10 s_SD6:i=0.05 s_SD6:i_correlated=0.05 s_SI1000:i=0.04 s_SI1000:i_correlated=0.06
+  noise3 worst 0.245 macro 0.115 h_EM3_v2:i=0.05 h_EM3_v2:i_correlated=0.06 h_SD6:i=0.16 h_SD6:i_correlated=0.05 h_SI1000:i=0.24 h_SI1000:i_correlated=0.13 s_SD6:i=0.07 s_SD6:i_correlated=0.09 s_SI1000:i=0.06 s_SI1000:i_correlated=0.09
+  size worst 0.095 macro 0.057 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.09 s_SD6:i_correlated=0.09 s_SI1000:i=0.08 s_SI1000:i_correlated=0.07
+{'extra': 'sqrtp', 'beta': 1}
+  noise1 worst 0.069 macro 0.036 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.04 h_SD6:i_correlated=0.01 h_SI1000:i=0.04 h_SI1000:i_correlated=0.07 s_SD6:i=0.01 s_SD6:i_correlated=0.02 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+  noise2 worst 0.121 macro 0.057 h_EM3_v2:i=0.05 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.08 h_SD6:i_correlated=0.02 h_SI1000:i=0.05 h_SI1000:i_correlated=0.12 s_SD6:i=0.03 s_SD6:i_correlated=0.05 s_SI1000:i=0.03 s_SI1000:i_correlated=0.04
+  noise3 worst 0.232 macro 0.115 h_EM3_v2:i=0.05 h_EM3_v2:i_correlated=0.08 h_SD6:i=0.20 h_SD6:i_correlated=0.04 h_SI1000:i=0.23 h_SI1000:i_correlated=0.13 s_SD6:i=0.04 s_SD6:i_correlated=0.08 s_SI1000:i=0.04 s_SI1000:i_correlated=0.06
+  size worst 0.127 macro 0.070 h_EM3_v2:i=0.11 h_EM3_v2:i_correlated=0.13 h_SD6:i=0.07 h_SD6:i_correlated=0.06 h_SI1000:i=0.07 h_SI1000:i_correlated=0.07 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.02
+{'extra': 'sqrtp', 'beta': 2}
+  noise1 worst 0.091 macro 0.047 h_EM3_v2:i=0.05 h_EM3_v2:i_correlated=0.06 h_SD6:i=0.05 h_SD6:i_correlated=0.00 h_SI1000:i=0.06 h_SI1000:i_correlated=0.09 s_SD6:i=0.01 s_SD6:i_correlated=0.03 s_SI1000:i=0.02 s_SI1000:i_correlated=0.02
+  noise2 worst 0.145 macro 0.068 h_EM3_v2:i=0.07 h_EM3_v2:i_correlated=0.07 h_SD6:i=0.09 h_SD6:i_correlated=0.02 h_SI1000:i=0.06 h_SI1000:i_correlated=0.14 s_SD6:i=0.01 s_SD6:i_correlated=0.05 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+  noise3 worst 0.235 macro 0.123 h_EM3_v2:i=0.07 h_EM3_v2:i_correlated=0.10 h_SD6:i=0.23 h_SD6:i_correlated=0.05 h_SI1000:i=0.24 h_SI1000:i_correlated=0.14 s_SD6:i=0.01 s_SD6:i_correlated=0.07 s_SI1000:i=0.04 s_SI1000:i_correlated=0.03
+  size worst 0.209 macro 0.141 h_EM3_v2:i=0.20 h_EM3_v2:i_correlated=0.21 h_SD6:i=0.14 h_SD6:i_correlated=0.14 h_SI1000:i=0.14 h_SI1000:i_correlated=0.14 s_SD6:i=0.09 s_SD6:i_correlated=0.09 s_SI1000:i=0.10 s_SI1000:i_correlated=0.10
+{'extra': 'softplus', 'beta': 0}
+  noise1 worst 0.098 macro 0.045 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.03 h_SD6:i=0.05 h_SD6:i_correlated=0.02 h_SI1000:i=0.10 h_SI1000:i_correlated=0.05 s_SD6:i=0.03 s_SD6:i_correlated=0.00 s_SI1000:i=0.04 s_SI1000:i_correlated=0.04
+  noise2 worst 0.189 macro 0.088 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.09 h_SD6:i_correlated=0.04 h_SI1000:i=0.19 h_SI1000:i_correlated=0.12 s_SD6:i=0.07 s_SD6:i_correlated=0.04 s_SI1000:i=0.06 s_SI1000:i_correlated=0.07
+  noise3 worst 0.251 macro 0.143 h_EM3_v2:i=0.04 h_EM3_v2:i_correlated=0.08 h_SD6:i=0.25 h_SD6:i_correlated=0.05 h_SI1000:i=0.21 h_SI1000:i_correlated=0.20 s_SD6:i=0.11 s_SD6:i_correlated=0.12 s_SI1000:i=0.09 s_SI1000:i_correlated=0.12
+  size worst 0.096 macro 0.056 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.10 s_SD6:i_correlated=0.09 s_SI1000:i=0.08 s_SI1000:i_correlated=0.07
+{'extra': 'softplus', 'beta': 1}
+  noise1 worst 0.104 macro 0.048 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.05 h_SD6:i_correlated=0.00 h_SI1000:i=0.10 h_SI1000:i_correlated=0.07 s_SD6:i=0.03 s_SD6:i_correlated=0.01 s_SI1000:i=0.04 s_SI1000:i_correlated=0.03
+  noise2 worst 0.211 macro 0.095 h_EM3_v2:i=0.02 h_EM3_v2:i_correlated=0.06 h_SD6:i=0.10 h_SD6:i_correlated=0.02 h_SI1000:i=0.21 h_SI1000:i_correlated=0.14 s_SD6:i=0.05 s_SD6:i_correlated=0.05 s_SI1000:i=0.05 s_SI1000:i_correlated=0.05
+  noise3 worst 0.377 macro 0.179 h_EM3_v2:i=0.05 h_EM3_v2:i_correlated=0.10 h_SD6:i=0.30 h_SD6:i_correlated=0.04 h_SI1000:i=0.20 h_SI1000:i_correlated=0.38 s_SD6:i=0.08 s_SD6:i_correlated=0.11 s_SI1000:i=0.08 s_SI1000:i_correlated=0.08
+  size worst 0.122 macro 0.069 h_EM3_v2:i=0.12 h_EM3_v2:i_correlated=0.12 h_SD6:i=0.07 h_SD6:i_correlated=0.06 h_SI1000:i=0.07 h_SI1000:i_correlated=0.07 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.02
+{'extra': 'softplus', 'beta': 2}
+  noise1 worst 0.114 macro 0.056 h_EM3_v2:i=0.02 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.06 h_SD6:i_correlated=0.00 h_SI1000:i=0.11 h_SI1000:i_correlated=0.10 s_SD6:i=0.03 s_SD6:i_correlated=0.03 s_SI1000:i=0.04 s_SI1000:i_correlated=0.02
+  noise2 worst 0.230 macro 0.105 h_EM3_v2:i=0.05 h_EM3_v2:i_correlated=0.07 h_SD6:i=0.12 h_SD6:i_correlated=0.01 h_SI1000:i=0.23 h_SI1000:i_correlated=0.16 s_SD6:i=0.04 s_SD6:i_correlated=0.07 s_SI1000:i=0.04 s_SI1000:i_correlated=0.04
+  noise3 worst 0.504 macro 0.219 h_EM3_v2:i=0.08 h_EM3_v2:i_correlated=0.13 h_SD6:i=0.35 h_SD6:i_correlated=0.06 h_SI1000:i=0.23 h_SI1000:i_correlated=0.50 s_SD6:i=0.05 s_SD6:i_correlated=0.10 s_SI1000:i=0.08 s_SI1000:i_correlated=0.05
+  size worst 0.208 macro 0.141 h_EM3_v2:i=0.21 h_EM3_v2:i_correlated=0.21 h_SD6:i=0.14 h_SD6:i_correlated=0.14 h_SI1000:i=0.14 h_SI1000:i_correlated=0.14 s_SD6:i=0.09 s_SD6:i_correlated=0.09 s_SI1000:i=0.10 s_SI1000:i_correlated=0.10
+bash-5.1$ {'noise_degree': 1, 'beta': 0}
+  noise1 worst 0.349 macro 0.123 h_EM3_v2:i=0.16 h_EM3_v2:i_correlated=0.35 h_SD6:i=0.01 h_SD6:i_correlated=0.05 h_SI1000:i=0.02 h_SI1000:i_correlated=0.00 s_SD6:i=0.00 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.02
+  noise2 worst 0.314 macro 0.118 h_EM3_v2:i=0.16 h_EM3_v2:i_correlated=0.31 h_SD6:i=0.01 h_SD6:i_correlated=0.04 h_SI1000:i=0.11 h_SI1000:i_correlated=0.00 s_SD6:i=0.02 s_SD6:i_correlated=0.02 s_SI1000:i=0.03 s_SI1000:i_correlated=0.02
+  noise3 worst 0.318 macro 0.146 h_EM3_v2:i=0.16 h_EM3_v2:i_correlated=0.32 h_SD6:i=0.02 h_SD6:i_correlated=0.04 h_SI1000:i=0.28 h_SI1000:i_correlated=0.03 s_SD6:i=0.03 s_SD6:i_correlated=0.02 s_SI1000:i=0.04 s_SI1000:i_correlated=0.02
+  size worst 0.089 macro 0.057 h_EM3_v2:i=0.04 h_EM3_v2:i_correlated=0.08 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.09 s_SD6:i_correlated=0.09 s_SI1000:i=0.06 s_SI1000:i_correlated=0.07
+{'noise_degree': 1, 'beta': 1}
+  noise1 worst 0.348 macro 0.121 h_EM3_v2:i=0.15 h_EM3_v2:i_correlated=0.35 h_SD6:i=0.00 h_SD6:i_correlated=0.04 h_SI1000:i=0.04 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.01
+  noise2 worst 0.312 macro 0.117 h_EM3_v2:i=0.15 h_EM3_v2:i_correlated=0.31 h_SD6:i=0.00 h_SD6:i_correlated=0.03 h_SI1000:i=0.12 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.01 s_SI1000:i_correlated=0.01
+  noise3 worst 0.314 macro 0.147 h_EM3_v2:i=0.16 h_EM3_v2:i_correlated=0.31 h_SD6:i=0.02 h_SD6:i_correlated=0.04 h_SI1000:i=0.30 h_SI1000:i_correlated=0.04 s_SD6:i=0.01 s_SD6:i_correlated=0.00 s_SI1000:i=0.02 s_SI1000:i_correlated=0.00
+  size worst 0.133 macro 0.070 h_EM3_v2:i=0.11 h_EM3_v2:i_correlated=0.13 h_SD6:i=0.07 h_SD6:i_correlated=0.06 h_SI1000:i=0.08 h_SI1000:i_correlated=0.07 s_SD6:i=0.01 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.02
+{'noise_degree': 1, 'beta': 2}
+  noise1 worst 0.348 macro 0.122 h_EM3_v2:i=0.15 h_EM3_v2:i_correlated=0.35 h_SD6:i=0.01 h_SD6:i_correlated=0.03 h_SI1000:i=0.06 h_SI1000:i_correlated=0.03 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.01 s_SI1000:i_correlated=0.02
+  noise2 worst 0.311 macro 0.119 h_EM3_v2:i=0.15 h_EM3_v2:i_correlated=0.31 h_SD6:i=0.02 h_SD6:i_correlated=0.04 h_SI1000:i=0.12 h_SI1000:i_correlated=0.03 s_SD6:i=0.02 s_SD6:i_correlated=0.00 s_SI1000:i=0.03 s_SI1000:i_correlated=0.01
+  noise3 worst 0.313 macro 0.151 h_EM3_v2:i=0.16 h_EM3_v2:i_correlated=0.31 h_SD6:i=0.04 h_SD6:i_correlated=0.05 h_SI1000:i=0.31 h_SI1000:i_correlated=0.06 s_SD6:i=0.03 s_SD6:i_correlated=0.00 s_SI1000:i=0.04 s_SI1000:i_correlated=0.01
+  size worst 0.208 macro 0.141 h_EM3_v2:i=0.20 h_EM3_v2:i_correlated=0.21 h_SD6:i=0.14 h_SD6:i_correlated=0.14 h_SI1000:i=0.14 h_SI1000:i_correlated=0.14 s_SD6:i=0.09 s_SD6:i_correlated=0.09 s_SI1000:i=0.11 s_SI1000:i_correlated=0.10
+{'noise_degree': 2, 'beta': 0}
+  noise1 worst 0.115 macro 0.049 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.01 h_SD6:i=0.05 h_SD6:i_correlated=0.02 h_SI1000:i=0.11 h_SI1000:i_correlated=0.06 s_SD6:i=0.03 s_SD6:i_correlated=0.00 s_SI1000:i=0.04 s_SI1000:i_correlated=0.04
+  noise2 worst 0.167 macro 0.084 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.01 h_SD6:i=0.10 h_SD6:i_correlated=0.04 h_SI1000:i=0.17 h_SI1000:i_correlated=0.13 s_SD6:i=0.06 s_SD6:i_correlated=0.05 s_SI1000:i=0.06 s_SI1000:i_correlated=0.07
+  noise3 worst 1.339 macro 0.482 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.02 h_SD6:i=0.25 h_SD6:i_correlated=0.05 h_SI1000:i=0.66 h_SI1000:i_correlated=1.34 s_SD6:i=0.10 s_SD6:i_correlated=0.11 s_SI1000:i=0.08 s_SI1000:i_correlated=0.11
+  size worst 0.096 macro 0.057 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.01 h_SD6:i_correlated=0.00 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.10 s_SD6:i_correlated=0.09 s_SI1000:i=0.08 s_SI1000:i_correlated=0.07
+{'noise_degree': 2, 'beta': 1}
+  noise1 worst 0.122 macro 0.052 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.02 h_SD6:i=0.05 h_SD6:i_correlated=0.00 h_SI1000:i=0.12 h_SI1000:i_correlated=0.08 s_SD6:i=0.03 s_SD6:i_correlated=0.01 s_SI1000:i=0.04 s_SI1000:i_correlated=0.03
+  noise2 worst 0.189 macro 0.091 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.03 h_SD6:i=0.11 h_SD6:i_correlated=0.02 h_SI1000:i=0.19 h_SI1000:i_correlated=0.16 s_SD6:i=0.05 s_SD6:i_correlated=0.06 s_SI1000:i=0.04 s_SI1000:i_correlated=0.05
+  noise3 worst 1.182 macro 0.428 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.30 h_SD6:i_correlated=0.04 h_SI1000:i=0.56 h_SI1000:i_correlated=1.18 s_SD6:i=0.07 s_SD6:i_correlated=0.10 s_SI1000:i=0.07 s_SI1000:i_correlated=0.08
+  size worst 0.126 macro 0.070 h_EM3_v2:i=0.12 h_EM3_v2:i_correlated=0.13 h_SD6:i=0.07 h_SD6:i_correlated=0.06 h_SI1000:i=0.07 h_SI1000:i_correlated=0.07 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.02
+{'noise_degree': 2, 'beta': 2}
+  noise1 worst 0.131 macro 0.059 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.03 h_SD6:i=0.06 h_SD6:i_correlated=0.00 h_SI1000:i=0.13 h_SI1000:i_correlated=0.10 s_SD6:i=0.02 s_SD6:i_correlated=0.03 s_SI1000:i=0.04 s_SI1000:i_correlated=0.02
+  noise2 worst 0.212 macro 0.102 h_EM3_v2:i=0.04 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.12 h_SD6:i_correlated=0.01 h_SI1000:i=0.21 h_SI1000:i_correlated=0.18 s_SD6:i=0.03 s_SD6:i_correlated=0.07 s_SI1000:i=0.04 s_SI1000:i_correlated=0.04
+  noise3 worst 1.016 macro 0.370 h_EM3_v2:i=0.05 h_EM3_v2:i_correlated=0.06 h_SD6:i=0.35 h_SD6:i_correlated=0.05 h_SI1000:i=0.43 h_SI1000:i_correlated=1.02 s_SD6:i=0.04 s_SD6:i_correlated=0.09 s_SI1000:i=0.07 s_SI1000:i_correlated=0.05
+  size worst 0.210 macro 0.141 h_EM3_v2:i=0.21 h_EM3_v2:i_correlated=0.21 h_SD6:i=0.14 h_SD6:i_correlated=0.14 h_SI1000:i=0.14 h_SI1000:i_correlated=0.14 s_SD6:i=0.09 s_SD6:i_correlated=0.09 s_SI1000:i=0.10 s_SI1000:i_correlated=0.10
+{'noise_degree': 3, 'beta': 0}
+  noise1 worst 0.098 macro 0.045 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.10 h_SI1000:i_correlated=0.01 s_SD6:i=0.03 s_SD6:i_correlated=0.04 s_SI1000:i=0.00 s_SI1000:i_correlated=0.09
+  noise2 worst 1.386 macro 0.521 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.00 h_SD6:i_correlated=0.05 h_SI1000:i=0.88 h_SI1000:i_correlated=1.39 s_SD6:i=0.04 s_SD6:i_correlated=0.07 s_SI1000:i=0.00 s_SI1000:i_correlated=0.08
+  noise3 worst 1.381 macro 0.494 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.10 h_SD6:i=0.19 h_SD6:i_correlated=0.32 h_SI1000:i=1.38 h_SI1000:i_correlated=0.62 s_SD6:i=0.04 s_SD6:i_correlated=0.03 s_SI1000:i=0.07 s_SI1000:i_correlated=0.02
+  size worst 0.093 macro 0.054 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.09 s_SD6:i_correlated=0.08 s_SI1000:i=0.07 s_SI1000:i_correlated=0.07
+{'noise_degree': 3, 'beta': 1}
+  noise1 worst 0.099 macro 0.036 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.01 h_SD6:i=0.02 h_SD6:i_correlated=0.00 h_SI1000:i=0.10 h_SI1000:i_correlated=0.01 s_SD6:i=0.01 s_SD6:i_correlated=0.01 s_SI1000:i=0.00 s_SI1000:i_correlated=0.05
+  noise2 worst 1.234 macro 0.465 h_EM3_v2:i=0.02 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.03 h_SD6:i_correlated=0.07 h_SI1000:i=0.79 h_SI1000:i_correlated=1.23 s_SD6:i=0.02 s_SD6:i_correlated=0.03 s_SI1000:i=0.02 s_SI1000:i_correlated=0.05
+  noise3 worst 1.399 macro 0.586 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.09 h_SD6:i=0.28 h_SD6:i_correlated=0.39 h_SI1000:i=1.40 h_SI1000:i_correlated=1.11 s_SD6:i=0.08 s_SD6:i_correlated=0.03 s_SI1000:i=0.08 s_SI1000:i_correlated=0.04
+  size worst 0.119 macro 0.067 h_EM3_v2:i=0.11 h_EM3_v2:i_correlated=0.12 h_SD6:i=0.06 h_SD6:i_correlated=0.06 h_SI1000:i=0.07 h_SI1000:i_correlated=0.07 s_SD6:i=0.01 s_SD6:i_correlated=0.01 s_SI1000:i=0.01 s_SI1000:i_correlated=0.03
+{'noise_degree': 3, 'beta': 2}
+  noise1 worst 0.106 macro 0.040 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.01 h_SD6:i=0.05 h_SD6:i_correlated=0.00 h_SI1000:i=0.11 h_SI1000:i_correlated=0.04 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise2 worst 1.080 macro 0.414 h_EM3_v2:i=0.05 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.08 h_SD6:i_correlated=0.09 h_SI1000:i=0.72 h_SI1000:i_correlated=1.08 s_SD6:i=0.01 s_SD6:i_correlated=0.02 s_SI1000:i=0.03 s_SI1000:i_correlated=0.01
+  noise3 worst 1.949 macro 0.832 h_EM3_v2:i=0.05 h_EM3_v2:i_correlated=0.09 h_SD6:i=0.46 h_SD6:i_correlated=0.48 h_SI1000:i=1.95 h_SI1000:i_correlated=1.63 s_SD6:i=0.12 s_SD6:i_correlated=0.03 s_SI1000:i=0.08 s_SI1000:i_correlated=0.05
+  size worst 0.204 macro 0.140 h_EM3_v2:i=0.20 h_EM3_v2:i_correlated=0.20 h_SD6:i=0.14 h_SD6:i_correlated=0.14 h_SI1000:i=0.14 h_SI1000:i_correlated=0.14 s_SD6:i=0.09 s_SD6:i_correlated=0.08 s_SI1000:i=0.09 s_SI1000:i_correlated=0.10
+{'extra': 'p', 'beta': 0}
+  noise1 worst 0.102 macro 0.044 h_EM3_v2:i=0.06 h_EM3_v2:i_correlated=0.10 h_SD6:i=0.03 h_SD6:i_correlated=0.03 h_SI1000:i=0.00 h_SI1000:i_correlated=0.04 s_SD6:i=0.01 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+bash-5.1$ > > > > > > > > > 
+MODEL p
+('honeycomb_EM3_v2', 'internal', 'H') beta -0.617 coef [-0.21 -0.5   0.01 -4.43  1.58  0.02] train max/mac [0.004 0.004]
+('honeycomb_EM3_v2', 'internal', 'V') beta -0.474 coef [ 0.09 -0.79  0.02 -5.37  1.92  0.02] train max/mac [0.02 0.02]
+('honeycomb_EM3_v2', 'internal_correlated', 'H') beta -0.597 coef [ 0.11 -0.58  0.01 -5.37  1.69  0.04] train max/mac [0.021 0.021]
+('honeycomb_EM3_v2', 'internal_correlated', 'V') beta -0.7 coef [ 0.38 -0.88  0.01 -6.33  2.03  0.04] train max/mac [0.032 0.032]
+('honeycomb_SD6', 'internal', 'H') beta -0.003 coef [-1.35  0.04 -0.04 -1.52  1.96 -0.02] train max/mac [0.001 0.001]
+('honeycomb_SD6', 'internal', 'V') beta -0.137 coef [-1.99 -0.7   0.31 -1.51  2.67 -0.25] train max/mac [0. 0.]
+('honeycomb_SD6', 'internal_correlated', 'H') beta 0.201 coef [-0.94  0.13 -0.14 -2.54  1.89  0.18] train max/mac [0.002 0.002]
+('honeycomb_SD6', 'internal_correlated', 'V') beta -0.295 coef [-1.46 -0.41 -0.01 -2.58  2.57  0.04] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal', 'H') beta -0.229 coef [-1.99 -0.32  0.35  0.38  2.21 -0.34] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal', 'V') beta -0.458 coef [-2.25 -0.54  0.19  0.43  2.62 -0.32] train max/mac [0.003 0.003]
+('honeycomb_SI1000', 'internal_correlated', 'H') beta -0.161 coef [-1.27  0.13 -0.15 -0.65  1.93  0.09] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal_correlated', 'V') beta -0.344 coef [-1.93 -0.36  0.03 -0.47  2.55 -0.09] train max/mac [0. 0.]
+('surface_SD6', 'internal', 'both') beta -0.143 coef [-1.47  0.29  0.05 -3.69  2.19 -0.1 ] train max/mac [0. 0.]
+('surface_SD6', 'internal_correlated', 'both') beta -0.118 coef [-1.05  0.22  0.01 -4.55  2.27 -0.02] train max/mac [0.003 0.003]
+('surface_SI1000', 'internal', 'both') beta -0.264 coef [-1.72  0.22  0.06 -3.24  2.29 -0.12] train max/mac [0.001 0.001]
+('surface_SI1000', 'internal_correlated', 'both') beta -0.287 coef [-1.31  0.14  0.01 -4.04  2.37 -0.02] train max/mac [0.004 0.004]
+
+MODEL sqrtp
+('honeycomb_EM3_v2', 'internal', 'H') beta -0.648 coef [-0.39 -0.55  0.14 -4.57  1.48  0.2 ] train max/mac [0. 0.]
+('honeycomb_EM3_v2', 'internal', 'V') beta -0.546 coef [-0.16 -0.8   0.16 -5.47  1.76  0.21] train max/mac [0.006 0.006]
+('honeycomb_EM3_v2', 'internal_correlated', 'H') beta -0.667 coef [-0.04 -0.53  0.04 -5.63  1.43  0.39] train max/mac [0.002 0.002]
+('honeycomb_EM3_v2', 'internal_correlated', 'V') beta -0.778 coef [ 0.13 -0.79  0.06 -6.57  1.68  0.46] train max/mac [0.007 0.007]
+('honeycomb_SD6', 'internal', 'H') beta -0.015 coef [-0.95  0.22 -0.44 -1.64  1.89  0.11] train max/mac [0. 0.]
+('honeycomb_SD6', 'internal', 'V') beta -0.145 coef [-2.86 -0.96  1.17 -0.8   2.88 -0.95] train max/mac [0. 0.]
+('honeycomb_SD6', 'internal_correlated', 'H') beta 0.187 coef [-0.43  0.32 -0.66 -3.2   1.65  0.84] train max/mac [0. 0.]
+('honeycomb_SD6', 'internal_correlated', 'V') beta -0.291 coef [-1.52 -0.45  0.05 -2.72  2.53  0.17] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal', 'H') beta -0.228 coef [-2.91 -0.59  1.27  1.29  2.49 -1.25] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal', 'V') beta -0.389 coef [-3.91 -1.15  1.91  2.47  3.35 -2.41] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal_correlated', 'H') beta -0.162 coef [-0.85  0.25 -0.58 -0.94  1.84  0.38] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal_correlated', 'V') beta -0.347 coef [-1.88 -0.32 -0.02 -0.34  2.58 -0.22] train max/mac [0. 0.]
+('surface_SD6', 'internal', 'both') beta -0.144 coef [-1.63  0.24  0.21 -3.28  2.34 -0.5 ] train max/mac [0.001 0.001]
+('surface_SD6', 'internal_correlated', 'both') beta -0.134 coef [-1.05  0.24 -0.   -4.5   2.26 -0.05] train max/mac [0.002 0.002]
+('surface_SI1000', 'internal', 'both') beta -0.273 coef [-1.9   0.17  0.23 -2.79  2.44 -0.56] train max/mac [0.003 0.003]
+('surface_SI1000', 'internal_correlated', 'both') beta -0.291 coef [-1.33  0.14  0.03 -3.98  2.38 -0.08] train max/mac [0.004 0.004]
+
+MODEL softplus
+('honeycomb_EM3_v2', 'internal', 'H') beta -0.665 coef [-0.5  -0.58  0.28 -4.73  1.27  0.53] train max/mac [0. 0.]
+('honeycomb_EM3_v2', 'internal', 'V') beta -0.629 coef [-0.12 -0.54 -0.06 -5.84  1.2   0.98] train max/mac [0. 0.]
+('honeycomb_EM3_v2', 'internal_correlated', 'H') beta -0.702 coef [ 0.28 -0.02 -0.56 -6.3   0.61  1.6 ] train max/mac [0. 0.]
+('honeycomb_EM3_v2', 'internal_correlated', 'V') beta -0.804 coef [ 0.67  0.21 -1.07 -7.61  0.23  2.43] train max/mac [0. 0.]
+('honeycomb_SD6', 'internal', 'H') beta -0.026 coef [-0.87  0.35 -0.74 -1.74  1.8   0.3 ] train max/mac [0. 0.]
+('honeycomb_SD6', 'internal', 'V') beta -0.158 coef [-2.42 -0.88  1.06 -1.16  2.82 -0.85] train max/mac [0. 0.]
+('honeycomb_SD6', 'internal_correlated', 'H') beta 0.17 coef [-0.58  0.36 -0.75 -3.03  1.59  0.98] train max/mac [0. 0.]
+('honeycomb_SD6', 'internal_correlated', 'V') beta -0.291 coef [-1.62 -0.51  0.19 -2.67  2.52  0.18] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal', 'H') beta -0.231 coef [-2.36 -0.49  1.04  0.76  2.39 -1.04] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal', 'V') beta -0.394 coef [-3.06 -0.98  1.52  1.43  3.16 -1.99] train max/mac [0.001 0.001]
+('honeycomb_SI1000', 'internal_correlated', 'H') beta -0.162 coef [-1.05  0.23 -0.54 -0.82  1.85  0.38] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal_correlated', 'V') beta -0.348 coef [-1.82 -0.29 -0.11 -0.46  2.54 -0.14] train max/mac [0. 0.]
+('surface_SD6', 'internal', 'both') beta -0.155 coef [-1.56  0.26  0.19 -3.37  2.36 -0.58] train max/mac [0.003 0.003]
+('surface_SD6', 'internal_correlated', 'both') beta -0.164 coef [-1.    0.32 -0.12 -4.59  2.16  0.09] train max/mac [0.003 0.003]
+('surface_SI1000', 'internal', 'both') beta -0.295 coef [-1.77  0.23  0.14 -2.93  2.44 -0.58] train max/mac [0.003 0.003]
+('surface_SI1000', 'internal_correlated', 'both') beta -0.301 coef [-1.32  0.16  0.01 -4.04  2.33 -0.01] train max/mac [0.004 0.004]
+
+MODEL None
+('honeycomb_EM3_v2', 'internal', 'H') beta -0.667 coef [-0.3  -0.46  0.03 -4.36  1.55  0.05] train max/mac [0. 0.]
+('honeycomb_EM3_v2', 'internal', 'V') beta -0.606 coef [-0.11 -0.64  0.02 -5.19  1.77  0.07] train max/mac [0.002 0.002]
+('honeycomb_EM3_v2', 'internal_correlated', 'H') beta -0.711 coef [-0.1  -0.39 -0.02 -5.19  1.51  0.12] train max/mac [0. 0.]
+('honeycomb_EM3_v2', 'internal_correlated', 'V') beta -0.833 coef [-0.02 -0.55 -0.04 -5.96  1.68  0.16] train max/mac [0.001 0.001]
+('honeycomb_SD6', 'internal', 'H') beta -0.026 coef [-1.38 -0.02 -0.09 -1.54  1.95  0.04] train max/mac [0. 0.]
+('honeycomb_SD6', 'internal', 'V') beta -0.156 coef [-1.68 -0.35  0.13 -1.75  2.39 -0.1 ] train max/mac [0. 0.]
+('honeycomb_SD6', 'internal_correlated', 'H') beta 0.169 coef [-1.1  -0.02 -0.09 -2.35  2.08  0.12] train max/mac [0. 0.]
+('honeycomb_SD6', 'internal_correlated', 'V') beta -0.291 coef [-1.48 -0.42  0.02 -2.55  2.61  0.02] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal', 'H') beta -0.232 coef [-1.64  0.03  0.12  0.04  1.87 -0.12] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal', 'V') beta -0.397 coef [-2.01 -0.23  0.17  0.06  2.17 -0.23] train max/mac [0.001 0.001]
+('honeycomb_SI1000', 'internal_correlated', 'H') beta -0.162 coef [-1.43 -0.04 -0.06 -0.56  2.04  0.05] train max/mac [0. 0.]
+('honeycomb_SI1000', 'internal_correlated', 'V') beta -0.349 coef [-1.9  -0.34 -0.02 -0.56  2.47 -0.01] train max/mac [0. 0.]
+('surface_SD6', 'internal', 'both') beta -0.151 coef [-1.43  0.35  0.03 -3.78  2.07 -0.07] train max/mac [0.002 0.002]
+('surface_SD6', 'internal_correlated', 'both') beta -0.154 coef [-1.07  0.25 -0.01 -4.54  2.21  0.  ] train max/mac [0.002 0.002]
+('surface_SI1000', 'internal', 'both') beta -0.289 coef [-1.68  0.29  0.02 -3.33  2.15 -0.07] train max/mac [0.003 0.003]
+('surface_SI1000', 'internal_correlated', 'both') beta -0.298 coef [-1.31  0.16  0.   -4.05  2.33 -0.  ] train max/mac [0.004 0.004]
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A low_noise.py
+bash-5.1$ bash-5.1$ config 3 0 1
+  noise1 worst 0.025 macro 0.011 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.02 h_SI1000:i=0.00 h_SI1000:i_correlated=0.02 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise2 worst 0.093 macro 0.033 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.03 h_SD6:i_correlated=0.03 h_SI1000:i=0.09 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.01
+  noise3 worst 0.299 macro 0.097 h_EM3_v2:i=0.02 h_EM3_v2:i_correlated=0.01 h_SD6:i=0.01 h_SD6:i_correlated=0.04 h_SI1000:i=0.30 h_SI1000:i_correlated=0.04 s_SD6:i=0.00 s_SD6:i_correlated=0.01 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+config 3 0.5 1
+  noise1 worst 0.029 macro 0.012 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.01 h_SI1000:i=0.00 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.01 s_SI1000:i_correlated=0.03
+  noise2 worst 0.050 macro 0.027 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.05 h_SI1000:i=0.04 h_SI1000:i_correlated=0.04 s_SD6:i=0.01 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise3 worst 0.298 macro 0.099 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.05 h_SD6:i_correlated=0.02 h_SI1000:i=0.30 h_SI1000:i_correlated=0.05 s_SD6:i=0.03 s_SD6:i_correlated=0.02 s_SI1000:i=0.01 s_SI1000:i_correlated=0.02
+config 3 0.5 20
+  noise1 worst 0.025 macro 0.011 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.02 h_SI1000:i=0.00 h_SI1000:i_correlated=0.02 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.03
+  noise2 worst 0.089 macro 0.032 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.03 h_SD6:i_correlated=0.03 h_SI1000:i=0.09 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.01
+  noise3 worst 1.427 macro 0.452 h_EM3_v2:i=0.02 h_EM3_v2:i_correlated=0.01 h_SD6:i=0.01 h_SD6:i_correlated=0.04 h_SI1000:i=1.43 h_SI1000:i_correlated=0.04 s_SD6:i=0.01 s_SD6:i_correlated=0.01 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+config 3 1 1
+  noise1 worst 0.031 macro 0.016 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.03 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+  noise2 worst 0.075 macro 0.042 h_EM3_v2:i=0.05 h_EM3_v2:i_correlated=0.01 h_SD6:i=0.02 h_SD6:i_correlated=0.06 h_SI1000:i=0.08 h_SI1000:i_correlated=0.07 s_SD6:i=0.03 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise3 worst 0.299 macro 0.105 h_EM3_v2:i=0.05 h_EM3_v2:i_correlated=0.02 h_SD6:i=0.10 h_SD6:i_correlated=0.02 h_SI1000:i=0.30 h_SI1000:i_correlated=0.07 s_SD6:i=0.04 s_SD6:i_correlated=0.02 s_SI1000:i=0.01 s_SI1000:i_correlated=0.03
+config 3 1 20
+  noise1 worst 0.027 macro 0.011 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.00 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.03
+  noise2 worst 0.073 macro 0.028 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.04 h_SI1000:i=0.07 h_SI1000:i_correlated=0.02 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.01
+  noise3 worst 0.712 macro 0.226 h_EM3_v2:i=0.02 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.03 h_SI1000:i=0.71 h_SI1000:i_correlated=0.04 s_SD6:i=0.01 s_SD6:i_correlated=0.01 s_SI1000:i=0.00 s_SI1000:i_correlated=0.01
+config 4 0 1
+  noise1 worst 0.026 macro 0.013 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.03 h_SI1000:i=0.02 h_SI1000:i_correlated=0.00 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise2 worst 0.093 macro 0.033 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.04 h_SI1000:i=0.09 h_SI1000:i_correlated=0.00 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise3 worst 0.299 macro 0.098 h_EM3_v2:i=0.04 h_EM3_v2:i_correlated=0.03 h_SD6:i=0.02 h_SD6:i_correlated=0.04 h_SI1000:i=0.30 h_SI1000:i_correlated=0.04 s_SD6:i=0.00 s_SD6:i_correlated=0.01 s_SI1000:i=0.01 s_SI1000:i_correlated=0.01
+config 4 0.5 1
+  noise1 worst 0.037 macro 0.020 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.04 h_SI1000:i_correlated=0.04 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.03
+  noise2 worst 0.054 macro 0.030 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.05 h_SD6:i_correlated=0.03 h_SI1000:i=0.04 h_SI1000:i_correlated=0.05 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.00
+  noise3 worst 0.298 macro 0.102 h_EM3_v2:i=0.02 h_EM3_v2:i_correlated=0.01 h_SD6:i=0.09 h_SD6:i_correlated=0.04 h_SI1000:i=0.30 h_SI1000:i_correlated=0.05 s_SD6:i=0.03 s_SD6:i_correlated=0.00 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+config 4 0.5 20
+  noise1 worst 0.025 macro 0.011 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.02 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise2 worst 0.089 macro 0.031 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.04 h_SI1000:i=0.09 h_SI1000:i_correlated=0.00 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.01
+  noise3 worst 1.427 macro 0.452 h_EM3_v2:i=0.02 h_EM3_v2:i_correlated=0.01 h_SD6:i=0.01 h_SD6:i_correlated=0.04 h_SI1000:i=1.43 h_SI1000:i_correlated=0.04 s_SD6:i=0.01 s_SD6:i_correlated=0.01 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+config 4 1 1
+  noise1 worst 0.057 macro 0.024 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.06 h_SI1000:i_correlated=0.04 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.03
+  noise2 worst 0.075 macro 0.039 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.05 h_SD6:i_correlated=0.03 h_SI1000:i=0.08 h_SI1000:i_correlated=0.07 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.00
+  noise3 worst 0.299 macro 0.103 h_EM3_v2:i=0.02 h_EM3_v2:i_correlated=0.01 h_SD6:i=0.09 h_SD6:i_correlated=0.04 h_SI1000:i=0.30 h_SI1000:i_correlated=0.07 s_SD6:i=0.03 s_SD6:i_correlated=0.00 s_SI1000:i=0.01 s_SI1000:i_correlated=0.03
+config 4 1 20
+  noise1 worst 0.029 macro 0.012 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.00 h_SI1000:i_correlated=0.02 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.03
+  noise2 worst 0.073 macro 0.029 h_EM3_v2:i=0.02 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.04 h_SD6:i_correlated=0.03 h_SI1000:i=0.07 h_SI1000:i_correlated=0.02 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.01
+  noise3 worst 0.712 macro 0.226 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.01 h_SD6:i=0.03 h_SD6:i_correlated=0.04 h_SI1000:i=0.71 h_SI1000:i_correlated=0.04 s_SD6:i=0.02 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+bash-5.1$ > > > > > > > > > > > 
+ ('honeycomb_EM3_v2', 'internal', 'H')
+4.0 power [-5.88   1.029] curved [-5.88   0.873  0.133] p1e-4 [0.00090192 0.0009569  0.00092165]
+8.0 power [-12.46    2.396] curved [-12.452   1.972   0.34 ] p1e-4 [2.78834723e-07 3.36150545e-07 2.15689999e-07]
+12.0 power [-18.76    4.007] curved [-18.377   2.675   0.714] p1e-4 [8.72583112e-11 3.02598894e-10 6.07694716e-11]
+
+ ('honeycomb_EM3_v2', 'internal', 'V')
+4.0 power [-6.543  0.986] curved [-6.546  0.568  0.363] p1e-4 [0.00048742 0.00056593 0.00044262]
+8.0 power [-13.927   2.369] curved [-13.959   1.715   0.589] p1e-4 [6.62619754e-08 8.01061125e-08 2.34669830e-08]
+12.0 power [-22.496   5.007] curved [-21.806   4.025   0.364] p1e-4 [6.93451880e-13 2.99137295e-12 1.45497835e-12]
+
+ ('honeycomb_EM3_v2', 'internal_correlated', 'H')
+4.0 power [-6.527  1.046] curved [-6.528  0.891  0.132] p1e-4 [0.00046373 0.00049124 0.00048627]
+8.0 power [-13.801   2.329] curved [-13.788   1.836   0.388] p1e-4 [7.85373672e-08 9.85593410e-08 4.56769991e-08]
+12.0 power [-22.374   4.741] curved [-22.29    4.62    0.045] p1e-4 [1.04948482e-12 1.25565578e-12 5.19501929e-12]
+
+ ('honeycomb_EM3_v2', 'internal_correlated', 'V')
+4.0 power [-7.202  1.011] curved [-7.2    0.756  0.209] p1e-4 [0.00024532 0.00027243 0.00024099]
+8.0 power [-15.449   2.535] curved [-15.437   2.349   0.136] p1e-4 [1.20424756e-08 1.33427526e-08 4.73617514e-09]
+12.0 power [-27.138   5.946] curved [-25.929   4.982   0.241] p1e-4 [2.38161862e-15 1.87782920e-14 1.16386499e-13]
+
+ ('honeycomb_SD6', 'internal', 'H')
+4.0 power [-5.354  2.099] curved [-5.358  2.614 -0.42 ] p1e-4 [0.00047074 0.00037998 0.00052601]
+8.0 power [-9.055  3.7  ] curved [-9.058  3.222  0.411] p1e-4 [2.00448138e-06 2.38853793e-06 1.33475731e-06]
+12.0 power [-13.082   5.819] curved [-13.029   4.913   0.676] p1e-4 [3.48252347e-09 5.61268328e-09 3.39997496e-09]
+
+ ('honeycomb_SD6', 'internal', 'V')
+4.0 power [-5.884  2.036] curved [-5.886  2.061 -0.017] p1e-4 [0.00029717 0.00029285 0.00032929]
+8.0 power [-10.649   4.404] curved [-10.648   4.269   0.11 ] p1e-4 [1.87991501e-07 1.98712409e-07 1.29580009e-07]
+12.0 power [-15.522   6.94 ] curved [-15.49    6.541   0.291] p1e-4 [8.86381946e-11 1.10987959e-10 5.31402598e-11]
+
+ ('honeycomb_SD6', 'internal_correlated', 'H')
+4.0 power [-5.911  2.012] curved [-5.913  1.862  0.131] p1e-4 [0.00029717 0.00031306 0.00030204]
+8.0 power [-10.396   3.805] curved [-10.384   2.933   0.703] p1e-4 [4.67393801e-07 6.80493141e-07 4.08841863e-07]
+12.0 power [-15.411   6.178] curved [-15.415   6.096   0.074] p1e-4 [2.28932703e-10 2.34389765e-10 5.24307819e-10]
+
+ ('honeycomb_SD6', 'internal_correlated', 'V')
+4.0 power [-6.56   1.992] curved [-6.554  1.066  0.763] p1e-4 [0.00015861 0.00023157 0.00012862]
+8.0 power [-12.398   4.522] curved [-12.396   3.669   0.713] p1e-4 [2.87103155e-08 4.02116847e-08 2.18689080e-08]
+12.0 power [-17.978   7.049] curved [-17.97    7.01    0.024] p1e-4 [6.74577494e-12 6.95334030e-12 4.04277552e-12]
+
+ ('honeycomb_SI1000', 'internal', 'H')
+4.0 power [-3.9    1.937] curved [-3.897  2.026 -0.086] p1e-4 [0.00240542 0.00235033 0.002546  ]
+8.0 power [-6.427  3.973] curved [-6.426  4.593 -0.527] p1e-4 [2.05657005e-05 1.62654561e-05 1.73980339e-05]
+12.0 power [-8.913  6.008] curved [-8.913  6.309 -0.254] p1e-4 [1.83022096e-07 1.63127915e-07 1.26612378e-07]
+
+ ('honeycomb_SI1000', 'internal', 'V')
+4.0 power [-4.369  2.014] curved [-4.364  1.81   0.159] p1e-4 [0.00138273 0.00152071 0.00126093]
+8.0 power [-7.507  4.509] curved [-7.507  4.969 -0.385] p1e-4 [3.87573668e-06 3.23661421e-06 2.35694413e-06]
+12.0 power [-10.55    7.058] curved [-10.549   7.497  -0.377] p1e-4 [1.12333771e-08 9.55228898e-09 4.92177257e-09]
+
+ ('honeycomb_SI1000', 'internal_correlated', 'H')
+4.0 power [-4.425  2.026] curved [-4.421  1.68   0.281] p1e-4 [0.00129035 0.00149494 0.00126512]
+8.0 power [-7.434  3.901] curved [-7.431  3.297  0.502] p1e-4 [8.12916920e-06 1.03509791e-05 7.22272049e-06]
+12.0 power [-10.493   5.943] curved [-10.477   5.024   0.733] p1e-4 [4.04791076e-08 6.07345097e-08 4.31504395e-08]
+
+ ('honeycomb_SI1000', 'internal_correlated', 'V')
+4.0 power [-5.064  2.207] curved [-5.069  2.722 -0.414] p1e-4 [0.00055874 0.00044842 0.0005636 ]
+8.0 power [-8.863  4.645] curved [-8.857  4.473  0.13 ] p1e-4 [8.60443131e-07 9.36726648e-07 7.82131337e-07]
+12.0 power [-12.528   7.108] curved [-12.506   6.482   0.486] p1e-4 [1.47054272e-09 1.98426488e-09 1.19857191e-09]
+
+ ('surface_SD6', 'internal', 'both')
+3.0 power [-6.9    1.917] curved [-6.899  1.932 -0.018] p1e-4 [0.0001226  0.00012263 0.00011785]
+7.0 power [-12.233   3.954] curved [-12.229   3.636   0.26 ] p1e-4 [6.32611982e-08 7.21794480e-08 4.24216556e-08]
+11.0 power [-18.432   6.297] curved [-18.467   6.49   -0.119] p1e-4 [9.79288799e-12 8.45614230e-12 1.00971192e-11]
+
+ ('surface_SD6', 'internal_correlated', 'both')
+3.0 power [-7.092  1.915] curved [-7.09   1.885  0.019] p1e-4 [0.00010145 0.00010333 0.00010093]
+7.0 power [-13.177   3.872] curved [-13.164   3.447   0.336] p1e-4 [2.69106797e-08 3.27326166e-08 1.50922690e-08]
+11.0 power [-20.658   6.622] curved [-20.637   6.56    0.032] p1e-4 [7.39283852e-13 7.87205888e-13 1.48658820e-12]
+
+ ('surface_SI1000', 'internal', 'both')
+3.0 power [-6.802  1.979] curved [-6.805  2.183 -0.162] p1e-4 [0.00012626 0.00011556 0.00013242]
+7.0 power [-11.895   4.051] curved [-11.883   3.777   0.203] p1e-4 [7.96639249e-08 9.17467467e-08 5.42012209e-08]
+11.0 power [-17.635   6.329] curved [-17.625   6.277   0.032] p1e-4 [2.09794781e-11 2.18241673e-11 1.54350556e-11]
+
+ ('surface_SI1000', 'internal_correlated', 'both')
+3.0 power [-6.882  1.806] curved [-6.871  1.1    0.561] p1e-4 [0.00014104 0.00019278 0.00012067]
+7.0 power [-12.847   4.082] curved [-12.855   4.076   0.019] p1e-4 [2.97114603e-08 2.92129346e-08 1.98597850e-08]
+11.0 power [-19.807   6.768] curved [-19.657   6.334   0.223] p1e-4 [1.47390152e-12 2.28709947e-12 2.29054530e-12]
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A size_model.py
+bash-5.1$ bash-5.1$ p linear 10 worst 0.041 macro 0.023 h_EM3_v2:i=0.04 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+p linear 100 worst 0.041 macro 0.022 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+p linear 1000 worst 0.050 macro 0.024 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.02 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+p linear 100000 worst 0.056 macro 0.027 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.06 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.02 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+p log 10 worst 0.041 macro 0.023 h_EM3_v2:i=0.04 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+p log 100 worst 0.041 macro 0.022 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+p log 1000 worst 0.050 macro 0.024 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.02 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+p log 100000 worst 0.056 macro 0.026 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.06 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.02 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+p lognoise 10 worst 0.042 macro 0.023 h_EM3_v2:i=0.04 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+p lognoise 100 worst 0.041 macro 0.022 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+p lognoise 1000 worst 0.050 macro 0.024 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.02 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+p lognoise 100000 worst 0.056 macro 0.027 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.06 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.02 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+sqrtp linear 10 worst 0.042 macro 0.023 h_EM3_v2:i=0.04 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+sqrtp linear 100 worst 0.041 macro 0.022 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+sqrtp linear 1000 worst 0.048 macro 0.024 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+sqrtp linear 100000 worst 0.053 macro 0.026 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.02 s_SI1000:i=0.03 s_SI1000:i_correlated=0.03
+sqrtp log 10 worst 0.041 macro 0.023 h_EM3_v2:i=0.04 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+sqrtp log 100 worst 0.041 macro 0.022 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+sqrtp log 1000 worst 0.048 macro 0.024 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+sqrtp log 100000 worst 0.052 macro 0.026 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.02 s_SI1000:i=0.03 s_SI1000:i_correlated=0.03
+sqrtp lognoise 10 worst 0.041 macro 0.023 h_EM3_v2:i=0.04 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+sqrtp lognoise 100 worst 0.041 macro 0.022 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.04 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+sqrtp lognoise 1000 worst 0.048 macro 0.024 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.01 s_SI1000:i=0.02 s_SI1000:i_correlated=0.03
+sqrtp lognoise 100000 worst 0.053 macro 0.026 h_EM3_v2:i=0.03 h_EM3_v2:i_correlated=0.05 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.02 h_SI1000:i_correlated=0.01 s_SD6:i=0.02 s_SD6:i_correlated=0.02 s_SI1000:i=0.03 s_SI1000:i_correlated=0.03
+bash-5.1$ Fri Aug 28 09:23:07 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > 
+ ('honeycomb_EM3_v2', 'internal', 'H') beta -0.6482448491686951
+0.0003 ['1.58e-14', '2.14e-14']
+0.0005 ['5.66e-13', '6.22e-13']
+0.0007 ['6.22e-12', '6.46e-12']
+0.001 ['7.65e-11', '7.68e-11']
+0.0015 ['1.93e-09', '1.93e-09']
+0.002 ['1.7e-08', '1.71e-08']
+0.003 ['3.35e-07', '3.38e-07']
+0.005 ['2.05e-05', '2.08e-05']
+0.007 ['0.000353', '0.000359']
+0.01 ['0.00691', '0.00701']
+0.015 ['0.189', '0.188']
+0.02 ['0.499', '0.497']
+0.03 ['0.5', '0.5']
+
+ ('honeycomb_EM3_v2', 'internal', 'V') beta -0.5455836884867908
+0.0003 ['1e-16', '1.66e-16']
+0.0005 ['5.17e-15', '8.15e-15']
+0.0007 ['8.31e-14', '1.06e-13']
+0.001 ['1.52e-12', '1.71e-12']
+0.0015 ['5.2e-11', '5.46e-11']
+0.002 ['6.05e-10', '6.22e-10']
+0.003 ['2.14e-08', '2.2e-08']
+0.005 ['2.53e-06', '2.62e-06']
+0.007 ['6.76e-05', '7.03e-05']
+0.01 ['0.0022', '0.00229']
+0.015 ['0.117', '0.121']
+0.02 ['0.485', '0.487']
+0.03 ['0.5', '0.5']
+
+ ('honeycomb_EM3_v2', 'internal_correlated', 'H') beta -0.6665921043458154
+0.0003 ['2.16e-16', '7.13e-16']
+0.0005 ['8.69e-15', '1.45e-14']
+0.0007 ['1.11e-13', '1.39e-13']
+0.001 ['1.42e-12', '1.54e-12']
+0.0015 ['2.88e-11', '2.89e-11']
+0.002 ['2.8e-10', '2.76e-10']
+0.003 ['8.19e-09', '8.24e-09']
+0.005 ['7.03e-07', '7.21e-07']
+0.007 ['1.58e-05', '1.63e-05']
+0.01 ['0.000512', '0.000532']
+0.015 ['0.0279', '0.0287']
+0.02 ['0.317', '0.319']
+0.03 ['0.5', '0.5']
+
+ ('honeycomb_EM3_v2', 'internal_correlated', 'V') beta -0.7776332011707562
+0.0003 ['1e-16', '1e-16']
+0.0005 ['1e-16', '1.87e-16']
+0.0007 ['9.83e-16', '2.13e-15']
+0.001 ['2.22e-14', '3.18e-14']
+0.0015 ['6.83e-13', '7.6e-13']
+0.002 ['7.47e-12', '7.72e-12']
+0.003 ['3.74e-10', '3.73e-10']
+0.005 ['6.67e-08', '6.8e-08']
+0.007 ['2.28e-06', '2.35e-06']
+0.01 ['0.000122', '0.000126']
+0.015 ['0.0144', '0.0149']
+0.02 ['0.257', '0.261']
+0.03 ['0.5', '0.5']
+
+ ('honeycomb_SD6', 'internal', 'H') beta -0.015173287187802956
+0.0003 ['1.22e-09', '1.26e-09']
+0.0005 ['1.11e-07', '1.12e-07']
+0.0007 ['3.24e-06', '3.25e-06']
+0.001 ['0.000109', '0.00011']
+0.0015 ['0.00668', '0.00672']
+0.002 ['0.0893', '0.0901']
+0.003 ['0.5', '0.5']
+0.005 ['0.5', '0.5']
+0.007 ['0.5', '0.5']
+0.01 ['0.5', '0.5']
+0.015 ['0.5', '0.5']
+0.02 ['0.5', '0.5']
+0.03 ['0.5', '0.5']
+
+ ('honeycomb_SD6', 'internal', 'V') beta -0.144628614805378
+0.0003 ['1.34e-11', '1.37e-11']
+0.0005 ['5.48e-09', '5.56e-09']
+0.0007 ['3.06e-07', '3.09e-07']
+0.001 ['2.14e-05', '2.15e-05']
+0.0015 ['0.00265', '0.00266']
+0.002 ['0.058', '0.0585']
+0.003 ['0.499', '0.5']
+0.005 ['0.5', '0.5']
+0.007 ['0.5', '0.5']
+0.01 ['0.5', '0.5']
+0.015 ['0.5', '0.5']
+0.02 ['0.5', '0.5']
+0.03 ['0.5', '0.5']
+
+ ('honeycomb_SD6', 'internal_correlated', 'H') beta 0.18670414845202704
+0.0003 ['2.72e-11', '2.96e-11']
+0.0005 ['2.9e-09', '2.93e-09']
+0.0007 ['8.92e-08', '8.99e-08']
+0.001 ['3.46e-06', '3.49e-06']
+0.0015 ['0.000247', '0.00025']
+0.002 ['0.00597', '0.00605']
+0.003 ['0.325', '0.327']
+0.005 ['0.5', '0.5']
+0.007 ['0.5', '0.5']
+0.01 ['0.5', '0.5']
+
+ ('honeycomb_SD6', 'internal_correlated', 'V') beta -0.29132503508502244
+0.0003 ['1.21e-13', '1.26e-13']
+0.0005 ['7.62e-11', '7.67e-11']
+0.0007 ['5.11e-09', '5.11e-09']
+0.001 ['3.79e-07', '3.78e-07']
+0.0015 ['7.1e-05', '7.1e-05']
+0.002 ['0.00298', '0.00298']
+0.003 ['0.305', '0.304']
+0.005 ['0.5', '0.5']
+0.007 ['0.5', '0.5']
+0.01 ['0.5', '0.5']
+
+ ('honeycomb_SI1000', 'internal', 'H') beta -0.22752287207992125
+0.0003 ['1.02e-06', '1.03e-06']
+0.0005 ['0.000182', '0.000182']
+0.0007 ['0.00518', '0.00519']
+0.001 ['0.146', '0.147']
+0.0015 ['0.5', '0.5']
+0.002 ['0.5', '0.5']
+0.003 ['0.5', '0.5']
+0.005 ['0.5', '0.5']
+0.007 ['0.5', '0.5']
+
+ ('honeycomb_SI1000', 'internal', 'V') beta -0.38946256397245566
+0.0003 ['6.73e-08', '6.76e-08']
+0.0005 ['3.37e-05', '3.38e-05']
+0.0007 ['0.00191', '0.00191']
+0.001 ['0.0977', '0.0979']
+0.0015 ['0.5', '0.5']
+0.002 ['0.5', '0.5']
+0.003 ['0.5', '0.5']
+0.005 ['0.5', '0.5']
+0.007 ['0.5', '0.5']
+
+ ('honeycomb_SI1000', 'internal_correlated', 'H') beta -0.16214673923361586
+0.0003 ['7.46e-08', '7.48e-08']
+0.0005 ['1.03e-05', '1.02e-05']
+0.0007 ['0.000311', '0.00031']
+0.001 ['0.0119', '0.0119']
+0.0015 ['0.377', '0.377']
+0.002 ['0.5', '0.5']
+0.003 ['0.5', '0.5']
+0.005 ['0.5', '0.5']
+
+ ('honeycomb_SI1000', 'internal_correlated', 'V') beta -0.34674031319153403
+0.0003 ['2.62e-09', '2.63e-09']
+0.0005 ['1.07e-06', '1.07e-06']
+0.0007 ['6.99e-05', '7e-05']
+0.001 ['0.00581', '0.00582']
+0.0015 ['0.358', '0.359']
+0.002 ['0.5', '0.5']
+0.003 ['0.5', '0.5']
+0.005 ['0.5', '0.5']
+
+ ('surface_SD6', 'internal', 'both') beta 1.0507761500991804
+0.0003 ['7.88e-14', '7.8e-14']
+0.0005 ['1.61e-11', '1.64e-11']
+0.0007 ['4.54e-10', '4.62e-10']
+0.001 ['1.81e-08', '1.82e-08']
+0.0015 ['1.08e-06', '1.08e-06']
+0.002 ['2.01e-05', '2.01e-05']
+0.003 ['0.00121', '0.00121']
+0.005 ['0.1', '0.101']
+0.007 ['0.471', '0.48']
+0.01 ['0.5', '0.5']
+0.015 ['0.5', '0.5']
+0.02 ['0.5', '0.5']
+0.03 ['0.5', '0.5']
+
+ ('surface_SD6', 'internal_correlated', 'both') beta 1.0607164676721081
+0.0003 ['2.04e-15', '2.35e-15']
+0.0005 ['5.23e-13', '5.54e-13']
+0.0007 ['1.54e-11', '1.6e-11']
+0.001 ['6.14e-10', '6.28e-10']
+0.0015 ['5.38e-08', '5.47e-08']
+0.002 ['1.33e-06', '1.35e-06']
+0.003 ['0.000119', '0.000121']
+0.005 ['0.0275', '0.028']
+0.007 ['0.36', '0.366']
+0.01 ['0.5', '0.5']
+0.015 ['0.5', '0.5']
+0.02 ['0.5', '0.5']
+0.03 ['0.5', '0.5']
+
+ ('surface_SI1000', 'internal', 'both') beta 0.9221849963890492
+0.0003 ['3.04e-13', '3.08e-13']
+0.0005 ['5.9e-11', '6.09e-11']
+0.0007 ['2.02e-09', '2.06e-09']
+0.001 ['8.82e-08', '8.95e-08']
+0.0015 ['6.5e-06', '6.58e-06']
+0.002 ['0.000135', '0.000136']
+0.003 ['0.00878', '0.00887']
+0.005 ['0.382', '0.388']
+0.007 ['0.5', '0.5']
+0.01 ['0.5', '0.5']
+0.015 ['0.5', '0.5']
+0.02 ['0.5', '0.5']
+0.03 ['0.5', '0.5']
+
+ ('surface_SI1000', 'internal_correlated', 'both') beta 0.9038759907330403
+0.0003 ['6.67e-15', '7.14e-15']
+0.0005 ['2.73e-12', '2.81e-12']
+0.0007 ['9.27e-11', '9.41e-11']
+0.001 ['4.01e-09', '4.03e-09']
+0.0015 ['4.46e-07', '4.48e-07']
+0.002 ['1.14e-05', '1.14e-05']
+0.003 ['0.00127', '0.00127']
+0.005 ['0.22', '0.221']
+0.007 ['0.5', '0.5']
+0.01 ['0.5', '0.5']
+0.015 ['0.5', '0.5']
+0.02 ['0.5', '0.5']
+0.03 ['0.5', '0.5']
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A series_noise.py
+bash-5.1$ bash-5.1$ config 3 1 0
+  noise1 worst 0.026 macro 0.010 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.03
+  noise2 worst 0.118 macro 0.038 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.01 h_SI1000:i=0.12 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise3 worst 0.173 macro 0.060 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.02 h_SI1000:i=0.17 h_SI1000:i_correlated=0.07 s_SD6:i=0.00 s_SD6:i_correlated=0.01 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+config 3 1 0.1
+  noise1 worst 0.026 macro 0.009 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.00 h_SD6:i_correlated=0.01 h_SI1000:i=0.01 h_SI1000:i_correlated=0.00 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.03
+  noise2 worst 0.105 macro 0.035 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.02 h_SI1000:i=0.10 h_SI1000:i_correlated=0.02 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.01
+  noise3 worst 0.187 macro 0.062 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.04 h_SI1000:i=0.19 h_SI1000:i_correlated=0.04 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+config 3 2 0
+  noise1 worst 0.026 macro 0.012 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.00 h_SI1000:i=0.01 h_SI1000:i_correlated=0.02 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.03
+  noise2 worst 0.127 macro 0.041 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.01 h_SI1000:i=0.13 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise3 worst 0.178 macro 0.066 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.01 h_SI1000:i=0.18 h_SI1000:i_correlated=0.10 s_SD6:i=0.00 s_SD6:i_correlated=0.01 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+config 3 2 0.1
+  noise1 worst 0.026 macro 0.010 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.00 h_SI1000:i=0.01 h_SI1000:i_correlated=0.02 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.03
+  noise2 worst 0.119 macro 0.039 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.02 h_SI1000:i=0.12 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.01
+  noise3 worst 0.187 macro 0.066 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.19 h_SI1000:i_correlated=0.09 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.01
+config 3 3 0
+  noise1 worst 0.026 macro 0.012 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.00 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.03
+  noise2 worst 0.126 macro 0.041 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.01 h_SI1000:i=0.13 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise3 worst 0.173 macro 0.062 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.02 h_SI1000:i=0.17 h_SI1000:i_correlated=0.09 s_SD6:i=0.00 s_SD6:i_correlated=0.01 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+config 3 3 0.1
+  noise1 worst 0.026 macro 0.011 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.00 h_SI1000:i=0.01 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.03
+  noise2 worst 0.117 macro 0.039 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.02 h_SD6:i_correlated=0.02 h_SI1000:i=0.12 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.01
+  noise3 worst 0.194 macro 0.067 h_EM3_v2:i=0.01 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.02 h_SI1000:i=0.19 h_SI1000:i_correlated=0.08 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.01
+config 4 1 0
+  noise1 worst 0.036 macro 0.014 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.00 h_SD6:i_correlated=0.00 h_SI1000:i=0.04 h_SI1000:i_correlated=0.00 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.03
+  noise2 worst 0.118 macro 0.038 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.12 h_SI1000:i_correlated=0.01 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise3 worst 0.173 macro 0.062 h_EM3_v2:i=0.02 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.04 h_SD6:i_correlated=0.03 h_SI1000:i=0.17 h_SI1000:i_correlated=0.07 s_SD6:i=0.01 s_SD6:i_correlated=0.01 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+config 4 1 0.1
+  noise1 worst 0.026 macro 0.012 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.01 h_SD6:i_correlated=0.01 h_SI1000:i=0.03 h_SI1000:i_correlated=0.00 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise2 worst 0.105 macro 0.035 h_EM3_v2:i=0.00 h_EM3_v2:i_correlated=0.00 h_SD6:i=0.00 h_SD6:i_correlated=0.03 h_SI1000:i=0.10 h_SI1000:i_correlated=0.02 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+  noise3 worst 0.187 macro 0.066 h_EM3_v2:i=0.04 h_EM3_v2:i_correlated=0.03 h_SD6:i=0.02 h_SD6:i_correlated=0.06 h_SI1000:i=0.19 h_SI1000:i_correlated=0.04 s_SD6:i=0.00 s_SD6:i_correlated=0.00 s_SI1000:i=0.00 s_SI1000:i_correlated=0.02
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > 
+ noise2
+8.0 H 0.0005 actual 0.012 pred ['0.0133', '0.0139', '0.0139', '0.0148']
+4.0 V 0.0005 actual 0.0336 pred ['0.035', '0.0334', '0.0348', '0.0348']
+4.0 H 0.0003 actual 0.0199 pred ['0.0216', '0.024', '0.0179', '0.0179']
+8.0 V 0.0005 actual 0.00546 pred ['0.00657', '0.00605', '0.00667', '0.00667']
+12.0 V 0.0005 actual 0.000955 pred ['0.00132', '0.00113', '0.00139', '0.00139']
+12.0 H 0.0003 actual 0.000135 pred ['0.000176', '0.000147', '0.000194', '0.000194']
+4.0 V 0.0003 actual 0.0126 pred ['0.013', '0.0109', '0.0128', '0.0128']
+12.0 H 0.0005 actual 0.00288 pred ['0.00325', '0.00311', '0.0033', '0.0033']
+8.0 H 0.0003 actual 0.00162 pred ['0.00206', '0.00235', '0.00242', '0.00284']
+8.0 V 0.0003 actual 0.000549 pred ['0.00084', '0.000644', '0.000866', '0.000866']
+12.0 V 0.0003 actual 2.63e-05 pred ['5.29e-05', '3.01e-05', '6.06e-05', '6.06e-05']
+4.0 H 0.0005 actual 0.0505 pred ['0.0535', '0.0552', '0.0482', '0.0482']
+
+ noise3
+8.0 H 0.0005 actual 0.012 pred ['0.0118', '0.0118', '0.0126', '0.0146']
+12.0 H 0.0007 actual 0.0214 pred ['0.0297', '0.0297', '0.0285', '0.0285']
+4.0 V 0.0005 actual 0.0336 pred ['0.0392', '0.0364', '0.0342', '0.0342']
+4.0 H 0.0003 actual 0.0199 pred ['0.019', '0.0201', '0.0172', '0.0172']
+8.0 V 0.0005 actual 0.00546 pred ['0.00831', '0.00832', '0.00691', '0.00691']
+4.0 V 0.0007 actual 0.0658 pred ['0.0705', '0.0684', '0.0648', '0.0648']
+12.0 V 0.0005 actual 0.000955 pred ['0.00335', '0.00335', '0.00173', '0.00173']
+12.0 H 0.0003 actual 0.000135 pred ['0.000488', '0.000488', '0.000424', '0.000424']
+4.0 H 0.0007 actual 0.0956 pred ['0.0905', '0.0913', '0.0869', '0.0869']
+8.0 V 0.0007 actual 0.0245 pred ['0.0289', '0.0289', '0.026', '0.026']
+4.0 V 0.0003 actual 0.0126 pred ['0.0156', '0.0133', '0.0126', '0.0126']
+12.0 H 0.0005 actual 0.00288 pred ['0.00589', '0.00589', '0.00542', '0.00542']
+12.0 V 0.0007 actual 0.0103 pred ['0.0184', '0.0184', '0.0129', '0.0129']
+8.0 H 0.0003 actual 0.00162 pred ['0.0017', '0.0017', '0.00204', '0.00275']
+8.0 V 0.0003 actual 0.000549 pred ['0.00122', '0.00122', '0.0009', '0.0009']
+12.0 V 0.0003 actual 2.63e-05 pred ['0.000248', '0.000248', '8.07e-05', '8.07e-05']
+4.0 H 0.0005 actual 0.0505 pred ['0.0494', '0.0507', '0.0464', '0.0464']
+8.0 H 0.0007 actual 0.045 pred ['0.0415', '0.0415', '0.0424', '0.0448']
+
+Actual query predictions
+('honeycomb_EM3_v2', 'internal', 'H')
+4.0 ['0.0009019', '0.0009213']
+8.0 ['2.788e-07', '3.504e-07']
+12.0 ['8.726e-11', '1.397e-10']
+('honeycomb_EM3_v2', 'internal', 'V')
+4.0 ['0.0004874', '0.0004766']
+8.0 ['6.626e-08', '8.373e-08']
+12.0 ['6.935e-13', '1.861e-11']
+('honeycomb_EM3_v2', 'internal_correlated', 'H')
+4.0 ['0.0004637', '0.0004791']
+8.0 ['7.854e-08', '9.622e-08']
+12.0 ['1.049e-12', '1.214e-11']
+('honeycomb_EM3_v2', 'internal_correlated', 'V')
+4.0 ['0.0002453', '0.000247']
+8.0 ['1.204e-08', '1.602e-08']
+12.0 ['2.382e-15', '5.197e-12']
+('honeycomb_SD6', 'internal', 'H')
+4.0 ['0.0004707', '0.0005042']
+8.0 ['2.004e-06', '2.566e-06']
+12.0 ['3.483e-09', '4.627e-09']
+('honeycomb_SD6', 'internal', 'V')
+4.0 ['0.0002972', '0.0003053']
+8.0 ['1.88e-07', '2.348e-07']
+12.0 ['8.864e-11', '1.081e-10']
+('honeycomb_SD6', 'internal_correlated', 'H')
+4.0 ['0.0002972', '0.0003004']
+8.0 ['4.674e-07', '5.869e-07']
+12.0 ['2.289e-10', '3.168e-10']
+('honeycomb_SD6', 'internal_correlated', 'V')
+4.0 ['0.0001586', '0.0001566']
+8.0 ['2.871e-08', '3.741e-08']
+12.0 ['6.746e-12', '7.497e-12']
+('honeycomb_SI1000', 'internal', 'H')
+4.0 ['0.002405', '0.002194']
+8.0 ['2.057e-05', '2.165e-05']
+12.0 ['1.83e-07', '1.853e-07']
+('honeycomb_SI1000', 'internal', 'V')
+4.0 ['0.001383', '0.00139']
+8.0 ['3.876e-06', '4.955e-06']
+12.0 ['1.123e-08', '1.23e-08']
+('honeycomb_SI1000', 'internal_correlated', 'H')
+4.0 ['0.00129', '0.00131']
+8.0 ['8.129e-06', '9.331e-06']
+12.0 ['4.048e-08', '4.579e-08']
+('honeycomb_SI1000', 'internal_correlated', 'V')
+4.0 ['0.0005587', '0.0006388']
+8.0 ['8.604e-07', '1.119e-06']
+12.0 ['1.471e-09', '1.766e-09']
+('surface_SD6', 'internal', 'both')
+3.0 ['0.0001226', '0.0001084']
+7.0 ['6.326e-08', '5.859e-08']
+11.0 ['9.793e-12', '1.336e-11']
+('surface_SD6', 'internal_correlated', 'both')
+3.0 ['0.0001014', '8.861e-05']
+7.0 ['2.691e-08', '2.159e-08']
+11.0 ['7.393e-13', '1.434e-12']
+('surface_SI1000', 'internal', 'both')
+3.0 ['0.0001263', '0.0001225']
+7.0 ['7.966e-08', '8.18e-08']
+11.0 ['2.098e-11', '2.926e-11']
+('surface_SI1000', 'internal_correlated', 'both')
+3.0 ['0.000141', '0.0001038']
+7.0 ['2.971e-08', '3.177e-08']
+11.0 ['1.474e-12', '2.821e-12']
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A solve.py
+bash-5.1$ elapsed=1.67 maxrss_kb=63036
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A validate.py
+bash-5.1$ bash-5.1$ size submission 0.9105 baseline 0.8127
+noise_from_0.0005 submission 0.9423 baseline 0.4173
+noise_from_0.0007 submission 0.7732 baseline 0.4515
+noise_from_0.001 submission 0.6287 baseline 0.4356
+interface {'valid': True, 'rows': 692, 'runtime_seconds': 1.2297953550005332, 'minimum': 4.956543897898685e-09, 'maximum': 0.5, 'query_order_invariant': True}
+bash-5.1$ limited elapsed=1.49 maxrss_kb=62824
+bash-5.1$ bash-5.1$ > > > > > > > > > > > > > Analytic likelihood gradient verified.
+bash-5.1$ total 180K
+-rw-rw-r-- 1 xuandong xuandong 7.2K Aug 28 09:19 investigate.py
+-rw-rw-r-- 1 xuandong xuandong  15K Aug 28 09:21 low_noise.log
+-rw-rw-r-- 1 xuandong xuandong 3.7K Aug 28 09:20 low_noise.py
+-rw-rw-r-- 1 xuandong xuandong  18K Aug 28 09:19 parametric.log
+-rw-rw-r-- 1 xuandong xuandong  31K Aug 28 09:30 predictions.csv
+-rw-rw-r-- 1 xuandong xuandong  31K Aug 28 09:31 predictions_standalone.csv
+-rw-rw-r-- 1 xuandong xuandong  13K Aug 28 09:26 series_noise.log
+-rw-rw-r-- 1 xuandong xuandong 3.8K Aug 28 09:25 series_noise.py
+-rw-rw-r-- 1 xuandong xuandong  12K Aug 28 09:22 size_model.log
+-rw-rw-r-- 1 xuandong xuandong 3.3K Aug 28 09:22 size_model.py
+-rw-rw-r-- 1 xuandong xuandong  11K Aug 28 09:30 solve.py
+-rw-rw-r-- 1 xuandong xuandong 4.5K Aug 28 09:30 validate.py
+-rw-rw-r-- 1 xuandong xuandong  353 Aug 28 09:30 validation.log
+-rw-rw-r-- 1 xuandong xuandong 6.5K Aug 28 09:30 validation_results.json
+bash-5.1$ Fri Aug 28 09:31:56 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A README.md
+D investigate.py
+D low_noise.py
+D size_model.py
+D series_noise.py
+D parametric.log
+D low_noise.log
+D size_model.log
+D series_noise.log
+D predictions_standalone.csv
+bash-5.1$ bash-5.1$ size submission 0.9105 baseline 0.8127
+noise_from_0.0005 submission 0.9423 baseline 0.4173
+noise_from_0.0007 submission 0.7732 baseline 0.4515
+noise_from_0.001 submission 0.6287 baseline 0.4356
+interface {'valid': True, 'rows': 692, 'runtime_seconds': 1.6360757389338687, 'minimum': 4.956543897898685e-09, 'maximum': 0.5, 'query_order_invariant': True}
+bash-5.1$ exit
+
+codex
+Completed the submission in `../attempts/v_1/solve.py:1`, with predictions for all 692 queries in `../attempts/v_1/predictions.csv:1`.
+
+- Required CLI and output format verified.
+- Runs in approximately 1.5 seconds under the 2 GiB limit.
+- Beats the starter on all four training-only extrapolation tests, scoring **0.629–0.942**.
+- Method and validation details: `../attempts/v_1/README.md:1`.
+
+Private evaluation performance remains unmeasured.
+tokens used
+122,659
+Completed the submission in `../attempts/v_1/solve.py:1`, with predictions for all 692 queries in `../attempts/v_1/predictions.csv:1`.
+
+- Required CLI and output format verified.
+- Runs in approximately 1.5 seconds under the 2 GiB limit.
+- Beats the starter on all four training-only extrapolation tests, scoring **0.629–0.942**.
+- Method and validation details: `../attempts/v_1/README.md:1`.
+
+Private evaluation performance remains unmeasured.

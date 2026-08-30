@@ -1,0 +1,1742 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a0491a-fd32-7171-ba7d-7444390a0955
+--------
+user
+Solve the task in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/participant/TASK.md. You have up to one hour. Read only the supplied participant assets and place your complete submission in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/attempts/v_1. The participant tree is read-only; write all code, temporary work, and caches inside your output directory. You may use a persistent shell session if command sandbox startup is slow. Do not search for other task directories or use external data. Follow TASK.md's executable interface. Use the available time to investigate, implement, and test your best solution. A submission that merely copies the baseline does not meet an improvement objective.
+codex
+I’ll read the task and assets, then implement and test a solution in the output directory.
+
+exec
+/bin/bash -lc 'pwd; ls -la; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/participant
+ succeeded in 27578ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/participant
+total 20
+drwxrwxr-x  5 xuandong xuandong 4096 Aug 28 08:57 .
+drwx------  4 xuandong xuandong   80 Aug 28 09:03 ..
+-rw-rw-r--  1 xuandong xuandong 1516 Aug 28 08:52 TASK.md
+drwxrwxr-x  2 xuandong xuandong 4096 Aug 28 08:52 baseline
+drwxrwxr-x  6 xuandong xuandong 4096 Aug 28 08:57 input
+drwxrwxr-x 36 xuandong xuandong 4096 Aug 28 08:53 workspace
+# Correlation-aware honeycomb memory decoding
+
+Improve logical-frame recovery for noisy honeycomb quantum memories beyond the supplied two-pass correlated-matching decoder.
+
+Assets include executable simulator/decoder dependencies, labeled development experiments, and the baseline. Each evaluation request contains a Stim circuit, its decomposed detector error model, and an unlabeled detector-syndrome array. No experiment's logical outcomes are available at inference time.
+
+Submit `solve.py`. It is invoked as `python solve.py REQUEST_DIRECTORY OUTPUT.npy`. Write a binary NumPy array of shape `(shots,)`, predicting the single logical observable. `workspace/INTERFACE.md` specifies file formats and development commands. `PYTHONPATH` includes the supplied workspace at evaluation.
+
+The objective is at least 20% lower family-balanced logical failure than the baseline, with no noise family's failure ratio above 0.95. Scoring uses independently sampled, hidden circuits from native entangling-measurement, standard-depolarizing, and superconducting-inspired regimes, both logical directions, and varied sizes and durations. Statistical evidence of improvement is required, not only a favorable aggregate fluctuation.
+
+Each request allows 60 seconds wall time, one CPU core, 4 GiB address space, and 64 MiB output. No network, accelerator, persistent cross-request state, or external data is available. The submission directory may contain code and trained artifacts up to 256 MiB. Development time is one hour.
+
+exec
+/bin/bash -c 'ls -la baseline; cat workspace/INTERFACE.md; find . -name AGENTS.md; ls -la input; ls workspace' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/participant
+  → Inspect interface, baseline, and development data
+  • Develop stronger correlation-aware decoding
+  • Benchmark and tune across noise families
+  • Finalize executable submission and validation
+exec
+/bin/bash -c 'bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/participant
+ succeeded in 36479ms:
+total 12
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 08:52 .
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 08:57 ..
+-rw-rw-r-- 1 xuandong xuandong  562 Aug 28 08:52 solve.py
+# Interface
+
+A request directory contains:
+
+- `circuit.stim`: complete source-native noisy memory circuit.
+- `model.dem`: `circuit.detector_error_model(decompose_errors=True)`, with correlation separators retained.
+- `syndromes.npy`: uint8 array `(shots, num_detectors)` with values 0 or 1.
+- `metadata.json`: noise family, geometry, number of measurement subrounds, observable, and physical error parameter.
+
+Output must be a non-pickled `.npy` bool/uint8 array `(shots,)` or `(shots,1)` with only 0 and 1. A fresh process handles each request. `TASK_ROOT` points to the participant directory. The evaluator exposes only the current request, participant assets, and submission code; labels are never in the process filesystem allowlist.
+
+Run the development baseline from the participant directory:
+
+```
+PYTHONPATH="$PWD/workspace" python baseline/solve.py input/dev_em3_h /tmp/predictions.npy
+PYTHONPATH="$PWD/workspace" python workspace/check_development.py input/dev_em3_h /tmp/predictions.npy
+```
+
+`input/development_labels/CASE.npy` supplies labels only for development cases. The native model `EM3_v2` uses correlated measurement/data noise; `SD6` and `SI1000` use the paper's corresponding noisy gate sets. Evaluation uses widths 8–12, heights 12–18, subrounds 12–48, and physical error probabilities 0.0004–0.018 depending on family. The actual circuit, not the metadata alone, defines each distribution. Its single active observable is consistently reindexed as logical observable 0.
+
+Core failure ratio is the mean of per-family total-error-count ratios to the fixed baseline. Worst-family ratio is their maximum. Passing requires core <=0.80, worst <=0.95, and pooled paired improvement exceeding three estimated standard errors. Baseline and submission use identical hidden shots. Invalid output or resource failure fails the run.
+total 24
+drwxrwxr-x 6 xuandong xuandong 4096 Aug 28 08:57 .
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 08:57 ..
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 08:57 dev_em3_h
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 08:57 dev_sd6_h
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 08:57 dev_si1000_h
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 08:57 development_labels
+INTERFACE.md
+PIL
+__pycache__
+bin
+check_development.py
+contourpy
+contourpy-1.3.2.dist-info
+cycler
+cycler-0.12.1.dist-info
+dateutil
+fontTools
+fonttools-4.63.0.dist-info
+kiwisolver
+kiwisolver-1.5.1.dist-info
+matplotlib
+matplotlib-3.10.9.dist-info
+mpl_toolkits
+networkx
+networkx-3.2.1.dist-info
+numpy
+numpy-1.24.4.dist-info
+numpy-2.2.6.dist-info
+numpy.libs
+packaging
+packaging-26.3.dist-info
+pillow-12.3.0.dist-info
+pillow.libs
+pylab.py
+pymatching
+pymatching-2.4.0.dist-info
+pyparsing
+pyparsing-3.3.2.dist-info
+python_dateutil-2.9.0.post0.dist-info
+share
+six-1.17.0.dist-info
+six.py
+stim
+stim-1.16.0.dist-info
+
+codex
+The baseline has few development failures. I’ll generate more samples to compare decoding methods reliably.
+
+  ✓ Inspect interface, baseline, and development data
+  → Develop stronger correlation-aware decoding
+  • Benchmark and tune across noise families
+  • Finalize executable submission and validation
+**Considering optimization timing**
+
+I need to think about improving the speed for a certain operation involving the `log1p` function. It seems like the current time is around 200 million calls taking about 4 seconds, but I’m a bit puzzled by the mention of 100 seconds—maybe I need to clarify that. For now, I should wait and see how this timing improves. Let's approach this methodically!
+**Implementing fast sumproduct approximation**
+
+I need to implement a fast approximation for sumproduct, considering both OSD and ensemble selection. The first ensemble would have priors with exponents like [0.5, 0.75, 1.25, 1.5, 2] that are correlated. I can build this by using DEM probabilities while ensuring changes preserve positions with stim.DetectorErrorModel appended. I should also introduce randomness at the hyperedge for an appropriate number of decoders. It's essential to average the probabilities robustly or select classification through OSD.
+exec
+/bin/bash -c 'bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/attempts/v_1
+**Improving BP performance**
+
+I'm looking at the BP improvement, which went from 53 to 48, but that doesn't feel good enough, especially when the overall score is 62 versus 67, a 7% difference. Clearly, I need to refine the OSD. I also realize I'll need the BP posterior output for some ambiguous caching. That’ll help with tuning later. So, focusing on better outputs is essential for improving performance moving forward!
+**Estimating time for OSD implementation**
+
+I just realized we’ve only been at it for about five minutes, which means there's still plenty of time — around 54 minutes left! That's a relief since I was worried about being behind. So now, I’m thinking we have about 50 minutes to focus on implementing the OSD. I should use this time wisely and get everything sorted out. Let's keep moving forward!
+**Evaluating performance metrics**
+
+I'm looking at the performance metrics: for BP SD6, the ratio of 37vs57 gives 0.65, and for SI39, the ratio 39/108 results in 0.36, which seems excellent for EM3. I need to focus on the OSD since it requires EM3 improvement, while it's generating higher noise with larger elements. I think it's best to wait and see how these changes play out moving forward.
+codex
+Belief propagation improves SD6 and SI1000; I’ll focus on EM3.
+
+**Analyzing EM Counts**
+
+I'm calculating the statistics for EM counts, starting with the target of 0.82 based on the count of 300. It seems the family aggregate is at 0.6, which isn’t great for EM performance. Overall, I'm aiming for 3 sigma with approximately 150 wins. I think aiming for 0.6 for EM with a count of 1000 or an order of 4 might be a possible strategy, but I need to ensure it's robust against high noise.
+**Considering token budget**
+
+I need to keep track of my token budget. It seems like I have a total of 40k tokens, but I’m wondering if I have around 31k remaining. Wait, maybe I’m down to about 28k left? I shouldn't overengineer things, but I really want to ensure I’m doing my best with the tokens. I should take a closer look at my current results to really understand where I'm at.
+**Calculating combined score**
+
+I'm working through a calculation: damped value of 35 plus missed points of 14 gives me a total of 49. Dividing that by 67 results in about 0.73. I'm considering what the minimum combined score should be — maybe around 0.5? I also need to think about MAP degeneracy and gather the best class to utilize it effectively. This analysis feels important as I try to improve the accuracy.
+**Evaluating ensemble strategies**
+
+I’m thinking about not relying on predefined labels for training and focusing more on parameter tuning. The ensemble seems to have some gaps since it covers about 21%, and I wonder if adding random_count could help improve error coverage. It looks like leveraging a diverse baseline can be more cost-effective, and generating a "temperature ensemble" systematically might enhance EM matching. I also need to measure confidence across different baselines to improve predictions and cover ambiguities.
+**Improving circuit simulations**
+
+I'm considering retaining random32 and running with a maximum budget. I need to define the hidden shot count, which can be 2048. It seems like stress simulations for larger circuits are necessary, but there shouldn't be any repeated sections. I could edit durations by trimming repeated blocks while keeping essential detectors intact. It’d be beneficial to create larger simulated tests with a native circuit, eliminating unnecessary sections, and ensure I can synthesize larger geometries from independent copies.
+**Analyzing noise parameters**
+
+I'm thinking about how increasing noise in the same geometry can offer valuable insights, specifically with a physical sample at p x2, giving me values like .018 EM, SD0.0024, and SI.0014. It seems I can scale the .stim all probabilistic arguments without negatively impacting the MPP product error. I also need to gather all the noise instructions and their names, like DEPOLARIZE1/2, X/Y/Z_ERROR, CORRELATED_ERROR, and PAULI_CHANNEL1/2, along with M(p) to ensure full context.
+**Evaluating processing speed**
+
+I'm considering the phi speed and the 3-second benchmark, which may only be effective with two processes due to CPU sharing. That said, it’s still okay. Layered averages are likely to be excellent. To improve speed, I should focus on using known BP loops with a 4-cycle factor for denser results. The normalized min-sum raw approach might be quick as well. I’ll definitely keep these ideas in mind moving forward!
+**Analyzing evidence and algorithm development**
+
+I’m looking into "degenerate decoding" and the potential improvements it might bring. Our evidence indicates we have a notable count dependent on the basis, maximizing the sum per class. I need to develop a final algorithm, which includes parsing the graph, running an ensemble with a significant count, and employing BP sum-product for predictions. I wonder if using more ensembles could enhance selection efficiency, as the baseline misses should be minimized. This approach sounds promising!
+**Optimizing resource allocation and baseline processing**
+
+I’m ensuring that the CPU resources are effectively used with global timing and fallback for OSD and BP matching. There’s a startup budget consideration, and I need to manage commands carefully due to latency. I’m thinking of processing the requests in chunks of 8 or 16 to stay within budget constraints. The focus will be on high-disagreement selections, prioritizing efficiency. I also need to optimize the BP computing for the active error detection, improving overall performance. This will help in handling uncertain cases effectively!
+**Evaluating variables and error detection**
+
+I realize that I can't ignore many inactive variables since they may still affect syndrome paths. The convergence of posterior messages across checks is essential here. By restricting error variables within a certain distance from active detections, I can improve our local shot density. I suspect that focusing on active detectors will yield better results, and I’m checking the logical reasoning behind the baseline. I need to gather all results and plan for some stress experiments soon!
+**Considering performance optimization**
+
+I’m thinking about performance overhead with Python matching constructs. It seems that a final OSD has no matching, which could make it faster. I’m estimating with a minimum sum of 15 iterations and about a 70% conversion rate. Now, I want to implement an end-to-end benchmark that's configurable without needing a major refactor. I’ll also test variants while preserving labels and building the sample suite with noise and recursive instructions. I need to check the library for noisy gates.
+**Evaluating testing methods**
+
+I'm considering using a combined approach for my minsum strategy and tuning evidence broadly, as it seems promising. However, I wonder if relying on correct convex minimum could potentially impair efficiency. If the samples are huge, I'll need to validate everything carefully. I have this idea that conducting parallel tests might be effective, even if it means using two CPUs on the same single-core architecture, which could double the processing time, but that's manageable.
+**Planning implementation**
+
+I’m looking into implementing the `make_stress` function with a duration of 48 and a noise factor of 2 while keeping it hidden. I'll need to ensure that two agents are prohibited from being local. The session will require a busy validation that may take around 2 minutes. Since the third execution isn't necessary, I can use `functions.exec_command` for `applypatch` with some startup overhead. I’ll queue everything sequentially for smooth execution.
+codex
+I’m testing the stronger decoder on larger independent samples and checking runtime.
+
+Implemented full-hyperedge belief propagation and ordered-statistics list decoding, gated by matching disagreement. Initial tests improve all three families; now validating on independent samples and stress cases.
+  ✓ Inspect interface, baseline, and development data
+  ✓ Develop stronger correlation-aware decoding
+  → Benchmark and tune across noise families
+  • Finalize executable submission and validation
+exec
+/bin/bash -c 'bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/attempts/v_1
+**Evaluating runtime stress**
+
+I need to keep things simple unless the runtime stress exceeds 60. That’s definitely a threshold I want to test. I wonder how often that happens and what kind of complexities I might be dealing with. It's important to strike a balance between performance and complexity to ensure things run smoothly, so I appreciate the challenge ahead! Let's see what we can discover during testing!
+**Evaluating probabilities and costs**
+
+I need to calculate the count as the minimum of 1000 and 300 times N divided by 224 to keep my probabilities in check. But then there's the cost, which grows at a rate of count squared times N, and I realize that this can lead to a growth of N cubed, which is quite significant. I should definitely pay attention to how this impacts my calculations!
+**Evaluating mathematical priorities**
+
+I'm thinking about the need to establish a baseline for mathematical errors. If the majority contradicts, it could mean higher error likelihoods, so I'm scoring those disagreements correctly. I wonder how ties will affect the balance between deterministic and random outcomes. It seems like it could get really complex if the scoring isn't handled properly. Balancing these factors will be key to getting accurate results moving forward!
+exec
+/bin/bash -c 'bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/attempts/v_1
+ exited 1 in 957950ms:
+bash: cannot set terminal process group (1): Inappropriate ioctl for device
+bash: no job control in this shell
+bash-5.1$ <UT; export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A osd_test.py
+M bp.cpp
+M decoder.py
+bash-5.1$ bash-5.1$ BP time 8.17049789428711
+em3 n=304 baseline=53 osd time=0.373
+0 50 wins 31 losses 28
+0.25 50 wins 31 losses 28
+0.5 51 wins 31 losses 29
+0.75 52 wins 30 losses 29
+1 52 wins 30 losses 29
+bash-5.1$ BP time 0.01577138900756836
+em3 n=304 baseline=53 osd time=0.926
+0 41 wins 33 losses 21
+0.25 42 wins 31 losses 20
+0.5 42 wins 31 losses 20
+0.75 44 wins 30 losses 21
+1 44 wins 30 losses 21
+BP time 2.822420597076416
+sd6 n=243 baseline=53 osd time=0.159
+0 34 wins 38 losses 19
+0.25 31 wins 40 losses 18
+0.5 31 wins 40 losses 18
+0.75 31 wins 40 losses 18
+1 30 wins 41 losses 18
+BP time 7.573308229446411
+si1000 n=601 baseline=103 osd time=0.565
+0 28 wins 91 losses 16
+0.25 29 wins 92 losses 18
+0.5 30 wins 91 losses 18
+0.75 30 wins 91 losses 18
+1 30 wins 91 losses 18
+bash-5.1$ BP time 0.023874521255493164
+em3 n=304 baseline=53 osd time=7.493
+0 34 wins 36 losses 17
+0.25 34 wins 35 losses 16
+0.5 34 wins 35 losses 16
+0.75 35 wins 35 losses 17
+1 36 wins 34 losses 17
+Fri Aug 28 09:12:00 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A fast_sweep.py
+M bp.cpp
+M decoder.py
+bash-5.1$ bash-5.1$ 30 0 1 0 conv 28 matching 49 osd 42 evidence 45 combined 42 time 5.592288970947266
+30 0 1 4 conv 28 matching 42 osd 30 evidence 32 combined 31 time 7.7374279499053955
+15 0 1 2 conv 55 matching 36 osd 32 evidence 31 combined 32 time 5.859934568405151
+30 0 1 2 conv 59 matching 43 osd 31 evidence 30 combined 32 time 7.047304153442383
+30 0 1 6 conv 59 matching 41 osd 31 evidence 30 combined 32 time 8.748797178268433
+30 0.3 1 6 conv 55 matching 40 osd 32 evidence 31 combined 32 time 8.65961766242981
+30 0 1 22 conv 60 matching 37 osd 30 evidence 30 combined 31 time 6.7616658210754395
+30 0 1 38 conv 59 matching 38 osd 30 evidence 30 combined 31 time 7.357412576675415
+30 0 0.7 10 conv 53 matching 41 osd 31 evidence 29 combined 31 time 4.743776798248291
+30 0 0.7 14 conv 53 matching 41 osd 30 evidence 30 combined 31 time 4.524273157119751
+60 0 1 6 conv 59 matching 45 osd 31 evidence 31 combined 31 time 9.175318002700806
+bash-5.1$ > > > > > > QUBIT_COORDS(1, 0) 0
+QUBIT_COORDS(1, 1) 1
+QUBIT_COORDS(1, 2) 2
+QUBIT_COORDS(1, 3) 3
+QUBIT_COORDS(1, 4) 4
+QUBIT_COORDS(1, 5) 5
+QUBIT_COORDS(1, 6) 6
+QUBIT_COORDS(1, 7) 7
+QUBIT_COORDS(1, 8) 8
+QUBIT_COORDS(1, 9) 9
+QUBIT_COORDS(1, 10) 10
+QUBIT_COORDS(1, 11) 11
+DETECTOR(6, 3, 12) rec[-178] rec[-174] rec[-172] rec[-129] rec[-126] rec[-123] rec[-70] rec[-69] rec[-68] rec[-58] rec[-57] rec[-56]
+DETECTOR(6, 9, 12) rec[-176] rec[-173] rec[-170] rec[-127] rec[-125] rec[-121] rec[-64] rec[-63] rec[-62] rec[-52] rec[-51] rec[-50]
+DETECTOR(8, 0, 12) rec[-169] rec[-168] rec[-163] rec[-124] rec[-119] rec[-118] rec[-60] rec[-59] rec[-49] rec[-48] rec[-47] rec[-37]
+DETECTOR(8, 6, 12) rec[-171] rec[-167] rec[-165] rec[-122] rec[-120] rec[-116] rec[-55] rec[-54] rec[-53] rec[-43] rec[-42] rec[-41]
+DETECTOR(10, 3, 12) rec[-166] rec[-162] rec[-160] rec[-117] rec[-114] rec[-111] rec[-46] rec[-45] rec[-44] rec[-34] rec[-33] rec[-32]
+DETECTOR(10, 9, 12) rec[-164] rec[-161] rec[-158] rec[-115] rec[-113] rec[-109] rec[-40] rec[-39] rec[-38] rec[-28] rec[-27] rec[-26]
+DETECTOR(12, 0, 12) rec[-157] rec[-156] rec[-151] rec[-112] rec[-107] rec[-106] rec[-36] rec[-35] rec[-25] rec[-24] rec[-23] rec[-13]
+DETECTOR(12, 6, 12) rec[-159] rec[-155] rec[-153] rec[-110] rec[-108] rec[-104] rec[-31] rec[-30] rec[-29] rec[-19] rec[-18] rec[-17]
+DETECTOR(14, 3, 12) rec[-154] rec[-150] rec[-148] rec[-105] rec[-102] rec[-99] rec[-22] rec[-21] rec[-20] rec[-10] rec[-9] rec[-8]
+DETECTOR(14, 9, 12) rec[-152] rec[-149] rec[-146] rec[-103] rec[-101] rec[-97] rec[-16] rec[-15] rec[-14] rec[-4] rec[-3] rec[-2]
+OBSERVABLE_INCLUDE(0) rec[-96] rec[-95] rec[-84] rec[-83] rec[-72] rec[-71] rec[-60] rec[-59] rec[-48] rec[-47] rec[-36] rec[-35] rec[-24] rec[-23] rec[-12] rec[-11]
+DEPOLARIZE1(0.0012) 96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159 160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175 176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 198 199 200 201 202 203 204 205 206 207 208 209 210 211 212 213 214 215 216 217 218 219 220 221 222 223 224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239
+em3 {'QUBIT_COORDS': [15.0, 11.0], 'X_ERROR': [0.0045], 'E': [0.000282443], 'OBSERVABLE_INCLUDE': [0.0], 'DETECTOR': [14.0, 9.0, 12.0]}
+sd6 {'QUBIT_COORDS': [15.0, 11.5], 'X_ERROR': [0.0012], 'DEPOLARIZE1': [0.0012], 'DEPOLARIZE2': [0.0012], 'OBSERVABLE_INCLUDE': [0.0], 'DETECTOR': [14.0, 9.0, 12.0]}
+si1000 {'QUBIT_COORDS': [15.0, 11.5], 'X_ERROR': [0.0035], 'DEPOLARIZE1': [0.0014], 'DEPOLARIZE2': [0.0007], 'OBSERVABLE_INCLUDE': [0.0], 'DETECTOR': [14.0, 9.0, 12.0]}
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A validate.py
+bash-5.1$ ensemble time 62.64093565940857
+em3 factor=1.0 shots=100000 baseline=331 ambiguous=1753 missed=46
+20 0 1 6 300 conv 355 results [(0, 252, 179, 100), (0.5, 224, 186, 79), (1, 220, 186, 75)] time 13.794836044311523
+30 0 1 6 600 conv 360 results [(0, 249, 178, 96), (0.5, 221, 184, 74), (1, 216, 185, 70)] time 22.639307498931885
+20 0 1 4 300 conv 131 results [(0, 244, 179, 92), (0.5, 223, 180, 72), (1, 224, 178, 71)] time 16.546045064926147
+20 0 0.7 14 300 conv 318 results [(0, 241, 181, 91), (0.5, 231, 180, 80), (1, 228, 182, 79)] time 9.078524351119995
+20 0 1 22 300 conv 360 results [(0, 250, 175, 94), (0.5, 229, 180, 78), (1, 226, 179, 74)] time 15.361515760421753
+combined 0 errors 235
+combined 0.5 errors 209
+combined 1 errors 207
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A trial.py
+bash-5.1$ init 0.5521793365478516
+ensemble 33.303478956222534 baseline 276 ambiguous 1054 missed 25
+6 300 time 67.27538776397705 total 100.58030939102173 conv 1 errors min/evid 191 179 combined 179
+14 300 time 44.01214098930359 total 144.59878993034363 conv 6 errors min/evid 214 212 combined 181
+6 1000 time 112.90534949302673 total 257.518878698349 conv 1 errors min/evid 184 175 combined 175
+bash-5.1$ 
+**Troubleshooting session issues**
+
+It seems I accidentally used Ctrl+C, which may have interrupted the process. The message "process exited1" suggests that the command didn't run completely because the session was terminated early. I should check my earlier processes to see what went wrong, especially with the persistent settings. There's a lot to untangle here, but I need to ensure I can get everything back on track and running smoothly. Let's see what I can find!
+**Timing the final run**
+
+I’m looking at the timeline while waiting for the current run to finish, which should take about 30 seconds. I need to avoid starting new tests until the rank profile is done. It feels like I have enough time, as it’s currently 9:27, and I'm estimating that the whole process will take around 23 to 37 minutes total. Let's keep everything on track!
+codex
+Independent samples show substantial gains across all three families. I’m adding runtime safeguards and testing longer, noisier circuits.
+
+codex
+The 150,000-shot validation cuts failures from 404 to 160. I’m cleaning the submission and checking resource limits.
+
+**Working through code optimization**
+
+I'm considering how resource management can improve after the patch. It seems that by using new matching techniques, we can maintain the same quality while also speeding up the initialization phase. 
+
+I think I should compile with the new file first, then focus on the decoder patch, making sure it’s critical but without breaking any inference processes. Keeping everything efficient is my goal!
+**Calculating matrix transformations**
+
+I'm thinking through some matrix concepts and how transformations work with occupied checks. I want to combine these into a pivot basis. It involves making sure previous pivots have the right support for higher checks. So, I need to map the unit check using backward substitution across the basis to find coefficients. The row echelon form should have leading low checks, and I’ll focus on columns that have higher ones. Lastly, I’ll solve the vector by eliminating upward.
+**Reviewing surgical context**
+
+I'm realizing I need to read through the specific sections of the C++ code that fall between lines 100 to 190. This is crucial to ensure that I'm not overlooking any necessary details for the surgical patch. It feels important to optimize the context I have right now without wasting time, so I'll make sure to re-read those parts thoroughly. This should help me get a better grasp of what I need!
+codex
+Resource checks pass. I’m optimizing the remaining large-circuit bottleneck.
+
+**Planning for the deadline**
+
+I see that I have 22 minutes until my deadline at 10:04, which feels like plenty of time! I think I could finish the main task in just about a minute if I stay focused. It’s really helpful to break things down like this because it puts me in a good mindset. So, I can prioritize what I need to do to ensure I meet that deadline effectively!
+**Assessing performance and resources**
+
+I’m working on validating some resources and ensuring everything runs smoothly. I need to address cache cleanup after a certain number of reads and keep final publication records tidy. I’ve noticed that the dev script might have some syntax errors, which could impact computation times. I want to maintain fair quality while managing CPU use. The resource memory looks fine, but I’ll keep an eye on potential errors in the core documentation and computations.
+**Analyzing simulation data**
+
+I'm seeing some small fluctuations, but overall the statistics look strong. The provided ratios indicate good core values, with the worst being 0.394, and pairs showing valid independent stats. 
+
+I'd like to mention that there were failures in the development phase across 150,000 simulated shots, with resource testing marked at 54.2 seconds. I need to keep the artifact path concise without restating the absolute path, just mentioning it properly in the output. 
+
+My final answer will include how the `solve.py` file was implemented, with additional validation details.
+Independent validation reduces failures from 404 to 160 across 150,000 shots. Strict 60-second/4-GiB tests pass, including a 1,760-detector stress request. Finalizing artifacts and reproducibility checks.
+  ✓ Inspect interface, baseline, and development data
+  ✓ Develop stronger correlation-aware decoding
+  ✓ Benchmark and tune across noise families
+  → Finalize executable submission and validation
+**Evaluating algorithm effectiveness**
+
+I’m thinking about how the algorithm works with strong high scores and cautious measures against false positives. I’m considering if it's truly derived without relying on heuristics and how it handles noise in the data. It's important to factor in the independence and validity of the probabilities too. Does it relate to Stimdem and the exact approximation to EM? I'm curious about how categorical noise affects this process. There seems to be a lot to unpack here!
+codex
+The final decoder passes resource checks. I’m verifying reproducibility before cleanup.
+
+codex
+Reproduction matches all reported results. I’m removing generated data and checking the final files.
+
+Final seven-file submission is clean (113,264 bytes). Reproducibility rerun exactly matches the 150,000-shot results; executable smoke tests, exhaustive small-model MAP validation, empty-batch handling, and strict resource checks pass.
+  ✓ Inspect interface, baseline, and development data
+  ✓ Develop stronger correlation-aware decoding
+  ✓ Benchmark and tune across noise families
+  ✓ Finalize executable submission and validation
+ succeeded in 1966964ms:
+stty -echo; export OUT=$PWD; export PART=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/participant; export PYTHONPATH=$PART/workspace; export PYTHONDONTWRITEBYTECODE=1; export TMPDIR=$OUT; export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1; ls profile_osd.py; date
+bash: cannot set terminal process group (1): Inappropriate ioctl for device
+bash: no job control in this shell
+bash-5.1$ <HREADS=1 OMP_NUM_THREADS=1; ls profile_osd.py; date
+ls: cannot access 'profile_osd.py': No such file or directory
+Fri Aug 28 09:25:10 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A profile_osd.py
+M bp.cpp
+M decoder.py
+bash-5.1$ bash-5.1$ BP 5.614598512649536 n 200 rank 799
+free 0 time 2.678842306137085 errs 30 32
+free 600 time 1.8993456363677979 errs 34 34
+free 1200 time 1.935034990310669 errs 33 33
+free 2400 time 1.9077022075653076 errs 34 34
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A solve.py
+M ensemble.py
+bash-5.1$ {"seconds": 4.250329064088874, "matching_passes": 21, "ambiguous": 41, "first_pass": 41, "second_pass": 18}
+bash-5.1$ {"shots": 2048, "errors": 6, "logical_failure_rate": 0.0029296875}
+bash-5.1$ > > > > > > > > > > > em3 355 BP errors 4 OSD errors 4 changes 0 time 12.416285514831543
+sd6 307 BP errors 3 OSD errors 2 changes 1 time 3.0889439582824707
+si1000 1008 BP errors 5 OSD errors 6 changes 1 time 7.200056076049805
+bash-5.1$ decoder.py
+11:    def __init__(self, model):
+73:        self.lib.matrix_rank.argtypes = [ctypes.c_int] * 2 + [ctypes.c_void_p] * 2
+74:        self.lib.matrix_rank.restype = ctypes.c_int
+75:        self.rank = self.lib.matrix_rank(self.checks, self.variables, self.starts.ctypes.data, self.neighbors.ctypes.data)
+77:    def osd(self, syndromes, posterior, order_count=60, max_free=0):
+86:                     minima.ctypes.data, evidence.ctypes.data, self.rank, max_free)
+89:    def beliefs(self, syndromes, iterations=30, damping=0.0, scale=1.0, mode=0):
+100:    def matching(self, syndrome, posterior, mix=0.0):
+115:    def decode(self, syndromes, iterations=30, damping=0.0, scale=1.0):
+
+bp.cpp
+24:extern "C" void bp_fast(int shots, int checks, int variables, int links,
+100:extern "C" void bp(int shots, int checks, int variables, int links,
+146:extern "C" int matrix_rank(int checks, int variables, const int* starts, const int* neighbors) {
+153:    int rank = 0;
+162:                    ++rank;
+172:    return rank;
+175:extern "C" void osd(int shots, int checks, int variables, const int* starts,
+178:    double* minima, double* evidence, int rank, int max_free) {
+179:    bool refine = order_count < 0;
+205:            if (max_free > 0 && int(pivots.size()) == rank && int(nonpivots.size()) >= max_free) break;
+227:            if (!independent && (max_free <= 0 || int(nonpivots.size()) < max_free)) {
+243:        if (refine) {
+  362 bp.cpp
+  120 decoder.py
+  482 total
+Fri Aug 28 09:32:36 PDT 2026
+bash-5.1$ import ctypes
+from pathlib import Path
+import time
+
+import numpy as np
+import pymatching
+import stim
+
+
+class Decoder:
+    def __init__(self, model):
+        self.model = model
+        self.checks = model.num_detectors
+        self.baseline = pymatching.Matching.from_detector_error_model(model, enable_correlations=True)
+        errors = {}
+        for instruction in model.flattened():
+            if instruction.type != 'error':
+                continue
+            probability = instruction.args_copy()[0]
+            detectors = set()
+            logical = 0
+            components = []
+            current = []
+            component_logical = 0
+            for target in instruction.targets_copy():
+                if target.is_relative_detector_id():
+                    detectors.symmetric_difference_update([target.val])
+                    current.append(target.val)
+                elif target.is_logical_observable_id():
+                    logical ^= 1
+                    component_logical ^= 1
+                else:
+                    components.append((tuple(sorted(current)), component_logical))
+                    current = []
+                    component_logical = 0
+            components.append((tuple(sorted(current)), component_logical))
+            key = (tuple(sorted(detectors)), logical)
+            if key in errors:
+                previous = errors[key][0]
+                errors[key] = (previous + probability - 2 * previous * probability, errors[key][1])
+            else:
+                errors[key] = (probability, components)
+        self.detectors = [key[0] for key in errors]
+        self.logical = np.array([key[1] for key in errors], dtype=np.uint8)
+        self.probability = np.array([value[0] for value in errors.values()])
+        self.prior = np.log((1 - self.probability) / self.probability)
+        self.variables = len(errors)
+        adjacent = [[] for _ in range(self.checks)]
+        for variable, detectors in enumerate(self.detectors):
+            for detector in detectors:
+                adjacent[detector].append(variable)
+        self.starts = np.array([0] + list(np.cumsum([len(row) for row in adjacent])), dtype=np.int32)
+        self.neighbors = np.array([value for row in adjacent for value in row], dtype=np.int32)
+        edges = {}
+        self.edge_variables = []
+        self.edge_ids = []
+        for variable, (_, components) in enumerate(errors.values()):
+            for detectors, logical in components:
+                if not detectors:
+                    continue
+                key = (detectors, logical)
+                if key not in edges:
+                    edges[key] = len(edges)
+                self.edge_variables.append(variable)
+                self.edge_ids.append(edges[key])
+        self.edges = list(edges)
+        self.edge_variables = np.array(self.edge_variables)
+        self.edge_ids = np.array(self.edge_ids)
+        self.lib = ctypes.CDLL(str(Path(__file__).with_name('bp.so')))
+        self.lib.bp.argtypes = [ctypes.c_int] * 4 + [ctypes.c_void_p] * 4 + [ctypes.c_int, ctypes.c_double, ctypes.c_double] + [ctypes.c_void_p] * 3
+        self.lib.bp_fast.argtypes = self.lib.bp.argtypes + [ctypes.c_int]
+        self.lib.osd.argtypes = [ctypes.c_int] * 3 + [ctypes.c_void_p] * 6 + [ctypes.c_int] + [ctypes.c_void_p] * 2 + [ctypes.c_int] * 2
+        self.lib.matrix_rank.argtypes = [ctypes.c_int] * 2 + [ctypes.c_void_p] * 2
+        self.lib.matrix_rank.restype = ctypes.c_int
+        self.rank = self.lib.matrix_rank(self.checks, self.variables, self.starts.ctypes.data, self.neighbors.ctypes.data)
+
+    def osd(self, syndromes, posterior, order_count=60, max_free=0):
+        syndromes = np.ascontiguousarray(syndromes, dtype=np.uint8)
+        posterior = np.ascontiguousarray(posterior, dtype=np.float64)
+        minima = np.empty((len(syndromes), 2))
+        evidence = np.empty_like(minima)
+        self.lib.osd(len(syndromes), self.checks, self.variables,
+                     self.starts.ctypes.data, self.neighbors.ctypes.data,
+                     self.prior.ctypes.data, self.logical.ctypes.data,
+                     syndromes.ctypes.data, posterior.ctypes.data, order_count,
+                     minima.ctypes.data, evidence.ctypes.data, self.rank, max_free)
+        return minima, evidence
+
+    def beliefs(self, syndromes, iterations=30, damping=0.0, scale=1.0, mode=0):
+        syndromes = np.ascontiguousarray(syndromes, dtype=np.uint8)
+        posterior = np.empty((len(syndromes), self.variables), dtype=np.float64)
+        converged = np.empty(len(syndromes), dtype=np.uint8)
+        used = np.empty(len(syndromes), dtype=np.int32)
+        self.lib.bp_fast(len(syndromes), self.checks, self.variables, len(self.neighbors),
+                    self.starts.ctypes.data, self.neighbors.ctypes.data, self.prior.ctypes.data,
+                    syndromes.ctypes.data, iterations, damping, scale,
+                    posterior.ctypes.data, converged.ctypes.data, used.ctypes.data, mode)
+        return posterior, converged, used
+
+    def matching(self, syndrome, posterior, mix=0.0):
+        probability = 1 / (1 + np.exp(np.clip(posterior, -40, 40)))
+        products = np.ones(len(self.edges))
+        np.multiply.at(products, self.edge_ids, 1 - 2 * probability[self.edge_variables])
+        probability = np.clip((1 - products) / 2, 1e-12, 1 - 1e-12)
+        weights = np.log((1 - probability) / probability)
+        graph = pymatching._cpp_pymatching.MatchingGraph(self.checks, 1)
+        for (detectors, logical), weight in zip(self.edges, weights):
+            faults = {0} if logical else set()
+            if len(detectors) == 1:
+                graph.add_boundary_edge(detectors[0], faults, weight, -1, 'independent')
+            else:
+                graph.add_edge(detectors[0], detectors[1], faults, weight, -1, 'independent')
+        return graph.decode(np.flatnonzero(syndrome).astype(np.uint64))[0][0]
+
+    def decode(self, syndromes, iterations=30, damping=0.0, scale=1.0):
+        posterior, converged, used = self.beliefs(syndromes, iterations, damping, scale)
+        predictions = ((posterior < 0) @ self.logical) % 2
+        for shot in np.flatnonzero(converged == 0):
+            predictions[shot] = self.matching(syndromes[shot], posterior[shot])
+        return predictions, converged, used
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M bp.cpp
+bash-5.1$ bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M decoder.py
+bash-5.1$ {"seconds": 3.5836891959188506, "matching_passes": 21, "ambiguous": 41, "first_pass": 41, "second_pass": 18}
+bash-5.1$ bash-5.1$             std::copy(values.begin(), values.end(), posterior + shot * variables);
+    }
+}
+
+extern "C" void osd(int shots, int checks, int variables, const int* starts,
+    const int* neighbors, const double* prior, const uint8_t* logical,
+    const uint8_t* syndromes, const double* posterior, int order_count,
+    double* minima, double* evidence) {
+    int words = (checks + 63) / 64;
+    std::vector<uint64_t> columns(variables * words, 0);
+    for (int check = 0; check < checks; ++check)
+        for (int link = starts[check]; link < starts[check + 1]; ++link)
+            columns[neighbors[link] * words + check / 64] ^= uint64_t(1) << (check % 64);
+    for (int shot = 0; shot < shots; ++shot) {
+        const double* belief = posterior + shot * variables;
+        std::vector<int> order(variables), pivots, nonpivots;
+        std::iota(order.begin(), order.end(), 0);
+        std::stable_sort(order.begin(), order.end(), [&](int left, int right) {
+            return std::abs(belief[left]) < std::abs(belief[right]);
+        });
+        std::vector<int> occupied(checks, -1);
+        std::vector<uint64_t> basis(checks * words, 0), transforms(checks * words, 0);
+        std::vector<uint64_t> nonpivot_transforms, value(words), combination(words), residual(words, 0);
+        std::vector<uint8_t> hard(variables);
+        for (int check = 0; check < checks; ++check)
+            if (syndromes[shot * checks + check]) residual[check / 64] ^= uint64_t(1) << (check % 64);
+        for (int variable = 0; variable < variables; ++variable) {
+            hard[variable] = belief[variable] < 0;
+            if (hard[variable])
+                for (int word = 0; word < words; ++word) residual[word] ^= columns[variable * words + word];
+        }
+        for (int variable : order) {
+            std::copy(columns.begin() + variable * words, columns.begin() + (variable + 1) * words, value.begin());
+            std::fill(combination.begin(), combination.end(), 0);
+            bool independent = false;
+            for (int word = 0; word < words; ++word) {
+                while (value[word]) {
+                    int check = word * 64 + __builtin_ctzll(value[word]);
+                    if (occupied[check] < 0) {
+                        int pivot = pivots.size();
+                        occupied[check] = pivot;
+                        pivots.push_back(variable);
+                        combination[pivot / 64] ^= uint64_t(1) << (pivot % 64);
+                        std::copy(value.begin(), value.end(), basis.begin() + check * words);
+                        std::copy(combination.begin(), combination.end(), transforms.begin() + check * words);
+                        independent = true;
+                        break;
+                    }
+                    for (int other = word; other < words; ++other) value[other] ^= basis[check * words + other];
+                    for (int other = 0; other < words; ++other) combination[other] ^= transforms[check * words + other];
+                }
+                if (independent) break;
+            }
+            if (!independent) {
+                nonpivots.push_back(variable);
+                nonpivot_transforms.insert(nonpivot_transforms.end(), combination.begin(), combination.end());
+            }
+        }
+        std::fill(combination.begin(), combination.end(), 0);
+        for (int word = 0; word < words; ++word) {
+            while (residual[word]) {
+                int check = word * 64 + __builtin_ctzll(residual[word]);
+                if (occupied[check] < 0) break;
+                for (int other = word; other < words; ++other) residual[other] ^= basis[check * words + other];
+                for (int other = 0; other < words; ++other) combination[other] ^= transforms[check * words + other];
+            }
+        }
+        for (int pivot = 0; pivot < int(pivots.size()); ++pivot)
+            hard[pivots[pivot]] ^= (combination[pivot / 64] >> (pivot % 64)) & 1;
+        double base_weight = 0;
+        int base_logical = 0;
+        std::vector<double> delta(pivots.size());
+        for (int variable = 0; variable < variables; ++variable) {
+            if (hard[variable]) {
+                base_weight += prior[variable];
+                base_logical ^= logical[variable];
+            }
+        }
+        for (int pivot = 0; pivot < int(pivots.size()); ++pivot)
+            delta[pivot] = hard[pivots[pivot]] ? -prior[pivots[pivot]] : prior[pivots[pivot]];
+        double best[2] = {1e100, 1e100};
+        double sums[2] = {0, 0};
+        auto add = [&](double weight, int parity) {
+            if (weight < best[parity]) {
+                sums[parity] = sums[parity] * std::exp(weight - best[parity]) + 1;
+                best[parity] = weight;
+            } else {
+                if (weight < best[parity] + 25) sums[parity] += std::exp(best[parity] - weight);
+            }
+        };
+        add(base_weight, base_logical);
+        auto candidate = [&](int first, int second, int third) {
+            double weight = base_weight;
+            int parity = base_logical;
+            for (int index : {first, second, third}) {
+                if (index >= 0) {
+                    int variable = nonpivots[index];
+                    weight += hard[variable] ? -prior[variable] : prior[variable];
+                    parity ^= logical[variable];
+                }
+            }
+            for (int word = 0; word < words; ++word) {
+                uint64_t flipped = nonpivot_transforms[first * words + word];
+                if (second >= 0) flipped ^= nonpivot_transforms[second * words + word];
+                if (third >= 0) flipped ^= nonpivot_transforms[third * words + word];
+                while (flipped) {
+                    int pivot = word * 64 + __builtin_ctzll(flipped);
+                    weight += delta[pivot];
+                    parity ^= logical[pivots[pivot]];
+                    flipped &= flipped - 1;
+                }
+            }
+            add(weight, parity);
+        };
+        std::vector<double> single_weight(nonpivots.size());
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M bp.cpp
+bash-5.1$ bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A compare_core.py
+bash-5.1$ BP time 6.243605852127075
+decoder_core.so OSD time 4.351717233657837
+decoder_fast.so OSD time 4.260749101638794
+max difference 0.0
+max difference 0.0
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M bp.cpp
+bash-5.1$ bash-5.1$ BP time 6.568799257278442
+decoder_core.so OSD time 3.398320198059082
+decoder_fast.so OSD time 3.140483856201172
+max difference 0.0
+max difference 0.0
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M bp.cpp
+M compare_core.py
+bash-5.1$ bash-5.1$ BP time 6.185434818267822
+decoder_core.so BP time 5.51113486289978 difference 0.0
+decoder_core.so OSD time 2.6507997512817383
+decoder_optimized.so BP time 3.432661771774292 difference 0.0
+decoder_optimized.so OSD time 2.9462804794311523
+max difference 0.0
+max difference 0.0
+bash-5.1$ BP time 4.96032977104187
+decoder_core.so BP time 5.01503324508667 difference 0.0
+decoder_core.so OSD time 3.6954116821289062
+decoder_optimized.so BP time 3.351602554321289 difference 0.0
+decoder_optimized.so OSD time 3.832486152648926
+max difference 0.0
+max difference 0.0
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M bp.cpp
+M compare_core.py
+bash-5.1$ bash-5.1$ BP time 4.93505072593689
+decoder_core.so BP time 5.184028148651123 difference 0.0
+decoder_core.so OSD time 3.5597338676452637
+decoder_gaussian.so BP time 3.3253490924835205 difference 0.0
+decoder_gaussian.so OSD time 3.5811479091644287
+max difference 0.0
+max difference 0.0
+bash-5.1$ bash-5.1$ {"seconds": 53.44914445304312, "matching_passes": 3, "ambiguous": 824, "first_pass": 348, "second_pass": 0}
+WALL 54.20 RSS_KB 205760
+bash-5.1$ > > > > LARGE RESULT 2048 494 469 wins 75 losses 50
+bash-5.1$ {"seconds": 3.1526302659185603, "matching_passes": 21, "ambiguous": 41, "first_pass": 41, "second_pass": 18}
+{"shots": 2048, "errors": 6, "logical_failure_rate": 0.0029296875}
+{"seconds": 2.448962514055893, "matching_passes": 21, "ambiguous": 23, "first_pass": 23, "second_pass": 10}
+{"shots": 2048, "errors": 1, "logical_failure_rate": 0.00048828125}
+{"seconds": 2.129062531981617, "matching_passes": 21, "ambiguous": 40, "first_pass": 40, "second_pass": 8}
+{"shots": 2048, "errors": 1, "logical_failure_rate": 0.00048828125}
+bash-5.1$ > > > > > > > > > > Success. Updated the following files:
+M solve.py
+bash-5.1$ > > > > > > > BUDGET 18 {'seconds': 53.33541778102517, 'matching_passes': 3, 'ambiguous': 824, 'first_pass': 344, 'second_pass': 0} errors 471
+bash-5.1$ > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M solve.py
+M README.md
+bash-5.1$ {"family": "em3", "shots": 50000, "baseline_errors": 163, "submission_errors": 94, "paired_wins": 97, "paired_losses": 28}
+{"family": "sd6", "shots": 50000, "baseline_errors": 83, "submission_errors": 34, "paired_wins": 62, "paired_losses": 13}
+{"family": "si1000", "shots": 50000, "baseline_errors": 158, "submission_errors": 32, "paired_wins": 136, "paired_losses": 10}
+bash-5.1$ bash-5.1$ total 136K
+drwxrwxr-x 5 xuandong xuandong  12K Aug 28 09:56 .
+drwx------ 3 xuandong xuandong   60 Aug 28 09:25 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 09:25 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 09:25 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 09:25 .git
+-rw-rw-r-- 1 xuandong xuandong 3.0K Aug 28 09:51 README.md
+-rw-rw-r-- 1 xuandong xuandong  13K Aug 28 09:44 bp.cpp
+-rw-rw-r-- 1 xuandong xuandong 3.7K Aug 28 09:34 decoder.py
+-rwxrwxr-x 1 xuandong xuandong  84K Aug 28 09:44 decoder_core.so
+-rw-rw-r-- 1 xuandong xuandong 2.5K Aug 28 09:46 development.py
+-rw-rw-r-- 1 xuandong xuandong 1.8K Aug 28 09:53 ensemble.py
+-rw-rw-r-- 1 xuandong xuandong 4.1K Aug 28 09:53 solve.py
+bash-5.1$ > > > > > > > > > > > Final submission: 7 files, 113264 bytes; no generated data remains.
+bash-5.1$ Fri Aug 28 09:56:26 PDT 2026
+bash-5.1$ exit
+
+ succeeded in 3164262ms:
+bash: cannot set terminal process group (1): Inappropriate ioctl for device
+bash: no job control in this shell
+bash-5.1$ <ine; ls input; ls workspace; find . -name AGENTS.md
+# Interface
+
+A request directory contains:
+
+- `circuit.stim`: complete source-native noisy memory circuit.
+- `model.dem`: `circuit.detector_error_model(decompose_errors=True)`, with correlation separators retained.
+- `syndromes.npy`: uint8 array `(shots, num_detectors)` with values 0 or 1.
+- `metadata.json`: noise family, geometry, number of measurement subrounds, observable, and physical error parameter.
+
+Output must be a non-pickled `.npy` bool/uint8 array `(shots,)` or `(shots,1)` with only 0 and 1. A fresh process handles each request. `TASK_ROOT` points to the participant directory. The evaluator exposes only the current request, participant assets, and submission code; labels are never in the process filesystem allowlist.
+
+Run the development baseline from the participant directory:
+
+```
+PYTHONPATH="$PWD/workspace" python baseline/solve.py input/dev_em3_h /tmp/predictions.npy
+PYTHONPATH="$PWD/workspace" python workspace/check_development.py input/dev_em3_h /tmp/predictions.npy
+```
+
+`input/development_labels/CASE.npy` supplies labels only for development cases. The native model `EM3_v2` uses correlated measurement/data noise; `SD6` and `SI1000` use the paper's corresponding noisy gate sets. Evaluation uses widths 8–12, heights 12–18, subrounds 12–48, and physical error probabilities 0.0004–0.018 depending on family. The actual circuit, not the metadata alone, defines each distribution. Its single active observable is consistently reindexed as logical observable 0.
+
+Core failure ratio is the mean of per-family total-error-count ratios to the fixed baseline. Worst-family ratio is their maximum. Passing requires core <=0.80, worst <=0.95, and pooled paired improvement exceeding three estimated standard errors. Baseline and submission use identical hidden shots. Invalid output or resource failure fails the run.
+solve.py
+dev_em3_h  dev_sd6_h  dev_si1000_h  development_labels
+INTERFACE.md		     numpy
+PIL			     numpy-1.24.4.dist-info
+__pycache__		     numpy-2.2.6.dist-info
+bin			     numpy.libs
+check_development.py	     packaging
+contourpy		     packaging-26.3.dist-info
+contourpy-1.3.2.dist-info    pillow-12.3.0.dist-info
+cycler			     pillow.libs
+cycler-0.12.1.dist-info      pylab.py
+dateutil		     pymatching
+fontTools		     pymatching-2.4.0.dist-info
+fonttools-4.63.0.dist-info   pyparsing
+kiwisolver		     pyparsing-3.3.2.dist-info
+kiwisolver-1.5.1.dist-info   python_dateutil-2.9.0.post0.dist-info
+matplotlib		     share
+matplotlib-3.10.9.dist-info  six-1.17.0.dist-info
+mpl_toolkits		     six.py
+networkx		     stim
+networkx-3.2.1.dist-info     stim-1.16.0.dist-info
+bash-5.1$ <data.json" ]; then cat "$d/metadata.json"; fi; done
+import sys
+from pathlib import Path
+
+import numpy as np
+import pymatching
+import stim
+
+
+def main():
+    request = Path(sys.argv[1])
+    model = stim.DetectorErrorModel.from_file(request / "model.dem")
+    decoder = pymatching.Matching.from_detector_error_model(model, enable_correlations=True)
+    syndromes = np.load(request / "syndromes.npy", allow_pickle=False)
+    predictions = decoder.decode_batch(syndromes, enable_correlations=True)
+    np.save(sys.argv[2], predictions[:, 0].astype(np.uint8), allow_pickle=False)
+
+
+if __name__ == "__main__":
+    main()
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+
+
+request = Path(sys.argv[1]).resolve()
+truth = np.load(request.parent / "development_labels" / (request.name + ".npy"), allow_pickle=False)
+prediction = np.load(sys.argv[2], allow_pickle=False).reshape(-1)
+if prediction.shape != truth.shape or not np.isin(prediction, [0, 1]).all():
+    raise ValueError("invalid output")
+print(json.dumps({"shots": len(truth), "errors": int(np.count_nonzero(prediction != truth)),
+                  "logical_failure_rate": float(np.mean(prediction != truth))}))
+total 1.1M
+-rw-rw-r-- 1 xuandong xuandong 446K Aug 28 08:57 circuit.stim
+-rw-rw-r-- 1 xuandong xuandong  116 Aug 28 08:57 metadata.json
+-rw-rw-r-- 1 xuandong xuandong 201K Aug 28 08:57 model.dem
+-rw-rw-r-- 1 xuandong xuandong 449K Aug 28 08:57 syndromes.npy
+{
+  "data_width": 8,
+  "data_height": 12,
+  "sub_rounds": 12,
+  "style": "EM3_v2",
+  "obs": "H",
+  "noise": 0.009
+}
+total 660K
+-rw-rw-r-- 1 xuandong xuandong  76K Aug 28 08:57 circuit.stim
+-rw-rw-r-- 1 xuandong xuandong  114 Aug 28 08:57 metadata.json
+-rw-rw-r-- 1 xuandong xuandong 128K Aug 28 08:57 model.dem
+-rw-rw-r-- 1 xuandong xuandong 449K Aug 28 08:57 syndromes.npy
+{
+  "data_width": 8,
+  "data_height": 12,
+  "sub_rounds": 12,
+  "style": "SD6",
+  "obs": "H",
+  "noise": 0.0012
+}
+total 676K
+-rw-rw-r-- 1 xuandong xuandong  92K Aug 28 08:57 circuit.stim
+-rw-rw-r-- 1 xuandong xuandong  117 Aug 28 08:57 metadata.json
+-rw-rw-r-- 1 xuandong xuandong 128K Aug 28 08:57 model.dem
+-rw-rw-r-- 1 xuandong xuandong 449K Aug 28 08:57 syndromes.npy
+{
+  "data_width": 8,
+  "data_height": 12,
+  "sub_rounds": 12,
+  "style": "SI1000",
+  "obs": "H",
+  "noise": 0.0007
+}
+total 12K
+-rw-rw-r-- 1 xuandong xuandong 2.2K Aug 28 08:57 dev_em3_h.npy
+-rw-rw-r-- 1 xuandong xuandong 2.2K Aug 28 08:57 dev_sd6_h.npy
+-rw-rw-r-- 1 xuandong xuandong 2.2K Aug 28 08:57 dev_si1000_h.npy
+bash-5.1$ < "$PART/input/dev_em3_h/model.dem"; python - <<'PY'
+> import numpy as np, stim, pymatching,sys
+> for name in ['em3','sd6','si1000']:
+>  import os,time
+>  d=os.environ['PART']+'/input/dev_'+name+'_h'
+> <um(p!=t),'time',time.time()-now,'dem',m.num_errors)
+> print(sys.version)
+> PY
+{
+  "data_width": 8,
+  "data_height": 12,
+  "sub_rounds": 12,
+  "style": "SI1000",
+  "obs": "H",
+  "noise": 0.0007
+}
+error(0.005618657580376504659) D0 D50
+error(0.001128816932771447255) D0 D50 ^ D62 D64
+error(0.005618657580376504659) D0 D62
+error(0.001128816932771447255) D0 D64
+error(0.005618657580376504659) D1 D51
+error(0.001128816932771447255) D1 D51 ^ D63 D65
+error(0.005618657580376504659) D1 D63
+error(0.001128816932771447255) D1 D65
+error(0.005618657580376504659) D2 D48 L0
+error(0.001128816932771447255) D2 D48 L0 ^ D50 D64
+error(0.005618657580376504659) D2 D50
+error(0.001128816932771447255) D2 D64
+error(0.005618657580376504659) D3 D49
+error(0.001128816932771447255) D3 D49 ^ D50 D66
+error(0.005618657580376504659) D3 D50
+error(0.001128816932771447255) D3 D66
+error(0.005618657580376504659) D4 D49
+error(0.001128816932771447255) D4 D49 ^ D51 D65
+error(0.005618657580376504659) D4 D51
+error(0.001128816932771447255) D4 D65
+error(0.005618657580376504659) D5 D48
+error(0.001128816932771447255) D5 D48 ^ D51 D67
+error(0.005618657580376504659) D5 D51
+error(0.001128816932771447255) D5 D67
+error(0.005618657580376504659) D6 D48 L0
+error(0.001128816932771447255) D6 D48 L0 ^ D52 D67
+error(0.005618657580376504659) D6 D52 L0
+error(0.001128816932771447255) D6 D67 L0
+error(0.005618657580376504659) D7 D49
+error(0.001128816932771447255) D7 D49 ^ D53 D66
+em3 (2048, 224) errs 7 time 0.08017134666442871 dem 4096
+sd6 (2048, 224) errs 5 time 0.06264686584472656 dem 2656
+si1000 (2048, 224) errs 8 time 0.062032222747802734 dem 2656
+3.10.12 (main, Jun 22 2026, 18:55:27) [GCC 11.4.0]
+bash-5.1$ command -v g++; ls -la
+/usr/bin/g++
+total 16
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 09:05 .
+drwx------ 3 xuandong xuandong   60 Aug 28 09:04 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 09:04 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 09:04 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 09:04 .git
+-rw-rw-r-- 1 xuandong xuandong 2176 Aug 28 09:05 em3_baseline.npy
+-rw-rw-r-- 1 xuandong xuandong 2176 Aug 28 09:05 sd6_baseline.npy
+-rw-rw-r-- 1 xuandong xuandong 2176 Aug 28 09:05 si1000_baseline.npy
+bash-5.1$ ls -R "$PART/workspace/pymatching" | head -80; python - <<'PY'
+> import pymatching
+> print(pymatching.Matching.decode_to_edges_array.__doc__)
+> print(pymatching.Matching.add_edge.__doc__[:3000])
+> print(dir(pymatching._cpp_pymatching))
+> PY
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/participant/workspace/pymatching:
+__init__.py
+__pycache__
+_cli_argv.py
+_cpp_pymatching.cpython-310-x86_64-linux-gnu.so
+_version.py
+matching.py
+
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_fault_tolerant_honeycomb_memory__2108_10457/concept_1/participant/workspace/pymatching/__pycache__:
+__init__.cpython-310.pyc
+_cli_argv.cpython-310.pyc
+_version.cpython-310.pyc
+matching.cpython-310.pyc
+
+        Decode the syndrome `syndrome` using minimum-weight perfect matching, returning the edges in the
+        solution, given as pairs of detector node indices in a numpy array.
+
+        Parameters
+        ----------
+        syndrome : numpy.ndarray
+            A binary syndrome vector to decode. The number of elements in
+            `syndrome` should equal the number of nodes in the matching graph. If
+            `syndrome` is a 1D array, then `syndrome[i]` is the syndrome at node `i` of
+            the matching graph. If `syndrome` is 2D then `syndrome[i,j]` is the difference
+            (modulo 2) between the (noisy) measurement of stabiliser `i` in time
+            step `j+1` and time step `j` (for the case where the matching graph is
+            constructed from a check matrix with `repetitions>1`).
+        enable_correlations: bool, optional
+            If `enable_correlations==True`, two-pass correlated matching is used
+            for decoding. Correlated matching is a more accurate variant of matching
+            that exploits knowledge of any hyperedge error (errors that flip more
+            than two detectors), provided that these errors can be decomposed into
+            edges (errors that flip one or two detectors). An example of a decomposable
+            hyperedge error is a Y error in the surface code. To use correlated matching,
+            the `pymatching.Matching` object must be configured from a `stim.Circuit` or
+            `stim.DetectorErrorModel` with `enable_correlations=True`. For a description
+            of the correlated matching algorithm, see https://arxiv.org/abs/1310.0863.
+            By default, False
+
+        Returns
+        -------
+        numpy.ndarray
+            A 2D array `edges` giving the edges in the matching solution as pairs of detector nodes (or as a detector
+            node and the boundary, for a boundary edge). If there are `num_predicted_edges` edges then the shape of
+            `edges` is `edges.shape=(num_predicted_edges, 2)`, and edge `i` is between detector node `edges[i, 0]`
+            and detector node `edges[i, 1]`. For a boundary edge `i` between a detector node `k` and the boundary
+            (either a boundary node or the virtual boundary node), then `pairs[i,0]` is `k`, and `pairs[i,1]=-1`
+            denotes the boundary (the boundary is always denoted by -1 and is always in the second column).
+
+        Examples
+        --------
+        >>> import pymatching
+        >>> m = pymatching.Matching()
+        >>> m.add_boundary_edge(0)
+        >>> m.add_edge(0, 1)
+        >>> m.add_edge(1, 2)
+        >>> m.add_edge(2, 3)
+        >>> m.add_edge(3, 4)
+        >>> m.add_edge(4, 5)
+        >>> m.add_edge(5, 6)
+        >>> edges = m.decode_to_edges_array([0, 1, 0, 0, 1, 0, 1])
+        >>> print(edges)
+        [[ 0  1]
+         [ 0 -1]
+         [ 5  4]
+         [ 5  6]]
+        
+
+        Add an edge to the matching graph
+
+        Parameters
+        ----------
+        node1: int
+            The index of node1 in the new edge (node1, node2)
+        node2: int
+            The index of node2 in the new edge (node1, node2)
+        fault_ids: set[int] or int, optional
+            The indices of any self-inverse faults which are flipped when the edge is flipped, and which should be tracked.
+            This could correspond to the IDs of physical Pauli errors that occur when this
+            edge flips (physical frame changes). Alternatively,
+            this attribute can be used to store the IDs of any logical observables that are
+            flipped when an error occurs on an edge (logical frame changes). In earlier versions of PyMatching, this
+            attribute was instead named `qubit_id` (since for CSS codes and physical frame changes, there can be
+            a one-to-one correspondence between each fault ID and physical qubit ID). For backward
+            compatibility, `qubit_id` can still be used instead of `fault_ids` as a keyword argument.
+            By default None
+        weight: float, optional
+            The weight of the edge. The weight can be positive or negative, but its absolute value cannot exceed
+            the maximum absolute edge weight of 2**24-1=16,777,215. If the absolute value of the weight exceeds this
+            value, the edge will not be added to the graph and a warning will be raised. By default 1.0
+        error_probability: float, optional
+            The probability that the edge is flipped. This is used by the `add_noise()` method
+            to sample from the distribution defined by the matching graph (in which each edge
+            is flipped independently with the corresponding `error_probability`). By default None
+        merge_strategy: str, optional
+            Which strategy to use if the edge (`node1`, `node2`) is already in the graph. The available options
+            are "disallow", "independent", "smallest-weight", "keep-original" and "replace". "disallow" raises a
+            `ValueError` if the edge (`node1`, `node2`) is already present. The "independent" strategy assumes that
+            the existing edge (`node1`, `node2`) and the edge being added represent independent error mechanisms, and
+            they are merged into a new edge with updated weights and error_probabilities accordingly (it is assumed
+            that each weight represents the log-likelihood ratio log((1-p)/p) where p is the `error_probability` and
+            where the natural logarithm is used. The fault_ids associated with the existing edge are kept only, since
+            where the natural logarithm is used. The fault_ids associated with the existing edge are kept only, since
+            the code has distance 2 if parallel edges have different fault_ids anyway). The "smallest-weight" strategy
+            keeps only the new edge if it has a smaller weight than the existing edge, otherwise the
+['MatchingGraph', '__doc__', '__file__', '__loader__', '__name__', '__package__', '__spec__', 'detector_error_model_file_to_matching_graph', 'detector_error_model_to_matching_graph', 'main', 'rand_float', 'randomize', 'set_seed', 'sparse_column_check_matrix_to_matching_graph', 'stim_circuit_file_to_matching_graph']
+bash-5.1$ python - <<'PY'
+> import pymatching
+> print(pymatching._cpp_pymatching.MatchingGraph.__doc__)
+> print(pymatching._cpp_pymatching.MatchingGraph.add_edge.__doc__)
+> print(pymatching._cpp_pymatching.MatchingGraph.decode.__doc__)
+> print(pymatching._cpp_pymatching.MatchingGraph.add_boundary_edge.__doc__)
+> PY
+None
+add_edge(self: pymatching._cpp_pymatching.MatchingGraph, node1: int, node2: int, observables: set[int], weight: float, error_probability: float, merge_strategy: str) -> None
+
+decode(self: pymatching._cpp_pymatching.MatchingGraph, detection_events: numpy.ndarray[numpy.uint64], enable_correlations: bool = False) -> tuple[numpy.ndarray[numpy.uint8], float]
+
+add_boundary_edge(self: pymatching._cpp_pymatching.MatchingGraph, node: int, observables: set[int], weight: float, error_probability: float, merge_strategy: str) -> None
+
+bash-5.1$ apply_patch <<'PATCH'
+> *** Begin Patch
+> *** Add File: bp.cpp
+> +#include <algorithm>
+> +#include <cmath>
+> +#include <cstdint>
+> +#include <vector>
+> +
+> +extern "C" void bp(int shots, int checks, int variables, int links,
+> +    const int* starts, const int* neighbors, const double* prior,
+> <omes, int iterations, double damping, double scale,
+> +    double* posterior, uint8_t* converged, int* used_iterations) {
+> <ncoming(links), values(variables), products(links);
+> +    std::vector<uint8_t> hard(variables);
+> +    for (int shot = 0; shot < shots; ++shot) {
+> +        std::fill(messages.begin(), messages.end(), 0.0);
+> +        std::copy(prior, prior + variables, values.begin());
+> +        const uint8_t* syndrome = syndromes + shot * checks;
+> +        converged[shot] = 0;
+> +        for (int iteration = 0; iteration < iterations; ++iteration) {
+> +            for (int link = 0; link < links; ++link) {
+> <(values[neighbors[link]] - messages[link]) * scale;
+> < = std::tanh(std::clamp(value * 0.5, -18.0, 18.0));
+> +            }
+> +            std::copy(prior, prior + variables, values.begin());
+> +            for (int check = 0; check < checks; ++check) {
+> +                double product = syndrome[check] ? -1.0 : 1.0;
+> < starts[check]; link < starts[check + 1]; ++link) {
+> +                    products[link] = product;
+> +                    product *= incoming[link];
+> +                }
+> +                product = 1.0;
+> <ts[check + 1] - 1; link >= starts[check]; --link) {
+> <[link] * product, -0.999999999999, 0.999999999999);
+> +                    value = std::log1p(value) - std::log1p(-value);
+> <damping * messages[link] + (1.0 - damping) * value;
+> +                    values[neighbors[link]] += messages[link];
+> +                    product *= incoming[link];
+> +                }
+> +            }
+> < ++variable) hard[variable] = values[variable] < 0;
+> +            bool valid = true;
+> +            for (int check = 0; check < checks; ++check) {
+> +                uint8_t parity = syndrome[check];
+> <heck + 1]; ++link) parity ^= hard[neighbors[link]];
+> +                if (parity) { valid = false; break; }
+> +            }
+> +            used_iterations[shot] = iteration + 1;
+> +            if (valid) { converged[shot] = 1; break; }
+> +        }
+> <gin(), values.end(), posterior + shot * variables);
+> +    }
+> +}
+> *** Add File: decoder.py
+> +import ctypes
+> +from pathlib import Path
+> +import time
+> +
+> +import numpy as np
+> +import pymatching
+> +import stim
+> +
+> +
+> +class Decoder:
+> +    def __init__(self, model):
+> +        self.model = model
+> +        self.checks = model.num_detectors
+> <tector_error_model(model, enable_correlations=True)
+> +        errors = {}
+> +        for instruction in model.flattened():
+> +            if instruction.type != 'error':
+> +                continue
+> +            probability = instruction.args_copy()[0]
+> +            detectors = set()
+> +            logical = 0
+> +            components = []
+> +            current = []
+> +            component_logical = 0
+> +            for target in instruction.targets_copy():
+> +                if target.is_relative_detector_id():
+> +                    detectors.symmetric_difference_update([target.val])
+> +                    current.append(target.val)
+> +                elif target.is_logical_observable_id():
+> +                    logical ^= 1
+> +                    component_logical ^= 1
+> +                else:
+> <append((tuple(sorted(current)), component_logical))
+> +                    current = []
+> +                    component_logical = 0
+> +            components.append((tuple(sorted(current)), component_logical))
+> +            key = (tuple(sorted(detectors)), logical)
+> +            if key in errors:
+> +                previous = errors[key][0]
+> <ility - 2 * previous * probability, errors[key][1])
+> +            else:
+> +                errors[key] = (probability, components)
+> +        self.detectors = [key[0] for key in errors]
+> <p.array([key[1] for key in errors], dtype=np.uint8)
+> <= np.array([value[0] for value in errors.values()])
+> +        self.prior = np.log((1 - self.probability) / self.probability)
+> +        self.variables = len(errors)
+> +        adjacent = [[] for _ in range(self.checks)]
+> +        for variable, detectors in enumerate(self.detectors):
+> +            for detector in detectors:
+> +                adjacent[detector].append(variable)
+> <m([len(row) for row in adjacent])), dtype=np.int32)
+> < row in adjacent for value in row], dtype=np.int32)
+> +        edges = {}
+> +        self.edge_variables = []
+> +        self.edge_ids = []
+> +        for variable, (_, components) in enumerate(errors.values()):
+> +            for detectors, logical in components:
+> +                if not detectors:
+> +                    continue
+> +                key = (detectors, logical)
+> +                if key not in edges:
+> +                    edges[key] = len(edges)
+> +                self.edge_variables.append(variable)
+> +                self.edge_ids.append(edges[key])
+> +        self.edges = list(edges)
+> +        self.edge_variables = np.array(self.edge_variables)
+> +        self.edge_ids = np.array(self.edge_ids)
+> +        self.lib = ctypes.CDLL(str(Path(__file__).with_name('bp.so')))
+> <.c_double, ctypes.c_double] + [ctypes.c_void_p] * 3
+> +
+> +    def beliefs(self, syndromes, iterations=30, damping=0.0, scale=1.0):
+> +        syndromes = np.ascontiguousarray(syndromes, dtype=np.uint8)
+> <(len(syndromes), self.variables), dtype=np.float64)
+> +        converged = np.empty(len(syndromes), dtype=np.uint8)
+> +        used = np.empty(len(syndromes), dtype=np.int32)
+> <, self.checks, self.variables, len(self.neighbors),
+> <self.neighbors.ctypes.data, self.prior.ctypes.data,
+> +                    syndromes.ctypes.data, iterations, damping, scale,
+> <ypes.data, converged.ctypes.data, used.ctypes.data)
+> +        return posterior, converged, used
+> +
+> +    def matching(self, syndrome, posterior, mix=0.0):
+> +        probability = 1 / (1 + np.exp(np.clip(posterior, -40, 40)))
+> +        products = np.ones(len(self.edges))
+> <edge_ids, 1 - 2 * probability[self.edge_variables])
+> +        probability = np.clip((1 - products) / 2, 1e-12, 1 - 1e-12)
+> +        weights = np.log((1 - probability) / probability)
+> +        graph = pymatching._cpp_pymatching.MatchingGraph(self.checks, 1)
+> +        for (detectors, logical), weight in zip(self.edges, weights):
+> +            faults = {0} if logical else set()
+> +            if len(detectors) == 1:
+> <ge(detectors[0], faults, weight, -1, 'independent')
+> +            else:
+> <], detectors[1], faults, weight, -1, 'independent')
+> <e(np.flatnonzero(syndrome).astype(np.uint64))[0][0]
+> +
+> +    def decode(self, syndromes, iterations=30, damping=0.0, scale=1.0):
+> <self.beliefs(syndromes, iterations, damping, scale)
+> +        predictions = ((posterior < 0) @ self.logical) % 2
+> +        for shot in np.flatnonzero(converged == 0):
+> <] = self.matching(syndromes[shot], posterior[shot])
+> +        return predictions, converged, used
+> *** Add File: bench.py
+> +import os
+> +import sys
+> +import time
+> +from pathlib import Path
+> +
+> +import numpy as np
+> +import stim
+> +
+> +from decoder import Decoder
+> +
+> +family = sys.argv[1] if len(sys.argv) > 1 else 'em3'
+> +shots = int(sys.argv[2]) if len(sys.argv) > 2 else 2048
+> +request = Path(os.environ['PART']) / 'input' / ('dev_' + family + '_h')
+> +model = stim.DetectorErrorModel.from_file(request / 'model.dem')
+> +decoder = Decoder(model)
+> +if shots == 2048:
+> +    syndrome = np.load(request / 'syndromes.npy')
+> <t / 'development_labels' / (request.name + '.npy'))
+> +else:
+> +    cache = Path(f'{family}_{shots}_data.npz')
+> +    if cache.exists():
+> +        data = np.load(cache)
+> +        syndrome, truth = data['syndrome'], data['truth']
+> +    else:
+> +        circuit = stim.Circuit.from_file(request / 'circuit.stim')
+> <eed=12345).sample(shots, separate_observables=True)
+> +        truth = truth[:, 0]
+> +        np.savez(cache, syndrome=syndrome, truth=truth)
+> <ode_batch(syndrome, enable_correlations=True)[:, 0]
+> <)}, baseline={sum(baseline != truth)}', flush=True)
+> +iterations = int(sys.argv[3]) if len(sys.argv) > 3 else 30
+> +damping = float(sys.argv[4]) if len(sys.argv) > 4 else 0.0
+> +scale = float(sys.argv[5]) if len(sys.argv) > 5 else 1.0
+> +start = time.time()
+> <ecoder.decode(syndrome, iterations, damping, scale)
+> <seline == truth)&(predictions!=truth)), flush=True)
+> <onverged=converged, truth=truth, baseline=baseline)
+> *** End Patch
+> PATCH
+Success. Updated the following files:
+A bp.cpp
+A decoder.py
+A bench.py
+bash-5.1$ g++ -O3 -std=c++17 -shared -fPIC bp.cpp -o bp.so
+bash-5.1$ python bench.py em3
+em3: n=2048, variables=4096, links=13408, edges=1456, baseline=7
+errors 5 converged 884 conv_errors 0 iterations 18.6865234375 time 48.7003653049469 wins 5 losses 3
+bash-5.1$ stty -echo
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A ensemble.py
+A experiment.py
+bash-5.1$ em3 shots=20000 baseline=67 ambiguous=304 missed=14 ensemble-time=9.30
+0 67 wins 0 losses 0
+1 140 wins 14 losses 87
+2 196 wins 18 losses 147
+3 61 wins 13 losses 7
+4 70 wins 15 losses 18
+5 79 wins 20 losses 32
+6 81 wins 20 losses 34
+7 75 wins 26 losses 34
+8 68 wins 20 losses 21
+9 83 wins 20 losses 36
+10 77 wins 17 losses 27
+11 77 wins 25 losses 35
+12 75 wins 16 losses 24
+BP errors 48 conv 28 conv err 1 time 11.481429100036621
+bash-5.1$ Fri Aug 28 09:09:00 PDT 2026
+sd6 shots=30000 baseline=57 ambiguous=243 missed=4 ensemble-time=9.12
+0 57 wins 0 losses 0
+1 79 wins 33 losses 55
+2 99 wins 31 losses 73
+3 56 wins 7 losses 6
+4 60 wins 8 losses 11
+5 66 wins 18 losses 27
+6 57 wins 27 losses 27
+7 62 wins 24 losses 29
+8 67 wins 19 losses 29
+9 65 wins 22 losses 30
+10 66 wins 22 losses 31
+11 68 wins 19 losses 30
+12 62 wins 21 losses 26
+BP errors 33 conv 50 conv err 0 time 5.607637166976929
+si1000 shots=30000 baseline=108 ambiguous=601 missed=5 ensemble-time=12.17
+0 108 wins 0 losses 0
+1 139 wins 76 losses 107
+2 173 wins 69 losses 134
+3 114 wins 12 losses 18
+4 121 wins 12 losses 25
+5 162 wins 44 losses 98
+6 160 wins 38 losses 90
+7 157 wins 44 losses 93
+8 140 wins 50 losses 82
+9 162 wins 26 losses 80
+10 155 wins 38 losses 85
+11 155 wins 33 losses 80
+12 154 wins 41 losses 87
+BP errors 34 conv 179 conv err 0 time 10.12688684463501
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A sweep.py
+bash-5.1$ 5 0 1 conv 13 matching 46 osd 52 evidence 53 time 3.4196338653564453
+10 0 1 conv 21 matching 49 osd 50 evidence 47 time 5.0414040088653564
+20 0 1 conv 27 matching 45 osd 58 evidence 58 time 8.58661961555481
+60 0 1 conv 30 matching 45 osd 54 evidence 57 time 24.92092752456665
+30 0.3 1 conv 48 matching 46 osd 35 evidence 37 time 13.640827417373657
+30 0.6 1 conv 45 matching 40 osd 35 evidence 35 time 15.229973316192627
+30 0 0.8 conv 3 matching 50 osd 43 evidence 38 time 14.709247827529907
+30 0 1.2 conv 30 matching 57 osd 51 evidence 54 time 12.911162614822388
+bash-5.1$ > > > > > em3_sweep_10_0_1.npz 50
+em3_sweep_20_0_1.npz 51
+em3_sweep_30_0.3_1.npz 34
+em3_sweep_30_0.6_1.npz 34
+em3_sweep_30_0_0.8.npz 31
+em3_sweep_30_0_1.2.npz 31
+em3_sweep_5_0_1.npz 31
+em3_sweep_60_0_1.npz 31
+bash-5.1$ 30 0 1 0 conv 50 matching 33 osd 32 evidence 26 combined 32 time 2.386826753616333
+30 0 1 4 conv 50 matching 29 osd 24 evidence 16 combined 26 time 2.83363938331604
+15 0 1 2 conv 82 matching 28 osd 22 evidence 18 combined 24 time 2.5715787410736084
+30 0 1 2 conv 87 matching 26 osd 22 evidence 18 combined 24 time 3.2996666431427
+30 0 1 6 conv 87 matching 28 osd 21 evidence 18 combined 24 time 6.216533660888672
+30 0.3 1 6 conv 77 matching 26 osd 21 evidence 17 combined 24 time 9.233296871185303
+30 0 1 22 conv 85 matching 29 osd 25 evidence 19 combined 24 time 4.2183921337127686
+30 0 1 38 conv 84 matching 28 osd 23 evidence 17 combined 24 time 5.185050010681152
+30 0 0.7 10 conv 69 matching 25 osd 23 evidence 19 combined 24 time 2.129699945449829
+30 0 0.7 14 conv 69 matching 24 osd 24 evidence 18 combined 24 time 2.426537036895752
+60 0 1 6 conv 88 matching 28 osd 21 evidence 17 combined 24 time 4.096848011016846
+bash-5.1$ 30 0 1 0 conv 180 matching 34 osd 28 evidence 29 combined 28 time 6.0978102684021
+30 0 1 4 conv 180 matching 32 osd 21 evidence 23 combined 20 time 7.750640153884888
+15 0 1 2 conv 244 matching 29 osd 22 evidence 24 combined 17 time 3.9286322593688965
+30 0 1 2 conv 259 matching 27 osd 23 evidence 24 combined 16 time 6.6830432415008545
+30 0 1 6 conv 259 matching 27 osd 23 evidence 24 combined 16 time 7.327481508255005
+30 0.3 1 6 conv 243 matching 30 osd 24 evidence 25 combined 17 time 6.04211950302124
+30 0 1 22 conv 254 matching 31 osd 27 evidence 28 combined 16 time 6.847450017929077
+30 0 1 38 conv 257 matching 39 osd 29 evidence 29 combined 16 time 5.728479623794556
+30 0 0.7 10 conv 221 matching 33 osd 16 evidence 16 combined 14 time 4.013221263885498
+30 0 0.7 14 conv 221 matching 31 osd 16 evidence 17 combined 14 time 3.548401355743408
+60 0 1 6 conv 260 matching 27 osd 23 evidence 24 combined 14 time 8.65427041053772
+bash-5.1$ > > > > > > > > > > 341 detector time 2.0 prev ['M 98 101 102 105 108 111 115 118 120 123 126 129 134 137 138 141 144 147 151 154 156 159 162 165 170 173 174 177 180 183 187 190 192 195 198 201 206 209 210 213 216 219 223 226 228 231 234 237', 'OBSERVABLE_INCLUDE(0) rec[-46] rec[-40] rec[-34] rec[-28] rec[-22] rec[-16] rec[-10] rec[-4]']
+381 detector time 4.0 prev ['M 96 99 104 107 110 113 116 119 122 125 128 131 132 135 140 143 146 149 152 155 158 161 164 167 168 171 176 179 182 185 188 191 194 197 200 203 204 207 212 215 218 221 224 227 230 233 236 239', 'OBSERVABLE_INCLUDE(0) rec[-48] rec[-36] rec[-24] rec[-12]']
+409 detector time 5.0 prev ['M 98 101 102 105 108 111 115 118 120 123 126 129 134 137 138 141 144 147 151 154 156 159 162 165 170 173 174 177 180 183 187 190 192 195 198 201 206 209 210 213 216 219 223 226 228 231 234 237', 'OBSERVABLE_INCLUDE(0) rec[-46] rec[-40] rec[-34] rec[-28] rec[-22] rec[-16] rec[-10] rec[-4]']
+437 detector time 6.0 prev ['M 97 100 103 106 109 112 114 117 121 124 127 130 133 136 139 142 145 148 150 153 157 160 163 166 169 172 175 178 181 184 186 189 193 196 199 202 205 208 211 214 217 220 222 225 229 232 235 238', 'OBSERVABLE_INCLUDE(0) rec[-42] rec[-30] rec[-18] rec[-6]']
+465 detector time 7.0 prev ['M 96 99 104 107 110 113 116 119 122 125 128 131 132 135 140 143 146 149 152 155 158 161 164 167 168 171 176 179 182 185 188 191 194 197 200 203 204 207 212 215 218 221 224 227 230 233 236 239', 'OBSERVABLE_INCLUDE(0) rec[-48] rec[-36] rec[-24] rec[-12]']
+493 detector time 8.0 prev ['M 98 101 102 105 108 111 115 118 120 123 126 129 134 137 138 141 144 147 151 154 156 159 162 165 170 173 174 177 180 183 187 190 192 195 198 201 206 209 210 213 216 219 223 226 228 231 234 237', 'OBSERVABLE_INCLUDE(0) rec[-46] rec[-40] rec[-34] rec[-28] rec[-22] rec[-16] rec[-10] rec[-4]']
+521 detector time 9.0 prev ['M 97 100 103 106 109 112 114 117 121 124 127 130 133 136 139 142 145 148 150 153 157 160 163 166 169 172 175 178 181 184 186 189 193 196 199 202 205 208 211 214 217 220 222 225 229 232 235 238', 'OBSERVABLE_INCLUDE(0) rec[-42] rec[-30] rec[-18] rec[-6]']
+547 detector time 10.0 prev ['M 96 99 104 107 110 113 116 119 122 125 128 131 132 135 140 143 146 149 152 155 158 161 164 167 168 171 176 179 182 185 188 191 194 197 200 203 204 207 212 215 218 221 224 227 230 233 236 239', 'OBSERVABLE_INCLUDE(0) rec[-48] rec[-36] rec[-24] rec[-12]']
+575 detector time 11.0 prev ['M 98 101 102 105 108 111 115 118 120 123 126 129 134 137 138 141 144 147 151 154 156 159 162 165 170 173 174 177 180 183 187 190 192 195 198 201 206 209 210 213 216 219 223 226 228 231 234 237', 'OBSERVABLE_INCLUDE(0) rec[-46] rec[-40] rec[-34] rec[-28] rec[-22] rec[-16] rec[-10] rec[-4]']
+598 detector time 12.0 prev ['X_ERROR(0.0012) 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95', 'M 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95']
+length 632
+bash-5.1$ ensemble time 56.683525800704956
+sd6 factor=1.0 shots=100000 baseline=150 ambiguous=927 missed=19
+20 0 1 6 300 conv 307 results [(0, 79, 108, 37), (0.5, 72, 108, 30), (1, 74, 108, 32)] time 4.1521594524383545
+30 0 1 6 600 conv 313 results [(0, 75, 107, 32), (0.5, 71, 108, 29), (1, 73, 108, 31)] time 7.446548223495483
+20 0 1 4 300 conv 173 results [(0, 83, 102, 35), (0.5, 74, 107, 31), (1, 73, 107, 30)] time 4.953219413757324
+20 0 0.7 14 300 conv 268 results [(0, 76, 106, 32), (0.5, 66, 108, 24), (1, 66, 108, 24)] time 2.7361128330230713
+20 0 1 22 300 conv 303 results [(0, 84, 104, 38), (0.5, 75, 104, 29), (1, 76, 104, 30)] time 4.346176862716675
+combined 0 errors 74
+combined 0.5 errors 65
+combined 1 errors 66
+bash-5.1$ ensemble time 70.8045015335083
+si1000 factor=1.0 shots=100000 baseline=329 ambiguous=2183 missed=24
+20 0 1 6 300 conv 1008 results [(0, 98, 273, 42), (0.5, 100, 274, 45), (1, 100, 273, 44)] time 9.960906505584717
+30 0 1 6 600 conv 1037 results [(0, 88, 273, 32), (0.5, 91, 274, 36), (1, 91, 274, 36)] time 21.522019386291504
+20 0 1 4 300 conv 662 results [(0, 81, 274, 26), (0.5, 88, 272, 31), (1, 87, 273, 31)] time 12.211103200912476
+20 0 0.7 14 300 conv 852 results [(0, 98, 267, 36), (0.5, 105, 266, 42), (1, 107, 266, 44)] time 6.7426276206970215
+20 0 1 22 300 conv 1008 results [(0, 102, 268, 41), (0.5, 104, 269, 44), (1, 103, 269, 43)] time 11.411301851272583
+combined 0 errors 73
+combined 0.5 errors 79
+combined 1 errors 77
+bash-5.1$ > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M trial.py
+bash-5.1$ init 0.3225741386413574
+ensemble 33.104671001434326 baseline 371 ambiguous 1474 missed 9
+6 300 time 66.5629870891571 total 99.66874551773071 conv 51 errors min/evid 125 126 combined 126
+14 300 time 51.367138147354126 total 151.03924703598022 conv 19 errors min/evid 122 119 combined 115
+6 1000 time 78.05170440673828 total 229.1345672607422 conv 51 errors min/evid 119 115 combined 106
+bash-5.1$ > > > > > > > > > > em3 baseline 331
+0 304 57 30
+1 311 46 26
+3 318 31 18
+7 324 12 5
+11 327 4 0
+sd6 baseline 150
+0 122 44 16
+1 121 40 11
+3 129 29 8
+7 139 13 2
+11 146 4 0
+si1000 baseline 329
+0 258 108 37
+1 255 104 30
+3 266 80 17
+7 296 35 2
+11 316 13 0
+stress em3 baseline 276
+0 261
+1 259
+3 263
+7 276
+11 276
+stress si1000 baseline 371
+0 290
+1 293
+3 309
+7 332
+11 353
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M solve.py
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M bp.cpp
+bash-5.1$ stress_em3_108_2.0 (2048, 1760) 45568
+Fri Aug 28 09:42:15 PDT 2026
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A development.py
+A README.md
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M development.py
+D bench.py
+D experiment.py
+D fast_sweep.py
+D osd_test.py
+D profile_osd.py
+D sweep.py
+D trial.py
+D validate.py
+D validate_submission.py
+D compare_core.py
+D make_stress.py
+bash-5.1$ -rw-rw-r-- 1 xuandong xuandong 2.6K Aug 28 09:45 README.md
+-rw-rw-r-- 1 xuandong xuandong  13K Aug 28 09:44 bp.cpp
+-rw-rw-r-- 1 xuandong xuandong 3.7K Aug 28 09:34 decoder.py
+-rwxrwxr-x 1 xuandong xuandong  84K Aug 28 09:44 decoder_core.so
+-rw-rw-r-- 1 xuandong xuandong 2.5K Aug 28 09:46 development.py
+-rw-rw-r-- 1 xuandong xuandong 2.0K Aug 28 09:27 ensemble.py
+-rw-rw-r-- 1 xuandong xuandong 4.1K Aug 28 09:30 solve.py
+bash-5.1$ > > > > > > em3 base 235
+0 162 138 65
+0.25 161 135 61
+0.5 166 129 60
+1 168 123 56
+2 172 114 51
+3 171 107 43
+4 176 100 41
+sd6 base 182
+0 80 140 38
+0.25 77 139 34
+0.5 76 139 33
+1 74 137 29
+2 73 135 26
+3 81 126 25
+4 81 120 19
+si1000 base 362
+0 126 296 60
+0.25 125 296 59
+0.5 124 296 58
+1 123 295 56
+2 126 290 54
+3 121 289 48
+4 117 288 43
+bash-5.1$ > > > > > > Python syntax checks passed
+bash-5.1$ 0000000000010c20 i bp_fast
+0000000000010c20 W bp_fast.resolver
+0000000000010bf0 i osd
+0000000000010bf0 W osd.resolver
+Fri Aug 28 09:50:01 PDT 2026
+bash-5.1$ README.md
+bp.cpp
+bp.so
+clean_em3.npy
+clean_sd6.npy
+clean_si1000.npy
+decoder.py
+decoder_core.so
+decoder_fast.so
+decoder_optimized.so
+decoder_reference.so
+development.py
+development_work
+em3_20000_data.npz
+em3_ambiguous.npz
+em3_baseline.npy
+em3_beliefs_10_0.0_1.0.npz
+em3_beliefs_20_0.0_1.0.npz
+em3_beliefs_30_0.0_0.8.npz
+em3_beliefs_30_0.0_1.0.npz
+em3_beliefs_30_0.0_1.2.npz
+em3_beliefs_30_0.3_1.0.npz
+em3_beliefs_30_0.6_1.0.npz
+em3_beliefs_5_0.0_1.0.npz
+em3_beliefs_60_0.0_1.0.npz
+em3_fast_15_0_1_2_300.npz
+em3_fast_30_0.3_1_6_300.npz
+em3_fast_30_0_0.7_10_300.npz
+em3_fast_30_0_0.7_14_300.npz
+em3_fast_30_0_1_0_300.npz
+em3_fast_30_0_1_22_300.npz
+em3_fast_30_0_1_2_300.npz
+em3_fast_30_0_1_38_300.npz
+em3_fast_30_0_1_4_300.npz
+em3_fast_30_0_1_6_300.npz
+em3_fast_60_0_1_6_300.npz
+em3_last.npz
+em3_osd_30_0.0_1.0_-300.npz
+em3_osd_30_0.0_1.0_1000.npz
+em3_osd_30_0.0_1.0_300.npz
+em3_osd_30_0.0_1.0_60.npz
+em3_sweep_10_0_1.npz
+em3_sweep_20_0_1.npz
+em3_sweep_30_0.3_1.npz
+em3_sweep_30_0.6_1.npz
+em3_sweep_30_0_0.8.npz
+em3_sweep_30_0_1.2.npz
+em3_sweep_5_0_1.npz
+em3_sweep_60_0_1.npz
+ensemble.py
+final_em3.npy
+final_validation_em3.json
+final_validation_em3.npy
+final_validation_sd6.json
+final_validation_sd6.npy
+final_validation_si1000.json
+final_validation_si1000.npy
+large_prediction.npy
+large_prediction_18.npy
+results_em3_100000_1.0_16_20_14_300.npz
+results_em3_100000_1.0_16_20_22_300.npz
+results_em3_100000_1.0_16_20_4_300.npz
+results_em3_100000_1.0_16_20_6_300.npz
+results_em3_100000_1.0_16_30_6_600.npz
+results_sd6_100000_1.0_16_20_14_300.npz
+results_sd6_100000_1.0_16_20_22_300.npz
+results_sd6_100000_1.0_16_20_4_300.npz
+results_sd6_100000_1.0_16_20_6_300.npz
+results_sd6_100000_1.0_16_30_6_600.npz
+results_si1000_100000_1.0_16_20_14_300.npz
+results_si1000_100000_1.0_16_20_22_300.npz
+results_si1000_100000_1.0_16_20_4_300.npz
+results_si1000_100000_1.0_16_20_6_300.npz
+results_si1000_100000_1.0_16_30_6_600.npz
+sd6_30000_data.npz
+sd6_ambiguous.npz
+sd6_baseline.npy
+sd6_beliefs_30_0.0_1.0.npz
+sd6_fast_15_0_1_2_300.npz
+sd6_fast_30_0.3_1_6_300.npz
+sd6_fast_30_0_0.7_10_300.npz
+sd6_fast_30_0_0.7_14_300.npz
+sd6_fast_30_0_1_0_300.npz
+sd6_fast_30_0_1_22_300.npz
+sd6_fast_30_0_1_2_300.npz
+sd6_fast_30_0_1_38_300.npz
+sd6_fast_30_0_1_4_300.npz
+sd6_fast_30_0_1_6_300.npz
+sd6_fast_60_0_1_6_300.npz
+sd6_osd_30_0.0_1.0_60.npz
+si1000_30000_data.npz
+si1000_ambiguous.npz
+si1000_baseline.npy
+si1000_beliefs_30_0.0_1.0.npz
+si1000_fast_15_0_1_2_300.npz
+si1000_fast_30_0.3_1_6_300.npz
+si1000_fast_30_0_0.7_10_300.npz
+si1000_fast_30_0_0.7_14_300.npz
+si1000_fast_30_0_1_0_300.npz
+si1000_fast_30_0_1_22_300.npz
+si1000_fast_30_0_1_2_300.npz
+si1000_fast_30_0_1_38_300.npz
+si1000_fast_30_0_1_4_300.npz
+si1000_fast_30_0_1_6_300.npz
+si1000_fast_60_0_1_6_300.npz
+si1000_osd_30_0.0_1.0_60.npz
+solve.py
+stress_em3_108_2.0
+stress_em3_108_2.truth.npy
+stress_em3_48_2.0
+stress_em3_48_2.0_ensemble_4.npy
+stress_em3_48_2.0_results_14_300.npz
+stress_em3_48_2.0_results_4_300.npz
+stress_em3_48_2.0_results_6_1000.npz
+stress_em3_48_2.0_results_6_300.npz
+stress_em3_48_2.truth.npy
+stress_em3_prediction.npy
+stress_sd6_48_2.0
+stress_sd6_48_2.0_results_14_300.npz
+stress_sd6_48_2.0_results_6_1000.npz
+stress_sd6_48_2.0_results_6_300.npz
+stress_sd6_48_2.truth.npy
+stress_sd6_prediction.npy
+stress_si1000_48_2.0
+stress_si1000_48_2.0_ensemble_16.npy
+stress_si1000_48_2.0_results_14_300.npz
+stress_si1000_48_2.0_results_6_1000.npz
+stress_si1000_48_2.0_results_6_300.npz
+stress_si1000_48_2.truth.npy
+stress_si1000_prediction.npy
+validation_em3_100000_1.0_16.npz
+validation_request_em3
+validation_request_sd6
+validation_request_si1000
+validation_sd6_100000_1.0_16.npz
+validation_si1000_100000_1.0_16.npz
+213M	.
+Fri Aug 28 09:52:15 PDT 2026
+bash-5.1$ bash-5.1$ bash-5.1$ total 128K
+-rw-rw-r-- 1 xuandong xuandong 3.0K Aug 28 09:51 README.md
+-rw-rw-r-- 1 xuandong xuandong  13K Aug 28 09:44 bp.cpp
+-rw-rw-r-- 1 xuandong xuandong 3.7K Aug 28 09:34 decoder.py
+-rwxrwxr-x 1 xuandong xuandong  84K Aug 28 09:44 decoder_core.so
+-rw-rw-r-- 1 xuandong xuandong 2.5K Aug 28 09:46 development.py
+drwxrwxr-x 3 xuandong xuandong 4.0K Aug 28 09:51 development_work
+-rw-rw-r-- 1 xuandong xuandong 2.0K Aug 28 09:27 ensemble.py
+-rw-rw-r-- 1 xuandong xuandong 4.1K Aug 28 09:51 solve.py
+1.3M	.
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M ensemble.py
+M solve.py
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > Exhaustive small-model MAP check passed
+bash-5.1$ bash-5.1$ > > > > > Empty-batch executable interface check passed
+bash-5.1$ bash-5.1$ {"shots": 2048, "errors": 1, "logical_failure_rate": 0.00048828125}
+bash-5.1$ exit
+
+ succeeded in 2388288ms:
+bash: cannot set terminal process group (1): Inappropriate ioctl for device
+bash: no job control in this shell
+bash-5.1$ <UT; export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A make_stress.py
+bash-5.1$ stress_em3_48_2.0 (2048, 800) 19648
+bash-5.1$ stress_sd6_48_2.0 (2048, 800) 11296
+bash-5.1$ stress_si1000_48_2.0 (2048, 800) 11296
+bash-5.1$ > > > > > > > Fri Aug 28 09:19:38 PDT 2026
+175M	.
+em3 selected base 285
+(0, 1) 167
+(0, 2) 160
+(0, 3) 172
+(0, 4) 179
+(1, 2) 156
+(1, 3) 170
+(1, 4) 165
+(2, 3) 169
+(2, 4) 163
+(3, 4) 174
+sd6 selected base 131
+(0, 1) 53
+(0, 2) 52
+(0, 3) 48
+(0, 4) 53
+(1, 2) 50
+(1, 3) 49
+(1, 4) 52
+(2, 3) 47
+(2, 4) 50
+(3, 4) 46
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+M bp.cpp
+M trial.py
+bash-5.1$ bash-5.1$ BP time 0.01797771453857422
+em3 n=304 baseline=53 osd time=0.629
+0 52 wins 31 losses 30
+0.25 55 wins 28 losses 30
+0.5 55 wins 28 losses 30
+0.75 54 wins 28 losses 29
+1 54 wins 28 losses 29
+bash-5.1$ init 0.37338852882385254
+ensemble 20.135883569717407 baseline 185 ambiguous 855 missed 3
+6 300 time 23.620856285095215 total 43.75822830200195 conv 13 errors min/evid 80 80 combined 80
+14 300 time 14.295598268508911 total 58.05647158622742 conv 10 errors min/evid 87 82 combined 80
+6 1000 time 34.796820640563965 total 92.85587906837463 conv 13 errors min/evid 72 75 combined 72
+bash-5.1$ init 0.5596892833709717
+ensemble 11.456569194793701 baseline 276 ambiguous 924 missed 41
+6 300 time 44.37250471115112 total 55.84644842147827 conv 0 errors min/evid 172 166 combined 166
+6 300 time 69.42902278900146 total 125.29424571990967 conv 0 errors min/evid 172 162 combined 163
+14 300 time 29.812296152114868 total 155.13378500938416 conv 4 errors min/evid 187 187 combined 166
+4 300 time 40.981969356536865 total 196.1180808544159 conv 0 errors min/evid 186 179 combined 158
+bash-5.1$ > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > Success. Updated the following files:
+A validate_submission.py
+bash-5.1$ em3 2048 3 7 {'seconds': 2.60664812696632, 'matching_passes': 21, 'ambiguous': 33, 'first_pass': 33, 'second_pass': 22}
+em3 10240 17 28 {'seconds': 2.6384084430756047, 'matching_passes': 21, 'ambiguous': 28, 'first_pass': 28, 'second_pass': 17}
+em3 18432 27 51 {'seconds': 2.6411579669220373, 'matching_passes': 21, 'ambiguous': 34, 'first_pass': 34, 'second_pass': 23}
+em3 26624 46 78 {'seconds': 2.69241775595583, 'matching_passes': 21, 'ambiguous': 27, 'first_pass': 27, 'second_pass': 15}
+em3 34816 63 109 {'seconds': 2.8474320700624958, 'matching_passes': 21, 'ambiguous': 34, 'first_pass': 34, 'second_pass': 20}
+em3 43008 78 133 {'seconds': 3.0196949030505493, 'matching_passes': 21, 'ambiguous': 43, 'first_pass': 43, 'second_pass': 23}
+em3 50000 94 163 {'seconds': 1.8071385889779776, 'matching_passes': 21, 'ambiguous': 10, 'first_pass': 10, 'second_pass': 9}
+{"family": "em3", "shots": 50000, "errors": 94, "baseline": 163, "wins": 97, "losses": 28, "seconds": 72.56608287896961}
+sd6 2048 1 7 {'seconds': 1.7201914050383493, 'matching_passes': 21, 'ambiguous': 20, 'first_pass': 20, 'second_pass': 8}
+sd6 10240 7 20 {'seconds': 1.5927766460226849, 'matching_passes': 21, 'ambiguous': 15, 'first_pass': 15, 'second_pass': 5}
+sd6 18432 12 34 {'seconds': 1.7844465499510989, 'matching_passes': 21, 'ambiguous': 17, 'first_pass': 17, 'second_pass': 6}
+sd6 26624 19 46 {'seconds': 1.4036696709226817, 'matching_passes': 21, 'ambiguous': 11, 'first_pass': 11, 'second_pass': 7}
+sd6 34816 24 60 {'seconds': 1.6250657610362396, 'matching_passes': 21, 'ambiguous': 15, 'first_pass': 15, 'second_pass': 4}
+sd6 43008 29 74 {'seconds': 1.9603527260478586, 'matching_passes': 21, 'ambiguous': 20, 'first_pass': 20, 'second_pass': 8}
+sd6 50000 34 83 {'seconds': 0.9954979990143329, 'matching_passes': 21, 'ambiguous': 9, 'first_pass': 9, 'second_pass': 1}
+{"family": "sd6", "shots": 50000, "errors": 34, "baseline": 83, "wins": 62, "losses": 13, "seconds": 44.07757861597929}
+si1000 2048 3 8 {'seconds': 1.9601566919591278, 'matching_passes': 21, 'ambiguous': 43, 'first_pass': 43, 'second_pass': 8}
+si1000 10240 8 33 {'seconds': 1.8250687799882144, 'matching_passes': 21, 'ambiguous': 39, 'first_pass': 39, 'second_pass': 3}
+si1000 18432 15 70 {'seconds': 1.961157421930693, 'matching_passes': 21, 'ambiguous': 38, 'first_pass': 38, 'second_pass': 6}
+si1000 26624 19 97 {'seconds': 2.0353262131102383, 'matching_passes': 21, 'ambiguous': 42, 'first_pass': 42, 'second_pass': 6}
+si1000 34816 22 114 {'seconds': 1.9447816290194169, 'matching_passes': 21, 'ambiguous': 39, 'first_pass': 39, 'second_pass': 2}
+si1000 43008 25 141 {'seconds': 1.979304839973338, 'matching_passes': 21, 'ambiguous': 48, 'first_pass': 48, 'second_pass': 4}
+si1000 50000 32 158 {'seconds': 1.292733944952488, 'matching_passes': 21, 'ambiguous': 36, 'first_pass': 36, 'second_pass': 5}
+{"family": "si1000", "shots": 50000, "errors": 32, "baseline": 158, "wins": 136, "losses": 10, "seconds": 49.653678723960184}
+bash-5.1$ > > > > > RESOURCE em3
+{"seconds": 53.465622080955654, "matching_passes": 7, "ambiguous": 725, "first_pass": 725, "second_pass": 160}
+WALL 53.98 RSS_KB 133416
+RESULT em3 2048 276 195 wins 129 losses 48
+RESOURCE sd6
+{"seconds": 31.85607679199893, "matching_passes": 11, "ambiguous": 706, "first_pass": 706, "second_pass": 150}
+WALL 32.10 RSS_KB 108032
+RESULT sd6 2048 185 80 wins 132 losses 27
+RESOURCE si1000
+{"seconds": 48.4234276949428, "matching_passes": 8, "ambiguous": 1145, "first_pass": 1145, "second_pass": 108}
+WALL 49.17 RSS_KB 107756
+RESULT si1000 2048 371 135 wins 281 losses 45
+bash-5.1$ exit
+
+codex
+Completed the submission at `../attempts/v_1/solve.py:1`.
+
+- Independent development validation: **404 → 160 failures** across 150,000 shots.
+- Family-balanced failure ratio: **0.396**; worst-family ratio: **0.577**.
+- Largest resource stress test: **54.2 seconds**, approximately **201 MiB** peak memory.
+- Generated data removed; only seven submission files remain.
+
+Reproduction instructions are in `../attempts/v_1/README.md:1`.
+tokens used
+231,856
+Completed the submission at `../attempts/v_1/solve.py:1`.
+
+- Independent development validation: **404 → 160 failures** across 150,000 shots.
+- Family-balanced failure ratio: **0.396**; worst-family ratio: **0.577**.
+- Largest resource stress test: **54.2 seconds**, approximately **201 MiB** peak memory.
+- Generated data removed; only seven submission files remain.
+
+Reproduction instructions are in `../attempts/v_1/README.md:1`.
