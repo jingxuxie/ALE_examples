@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "frozen_before_any_fresh_agent_launch": true,
+  "case_count": 8,
+  "family_count": 4,
+  "stages": {
+    "short": {"cpu_seconds": 6.0, "wall_seconds": 30.0},
+    "long": {"cpu_seconds": 40.0, "wall_seconds": 120.0}
+  },
+  "quality": {
+    "reference": "Retained cap-compliant variational MPS energy; not an exact lower bound",
+    "baseline": "Frozen baseline output at the corresponding stage",
+    "gap": "max(baseline_energy-reference_energy, 1e-7*n_sites)",
+    "relative_regret": "max(0, (submitted_energy-reference_energy)/gap)",
+    "formula": "clip(-log10(max(relative_regret, 1e-4))/4, 0, 1)",
+    "invalid": 0.0
+  },
+  "core": "mean_cases(0.75*quality_long + 0.25*quality_short)",
+  "worst_family": "min_families(mean_cases_in_family(0.75*quality_long + 0.25*quality_short))",
+  "runtime": "mean_cases(quality_long * clip(1-cpu_seconds_long/40, 0, 1)); invalid long outputs contribute zero",
+  "score": "100*(0.70*core + 0.25*worst_family + 0.05*runtime)",
+  "target": {
+    "score_min": 80.0,
+    "core_min": 0.80,
+    "worst_family_min": 0.70,
+    "each_long_quality_min": 0.55,
+    "all_16_outputs_valid": true
+  },
+  "memory_bytes": 2147483648,
+  "submission_bytes_max": 16777216,
+  "state_bytes_max": 8388608,
+  "parity_tolerance": 1e-6,
+  "normalization": "Each family has two cases; family labels and reference energies are private"
+}

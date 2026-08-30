@@ -1,0 +1,33 @@
+{
+  "version": "phi4-gap-v1",
+  "frozen_on": "2026-08-28",
+  "mode": "D_hidden_prediction",
+  "frozen_before": "teacher generation, baseline evaluation, and any participant attempts",
+  "targets": ["odd_gap", "even_gap", "odd_spacing"],
+  "definitions": {
+    "odd_gap": "E_0^- - E_0^+",
+    "even_gap": "E_1^+ - E_0^+",
+    "odd_spacing": "E_1^- - E_0^-"
+  },
+  "families": ["single_L2", "single_L3", "crossover_L2", "crossover_L3", "double_L2", "double_L3"],
+  "counts_per_family": {"train": 32, "validation": 8, "hidden": 12},
+  "low_cutoffs": [4, 6, 8],
+  "basis_multipliers": [1.0, 1.4],
+  "score": {
+    "cell_error": "abs(log(predicted_gap / teacher_gap))",
+    "core": "exp(-mean(cell_error)/0.05)",
+    "worst_family": "exp(-max_family(mean(cell_error))/0.05)",
+    "aggregate": "0.75*core + 0.25*worst_family",
+    "primary_success": {"max_mean_log_error": 0.03, "max_worst_family_mean_log_error": 0.06, "max_p95_log_error": 0.12}
+  },
+  "resources": {"cpu_seconds": 30, "wall_seconds": 60, "address_space_mib": 2048, "output_bytes": 1048576, "submission_mib": 32, "blas_threads": 1},
+  "teacher_admission": {
+    "minimum_dimensionless_gap": 0.000001,
+    "max_each_of_two_successive_cutoff_log_changes": 0.00002,
+    "max_independent_basis_log_change": 0.00002,
+    "max_residual_plus_roundoff_relative_gap": 0.000002,
+    "max_state_residual": 0.0000000001,
+    "label_rule": "last explicitly computed spectrum; never extrapolate"
+  },
+  "agent_launches": 0
+}
