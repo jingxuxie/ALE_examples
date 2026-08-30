@@ -1,0 +1,1640 @@
+Change log for kdotpy
+=====================
+
+v1.4.1  (2026-06-26)
+--------------------
+Bug fixes:
+- Correct sign error for parameter ge in parameter renormalization
+- Fix 'incorrect number of eigenvalue components' error for kdotpy bulk-ll in
+full LL mode
+
+
+v1.4.0  (2026-05-28)
+--------------------
+
+Bug fixes:
+- Fix filename and density range with dos-local.pdf output
+- Fix unintuitive handling of single carrier density and ranges of densities
+('cardens' command line option)
+- Fix incorrect verbose output for BHZ parameters B and D
+- Silence warnings for numpy.where()
+- Eliminate error messages "Some parameters for material (...) did not evaluate
+to a numerical value" when reading from an XML file
+
+Implementation changes:
+- Version requirement for Python is raised to 3.11
+- Version requirements are raised for imported packages (NumPy, SciPy, etc.)
+- Add type annotations in large parts of the source code
+- Command line arguments can no longer be parsed twice (with a few exceptions)
+- Change the mechanism to set the configuration values in the parallelized
+computing parts, re-parsing no longer needed
+- Refactor implementation of wave function output (plots and tables): minor
+changes in band labels and file names, restrict output to energy range
+- Streamline wave function output in kdotpy 1d: separate run no longer required
+- Set number of threads at runtime instead of at import
+
+New features:
+- Use kdotpy by invoking 'kdotpy.run()' with a list of command line argument
+in a Python script or the interactive interpreter
+- Improve the command line interface: Using '--argument' or putting '--' between
+the arguments (both optional) prevents misinterpretation of commands
+- Parsing information of command line arguments is saved in the XML output file
+- Add the command line argument 'config default' to reset the configuration
+options to their default values
+- Material parameter renormalization, in order to deal with spurious solutions
+- Add SLEPc as diagonalization solver
+
+
+v1.3.1  (2025-12-02)
+--------------------
+
+Bug fixes:
+- Fix XML output for <wflocations> in <modeloptions>
+- Make handling of signals (e.g., KeyboardInterrupt) compatible with the new
+default multiprocessing strategy for Python 3.14 on Linux
+- Fix string formatting for Numpy types
+
+
+v1.3.0  (2025-09-19)
+--------------------
+
+Bug fixes:
+- Fix error for BHZ when band character is empty
+- Fix incorrect variable name in interpolation function of DiagData
+- Fix problem in kdotpy compare trying to update a non-existent figure
+- Correct transformation of some BIA terms under an in-plane rotation (kdotpy 1d
+with 'stripangle')
+- Fix incorrect length of expanded overlap vectors (kdotpy 1d)
+
+Implementation changes:
+- Restructure source code for parsing command-line arguments
+- Remove obsolete imports as to simplify dependencies between submodules
+- Reorganize and improve handling of observables
+- Reorganize and improve source code for vectors and vector grids
+- Improve plot functions
+- No longer use columns 'LL1' and 'LL2' for transitions in full mode, add an
+optional column 'deltaLL'
+
+New features:
+- Calculate derivatives dH/dk and velocities as operators with the 'currents'
+command-line argument
+- Calculate symmetrized observables of the form {dH/dk, O}
+- Option to suppress plot output (pdf files) altogether
+- Option to save all eigenvalues regardless of the given energy range (set by
+'erange')
+
+
+v1.2.0  (2025-06-02)
+--------------------
+
+Bug fixes:
+- Show more instructive error message if a material argument is not followed by
+a valid material id
+- Recalculate or invalidate derivatives if band alignment has changed in kdotpy
+merge
+- Fix exception with checking script directories on different drives in Windows
+- Fix exception in kdotpy batch when no variable substitutions are given
+
+Implementation changes:
+- Improve potential file imports
+- Allow y coordinates of spatial lattice to be chosen at integer multiples or at
+half integer multiples of the resolution
+- Save model options into XML output
+- Optimize plot handling for 2D band plots
+
+New features:
+- Apply potentials of the form V(y, z) in kdotpy 1d; accept csv files with
+grid-type or mesh-type data, and use interpolation if needed
+- Optical transitions for bulk Landau level calculations (kdotpy bulk-ll)
+- Add filter for material files
+- Add helper functions for serialization (for future use)
+- Local density of states in multiple dimensions (kdotpy 2d)
+- Density as function of y and z (kdotpy 1d)
+- Binary output files (Numpy npz format) for local density of states in two
+dimensions and for density as function of y, z, and energy
+- Band alignment in kdotpy 1d (manual only)
+- Cache eigenstates with binary files in kdotpy 1d
+
+Miscellaneous:
+- Add license metadata in pyproject.toml following PEP 639
+
+
+v1.1.1  (2025-03-13)
+--------------------
+
+Bug fixes:
+- Provide fallback for kdotpy help in case the 'less' command is not available
+(primarily a Windows issue)
+- Fix incorrect quantity being shown in dsigmah-de plot (for kdotpy ll with
+'hall')
+- Show more instructive error messages when estimation of CNP fails, for example
+if the 'split' argument is omitted
+- Fix inconsistency between pdf and csv output of wave functions for LL
+calculations in full LL mode
+
+
+v1.1.0  (2025-02-17)
+--------------------
+
+Bug fixes:
+- Make kdotpy compatible with Numpy 2
+- Fix pending deprecations for future Scipy and Python versions
+
+Implementation changes:
+- Replace hard-coded strain ratio C12/C11 by value from material parameters
+- Simplify the implementation for iterators in 'kdotpy batch'
+- Make sign of carrier/charge density more consistent internally
+
+New features:
+- Add elasticity parameters as material parameters
+- Add grouped iterators in 'kdotpy batch', which are iterated through
+simultaneously
+- Enable input of charge density per layer, for simulations of modulation doping
+
+
+v1.0.2  (2025-01-28)
+--------------------
+
+Bug fixes:
+- Fix an incompatibility with matplotlib version 3.10.0, leading to an exception
+for some DOS plots
+
+Miscellaneous:
+- Update citation information following publication of our article and codebase
+in SciPost Physics Codebases
+
+
+v1.0.1  (2024-12-05)
+--------------------
+
+Bug fixes:
+- Fix incorrect prefix handling for vector grid and vector transformation
+- No longer create transformable Hamiltonian if 'stripangle' is used
+- Fix false negatives for thickness commensurability test
+- Let kdotpy test use 'python -m kdotpy', so that it can be run if 'kdotpy' is
+not in PATH
+- Fix incorrect display of unparsed arguments
+- Improve error messages for invalid command line arguments (e.g., vector grid,
+material, and layer stack arguments)
+- Fix infinite loop in contour plot if minimum and maximum value are equal
+- Fix errors in observable strings
+- Fix exception if there are no extrema
+- No longer ignore 'table_extrema_precision' configuration value
+
+Implementation changes:
+- Slight difference in handling of vector grid arguments (k and/or b), in order
+to improve error messages for invalid input
+- Disallow underscore as separator in 'matparam' argument in order to prevent
+parsing errors
+
+
+v1.0.0 (official release) (2024-07-18)
+--------------------------------------
+
+(changes since v0.95)
+
+Bug fixes:
+- Optimize eigenvalue stitching
+- Fix incorrect union and intersection operations on (energy) intervals
+- Workaround for random matplotlib bug involving contour labels
+- Fix problem with inadvertently changed property obsids in DiagDataPoint
+- Use correct length scaling when calculating derivatives of band structure
+parameters exactly (dz = 0)
+- Fix problems with colours in legends
+- Fix problem with ETransform with plotstyle normal
+- Catch rare case for kdotpy 1d where list of wave function locations is empty
+- Fix bug in 19-point extremum solver (3D)
+- Fix error in finding CNP when band characters are unavailable
+- Raise warning about using CuPy solver with kdotpy 2d
+- Fix empty unit string in legend for dual observable
+- Disable BHZ plot if figure is absent
+- Fix problem with extrema for spherical coordinates
+- Fix handling of radians as angular units for extrema
+- Do not reject valid input in imported colormaps
+- Fix inconsistent composition of columns in transitions table
+- Fix error in adiabatic band alignment if zero energy is undefined
+- Fix units in transitions output
+
+Implementation changes:
+- Packaging: turn kdotpy into a package that can be installed with pip
+- Update version requirements for Python, NumPy, SciPy, and Matplotlib; update
+code accordingly
+- Replace shell scripts by Python implementations (increase OS compatibility)
+- Clean up unused code; delete unused variables and function arguments
+- Restructure program, simplify internal dependencies (imports)
+- Improved plot customization: Use Matplotlib style files instead of
+matplotlibrc; use rcparams more consistently
+- Improved colormap handling
+- Streamline csv output: Separate construction and writing of data
+- Improved, but stricter checking on CNP
+- Optimize band alignment
+- Remove restrictions on broadening; enable B-dependent broadening for
+self-consistent Hartree in LL mode
+- Change some default configuration settings
+- Remove deprecated command-line arguments
+
+New features:
+- Material parameter files: Material parameters are no longer hardcoded, but
+provided by the user as separate files in the configuration directory (more
+details in Wiki)
+- Selfconsistent Hartree with full diagonalization (dispersion and LL mode)
+- Support for JAX eigh diagsolver
+- Band alignment succeeds without CNP being defined
+- Doxygen generated developer documentation
+- Infrastructure for configuration key deprecation
+
+
+v1.0.0rc3 (release candidate) (2024-07-17)
+------------------------------------------
+Bug fixes:
+- Correct project metadata
+
+New features:
+- Activate Doxygen pages
+
+
+v1.0.0rc2 (release candidate) (2024-07-17)
+------------------------------------------
+Bug fixes:
+- Fix error in adiabatic band alignment if zero energy is undefined
+- Fix units in transitions output
+
+Implementation changes:
+- Streamline some code differences between source code and article
+- Update project metadata
+
+New features:
+- Infrastructure for configuration key deprecation
+
+
+v1.0.0rc1 (release candidate) (2024-05-22)
+------------------------------------------
+Bug fixes:
+- Fix inconsistent composition of columns in transitions table
+
+Implementation changes:
+- Update authors, acknowledgements, citation instructions
+- Delete tests for 'symbolic objects'
+- Fix some out-of-date comments, docstrings, and helpfile entries
+
+
+v1.0.0b2 (beta) (2024-04-23)
+----------------------------
+Bug fixes:
+- Optimize eigenvalue stitching
+- Fix incorrect union and intersection operations on (energy) intervals
+- Workaround for random matplotlib bug involving contour labels
+- Fix problem with inadvertently changed property obsids in DiagDataPoint
+- Use correct length scaling when calculating derivatives of band structure
+parameters exactly (dz = 0)
+- Fix problems with colours in legends
+- Fix problem with ETransform with plotstyle normal
+- Catch rare case for kdotpy 1d where list of wave function locations is empty
+- Fix bug in 19-point extremum solver (3D)
+- Fix error in finding CNP when band characters are unavailable
+- Raise warning about using CuPy solver with kdotpy 2d
+- Fix empty unit string in legend for dual observable
+- Disable BHZ plot if figure is absent
+- Fix problem with extrema for spherical coordinates
+- Fix handling of radians as angular units for extrema
+- Do not reject valid input in imported colormaps
+
+Implementation changes:
+- Packaging: turn kdotpy into a package that can be installed with pip
+- Update version requirements for Python, NumPy, SciPy, and Matplotlib; update
+code accordingly
+- Replace shell scripts by Python implementations (increase OS compatibility)
+- Clean up unused code; delete unused variables and function arguments
+- Restructure program, simplify internal dependencies (imports)
+- Improved plot customization: Use Matplotlib style files instead of
+matplotlibrc; use rcparams more consistently
+- Improved colormap handling
+- Streamline csv output: Separate construction and writing of data
+- Improved, but stricter checking on CNP
+- Optimize band alignment
+- Remove restrictions on broadening; enable B-dependent broadening for
+self-consistent Hartree in LL mode
+- Change some default configuration settings
+- Remove deprecated command-line arguments
+
+New features:
+- Material parameter files: Material parameters are no longer hardcoded, but
+provided by the user as separate files in the configuration directory (more
+details in Wiki)
+- Selfconsistent Hartree with full diagonalization (dispersion and LL mode)
+- Support for JAX eigh diagsolver
+- Band alignment succeeds without CNP being defined
+- Doxygen generated developer documentation
+
+
+v0.95  (2023-10-16)
+-------------------
+Bug fixes:
+*  Silence a warning for dispersion derivatives
+*  Fix legend label for observable band index
+
+Implementation changes:
+*  Legacy self-consistent solvers have been removed
+*  Use notation EF and EF0 for Fermi energies at finite and zero density
+*  Change internal density values in dispersion mode to proper DOS
+*  Set density units by a configuration value, no longer from the command line
+*  Load potential before starting self-consistent solver in LL mode
+*  Apply solver options more consistently
+*  Debug output for all magnetic fields in self-consistent solver in LL mode
+
+New features:
+*  Additional colour options for plots
+
+
+v0.94  (2023-08-07)
+-------------------
+Implementation changes:
+*  Extrema calculation for polar coordinates implemented more intuitively
+
+New features:
+*  Selfconsistent Hartree calculation in LL mode
+*  Extrema solvers for cylindrical and spherical coordinates
+
+
+v0.93  (2023-06-28)
+-------------------
+Bug fixes:
+*  Handle errors in densityz calculation
+
+Implementation changes:
+*  Optimize parsing of configuration files
+*  Change how strain is entered on command line and optimize handling of strain
+
+New features:
+*  Add plots and tables for density as function of z and energy
+
+Deleted features:
+*  Input of 'strain <value> x' is no longer possible because the result is
+unexpected. Anisotropic in-plane strain will be reintroduced in a future
+version.
+
+
+v0.92  (2023-05-26)
+-------------------
+"Redesign of selfcon"
+
+Bug fixes:
+*  Make wave function plot functions more uniform, fixing argument errors
+*  Fix problems with Jacobians (for derivatives)
+*  Abort density calculation if integration element is not defined, instead of
+quitting with an exception
+*  Handle cases where Fermi energy is out of range
+*  Fix error in transitions output if refractive index is undefined
+*  In configuration file (kdotpyrc), no longer erase unknown configuration keys
+and retain order and comments
+
+Implementation changes:
+*  Generalize density calculation to more grid types / coordinate combinations
+*  Use the same default density ranges for all 'constdens' outputs
+
+New features:
+*  Complete redesign of self-consistent Hartree method (for dispersion mode
+only). This update fixes many stability issues due to a much improved algorithm
+for calculating the density as function of z.
+*  Add csv file for 'dispersion-vs-n'
+*  Optionally print momentum extension multiplier for DOS/IDOS
+
+
+v0.91  (2023-03-15)
+-------------------
+Bug fixes:
+*  Fix misinterpretation of command line in kdotpy-test in Windows
+*  Add 'python' to command line in Windows because kdotpy-xxx is not executable
+
+Implementation changes:
+*  Delete fallbacks for matplotlib colormaps viridis and cividis
+*  Calculate derivatives dE/dkx for grid of type 'x', dE/dky for 'y'
+*  Reimplement derivatives, now allow all grid types
+
+New features:
+*  Add command line configuration tool kdotpy-config
+*  Add cubic Zeeman term (not yet active in code) 
+
+
+v0.90  (2022-12-20)
+-------------------
+Bug fixes:
+*  Do not create directories when using kdotpy-batch with dryrun
+*  Fix incorrect band character labels in csv dispersion output
+*  Fix incompatibilities with newer numpy versions
+
+Implementation changes:
+*  Use minimum x resolution for all DOS output
+
+New features:
+*  Add markers periodically in 1/B in Shubnikov-de Haas plots
+*  Define isoparity operators in well and in symmetric region around well
+*  Define splittype for these modified isoparity operators
+*  Use kdotpy-test with alternative python command
+
+
+v0.89  (2022-11-22)
+-------------------
+Bug fixes:
+*  Fix scientific notation and crop small values in plot parameter text
+*  Fix incorrectly formed file names for wave function csv files
+*  Fix missing axis labels in DOS and IDOS plots
+*  Place special energies at the correct positions in dispersion-vs-n plot
+*  Fix incorrectly formatted directory names in kdotpy-batch
+
+Implementation changes:
+*  Make determination of charge neutrality point more stable against subbands
+with incorrect character labels
+*  In plot parameter text, display one-component vector as scalar
+*  Make script kdotpy-test.py executable
+*  Argument 'dosrange' (scaling for DOS and IDOS plots) now interprets values in
+the units set by 'densitynm', 'densitypcm', etc.
+*  Apply argument 'dosrange' also to dispersion-vs-n plot
+
+New features:
+*  Allow variable substitution with {}-formatting for outputid
+*  Allow grid (momentum, magnetic field) variables to be used in {}-formatted
+command-line inputs ('plottitle', 'outputid')
+*  Output of psi(z, y) as csv file (kdotpy-1d with 'plotwf')
+
+
+v0.88.1  (2022-11-04)  (hotfix)
+-------------------------------
+Bug fixes:
+*  Fix bug with composing file names (for example wave functions)
+
+
+v0.88  (2022-11-03)
+-------------------
+Bug fixes:
+*  Silence 'division by zero' warning for table output
+*  Fix misplacement of character labels in dispersion plots at integer energies
+
+Implementation changes:
+*  Add optional Python modules to XML output
+*  Change some functions requiring 'zero point' to 'base point' (less
+restrictive)
+*  Rename 'reconnect' command line argument to 'bandalign'
+*  Update version requirements for Python and packages
+
+New features:
+*  Add arguments 'showcmd+' and 'showcmd-' do kdotpy-test, changing how the
+script names are shown in the command lines
+*  Use command line argument 'bandalign' with kdotpy-2d and kdotpy-ll
+*  Make vertical spacing of character labels in dispersion plots configurable
+
+
+v0.87  (2022-10-11)
+-------------------
+Bug fixes:
+*  Fix exception for plotting an axis label
+*  Fix inconsistent location matching for wave functions, especially at zero
+
+Implementation changes:
+*  Simplification of integrated observable calculation
+*  Rename this file kdotpy-changelog.txt to changelog.txt; Gitlab will then
+recognize it as this project's changelog.
+*  Use position labels for wave function filenames
+
+New features:
+*  Combine multiple broadening functions
+*  Direct input of Berry/Chern/Hall broadening from the command line
+*  Multiple input values for targetenergy (experimental feature)
+*  Save binary files with eigenvectors in NumPy .npz or in HDF5 .h5 format
+
+
+v0.86  (2022-09-14)
+-------------------
+Bug fixes:
+*  Choose correct vector component prefix in band aligment
+*  Fix scaling issues in density plots
+*  Fermi energy is indeterminate if IDOS is identically zero
+*  Do not attempt BHZ calculation if k = 0 is not in data
+*  Fix file permission error on Windows for parallel processes, caused by 
+unnecessary rewrite of configuration file.
+*  Fix missing band character labels for wave functions at k = 0
+
+Implementation changes:
+*  Apply phase normalization for wave functions more consistently
+*  Make quantity, value, unit output for plots and tables more consistent and
+uniform.
+
+New features:
+*  Add configuration option to make wave functions real before counting nodes to
+determine subband character.
+
+
+v0.85  (2022-08-04)
+-------------------
+Bug fixes:
+*  Fix missing factor 2 in absorption calculation (transitions)
+
+Implementation changes:
+*  Reduce verbose output to a more practical amount
+*  Get version info for output.xml directly from kdotpy, not from a shell script
+*  Broadening (type thermal) is no longer implicit for dispersion mode, which
+increases consistency with LL mode
+*  Order of broadening arguments is now arbitrary
+
+New features:
+*  Logo
+
+
+v0.84  (2022-07-12)
+-------------------
+Bug fixes:
+*  Fix broadening with magnetic field dependence in postprocessing
+*  Catch unhandled errors in band alignment and continue without band alignment
+rather than abort with an exception
+*  Fix incorrect handling of in-plane magnetic fields for symbolic Hamiltonians
+(used in LL mode and for BHZ calculation)
+*  Deal with out-of-range Fermi energy more elegantly
+*  Deal with some other density calculation failures more elegantly
+*  Fix inconsistent vector components for x values in bdependence-vs-n plot
+
+
+v0.83  (2022-07-07)
+-------------------
+"Great density infrastructure cleanup 2022"
+
+Implementation changes:
+*  Code for density of states etc. has been refactored and reorganized for
+easier maintenance
+*  Separate integrated DOS calculation and subsequent methods (like determining
+Fermi energy)
+*  Integrated DOS is now stored with k, B values, energies, dimensionality, etc.
+as a single data object
+*  More uniform handling of broadening. Density functions no longer accept
+temperature as an argument for thermal broadening.
+*  More uniform and predictable definition of energy ranges
+*  Density functions no longer attempt to do band alignment when band indices
+are not provided
+*  Optimizations in postprocessing (PDF and CSV output)
+
+
+v0.82  (2022-07-04)
+-------------------
+Implementation changes:
+*  Code optimizations using dict.get()
+*  Formatting of units
+
+New features:
+*  Option 'showcmd' for kdotpy-test for showing command lines of tests
+*  Interface observable with customizable length
+
+
+v0.81  (2022-06-13)
+-------------------
+Implementation changes:
+*  Use a uniform threshold value for testing k = 0 in degeneracy splitting
+Hamiltonians
+
+New features:
+*  Temperature dependent material parameters, in particular the band gap
+*  New degeneracy splitting type sgnjz0 (sgn(Jz) at k = 0 only)
+
+
+v0.80  (2022-06-07)
+-------------------
+Bug fixes:
+*  Fix artifacts in polar plot if angles do not align with 90 degree multiples
+*  Fix exception when trying to apply scaling if broadening is not set
+*  Silence warning when calling gitv on directory without writing permission
+*  Update .gitlab-ci.yml to fix incompatibility with newer Gitlab version
+
+Implementation changes:
+*  It has become mandatory to indicate either 'ax' or 'noax'
+*  Lattice regularization demoted from command-line argument to configuration
+value.
+*  Raise error or warning if z resolution and layer thicknesses do not align
+
+
+v0.79  (2022-05-10)
+-------------------
+Bug fixes:
+*  Get new version for XML output also outside script directory
+*  Apply energy resolution also to IDOS/DOS in dispersion mode
+*  Fix misalignment of potential when centre (z = 0) is not in z grid
+*  Implement IDOS/DOS validity range more accurately
+*  Handle failed band alignment (zero momentum not in range) more properly
+
+Implementation changes:
+*  New internal handling of IDOS/DOS broadening (more flexibility in future)
+*  Further optimizations for IDOS/DOS handling
+*  Optimize dispersion csv output, significant speed increase
+
+New features:
+*  Configuration options for job monitor and for numpy (debug) output
+*  Calculate IDOS/DOS for bulk (3D)
+*  New test '2d_offset' for dispersions that do not contain zero momentum
+
+
+v0.78  (2022-03-31)
+-------------------
+Bug fixes:
+*  Fix postprocessing error if density range is not set
+*  Fix polar grid being invisible
+*  Fix error on missing band characters in extrema csv file
+*  Handle incommensurate energy and IDOS arrays for integrated observable plots
+
+Implementation changes:
+*  Change matrix type from numpy.matrix to numpy.array, following general
+recommendations. Also leads to speed increase of ~ 5%-10%.
+*  Radial ticks in polar plots also for small radii
+*  Make threshold for hiding material labels in wave function plots configurable
+*  Distinguish between Berry curvature and Chern number terminology for LL mode
+*  Change file names for Hall conductance output
+
+New features:
+*  Write units into 'byband' dispersion csv files
+*  Write data labels and units into generic postprocessing csv files (local DOS,
+Berry curvature, etc.)
+*  Simulated Chern number (Berry curvature, Hall conductance) in LL mode
+*  Integrated observable plot over all data points as multipage PDF 
+
+
+v0.77 (2022-03-09)
+------------------
+Bug fixes:
+*  For determination of LL degeneracy, use z component of magnetic field B
+*  Do not ignore potential file if it is the final command line argument
+*  Remove spurious lines in dispersion plots
+*  Fix error when setting stacking order with plotstyle 'normal'
+
+Implementation changes:
+*  Uniform implementation for defining arrays of z and y coordinates
+*  Add extrema calculation to tests
+
+New features:
+*  Add density(z) as postprocessing function (kdotpy-ll only)
+*  Rotation of material labels in wave function plots
+
+
+v0.76 (2022-02-23)
+------------------
+Bug fixes:
+*  Do not scale z values of berry-int and dsigma-de plots
+*  Signal handling in Tasks and Model structure, fixes issues with Ctrl-C, etc.
+
+Implementation changes:
+*  In Rxy plot, draw Hall slope below the data curves
+*  Option for more optimal stacking order of plot elements (dispersion etc.)
+
+New features:
+*  Allow non-exact match of wave function locations of numerical type
+*  Input of multiple potential files and multipliers for them
+
+
+v0.75 (2022-02-08)
+------------------
+Bug fixes:
+*  Fix incorrect coefficient for in-plane Zeeman matrix element (expected error
+is ~ 10^-3 meV or lower for in-plane fields ~ 1 T)
+
+Implementation changes:
+*  Optimize how by-band data is extracted from internal data structures
+DiagDataPoint and DiagData. This reduces postprocessing time dramatically for
+large amounts of data points.
+*  Adapt formatting of BHZ verbose output
+
+
+v0.74  (2022-02-01)
+-------------------
+Bug fixes:
+*  Fix incorrect LL labels in plotted wave functions in 'full' LL mode
+*  Fix momentum handling in extrema calculation; add units to extrema output
+*  Fix and update output of special energy values
+*  Apply observable property 'dimful' (multiprocessing issue on Windows)
+*  Fix issue for automatic solver configuration
+*  Fix wave function phases for full LL mode
+*  Fix missing values in overlap calculation (kdotpy-ll)
+*  Do not discard eigenvector data if symmetrization is used. This issue caused
+missing wave function output.
+*  Correct density value off by factor of 2 for dispersions on symmetric
+one-dimensional momentum grid
+*  Fix crash in numeric DOS calculation for very small number of data points
+
+Implementation changes:
+*  Replace command line argument 'vgate' by 'v_outer' and 'v_inner'
+*  Print 'tempout' folder to stderr
+*  Make precision of wave function csv output independently configurable
+*  For LL mode, output 'densz' plots for all magnetic field values, not just the
+highest value.
+*  Choose gauge for in-plane fields symmetrically in z direction
+*  Change representation of floating-point numbers (kdotpy-batch)
+*  Apply command line options 'densityrange' and 'cardens' (given as range) also
+for integrated Berry curvature in LL mode
+*  Shorten command (script path) in xml output <cmdargs> tag (optionally)
+*  Separate sub-tasks for a data point can be combined into a single task
+(mitigates problems for very large matrices exceeding 2 GB of data)
+
+New features:
+*  Plot wave functions as real functions and indicate complex phase
+(configuration option 'plot_wf_orbitals_realshift')
+*  Choose order of orbital legend in wave function plot
+*  In-plane gauge fields (kdotpy-2d only)
+*  Add Hall slope in Rxy plots (optionally)
+*  Verbose mode for tests (kdotpy-test)
+*  BHZ calculation (Löwdin expansion) at nonzero momentum
+
+
+v0.73  (2021-12-10)
+-------------------
+Bug fixes:
+*  Issue with multiple index rows in csv output using pandas
+*  Fix double-counting issue for 'interface' observables, if the integration
+intervals overlap.
+*  Optimize matplotlib output fixing compatibility issues and warnings for newer
+matplotlib versions.
+
+Implementation changes:
+*  Relabel test '2d_orient'
+
+New features:
+*  Output of energies and densities to stdout (DOS for dispersions)
+*  Enter 'kdotpy test list' for a list of test ids.
+
+
+v0.72  (2021-12-02)
+-------------------
+Bug fixes:
+* Fix Windows compatibility issues (file access, absence of 'nice' command)
+* In symbolic LL mode, do not calculate same transitions twice and ensure both
+states are within 'transitionsrange'.
+* Fix incorrect sorting of transitions by energies E_2 and for duplicate
+entries.
+* Do not show strip length scale output for LL mode.
+* Fix issue with csv output of vector data.
+* Fix some rare warning messages that were incorrect.
+
+Implementation changes:
+* Automatic solver configuration chooses known better available solvers or gives
+a hint for solvers that might perform better.
+* New Tasks and Model structure to distribute calculations more flexibly to CPU
+and GPU (using threading and multiprocessing workers).
+* LL mode 'legacy' repaired/modified; splitting is now only applied at zero
+magnetic field.
+* Add band character data also for LL mode 'full'.
+
+New features:
+* Eigensolver for Hamiltonian matrices using CUDA capable GPUs (based on
+optional cupy package).
+* Save intermediate diagonalization result in temporary folder and reload them
+for resumeable script runs. (Use with care!)
+
+
+v0.71  (2021-11-30)
+-------------------
+Bug fixes:
+* Add missing 'byband' output for kdotpy-bulk-ll
+* Fix error in wave function plots if band indices are undefined
+* Fix git version check on Windows systems
+
+Implementation changes:
+* Configure extension of stdout and stderr files in kdotpy-batch
+
+New features:
+* For calculating overlaps, allow band indices for choosing states with missing
+character label.
+* Allow plotting wave functions everywhere using 'plotwf all'
+* Add indexed observables orbital[j] and ll[j]
+* Add observables Hzeeman at 1T, Hexchange at 1T, Hexchange at ∞T
+* Add observables LL index mod 2 and LL index mod 4 (full LL mode only)
+
+
+v0.70  (2021-10-20)
+-------------------
+Bug fixes:
+* Improve data alignment in plots using Matplotlib's pcolormesh or imshow
+* Disable automatic path simplification (dispersion plots, etc.)
+* Prevent problems with configuration files in multiprocessing on Windows
+* Do not try to 'nice' processes in batch run on Windows
+* Repair kdotpy-ll.py, legacy LL mode
+* Repair kdotpy-bulk-ll.py, all LL modes
+
+Implementation changes:
+* Make transitions spectra optional
+* Parallel processing in output of transitions and spectra (performance
+improvement)
+* In density plots, define energy resolution more predictably
+* Improve speed in matching vector values, leading to faster merging of data
+grids from multiple XML files
+* Update test framework, make it compatible with pytest for automated testing in
+Gitlab.
+* New colormap for band indices
+
+New features:
+* Plot integrated observable and observable density (~ spectral function)
+* Symbolic and full Landau level modes for kdotpy-bulk-ll.py
+
+
+v0.69  (2021-08-09)
+-------------------
+Bug fixes:
+* Prevent crash if there are no optical transitions for a magnetic field point.
+* Fix misleading error message in case of empty optical transitions.
+* Fix error causing bad axis tick spacing for spectra plots.
+* Remove several small issues found with flake8
+
+Implementation changes:
+* Now considers all transition matrix elements for optical transitions. Also
+calculates refractive indices and polarimetry spectra (experimental).
+* Float output format for transitions csv files changed to %.6g for a more
+consistent number of significant digits.
+
+New features:
+* Optical transitional can be requested for a range of carrier densities.
+* Hamiltonian diagonalization solvers are now configurable. This can be used to
+improve solve times or enhance solver stability in certain use cases - mostly
+with large system sizes. Adds support for UMFPACK, PARDISO and FEAST, but
+requires additional libraries and packages for use of those features.
+
+
+v0.68  (2021-07-21)
+-------------------
+Bug fixes:
+* Correct TeX strings of observables hexch, hzeeman, hstrain.
+* Fix misplaced charge neutrality point in case of unexpected band characters.
+* Turn several repeated warnings into single ones.
+
+Implementation changes:
+* For kdotpy-2d and kdotpy-ll, use eigenvectors from dispersion calculation for
+  wave function plots/data. No longer recalculate them.
+* Improve text information in wave function plots more.
+* Use a more systematic file naming scheme for wave function csv files.
+* Update BHZ calculation.
+
+New features:
+* Allow BHZ for noncontiguous sets of A bands.
+* Allow BHZ for finite magnetic fields (experimental).
+* Allow band indices as input for BHZ.
+
+
+v0.67  (2021-06-24)
+-------------------
+Bug fixes:
+* Add wave functions to full LL mode. This missing feature was causing an error
+when trying to use full LL mode.
+* Fix missing symbols in BHZ TeX output
+
+Implementation changes:
+* Improve text in wave function plots
+* Add configuration option for matching wave function locations approximately
+* Add configuration option for doing BHZ on non-contiguous sets of A bands
+
+
+v0.66  (2021-05-27)
+-------------------
+Bug fixes:
+* Signal handling (interrupt/terminate) changed for kdotpy-batch, preventing
+orphaned processes
+* Fix several small errors in determination of band type
+* Fix incorrect signs in symbolic derivation and Berry curvature
+
+Implementation changes:
+* Command-line argument 'extrema' replaces 'localminmax' (same option, new name)
+* Determine eigenstate complex phase more predictably (for wave function plots
+and BHZ)
+* Cleaner BHZ output
+
+New features:
+* Vector components and length in plot title
+* Show phase values in wave function plots
+* Configure colour and style of BHZ dispersion plot
+* Wave function plots in LL modes, also for nonzero magnetic field
+
+
+v0.65  (2021-01-13)
+-------------------
+Bug fixes:
+*  Fix warning/error with neutral energies
+*  Fix error caused by duplicate observable (kdotpy-2d)
+*  Problems with Berry curvature plots
+
+Implementation changes:
+*  Save B dependence plot with density curves to separate file, instead of
+overwriting the plot without density curves
+
+New features:
+*  More degeneracy splitting types
+*  Command-line shortcut 'hall' for kdotpy-ll
+*  Interface-type observables also made available in kdotpy-ll
+*  Add parity and isoparity observables in x direction
+
+
+v0.64  (2020-10-27)
+-------------------
+Bug fixes:
+*  Several issues with band alignment
+*  Fix problem with density scaling
+*  Use the correct definition of observable 'isopy'
+*  Fix bug in plotting of DOS contours
+*  Path to script in tests.sh
+
+Implementation changes:
+*  Updates to wave function plots (orbital and subband basis)
+*  Updates to BHZ output (see also 'new feature' below)
+*  Rename 'Fermi energy' to 'charge neutrality point' wherever appropriate
+*  Wave function plot: Use dashdot style when real and imaginary curves
+coincide.
+*  Define degeneracy splitting as separate sparse matrix
+
+New features:
+*  Add band labels in 1D dispersion plots
+*  Potential depending on orbital or subband
+*  Table output for 1D wave functions in y
+*  Dual shaded colormaps
+*  Import colormap from file
+*  Landau diagonalization at negative magnetic fields
+*  Choose between dimensionless and -ful g factors in BHZ output
+*  Calculate Berry curvature and DOS per isoparity block
+*  Degeneracy splitting using isoparity
+
+
+v0.63  (2020-02-25)
+-------------------
+Bug fixes:
+*  Remove several small issues found with flake8
+*  Fix erroneous warning for unparsed argument
+*  Add __name__ == "__main__" test to kdotpy-merge and kdotpy-compare
+
+Implementation changes:
+*  Change method of finding band character (number of nodes) and make the
+parameters configurable.
+
+New features:
+*  Add and update in-code documentation (docstrings)
+*  New options 'kdotpy doc' and 'kdotpy test' for the master script
+*  Put csv files for wave functions into an archive (tar/targz/zip)
+
+
+v0.62  (2020-01-30)
+-------------------
+Bug fixes:
+*  Correct angular units for magnetic fields in csv output
+*  Fix formatting of first column in some csv output generated with pandas
+*  Fix syntax errors and type errors on printing vectors
+*  Fix crash on failure getting band indices
+*  Fix how momentum components are handled by Hamiltonian construction functions
+
+Implementation changes:
+*  New test in tests.sh
+*  New handling of command-line arguments. At the end of a successful run, a
+warning is given with precisely the arguments that did not do anything.
+*  Stricter checks on geometric parameters (sizes and resolutions)
+
+
+v0.61  (2020-01-29)
+-------------------
+Bug fixes:
+*  Fix incorrect sign in Hamiltonian entry C, that couples Gamma8,+1/2 and
+Gamma8,-1/2 orbitals and is proportional to dz kappa.
+*  Fix incorrect terms in Hamiltonian when BIA is combined with nonzero in-plane
+magnetic field components.
+
+Implementation changes:
+*  Slight modification in how strain is implemented and saved into the XML file
+*  Improve performance of vector grid indexing, used in symmetry test and
+symmetrization
+*  Improved behaviour and new tests in tests.sh
+
+New features:
+*  Lattice and vector transformations, that accommodate the following features.
+*  Any crystal orientation (experimental)
+*  Symmetry analysis; identification of symmetry group (experimental)
+*  Off-diagonal strain components
+
+
+v0.60.1  (2020-01-27)  (hotfix)
+-------------------------------
+Bug fixes:
+*  Correct wrong type that caused a crash in contour plot
+
+
+v0.60  (2020-01-25)
+-------------------
+Bug fixes:
+*  Fix crash on malformed regular expression
+*  Add missing variable that caused crash in band alignment for magnetic-field
+dependence in bulk
+
+Implementation changes:
+*  Code cleanup and reordering
+
+Miscellaneous:
+*  In-code documentation (partially)
+
+
+v0.59  (2020-01-14)
+-------------------
+Bug fixes:
+*  Do not plot for single data point (bulk) or in absence of data (2d
+dispersion)
+*  Catch a rare problem with extrema
+
+Implementation changes:
+*  Silence some warnings in newer versions of Python and libraries
+*  Update band labels for 2D plots
+*  Smarter tick choices for angular variables
+*  Re-format some numerical output (rounding)
+
+New features:
+*  Add OS information to XML output
+
+
+v0.58  (2019-09-20)
+-------------------
+Bug fixes:
+*  Fix phase errors for nontrivially oriented strips leading to incorrect
+angular momentum orientation (Jx, Jy, Sx, and Sy)
+*  Fix several problems with BIA
+*  Fix incorrect orientation for wave function plots (|psi(z,y)|^2)
+*  For BHZ, include also non-axial terms and do not suppress off-diagonal k^2
+terms in the output
+*  Invalid observables must be encoded by zero matrix, not the value 0
+
+Implementation changes:
+*  Input of width and width resolution from command line
+*  Wave function plot (|psi(z,y)|^2) output file format
+
+New features:
+*  In-plane magnetic fields (orbital effect)
+*  Wave function plot (|psi(z,y)|^2) options
+
+
+v0.57  (2019-09-02)
+-------------------
+Bug fixes:
+*  Fix incorrect type in density range
+*  Set confinement to zero when periodic boundary conditions are used
+
+New features:
+*  Strip orientation
+*  Unit headers for dispersion csv output
+*  Output styles for observable and unit headers
+
+
+v0.56.3  (2019-08-06)
+---------------------
+Implementation changes:
+*  Rename files aux.py to auxil.py for Windows file system compatibility
+
+
+v0.56.1 and v0.56.2  (2019-08-02)  (hotfix)
+-------------------------------------------
+Bug fixes:
+*  Overflow error in table output
+*  Fix bad colorbars (matplotlib version incompatibility)
+
+
+v0.56  (2019-08-02)
+-------------------
+Bug fixes:
+*  Column order in extrema csv output
+*  Reflection of cylindrical coordinates
+*  Switch to full LL mode if strain is applied in x direction
+
+Implementation changes:
+*  Several updates to colour scales, for example manual limits
+*  Update master script
+
+New features:
+*  Read and write configuration to xml data file
+*  Dual colour scales for LL index together with spin
+
+
+v0.55  (2019-07-18)
+-------------------
+Bug fixes:
+*  Incorrect transition matrix (transposition)
+*  Error in band alignment when zero point is absent
+*  Missing column headers in 2d csv output
+
+Implementation changes:
+*  Streamline transitions, in particular output (plot and csv) and configuration
+
+New features:
+*  Energy shift (automatic centering at charge neutrality or manual shift)
+*  Absorption plots for transitions
+*  Energy-at-constant-density csv output for LL mode
+*  Show suggestions for invalid configuration options
+
+
+v0.54  (2019-07-03)
+-------------------
+Bug fixes:
+*  Incorrect band indices for low Landau levels (still) and crash in some cases
+*  Problem with vector plot
+
+
+v0.53  (2019-06-28)
+-------------------
+Bug fixes:
+*  Incorrect band indices for low Landau levels
+*  Missing band characters not stored correctly (xml output)
+*  Fix error at trying to calculate wave function in a single point
+*  Accept alias observables on command line (plots)
+
+Implementation changes:
+*  Use a different formula for occupation in transition rate
+*  Separate raw transition rate and dressed one (accounting for occupancy and
+density)
+
+New features:
+*  Interface observables
+*  Configuration options for transition plots
+
+
+v0.52  (2019-06-19)
+-------------------
+Bug fixes:
+*  Fix problems with csv output using pandas
+*  Fix incorrect passing of command line arguments by kdotpy (main script) and
+kdotpy-batch
+*  Allow bulk mode calculation without zero point
+
+Implementation changes:
+*  Turn observables into class objects
+*  Put band alignment algorithm in a more clearly defined framework. This update
+leads to better results (fewer artifacts).
+*  Apply option 'dosrange' also to 'bdependence-vs-n' plot
+
+New features:
+*  Manual band alignment
+*  Helical 'splitting' Hamiltonian
+*  Berry curvature in bulk mode
+*  Vector plots for Berry curvature
+*  Force legacy or full LL mode
+
+
+v0.51  (2019-05-13)
+-------------------
+Bug fixes:
+*  Fix non-output of csv output of observables by band
+*  Suppress confinement warning when reading data file
+
+Implementation changes:
+*  Rename output-merge.py, output-compare.py, and batch.py to kdotpy-merge.py,
+kdotpy-compare.py, and kdotpy-batch.py and make them executable
+*  Add a master script named kdotpy
+*  Make IO of files independent of working directory, so that kdotpy can be
+called from anywhere
+*  Minor updates to format of some csv output
+
+New features:
+*  Write merged csv output if desired (kdotpy-merge)
+*  Sort data before doing reconnect (kdotpy-merge)
+
+
+v0.50  (2019-05-02)
+-------------------
+Bug fixes:
+*  Re-add missing Hamiltonian function
+*  Fix duplicate column headings for pandas output
+*  Scan script directory, not working directory for version info
+
+Implementation changes:
+*  Slightly different column headers for wave function csv output
+*  Use maximum number of CPUs by default
+
+New features:
+*  Load matplotlibrc from a custom location
+
+
+v0.49  (2019-04-24)
+-------------------
+Name change to kdotpy:
+*  Change script names
+*  Relocate configuration file
+*  Add a function to automatically import old configuration file
+
+Bug fixes:
+*  Quoted table headings (csv output)
+
+
+v0.48 and v0.48.1 (2019-04-16)
+------------------------------
+Bug fixes:
+*  Fix missing table subheadings (units)
+*  Exception and signal handling in parallelized runs
+
+Implementation changes:
+*  Introduce @{variable} pattern for batch commands (with batch.py)
+
+New features:
+*  Integrated transition amplitudes (table output)
+*  Table output for wave functions (2D)
+
+
+v0.47  (2019-04-10)
+-------------------
+Python 2 to Python 3 conversion:
+*  Conversion of the full codebase to Python 3, compatibility with Python 2
+abandoned
+*  Major cleanup by rearranging code, simplifying constructs, removing unused
+dependencies, etc.
+
+Bug fixes:
+*  Several missing variables, found by automated review of the code
+*  Better handling of interrupts during parallel computation
+
+Implementation changes:
+*  Optimization of table output (csv files)
+*  Output directory handling for output-merge and output-compare
+
+
+v0.46  (2019-03-12)
+-------------------
+Bug fixes:
+*  Several updates to band alignment algorithm; fixes many 'seemingly random'
+failures of this algorithm
+*  Silence some spurious warnings
+*  Fix argument error in Berry curvature calculation (momentum space)
+*  Fix several problems with csv output
+
+Implementation changes:
+*  Postprocessing actions now in a separate source file
+*  Code cleanup: Some unused functions were removed
+*  Interpolate DOS and Berry plots for higher resolution output
+*  Distinguish between carrier density (1/nm^2) and charge density (e/nm^2)
+
+New features:
+*  Save momentum dimension to xml file; no longer save irrelevant variables
+*  Transitions for full LL mode
+*  Configurable figure properties: Size, margins, legends, ticks, axes labels
+(units), titles, and other text elements
+*  Display spins in 2D dispersion plots
+*  Background density per layer; selfconsistent calculation (experimental)
+*  DOS calculations for 1D (ribbon geometry)
+*  Separate setting for temperature used in thermal broadening (for DOS)
+
+Deleted features:
+*  External diagonalization using C++ program based on Armadillo library
+
+
+v0.45  (2019-01-30)
+-------------------
+Bug fixes:
+*  Several minor issues with band alignment algorithm
+*  Calculate appropriate quantity for transition amplitude
+*  Fix problems with incorrect scaling in density plots
+
+Implementation changes:
+*  Define red-gray-blue color scale as a proper colormap
+*  Change some default colormaps
+
+New features:
+*  Output transitions to csv file
+*  Framework for configuration file ($HOME/.hgmnte/hgmnterc)
+
+
+v0.44 and v0.44.1 (2018-12-06)
+------------------------------
+Bug fixes:
+*  Increase lower limit of number of states in LL calculation,
+decreasing the chance of obtaining garbage
+*  Catch more deviations in self-consistent Hartree
+*  Fix various bugs triggered by failing band alignment
+
+Implementation changes:
+*  Improved band alignment algorithm (band indices)
+
+New features:
+*  Print densities
+*  Set charge neutrality at a specific energy (experimental)
+
+
+v0.43  (2018-11-14)
+-------------------
+Bug fixes:
+*  Mixed up DOS and IDOS values in tables of DOS and IDOS by band
+*  Incorrect symmetry transformation (for spin) in symmetrization
+
+New features:
+*  Total in table of DOS and IDOS by band
+*  Show spin arrows in dispersion plots
+
+
+v0.42  (2018-11-13)
+-------------------
+Bug fixes:
+*  Fix an error in the nine-point extremum solver, singular case
+*  Fix crash in 2D plot by using finer contour spacing
+*  Make band indices calculation more reliable; this eliminates
+artifacts in dispersion plots
+*  Fix bug in calculation of neutral energy
+*  Seek Fermi energy in a larger range; this reduces the chance of
+failure for the self-consistent method
+
+Implementation changes:
+*  Re-implementation of density units: Distinguish between 1/nm^2,
+e/nm^2, 1/cm^2, and e/cm^2
+*  Improved local DOS plot, using interpolation of the dispersion
+*  New colour maps in some plots
+*  Band indices calculated more
+
+New features:
+*  Extrema for 3D
+*  Bulk inversion asymmetry for 1D
+*  DOS separated by band
+
+
+v0.41  (2018-10-26)
+-------------------
+Bug fixes:
+*  2D dispersion plot in bulk mode, yz and xz planes
+
+Implementation changes:
+*  Some changes to bulk LL script in view of unification
+
+
+v0.40  (2018-10-19)
+-------------------
+Bug fixes:
+*  Fix an error in extrema finding combined with symmetrization
+*  Remove some spurious (interface) term from Hamiltonian
+*  Units in DOS plots
+
+Implementation changes:
+*  Unification: Merge scripts as to reduce the total number of them
+*  Symmetry test now deals properly with isolated degeneracies
+
+New features:
+*  Re-implementation of bulk-inversion asymmetry; also for 2D
+
+
+v0.39  (2018-09-28)
+-------------------
+Bug fixes:
+*  Bug on reading number of orbitals using 'norb 6' or 'norb 8'
+*  Some cosmetic improvements of plot titles
+*  Extrema output failure in combination with symmetrization
+
+Implementation changes:
+*  Plot command output-merge.py now reads parameters from XML files,
+compares the values, and raises a warning if they are different
+
+New features:
+*  Potential along y direction in 1D (very basic implementation)
+*  Calculate wave functions at multiple positions (2D)
+
+
+v0.38  (2018-09-06)
+-------------------
+Bug fixes:
+*  Issues with indexed colours
+*  Incorrectly labelled horizontal axis in B-dependence plots
+*  Error in non-axial term in Hamiltonian (1D, nonzero magnetic field)
+*  Solve an exception when k = 0 is not in the data set
+
+Implementation changes:
+*  Plot title formatting now follows Python's string format() 'language'
+
+New features:
+*  Set plot title position
+*  With output-merge.py, allow 'sticking' compatible VectorGrids together
+
+
+v0.37  (2018-08-29)
+-------------------
+Bug fixes:
+*  Incorrect representations of zero momentum in symmetrization
+*  Issues with colormaps
+*  Observables: Symmetrization of yjz, displayed expressions for sx and sy
+
+Implementation changes:
+*  In output-merge.py, be less strict about presence of VectorGrid
+*  Remove dedicated BHZ script and merge functionality into hgmnte-2d.py
+*  Basis order in BHZ calculation
+*  Abort if self-consistent calculation fails, instead of raising a warning and
+continuing
+*  For full LL calculation, lift degeneracy at B = 0 for the purpose of
+diagonalization
+
+New features:
+*  Reconnect bands in output-merge.py
+*  Accept archives (.tar.gz) and compressed (.xml.gz) data files in
+output-merge.py
+*  Set horizontal plot range
+*  IPR observables
+
+
+v0.36  (2018-08-24)
+-------------------
+Bug fixes:
+*  Indexed colors, especially affecting full LL calculation
+*  Do not require VectorGrid for plotting; this solves the problem of not being
+able to plot from older data files
+*  Fix incorrectly placed extrema in 2D
+*  Overlaps not being calculated in 1D
+*  Incorrect magnetic field axis in 1D
+*  Error in observable 'jy'
+*  Solve crash in BHZ calculation
+
+Implementation changes:
+*  Significant performance improvement (smaller RAM and CPU load) by a more 
+efficient implementation of the calculation of observables
+*  Save VectorGrid in XML data file
+
+New features:
+*  Define density and Berry (sigma_H) broadening independently
+*  Plot integrated Berry curvature (sigma_H) and its derivative as function of
+energy and density
+*  Dimensionfull observables; for example, observable 'y' in length units (nm)
+*  Symmetry tests and automatic extension in momentum space by symmetrization,
+including replots using output-merge.py
+*  Alternative progress monitor (estimated time of completion)
+
+
+v0.35.1  (2018-08-01)  (hotfix)
+-------------------------------
+Bug fix:
+*  Fix error in Hartree 1D when python != python2
+
+
+v0.35  (2018-08-01)
+-------------------
+Implementation changes:
+*  Show units in csv output files
+
+New features:
+*  Full LL calculation, including non-perpendicular magnetic field
+*  Input momentum and magnetic field in angular representation in terms of
+cartesian vector components
+*  Output DOS in csv format
+*  Apply Hartree result from 2D to 1D
+
+
+v0.34  (2018-07-24)
+-------------------
+Bug fixes:
+*  Band indexing in bulk mode
+
+New features:
+*  Per-band 2D output
+*  Density of states, self-consistent Hartree, etc. for Landau levels
+*  Berry curvature in magnetic field
+*  Quadratic stepping for ranges (0 1 4 9 ...)
+*  Transition amplitudes
+
+Implementation changes:
+*  Berry curvature
+*  Vector quantities (momentum, magnetic field) now defined as new class
+*  Add and rename some observables (proper and total spin)
+*  Improved algorithm for density of states (fixes discretization artifacts)
+*  More stable self-consistent Hartree
+
+Deleted features:
+*  Momentum combination 'k kperp kphi'
+
+
+v0.33  (2018-05-23)
+-------------------
+Implementation changes:
+*  Make band connection algorithm more robust
+*  Relabelling of bands in bulk mode
+*  Different values for HgMnTe band gap (as function of Mn concentration)
+
+New features:
+*  Batch processing (may not yet be accessible from biscuit)
+*  Separate csv data files for subbands in 2D dispersion
+*  Contour plots for bulk
+
+
+v0.32  (2018-04-19)
+-------------------
+Bug fixes:
+*  Handle missing colormap (naming incompatibility between matplotlib versions).
+*  Misnamed variable in wave function plot.
+
+New features:
+*  Connecting data points over 2D grid
+*  Contour plots of band energies
+*  Berry curvature as observable
+
+
+v0.31 (2018-04-09)
+------------------
+Implementation changes:
+*  Adapt internal data structure for passing around diagonalization data.
+This code has become cleaner and and a more extensible framework.
+
+New features:
+*  Nicer plots. The algorithm connecting data points is now much more reliable. 
+One can also plot coloured curves now.
+*  Bulk Landau level calculation (sample with infinite z extent).
+
+Deleted components:
+*  Algorithm to determine and apply a shift on the E1 band. This function has 
+turned out to be unnecessary, and using it probably leads to more questions than 
+answers.
+
+
+v0.30 (2018-03-19)
+------------------
+Bug fixes:
+*  Fix undefined variable bug in hgmnte-2d and hgmnte-ll.
+*  Reset magnetic field after calculation overlap at B = 0.
+*  Adapt several error/warning messages.
+
+New features:
+*  Plot wave functions as function of y; separate by orbital or subband
+components.
+
+
+v0.29 (2018-03-12)
+------------------
+Bug fixes:
+*  Incorrect factor in LL Hamiltonian.
+*  Several spurious warnings have been silenced.
+
+New features:
+*  Print band minima and maxima (local or global extrema)
+*  In bulk, probe momenta along a Brillouin zone direction [klm]
+*  Bulk inversion asymmetry (bulk only)
+*  Renormalization of six-orbital model, optionally disable
+   (NOTE: Issues may arise at the interfaces; these will be addressed in a 
+   future version.)
+*  Vacuum as a (pseudo)material
+*  Extend options of 'subband colouring'
+
+
+v0.28 (2018-02-12)
+------------------
+Implementation changes:
+*  'Separate' wave function plots are no longer separate files, but separate 
+pages inside a single PDF file.
+
+New features:
+*  Eight-orbital Kane model. The six-orbital model can still be chosen 
+optionally. In order to avoid confusion about which model is used, it is 
+required to choose either one explicitly.
+*  Updates to Hartree calculation. One can also enter the top and bottom 
+electric field as input parameter.
+*  Calculation of Berry curvature.
+*  Axially non-symmetric terms (except for Landau-level calculation).
+*  Overlap of the wave functions at nonzero momentum with the lowest subband 
+wave functions at zero momentum.
+
+
+v0.27  (2018-01-15)
+-------------------
+Bug fixes:
+*  Absent observables causing crash in plot functions
+
+Implementation changes:
+*  The file names 'table' and 'plot' have been renamed to 'dispersion' or 
+'bdependence', whichever applies.
+
+New features:
+*  Self-consistent Hartree calculation. The current implementation is 
+sufficiently stable and converges in most sensible situations. The algorithm is 
+implemented only in the 2D geometry without magnetic field, at this moment.
+*  Plots of density of states, integrated density of states, and charge density
+as function of z.
+
+
+v0.26  (2017-12-13)
+-------------------
+Bug fixes:
+*  Erroneous warning on band character in wave function plots.
+*  Some messages were still erroneously written to stdout (partially).
+*  Some slight adjustments to material parameters.
+
+Implementation changes:
+*  The material and layer properties in the XML output have changed, following 
+the new material and layer handling (see below).
+
+New features:
+*  New material handling. Now, it should be easier to define the properties of 
+more materials. The implementation decouples the notion of material and layer 
+completely, which allows also the following new features.
+*  Layer structure. Now, it is possible to define an arbitrary 'layer stack', 
+with any number of layers, each with independent material (composition) and 
+thickness.
+*  Plot and/or write material parameters as function of z; related to the new 
+'layer stack' implementation.
+
+
+v0.25  (2017-11-23)
+-------------------
+Bug fixes:
+*  Fix crash (on SyntaxError) of the magnetic-field dependence (and LL) scripts.
+*  Some warnings have been adapted
+
+New features:
+*  Bulk calculations
+*  Enable BHZ plots away from kx axis
+*  Raise warnings for meaningless command-line arguments
+
+
+v0.24  (2017-11-09) 
+-------------------
+First publicly available version on server
+
+
+Note
+====
+Until 2019-04-24 (prior to v0.49) known as 'hgmnte-tb' or 'hgmnte'
+
+

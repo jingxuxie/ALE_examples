@@ -1,0 +1,2504 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a04a7d-8a78-7871-9325-f09426afdd69
+--------
+user
+Solve TASK.md autonomously using only the supplied participant assets. You have up to 3600 seconds and four CPU threads. No network, external packages, private evaluators, prior attempts, or generation sources are available. Write all scratch work and the required final artifact(s) to /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1. The participant directory is read-only. Inspect the task, build and test your best submission, and do not stop at a plan. This is a fresh independent attempt; do not spawn or delegate to other agents.
+warning: Model metadata for `ultima-alpha` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.
+codex
+I’ll inspect the task and assets, then build and validate the required submission.
+
+exec
+/bin/bash -lc 'pwd && ls -la && cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant
+ succeeded in 22294ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 15:19 .
+drwx------ 4 xuandong xuandong   80 Aug 28 15:30 ..
+-rw-rw-r-- 1 xuandong xuandong 1231 Aug 28 15:19 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 15:11 baseline
+drwxrwxr-x 6 xuandong xuandong 4096 Aug 28 15:16 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 15:19 workspace
+# Robust band atlas
+
+Improve the supplied baseline for selecting a shared rank-two band-subspace
+atlas on a periodic momentum grid under an acquisition budget. The selection
+must have the requested determinant-bundle Chern number in every uncertainty
+scenario. Minimize the worst-scenario normalized loss plus its weighted mean;
+energy agreement, subspace overlap, dispersion and Berry-flux fidelity matter.
+
+Submit a directory containing `solve.py`, runnable as
+`python3 solve.py --input CASE_DIRECTORY --output OUTPUT_JSON`.
+Return only `{"choices": [integer_candidate_index, ...]}`. Each hidden case is a
+fresh, isolated invocation with 90 seconds, four CPU threads, and 2 GiB address
+space. NumPy/SciPy and the read-only `workspace` utilities are available; no
+network or persistent cross-case state is available.
+
+Acceptance requires every case feasible, no case worse than baseline,
+at least 12% family-balanced relative loss reduction and at least 8% mean
+reduction in each family. Exact optima are neither required nor rewarded.
+See `workspace/SCHEMA.md`, `workspace/policy.json`, the public inputs, and
+`baseline/solve.py`. Frames are arbitrary local bases: no global smooth gauge
+or individual-band labeling is required.
+
+exec
+/bin/bash -c 'find . -name AGENTS.md -print; ls -l workspace baseline; cat workspace/SCHEMA.md; cat workspace/policy.json; cat baseline/solve.py; find input -maxdepth 2 -type f' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant
+  → Inspect schema, baseline, and public cases
+  • Develop topology-safe robust optimization
+  • Benchmark and refine across case families
+  • Validate and package final solver
+ succeeded in 29268ms:
+baseline:
+total 4
+-rw-rw-r-- 1 xuandong xuandong 688 Aug 28 15:11 solve.py
+
+workspace:
+total 20
+-rw-rw-r-- 1 xuandong xuandong 4288 Aug 28 15:25 SCHEMA.md
+-rw-rw-r-- 1 xuandong xuandong 7528 Aug 28 15:16 atlas.py
+-rw-rw-r-- 1 xuandong xuandong  218 Aug 28 15:26 policy.json
+# Input, objective and interface
+
+`input/manifest.json` lists independent case directories. At replay, only one
+case directory is mounted at `/input`; it contains `case.json` and `arrays.npz`.
+Use `Atlas.load(directory)` from `atlas.py`. The module is importable in replay.
+All needed constraints, energies, guide data, flux targets and baseline choices
+are included in the received case. Do not assume filenames identify answers.
+
+There are four scenarios, four candidates per vertex, rank two and ambient
+dimension six. Grids are 8 by 8 or 9 by 8, with vertex `y*nx+x`. Candidates are
+independently permuted at each vertex. Metadata holds integer budget, anchors
+mapping vertex strings to candidate indices, scenario loss weights in the order
+energy/overlap/dispersion/flux, positive normalizers and scenario weights,
+integer target Chern numbers, and all numerical tolerances.
+
+NPZ arrays (no pickle): `frames[S,V,C,6,2]` complex full-rank frames;
+`energies[S,V,C,2]` sorted spectral multisets; `guide[S,V,2]` sorted guides;
+`target_flux[S,V]` oriented plaquette flux; `costs[V,C]` integer acquisitions;
+`seed_choices[V]` and `baseline_choices[V]` feasible integer atlases. Costs are
+paid once per vertex, not once per scenario. Energies belong to a subspace as
+an unordered multiset, not to specific columns of its arbitrary basis.
+
+Orthonormalize each frame within its column space, `Q=F(F*F)^(-1/2)`.
+For each directed +x and +y edge, including wrap edges, let `A=Q_u*Q_v`.
+The edge losses are `-log(max(abs(det(A))**2,1e-30))` and the mean squared
+energy difference. Each counterclockwise plaquette has ordered corners
+`(x,y),(x+1,y),(x+1,y+1),(x,y+1)` modulo the grid. Its flux is the principal
+argument of the determinant of the product of its four overlap matrices.
+Flux discrepancy is the squared principal wrapped difference from target flux.
+Vertex loss is mean squared energy difference from its guide.
+
+Sum the four component losses over vertices/edges/plaquettes with the supplied
+scenario weights to obtain `L_s`. Put `r_s=L_s/normalizer_s` and minimize
+`J=max(r_s)+lambda_mean*sum(weight_s*r_s)/sum(weight_s)`.
+Normalizers are frozen raw losses of the initial feasible acquisition atlas,
+not fitted to submissions. The frozen baseline is deterministic feasible
+best-improvement single-site descent, provided with its objective `J_base`.
+
+Feasibility requires cost <= budget, every anchor, every selected edge
+determinant magnitude >= `minimum_link`, and every flux at least `branch_margin`
+from the principal-argument cut. In every scenario, `sum(flux)/(2*pi)` must
+match `target_chern` within `chern_tolerance`. These are lattice Chern numbers
+of the rank-two determinant bundle, not individual eigenvector phases.
+
+Case gain is `1-J/J_base`. Family scores are mean case gain. The overall
+score is the unweighted mean of family scores. Every case must be feasible
+and have nonnegative gain; every family mean must be >= 0.08; overall >= 0.12.
+There is no exact-answer comparison or tie-breaking requirement. Runtime,
+startup, input loading and preprocessing count toward each 90-second limit.
+The trusted evaluator recomputes all numbers; claimed metrics are not accepted.
+
+Reports expose `core_score` (family-balanced gain), `worst_family_score`
+(minimum family mean gain), `runtime_seconds` (sum of measured case wall times),
+`resource_score` and its alias `runtime_resource_score` (fraction of executions
+finishing successfully within the enforced resource envelope), and `reason`.
+Gain scores are fractions, higher is better; zero is the frozen baseline.
+
+# Physical scope
+
+Families are gap/curvature hotspots, proximity to a band inversion, anisotropic
+warping, and competing strain scenarios. Cases use lattice-regularized two-level
+Dirac blocks plus a trivial occupied band and remote orbitals. Acquisition
+candidates model imperfect spectral windows through subspace mixing and leakage;
+one competing branch can alter topology. The same candidate index is selected
+across all scenarios. These are synthetic downstream band-atlas instances, not
+literal Kane-model outputs or a semiconductor parameter-fit benchmark. A nonzero
+Chern class obstructs a globally smooth periodic frame; this task deliberately
+asks only for local subspaces and gauge-invariant links.
+{
+  "policy_version": 1,
+  "frozen": true,
+  "mean_gain_min": 0.12,
+  "worst_family_gain_min": 0.08,
+  "minimum_case_gain": 0.0,
+  "wall_seconds_per_case": 90,
+  "cpu_threads": 4,
+  "address_space_bytes": 2147483648
+}
+import argparse
+import json
+import sys
+from pathlib import Path
+
+workspace = Path(__file__).resolve().parents[1] / 'workspace'
+if workspace.is_dir():
+    sys.path.insert(0, str(workspace))
+
+from atlas import Atlas, single_descent
+
+
+def solve(directory):
+    atlas = Atlas.load(directory)
+    return single_descent(atlas, atlas.seed)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', required=True)
+    parser.add_argument('--output', required=True)
+    arguments = parser.parse_args()
+    choices = solve(arguments.input)
+    Path(arguments.output).write_text(json.dumps({'choices': choices.tolist()}) + '\n')
+
+
+if __name__ == '__main__':
+    main()
+input/manifest.json
+input/scenario_competition_0/arrays.npz
+input/scenario_competition_0/case.json
+input/anisotropic_warping_0/arrays.npz
+input/anisotropic_warping_0/case.json
+input/inversion_proximity_0/arrays.npz
+input/inversion_proximity_0/case.json
+input/gap_hotspots_0/arrays.npz
+input/gap_hotspots_0/case.json
+
+exec
+/bin/bash -c 'cat workspace/atlas.py; cat input/manifest.json; for file in input/*/case.json; do echo "$file"; cat "$file"; done; ls -la /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1; command -v apply_patch; command -v g++; python3 -c "import numpy, scipy; print(numpy.__version__,scipy.__version__)"' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant
+**Evaluating time execution**
+
+It seems the time tool execution is experiencing some weird delays, possibly around 20 seconds, likely due to hosting issues. I have about an hour to work with, so I want to ensure I'm being efficient. I'll consider using compiled optimization, perhaps through SciPy's MILP, and I'll need to inspect all the tables for pair or quad losses. I should make sure to tackle this systematically!
+ succeeded in 42998ms:
+import json
+from pathlib import Path
+
+import numpy as np
+
+
+def wrap_phase(value):
+    return (value + np.pi) % (2 * np.pi) - np.pi
+
+
+def orthonormalize(frames):
+    gram = frames.conj().swapaxes(-1, -2) @ frames
+    eigenvalues, eigenvectors = np.linalg.eigh(gram)
+    if np.any(eigenvalues < 1e-12):
+        raise ValueError('rank-deficient input frame')
+    inverse_root = (eigenvectors / np.sqrt(eigenvalues)[..., None, :]) @ eigenvectors.conj().swapaxes(-1, -2)
+    return frames @ inverse_root
+
+
+def torus(nx, ny):
+    vertex = np.arange(nx * ny)
+    right = (vertex // nx) * nx + (vertex % nx + 1) % nx
+    up = ((vertex // nx + 1) % ny) * nx + vertex % nx
+    edges = np.stack((np.repeat(vertex, 2), np.stack((right, up), axis=1).ravel()), axis=1)
+    plaquettes = np.stack((vertex, right, up[right], up), axis=1)
+    return edges, plaquettes
+
+
+class Atlas:
+    def __init__(self, metadata, arrays):
+        self.metadata = metadata
+        self.frames = np.asarray(arrays['frames'], dtype=np.complex128)
+        self.energies = np.asarray(arrays['energies'], dtype=float)
+        self.costs = np.asarray(arrays['costs'], dtype=np.int64)
+        self.scenarios, self.vertices, self.candidates, self.dimension, self.rank = self.frames.shape
+        self.edges, self.plaquettes = torus(metadata['nx'], metadata['ny'])
+        if self.rank != 2 or self.vertices != metadata['nx'] * metadata['ny']:
+            raise ValueError('inconsistent rank or torus size')
+        self.budget = int(metadata['budget'])
+        self.seed = np.asarray(arrays['seed_choices'], dtype=np.int64)
+        self.anchors = {int(vertex): int(choice) for vertex, choice in metadata['anchors'].items()}
+        self.normalizers = np.array([row['normalizer'] for row in metadata['scenarios']])
+        self.weights = np.array([row['weight'] for row in metadata['scenarios']])
+        self.targets = np.array([row['target_chern'] for row in metadata['scenarios']])
+        self.loss_weights = np.array([row['loss_weights'] for row in metadata['scenarios']])
+        self.mean_weight = float(metadata['lambda_mean'])
+        self.minimum_link = float(metadata['minimum_link'])
+        self.branch_margin = float(metadata['branch_margin'])
+        self.chern_tolerance = float(metadata['chern_tolerance'])
+        if not np.all(np.isfinite(self.frames)) or np.any(self.normalizers <= 0):
+            raise ValueError('invalid numerical input')
+        self.bases = orthonormalize(self.frames)
+        source, destination = self.edges.T
+        products = np.einsum('seadi,sebdj->seabij', self.bases[:, source].conj(), self.bases[:, destination], optimize=True)
+        determinants = np.linalg.det(products)
+        self.link_magnitude = np.abs(determinants)
+        overlap = -np.log(np.maximum(self.link_magnitude ** 2, 1e-30))
+        dispersion = np.mean((self.energies[:, source, :, None] - self.energies[:, destination, None, :]) ** 2, axis=-1)
+        unary = np.mean((self.energies - np.asarray(arrays['guide'])[:, :, None]) ** 2, axis=-1)
+        horizontal = np.angle(determinants[:, 0::2])
+        vertical = np.angle(determinants[:, 1::2])
+        right, up = self.plaquettes[:, 1], self.plaquettes[:, 3]
+        self.flux = wrap_phase(horizontal[:, :, :, :, None, None]
+                               + vertical[:, right][:, :, None, :, :, None]
+                               - horizontal[:, up].swapaxes(-1, -2)[:, :, None, None, :, :]
+                               - vertical[:, :, :, None, None, :])
+        flux_error = wrap_phase(self.flux - np.asarray(arrays['target_flux'])[:, :, None, None, None, None]) ** 2
+        self.unary = self.loss_weights[:, 0, None, None] * unary
+        self.pair = self.loss_weights[:, 1, None, None, None] * overlap + self.loss_weights[:, 2, None, None, None] * dispersion
+        self.face = self.loss_weights[:, 3, None, None, None, None, None] * flux_error
+
+    @classmethod
+    def load(cls, directory):
+        directory = Path(directory)
+        metadata = json.loads((directory / 'case.json').read_text())
+        with np.load(directory / 'arrays.npz', allow_pickle=False) as archive:
+            arrays = {name: archive[name] for name in archive.files}
+        return cls(metadata, arrays)
+
+    def evaluate_many(self, choices):
+        choices = np.asarray(choices)
+        if choices.ndim != 2 or choices.shape[1] != self.vertices or choices.dtype.kind not in 'iu':
+            raise ValueError('choices must be a batch of integer vectors')
+        if np.any(choices < 0) or np.any(choices >= self.candidates):
+            raise ValueError('candidate out of range')
+        vertices = np.arange(self.vertices)
+        edge_indices = np.arange(len(self.edges))
+        source, destination = self.edges.T
+        selected_flux = self.flux[:, vertices, choices[:, self.plaquettes[:, 0]], choices[:, self.plaquettes[:, 1]], choices[:, self.plaquettes[:, 2]], choices[:, self.plaquettes[:, 3]]]
+        losses = self.unary[:, vertices, choices].sum(axis=-1)
+        losses += self.pair[:, edge_indices, choices[:, source], choices[:, destination]].sum(axis=-1)
+        losses += self.face[:, vertices, choices[:, self.plaquettes[:, 0]], choices[:, self.plaquettes[:, 1]], choices[:, self.plaquettes[:, 2]], choices[:, self.plaquettes[:, 3]]].sum(axis=-1)
+        normalized = losses / self.normalizers[:, None]
+        objective = normalized.max(axis=0) + self.mean_weight * (self.weights @ normalized) / self.weights.sum()
+        chern = selected_flux.sum(axis=-1) / (2 * np.pi)
+        cost = self.costs[vertices, choices].sum(axis=-1)
+        link_min = self.link_magnitude[:, edge_indices, choices[:, source], choices[:, destination]].min(axis=(0, 2))
+        margin = np.pi - np.abs(selected_flux).max(axis=(0, 2))
+        topology_error = np.abs(chern - self.targets[:, None]).max(axis=0)
+        feasible = (cost <= self.budget) & (topology_error <= self.chern_tolerance) & (link_min >= self.minimum_link) & (margin >= self.branch_margin)
+        for vertex, choice in self.anchors.items():
+            feasible &= choices[:, vertex] == choice
+        return {'objective': objective, 'raw_loss': losses.T, 'normalized_loss': normalized.T,
+                'chern': chern.T, 'cost': cost, 'minimum_link': link_min,
+                'branch_margin': margin, 'topology_error': topology_error, 'feasible': feasible}
+
+    def score(self, choices):
+        result = self.evaluate_many(np.asarray(choices, dtype=np.int64)[None])
+        return {key: value[0].tolist() for key, value in result.items()}
+
+
+def single_descent(atlas, initial):
+    choices = np.array(initial, dtype=np.int64).copy()
+    current = atlas.score(choices)
+    if not current['feasible']:
+        raise ValueError('descent requires a feasible start')
+    vertices = np.array([vertex for vertex in range(atlas.vertices) if vertex not in atlas.anchors])
+    move_vertices = np.repeat(vertices, atlas.candidates)
+    move_choices = np.tile(np.arange(atlas.candidates), len(vertices))
+    for iteration in range(4 * atlas.vertices):
+        neighbors = np.tile(choices, (len(move_vertices), 1))
+        neighbors[np.arange(len(neighbors)), move_vertices] = move_choices
+        values = atlas.evaluate_many(neighbors)
+        objective = np.where(values['feasible'], values['objective'], np.inf)
+        selected = int(np.argmin(objective))
+        if objective[selected] >= current['objective'] - 1e-12:
+            break
+        choices = neighbors[selected].copy()
+        current = atlas.score(choices)
+    return choices
+{
+  "cases": [
+    {
+      "id": "gap_hotspots_0",
+      "family": "gap_hotspots",
+      "directory": "gap_hotspots_0"
+    },
+    {
+      "id": "inversion_proximity_0",
+      "family": "inversion_proximity",
+      "directory": "inversion_proximity_0"
+    },
+    {
+      "id": "anisotropic_warping_0",
+      "family": "anisotropic_warping",
+      "directory": "anisotropic_warping_0"
+    },
+    {
+      "id": "scenario_competition_0",
+      "family": "scenario_competition",
+      "directory": "scenario_competition_0"
+    }
+  ]
+}
+input/anisotropic_warping_0/case.json
+{
+  "schema_version": 1,
+  "family": "anisotropic_warping",
+  "nx": 8,
+  "ny": 8,
+  "rank": 2,
+  "ambient_dimension": 6,
+  "candidates": 4,
+  "budget": 96,
+  "anchors": {
+    "0": 1,
+    "32": 0
+  },
+  "scenarios": [
+    {
+      "id": "strain_0",
+      "weight": 1.0,
+      "normalizer": 18.314639752404716,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_1",
+      "weight": 1.4,
+      "normalizer": 17.904562513133758,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_2",
+      "weight": 1.2,
+      "normalizer": 18.46873901923657,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_3",
+      "weight": 1.0,
+      "normalizer": 18.556505978122544,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    }
+  ],
+  "lambda_mean": 0.25,
+  "minimum_link": 1e-06,
+  "branch_margin": 1e-05,
+  "chern_tolerance": 5e-07,
+  "parameters": {
+    "mass": -1.05,
+    "uncertainty": 0.12,
+    "anisotropy": 1.45,
+    "warp": 0.13,
+    "shift_x": 0.1591806255774875,
+    "shift_y": 0.07433109129682745
+  },
+  "baseline_objective": 0.6865244015525833,
+  "baseline_algorithm": "feasible best-improvement single-site descent from seed_choices",
+  "case_id": "anisotropic_warping_0"
+}
+input/gap_hotspots_0/case.json
+{
+  "schema_version": 1,
+  "family": "gap_hotspots",
+  "nx": 8,
+  "ny": 8,
+  "rank": 2,
+  "ambient_dimension": 6,
+  "candidates": 4,
+  "budget": 96,
+  "anchors": {
+    "0": 2,
+    "32": 0
+  },
+  "scenarios": [
+    {
+      "id": "strain_0",
+      "weight": 1.0,
+      "normalizer": 15.859569642923615,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_1",
+      "weight": 1.4,
+      "normalizer": 17.590925189557616,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_2",
+      "weight": 1.2,
+      "normalizer": 16.643759366549265,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_3",
+      "weight": 1.0,
+      "normalizer": 15.511370529609675,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    }
+  ],
+  "lambda_mean": 0.25,
+  "minimum_link": 1e-06,
+  "branch_margin": 1e-05,
+  "chern_tolerance": 5e-07,
+  "parameters": {
+    "mass": -1.48,
+    "uncertainty": 0.1,
+    "anisotropy": 1.0,
+    "warp": 0.0,
+    "shift_x": 0.0996662164735917,
+    "shift_y": 0.17393117781206702
+  },
+  "baseline_objective": 0.7280240734709607,
+  "baseline_algorithm": "feasible best-improvement single-site descent from seed_choices",
+  "case_id": "gap_hotspots_0"
+}
+input/inversion_proximity_0/case.json
+{
+  "schema_version": 1,
+  "family": "inversion_proximity",
+  "nx": 8,
+  "ny": 8,
+  "rank": 2,
+  "ambient_dimension": 6,
+  "candidates": 4,
+  "budget": 96,
+  "anchors": {
+    "0": 3,
+    "32": 3
+  },
+  "scenarios": [
+    {
+      "id": "strain_0",
+      "weight": 1.0,
+      "normalizer": 20.63597731513959,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_1",
+      "weight": 1.4,
+      "normalizer": 20.458644334861212,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_2",
+      "weight": 1.2,
+      "normalizer": 20.092196119672302,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_3",
+      "weight": 1.0,
+      "normalizer": 21.921057313345578,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    }
+  ],
+  "lambda_mean": 0.25,
+  "minimum_link": 1e-06,
+  "branch_margin": 1e-05,
+  "chern_tolerance": 5e-07,
+  "parameters": {
+    "mass": -0.48,
+    "uncertainty": 0.12,
+    "anisotropy": 1.0,
+    "warp": 0.0,
+    "shift_x": 0.1634107925262667,
+    "shift_y": 0.16847210794534712
+  },
+  "baseline_objective": 0.7228605988976645,
+  "baseline_algorithm": "feasible best-improvement single-site descent from seed_choices",
+  "case_id": "inversion_proximity_0"
+}
+input/scenario_competition_0/case.json
+{
+  "schema_version": 1,
+  "family": "scenario_competition",
+  "nx": 8,
+  "ny": 8,
+  "rank": 2,
+  "ambient_dimension": 6,
+  "candidates": 4,
+  "budget": 96,
+  "anchors": {
+    "0": 2,
+    "32": 0
+  },
+  "scenarios": [
+    {
+      "id": "strain_0",
+      "weight": 1.0,
+      "normalizer": 18.985606881598656,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_1",
+      "weight": 1.4,
+      "normalizer": 18.91814798131569,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_2",
+      "weight": 1.2,
+      "normalizer": 18.880616810856747,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_3",
+      "weight": 1.0,
+      "normalizer": 18.456822062086818,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    }
+  ],
+  "lambda_mean": 0.25,
+  "minimum_link": 1e-06,
+  "branch_margin": 1e-05,
+  "chern_tolerance": 5e-07,
+  "parameters": {
+    "mass": -1.15,
+    "uncertainty": 0.32,
+    "anisotropy": 1.15,
+    "warp": 0.0,
+    "shift_x": 0.09687027839696605,
+    "shift_y": 0.2361464495600344
+  },
+  "baseline_objective": 0.7690783488088919,
+  "baseline_algorithm": "feasible best-improvement single-site descent from seed_choices",
+  "case_id": "scenario_competition_0"
+}
+total 4
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 15:32 .
+drwx------ 3 xuandong xuandong   60 Aug 28 15:32 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 15:32 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 15:32 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 15:32 .git
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/authoring/runtime_homes/fresh-3c2h_74u/tmp/arg0/codex-arg0dhPSTI/apply_patch
+/usr/bin/g++
+1.21.5 1.8.0
+
+exec
+/bin/bash -c "sed -n '100,240p' workspace/atlas.py; cat input/manifest.json; cat input/anisotropic_warping_0/case.json; printenv | sort | rg 'THREAD|PATH|HOME'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant
+ exited 127 in 37859ms:
+        feasible = (cost <= self.budget) & (topology_error <= self.chern_tolerance) & (link_min >= self.minimum_link) & (margin >= self.branch_margin)
+        for vertex, choice in self.anchors.items():
+            feasible &= choices[:, vertex] == choice
+        return {'objective': objective, 'raw_loss': losses.T, 'normalized_loss': normalized.T,
+                'chern': chern.T, 'cost': cost, 'minimum_link': link_min,
+                'branch_margin': margin, 'topology_error': topology_error, 'feasible': feasible}
+
+    def score(self, choices):
+        result = self.evaluate_many(np.asarray(choices, dtype=np.int64)[None])
+        return {key: value[0].tolist() for key, value in result.items()}
+
+
+def single_descent(atlas, initial):
+    choices = np.array(initial, dtype=np.int64).copy()
+    current = atlas.score(choices)
+    if not current['feasible']:
+        raise ValueError('descent requires a feasible start')
+    vertices = np.array([vertex for vertex in range(atlas.vertices) if vertex not in atlas.anchors])
+    move_vertices = np.repeat(vertices, atlas.candidates)
+    move_choices = np.tile(np.arange(atlas.candidates), len(vertices))
+    for iteration in range(4 * atlas.vertices):
+        neighbors = np.tile(choices, (len(move_vertices), 1))
+        neighbors[np.arange(len(neighbors)), move_vertices] = move_choices
+        values = atlas.evaluate_many(neighbors)
+        objective = np.where(values['feasible'], values['objective'], np.inf)
+        selected = int(np.argmin(objective))
+        if objective[selected] >= current['objective'] - 1e-12:
+            break
+        choices = neighbors[selected].copy()
+        current = atlas.score(choices)
+    return choices
+{
+  "cases": [
+    {
+      "id": "gap_hotspots_0",
+      "family": "gap_hotspots",
+      "directory": "gap_hotspots_0"
+    },
+    {
+      "id": "inversion_proximity_0",
+      "family": "inversion_proximity",
+      "directory": "inversion_proximity_0"
+    },
+    {
+      "id": "anisotropic_warping_0",
+      "family": "anisotropic_warping",
+      "directory": "anisotropic_warping_0"
+    },
+    {
+      "id": "scenario_competition_0",
+      "family": "scenario_competition",
+      "directory": "scenario_competition_0"
+    }
+  ]
+}
+{
+  "schema_version": 1,
+  "family": "anisotropic_warping",
+  "nx": 8,
+  "ny": 8,
+  "rank": 2,
+  "ambient_dimension": 6,
+  "candidates": 4,
+  "budget": 96,
+  "anchors": {
+    "0": 1,
+    "32": 0
+  },
+  "scenarios": [
+    {
+      "id": "strain_0",
+      "weight": 1.0,
+      "normalizer": 18.314639752404716,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_1",
+      "weight": 1.4,
+      "normalizer": 17.904562513133758,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_2",
+      "weight": 1.2,
+      "normalizer": 18.46873901923657,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    },
+    {
+      "id": "strain_3",
+      "weight": 1.0,
+      "normalizer": 18.556505978122544,
+      "target_chern": -1,
+      "loss_weights": [
+        0.7,
+        0.32,
+        0.055,
+        0.55
+      ]
+    }
+  ],
+  "lambda_mean": 0.25,
+  "minimum_link": 1e-06,
+  "branch_margin": 1e-05,
+  "chern_tolerance": 5e-07,
+  "parameters": {
+    "mass": -1.05,
+    "uncertainty": 0.12,
+    "anisotropy": 1.45,
+    "warp": 0.13,
+    "shift_x": 0.1591806255774875,
+    "shift_y": 0.07433109129682745
+  },
+  "baseline_objective": 0.6865244015525833,
+  "baseline_algorithm": "feasible best-improvement single-site descent from seed_choices",
+  "case_id": "anisotropic_warping_0"
+}
+/bin/bash: line 1: rg: command not found
+sort: write failed: 'standard output': Broken pipe
+sort: write error
+
+codex
+Budget-blocked single-site moves look limiting. I’ll add coordinated swaps.
+
+The baseline only changes one vertex at a time. Joint cost-balanced moves can escape its budget and topology barriers while retaining the supplied feasible fallback.
+  ✓ Inspect schema, baseline, and public cases
+  → Develop topology-safe robust optimization
+  • Benchmark and refine across case families
+  • Validate and package final solver
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/solve.py
++import os
++import time
++
++STARTED = time.monotonic()
++for name in ('OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS', 'OMP_NUM_THREADS'):
++    os.environ[name] = '1'
++
++import argparse
++import ctypes
++import json
++import sys
++from pathlib import Path
++
++import numpy as np
++
++
++def solve(directory):
++    directory = Path(directory).resolve()
++    for location in (directory.parent.parent / 'workspace',
++                     Path(__file__).resolve().parents[2] / 'participant' / 'workspace',
++                     Path('/workspace')):
++        if location.is_dir():
++            sys.path.insert(0, str(location))
++    from atlas import Atlas
++
++    atlas = Atlas.load(directory)
++    with np.load(directory / 'arrays.npz', allow_pickle=False) as archive:
++        baseline = np.asarray(archive['baseline_choices'], dtype=np.int32)
++    vertices = atlas.vertices
++    widths = np.array([1] * vertices + [2] * len(atlas.edges) +
++                      [4] * len(atlas.plaquettes), dtype=np.int32)
++    members = np.full((len(widths), 4), -1, dtype=np.int32)
++    members[:vertices, 0] = np.arange(vertices)
++    members[vertices:vertices + len(atlas.edges), :2] = atlas.edges
++    members[vertices + len(atlas.edges):] = atlas.plaquettes
++    values = []
++    for losses, flux, invalid in (
++        (atlas.unary, None, None),
++        (atlas.pair, None, np.any(atlas.link_magnitude < atlas.minimum_link, axis=0)),
++        (atlas.face, atlas.flux,
++         np.any(np.pi - np.abs(atlas.flux) < atlas.branch_margin, axis=0)),
++    ):
++        normalized = losses / atlas.normalizers.reshape((-1,) + (1,) * (losses.ndim - 1))
++        flat = np.moveaxis(normalized, 0, -1).reshape(-1, 4)
++        table = np.zeros((len(flat), 9), dtype=np.float64)
++        table[:, :4] = flat
++        if flux is not None:
++            table[:, 4:8] = np.moveaxis(flux, 0, -1).reshape(-1, 4)
++        if invalid is not None:
++            table[:, 8] = invalid.reshape(-1)
++        values.append(table)
++    tables = np.ascontiguousarray(np.concatenate(values))
++    costs = np.ascontiguousarray(atlas.costs, dtype=np.int32)
++    anchors = np.full(vertices, -1, dtype=np.int32)
++    for vertex, choice in atlas.anchors.items():
++        anchors[vertex] = choice
++    weights = np.ascontiguousarray(atlas.mean_weight * atlas.weights / atlas.weights.sum())
++    answer = baseline.copy()
++    library = ctypes.CDLL(str(Path(__file__).with_name('optimizer.so')))
++    integer_pointer = ctypes.POINTER(ctypes.c_int)
++    double_pointer = ctypes.POINTER(ctypes.c_double)
++    library.optimize.argtypes = [ctypes.c_int, ctypes.c_int, integer_pointer,
++                                 integer_pointer, double_pointer, integer_pointer,
++                                 integer_pointer, integer_pointer, double_pointer,
++                                 ctypes.c_int, ctypes.c_double, ctypes.c_uint64,
++                                 integer_pointer]
++    seconds = max(0.01, float(os.environ.get('ATLAS_SECONDS', '78')) - (time.monotonic() - STARTED))
++    library.optimize(vertices, len(widths), widths.ctypes.data_as(integer_pointer),
++                     members.ctypes.data_as(integer_pointer), tables.ctypes.data_as(double_pointer),
++                     costs.ctypes.data_as(integer_pointer), anchors.ctypes.data_as(integer_pointer),
++                     baseline.ctypes.data_as(integer_pointer), weights.ctypes.data_as(double_pointer),
++                     atlas.budget, seconds, int(os.environ.get('ATLAS_SEED', '81473')),
++                     answer.ctypes.data_as(integer_pointer))
++    result = atlas.score(answer)
++    if not result['feasible'] or result['objective'] > atlas.score(baseline)['objective'] + 1e-12:
++        answer = baseline
++    return answer
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--input', required=True)
++    parser.add_argument('--output', required=True)
++    arguments = parser.parse_args()
++    choices = solve(arguments.input)
++    Path(arguments.output).write_text(json.dumps({'choices': choices.tolist()}) + '\\n')
++
++
++if __name__ == '__main__':
++    main()
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/optimizer.cpp
++#include <algorithm>
++#include <array>
++#include <chrono>
++#include <cmath>
++#include <cstdint>
++#include <cstdio>
++#include <cstdlib>
++#include <random>
++#include <vector>
++
++using Clock = std::chrono::steady_clock;
++constexpr int MAX_VERTICES = 80;
++
++struct Entry {
++    double loss[4];
++    double flux[4];
++    double invalid;
++};
++
++struct Delta {
++    double loss[4] = {};
++    double flux[4] = {};
++    double invalid = 0;
++    int cost = 0;
++    void add(const Entry& newer, const Entry& older) {
++        for (int scenario = 0; scenario < 4; ++scenario) {
++            loss[scenario] += newer.loss[scenario] - older.loss[scenario];
++            flux[scenario] += newer.flux[scenario] - older.flux[scenario];
++        }
++        invalid += newer.invalid - older.invalid;
++    }
++};
++
++struct Factor {
++    int width;
++    int members[4];
++    int strides[4];
++    const Entry* table;
++};
++
++struct Incidence {
++    int factor;
++    int stride;
++};
++
++struct Shared {
++    int factor;
++    int first_stride;
++    int second_stride;
++};
++
++struct State {
++    std::array<int, MAX_VERTICES> choices{};
++    std::vector<int> indices;
++    double loss[4] = {};
++    int cost = 0;
++    double objective = 0;
++};
++
++class Optimizer {
++public:
++    int vertices;
++    int budget;
++    const int* costs;
++    const int* anchors;
++    const double* weights;
++    std::vector<Factor> factors;
++    std::vector<Incidence> incident[MAX_VERTICES];
++    std::vector<Shared> shared[MAX_VERTICES][MAX_VERTICES];
++    std::vector<int> free_vertices;
++    std::mt19937_64 random;
++    Clock::time_point deadline;
++    State best;
++    long long descents = 0;
++    long long evaluations = 0;
++
++    Optimizer(int vertex_count, int factor_count, const int* widths, const int* members,
++              const double* tables, const int* acquisition, const int* fixed,
++              const double* mean_weights, int limit, double seconds, uint64_t seed)
++        : vertices(vertex_count), budget(limit), costs(acquisition), anchors(fixed),
++          weights(mean_weights), random(seed) {
++        deadline = Clock::now() + std::chrono::duration_cast<Clock::duration>(std::chrono::duration<double>(seconds));
++        const Entry* cursor = reinterpret_cast<const Entry*>(tables);
++        for (int factor_index = 0; factor_index < factor_count; ++factor_index) {
++            Factor factor;
++            factor.width = widths[factor_index];
++            factor.table = cursor;
++            int states = 1;
++            for (int position = factor.width - 1; position >= 0; --position) {
++                factor.members[position] = members[4 * factor_index + position];
++                factor.strides[position] = states;
++                states *= 4;
++                incident[factor.members[position]].push_back({factor_index, factor.strides[position]});
++            }
++            for (int first = 0; first < factor.width; ++first) {
++                for (int second = first + 1; second < factor.width; ++second) {
++                    int left = factor.members[first];
++                    int right = factor.members[second];
++                    shared[left][right].push_back({factor_index, factor.strides[first], factor.strides[second]});
++                    shared[right][left].push_back({factor_index, factor.strides[second], factor.strides[first]});
++                }
++            }
++            factors.push_back(factor);
++            cursor += states;
++        }
++        for (int vertex = 0; vertex < vertices; ++vertex) {
++            if (anchors[vertex] < 0) free_vertices.push_back(vertex);
++        }
++    }
++
++    bool expired() const { return Clock::now() >= deadline; }
++
++    double objective(const double* loss) const {
++        double maximum = loss[0];
++        double mean = 0;
++        for (int scenario = 0; scenario < 4; ++scenario) {
++            maximum = std::max(maximum, loss[scenario]);
++            mean += weights[scenario] * loss[scenario];
++        }
++        return maximum + mean;
++    }
++
++    State initialize(const int* choices) const {
++        State state;
++        state.indices.resize(factors.size());
++        for (int vertex = 0; vertex < vertices; ++vertex) {
++            state.choices[vertex] = choices[vertex];
++            state.cost += costs[4 * vertex + choices[vertex]];
++        }
++        for (size_t factor_index = 0; factor_index < factors.size(); ++factor_index) {
++            const Factor& factor = factors[factor_index];
++            int index = 0;
++            for (int position = 0; position < factor.width; ++position)
++                index += factor.strides[position] * choices[factor.members[position]];
++            state.indices[factor_index] = index;
++            for (int scenario = 0; scenario < 4; ++scenario)
++                state.loss[scenario] += factor.table[index].loss[scenario];
++        }
++        state.objective = objective(state.loss);
++        return state;
++    }
++
++    Delta single(const State& state, int vertex, int choice) const {
++        Delta delta;
++        int change = choice - state.choices[vertex];
++        delta.cost = costs[4 * vertex + choice] - costs[4 * vertex + state.choices[vertex]];
++        for (const Incidence& item : incident[vertex]) {
++            const Factor& factor = factors[item.factor];
++            int index = state.indices[item.factor];
++            delta.add(factor.table[index + change * item.stride], factor.table[index]);
++        }
++        return delta;
++    }
++
++    Delta combine(const State& state, int first, int first_choice, const Delta& left,
++                  int second, int second_choice, const Delta& right) const {
++        Delta delta;
++        for (int scenario = 0; scenario < 4; ++scenario) {
++            delta.loss[scenario] = left.loss[scenario] + right.loss[scenario];
++            delta.flux[scenario] = left.flux[scenario] + right.flux[scenario];
++        }
++        delta.cost = left.cost + right.cost;
++        delta.invalid = left.invalid + right.invalid;
++        for (const Shared& item : shared[first][second]) {
++            const Entry* table = factors[item.factor].table;
++            int index = state.indices[item.factor];
++            int left_step = (first_choice - state.choices[first]) * item.first_stride;
++            int right_step = (second_choice - state.choices[second]) * item.second_stride;
++            delta.add(table[index + left_step + right_step], table[index + left_step]);
++            delta.add(table[index], table[index + right_step]);
++        }
++        return delta;
++    }
++
++    bool feasible(const State& state, const Delta& delta) const {
++        if (state.cost + delta.cost > budget || delta.invalid > 0.5) return false;
++        for (int scenario = 0; scenario < 4; ++scenario)
++            if (std::abs(delta.flux[scenario]) > 1e-6) return false;
++        return true;
++    }
++
++    double trial(const State& state, const Delta& delta) const {
++        double losses[4];
++        for (int scenario = 0; scenario < 4; ++scenario)
++            losses[scenario] = state.loss[scenario] + delta.loss[scenario];
++        return objective(losses);
++    }
++
++    void change(State& state, int vertex, int choice) const {
++        int difference = choice - state.choices[vertex];
++        for (const Incidence& item : incident[vertex]) state.indices[item.factor] += difference * item.stride;
++        state.choices[vertex] = choice;
++    }
++
++    void apply(State& state, int first, int first_choice, int second, int second_choice, const Delta& delta) {
++        change(state, first, first_choice);
++        if (second >= 0) change(state, second, second_choice);
++        state.cost += delta.cost;
++        for (int scenario = 0; scenario < 4; ++scenario) state.loss[scenario] += delta.loss[scenario];
++        state.objective = objective(state.loss);
++        if (state.objective < best.objective - 1e-12) best = state;
++    }
++
++    void descent(State& state) {
++        ++descents;
++        Delta moves[MAX_VERTICES][4];
++        while ("'!expired()) {
++            int selected_first = -1, selected_second = -1;
++            int selected_first_choice = -1, selected_second_choice = -1;
++            Delta selected_delta;
++            double selected_objective = state.objective - 1e-12;
++            for (int vertex : free_vertices) {
++                for (int choice = 0; choice < 4; ++choice) {
++                    if (choice == state.choices[vertex]) continue;
++                    moves[vertex][choice] = single(state, vertex, choice);
++                    const Delta& delta = moves[vertex][choice];
++                    if (!feasible(state, delta)) continue;
++                    double value = trial(state, delta);
++                    if (value < selected_objective) {
++                        selected_objective = value;
++                        selected_first = vertex;
++                        selected_first_choice = choice;
++                        selected_second = -1;
++                        selected_delta = delta;
++                    }
++                }
++            }
++            for (size_t first_index = 0; first_index < free_vertices.size(); ++first_index) {
++                int first = free_vertices[first_index];
++                for (size_t second_index = first_index + 1; second_index < free_vertices.size(); ++second_index) {
++                    int second = free_vertices[second_index];
++                    for (int first_choice = 0; first_choice < 4; ++first_choice) {
++                        if (first_choice == state.choices[first]) continue;
++                        const Delta& left = moves[first][first_choice];
++                        for (int second_choice = 0; second_choice < 4; ++second_choice) {
++                            if (second_choice == state.choices[second]) continue;
++                            const Delta& right = moves[second][second_choice];
++                            if (state.cost + left.cost + right.cost > budget) continue;
++                            Delta delta = combine(state, first, first_choice, left, second, second_choice, right);
++                            if (!feasible(state, delta)) continue;
++                            double value = trial(state, delta);
++                            ++evaluations;
++                            if (value < selected_objective) {
++                                selected_objective = value;
++                                selected_first = first;
++                                selected_first_choice = first_choice;
++                                selected_second = second;
++                                selected_second_choice = second_choice;
++                                selected_delta = delta;
++                            }
++                        }
++                    }
++                }
++            }
++            if (selected_first < 0) return;
++            apply(state, selected_first, selected_first_choice, selected_second, selected_second_choice, selected_delta);
++        }
++    }
++
++    void perturb(State& state, int count, double temperature) {
++        int accepted = 0;
++        for (int attempt = 0; attempt < count * 100 && accepted < count; ++attempt) {
++            int first = free_vertices[random() % free_vertices.size()];
++            int first_choice = (state.choices[first] + 1 + random() % 3) % 4;
++            Delta delta = single(state, first, first_choice);
++            int second = -1;
++            int second_choice = -1;
++            if (random() % 4 != 0) {
++                second = free_vertices[random() % free_vertices.size()];
++                if (second == first) continue;
++                second_choice = (state.choices[second] + 1 + random() % 3) % 4;
++                Delta right = single(state, second, second_choice);
++                delta = combine(state, first, first_choice, delta, second, second_choice, right);
++            }
++            if (!feasible(state, delta)) continue;
++            double difference = trial(state, delta) - state.objective;
++            double uniform = (random() >> 11) * 0x1.0p-53;
++            if (difference > 0 && uniform > std::exp(-difference / temperature)) continue;
++            apply(state, first, first_choice, second, second_choice, delta);
++            ++accepted;
++        }
++    }
++
++    void run(const int* initial, int* output) {
++        best = initialize(initial);
++        State current = best;
++        descent(current);
++        long long iteration = 0;
++        while (!expired()) {
++            if (iteration % 4 == 0) current = best;
++            int strength = 3 + random() % 16;
++            double temperature = 0.003 * std::pow(2.0, static_cast<double>(random() % 5));
++            perturb(current, strength, temperature);
++            descent(current);
++            if (current.objective > best.objective + 0.025) current = best;
++            ++iteration;
++        }
++        for (int vertex = 0; vertex < vertices; ++vertex) output[vertex] = best.choices[vertex];
++        if (std::getenv("ATLAS_DEBUG"))
++            std::fprintf(stderr, "objective %.12f descents %lld evaluations %lld'"\\n\", best.objective, descents, evaluations);
++    }
++};
++
++extern \"C\" void optimize(int vertices, int factor_count, const int* widths, const int* members,
++                         const double* tables, const int* costs, const int* anchors,
++                         const int* initial, const double* weights, int budget,
++                         double seconds, uint64_t seed, int* output) {
++    Optimizer optimizer(vertices, factor_count, widths, members, tables, costs, anchors,
++                        weights, budget, seconds, seed);
++    optimizer.run(initial, output);
++}
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/benchmark.py
++import argparse
++import json
++import os
++import subprocess
++import sys
++import time
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[2] / 'participant'
++sys.path.insert(0, str(ROOT / 'workspace'))
++from atlas import Atlas
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--seconds', default='10')
++    parser.add_argument('--seed', default='81473')
++    arguments = parser.parse_args()
++    manifest = json.loads((ROOT / 'input' / 'manifest.json').read_text())
++    results = []
++    for case in manifest['cases']:
++        directory = ROOT / 'input' / case['directory']
++        output = Path(__file__).parent / (case['id'] + '.json')
++        environment = dict(os.environ, ATLAS_SECONDS=arguments.seconds,
++                           ATLAS_SEED=arguments.seed, ATLAS_DEBUG='1',
++                           OPENBLAS_NUM_THREADS='1', OMP_NUM_THREADS='1')
++        started = time.monotonic()
++        subprocess.run([sys.executable, str(Path(__file__).with_name('solve.py')),
++                        '--input', str(directory), '--output', str(output)],
++                       env=environment, check=True)
++        elapsed = time.monotonic() - started
++        atlas = Atlas.load(directory)
++        result = atlas.score(json.loads(output.read_text())['choices'])
++        result['gain'] = 1 - result['objective'] / atlas.metadata['baseline_objective']
++        result['case'] = case['id']
++        result['seconds'] = elapsed
++        results.append(result)
++        print(json.dumps(result), flush=True)
++    print('mean gain', sum(result['gain'] for result in results) / len(results), flush=True)
++
++
++if __name__ == '__main__':
++    main()
+*** End Patch
+PATCH
+g++ -std=c++17 -O3 -fPIC -shared optimizer.cpp -o optimizer.so
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 benchmark.py --seconds 10" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1
+**Investigating tool performance**
+
+I'm noticing that the tool exec commands are taking a really long time, and I wonder if something like logging in is causing delays. It seems like the dispatch time takes about 50 seconds to start compiling, plus there’s a large filesystem write? I’ve got enough time with 3600 seconds, but I'm still concerned about progress. I should try to run independent commands to inspect the stats, aiming for efficiency when analyzing baseline composition costs to find improvement opportunities. I’ll use a Python script for this without creating extra files. First, I need to establish a benchmark.
+**Considering optimization strategies**
+
+It looks like we're dealing with a gain gap around 7%, which might indicate that I need to implement more complex strategies. The descent rate seems significant at 10 seconds, which is pretty fast! I've got about 2,000 random restarts on my mind. The comparison between the global pairs at .676 and .728 is interesting, showing that reduction in families could be beneficial. Maybe we should explore topological alternatives as well. There’s still much to examine further!
+ succeeded in 102608ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/solve.py
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/optimizer.cpp
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/benchmark.py
+objective 0.676824830065 descents 5191 evaluations 244699965
+{"objective": 0.6768248300652837, "raw_loss": [8.151808169846086, 7.908664616478444, 8.21662828197553, 8.56942712460622], "normalized_loss": [0.5139993299555479, 0.4495877579635898, 0.4936762242843622, 0.5524609903585264], "chern": [-1.0, -0.9999999999999994, -1.0000000000000004, -0.9999999999999997], "cost": 96, "minimum_link": 0.4821609725430083, "branch_margin": 1.8018707313038362, "topology_error": 5.551115123125783e-16, "feasible": true, "gain": 0.07032630550467533, "case": "gap_hotspots_0", "seconds": 10.194190653041005}
+objective 0.617780254565 descents 4771 evaluations 171584451
+{"objective": 0.6177802545646659, "raw_loss": [9.755274664169393, 9.696249868219171, 9.978806232377467, 10.884839378322694], "normalized_loss": [0.472731410545428, 0.4739439089664857, 0.4966508475699778, 0.4965471885197793], "chern": [-1.0000000000000007, -1.0, -1.0, -1.0000000000000007], "cost": 96, "minimum_link": 0.585716751742395, "branch_margin": 2.063351364964606, "topology_error": 6.661338147750939e-16, "feasible": true, "gain": 0.14536737026923618, "case": "inversion_proximity_0", "seconds": 10.334890405996703}
+objective 0.646903484472 descents 5379 evaluations 225781941
+{"objective": 0.6469034844716789, "raw_loss": [9.319268476086215, 9.225264749342669, 9.546567737917561, 9.615475724743474], "normalized_loss": [0.5088425763254554, 0.515246588269082, 0.5169041442393062, 0.5181727495510079], "chern": [-0.9999999999999999, -0.9999999999999989, -1.0000000000000009, -0.9999999999999994], "cost": 96, "minimum_link": 0.5257025103737755, "branch_margin": 2.2435562993197404, "topology_error": 1.1102230246251565e-15, "feasible": true, "gain": 0.05771232164698192, "case": "anisotropic_warping_0", "seconds": 10.193529821000993}
+objective 0.744110765942 descents 6 evaluations 329802
+{"objective": 0.7441107659420766, "raw_loss": [10.324623305499944, 11.22065029733538, 11.291937591971648, 10.987043211995347], "normalized_loss": [0.5438131827909508, 0.5931156849189115, 0.5980703758300179, 0.5952835853884316], "chern": [-1.0000000000000007, -1.0000000000000002, -0.9999999999999994, -1.0000000000000004], "cost": 96, "minimum_link": 0.4150244932065992, "branch_margin": 1.7611873180551, "topology_error": 6.661338147750939e-16, "feasible": true, "gain": 0.032464290413953045, "case": "scenario_competition_0", "seconds": 18.829077963950112}
+mean gain 0.07646757195871162
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python3 - <<'PY'
+import sys,json,numpy as np
+from pathlib import Path
+root=Path('../../participant').resolve()
+sys.path.insert(0,str(root/'workspace'))
+from atlas import Atlas
+for path in sorted((root/'input').glob('*/case.json')):
+    atlas=Atlas.load(path.parent)
+    archive=np.load(path.parent/'arrays.npz')
+    result=np.array(json.loads(Path(path.parent.name+'.json').read_text())['choices']) if Path(path.parent.name+'.json').exists() else atlas.seed
+    print(path.parent.name)
+    print('cost pattern',np.unique(np.sort(atlas.costs,axis=1),axis=0))
+    for key,choice in [('seed',atlas.seed),('baseline',archive['baseline_choices']),('best',result)]:
+        energy=atlas.unary[:,np.arange(atlas.vertices),choice].sum(axis=1)
+        pair=atlas.pair[:,np.arange(len(atlas.edges)),choice[atlas.edges[:,0]],choice[atlas.edges[:,1]]].sum(axis=1)
+        face=atlas.face[:,np.arange(atlas.vertices),choice[atlas.plaquettes[:,0]],choice[atlas.plaquettes[:,1]],choice[atlas.plaquettes[:,2]],choice[atlas.plaquettes[:,3]]].sum(axis=1)
+        print(key,atlas.score(choice)['objective'],'cost counts',np.unique(atlas.costs[np.arange(atlas.vertices),choice],return_counts=True),'components',energy,pair,face)
+        print(atlas.costs[np.arange(atlas.vertices),choice].reshape(atlas.metadata['ny'],-1))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1
+**Evaluating optimization options**
+
+I’m getting a bit lost in the token budget details, trying to track changes from 50k to 35k and now 34k. I need to be careful here! There might be potential for using MILP global optimization with constraints, but it’s looking complicated. I wonder if it's feasible to use C++ for dynamic programming? Local neighborhood optimization on small patches might be a plan too, but I need to identify cost patterns. There's a lot to untangle here!
+ succeeded in 60379ms:
+anisotropic_warping_0
+cost pattern [[0 1 2 3]]
+seed 1.25 cost counts (array([1]), array([64])) components [0.11619344 0.11585772 0.11646685 0.11646685] [16.72098154 16.55384428 17.20352229 17.12015537] [1.47746477 1.2348605  1.14874988 1.31988376]
+[[1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]]
+baseline 0.6865244015525833 cost counts (array([1, 2, 3]), array([46,  4, 14])) components [0.07605987 0.07494741 0.07605987 0.07756854] [9.52234821 9.36549903 9.45589399 9.64479866] [0.43940158 0.39964555 0.52025495 0.4658419 ]
+[[1 1 1 1 3 1 3 1]
+ [1 1 1 1 3 1 3 1]
+ [3 3 1 1 1 2 1 1]
+ [1 3 1 3 3 1 2 1]
+ [1 1 1 1 3 1 1 3]
+ [1 1 1 1 1 1 2 1]
+ [1 1 1 1 1 2 1 1]
+ [3 3 1 3 1 1 1 1]]
+best 0.6469034844716789 cost counts (array([1, 2, 3]), array([42, 12, 10])) components [0.07748912 0.07339592 0.07748912 0.08304017] [8.94113627 8.80672783 9.06110436 9.12987085] [0.30064309 0.34514101 0.40797426 0.40256471]
+[[1 1 3 1 2 1 3 1]
+ [1 1 1 3 3 1 3 1]
+ [3 2 1 2 1 2 1 1]
+ [1 2 1 2 2 1 2 1]
+ [1 1 1 2 3 1 1 3]
+ [1 1 1 1 1 1 2 1]
+ [1 1 1 1 1 2 1 1]
+ [3 2 1 3 1 1 1 1]]
+gap_hotspots_0
+cost pattern [[0 1 2 3]]
+seed 1.25 cost counts (array([1]), array([64])) components [0.1373593 0.1373593 0.1373593 0.1373593] [14.70611679 16.09075251 15.1713897  14.22086174] [1.01609355 1.36281337 1.33501036 1.15314949]
+[[1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]]
+baseline 0.7280240734709607 cost counts (array([1, 2, 3]), array([47,  2, 15])) components [0.07746137 0.07688203 0.07746137 0.07824705] [8.73422286 9.22643935 8.93706589 8.61685247] [0.30958703 0.3631595  0.40456201 0.39751122]
+[[1 1 1 1 1 3 1 3]
+ [3 1 2 1 1 1 3 1]
+ [1 1 1 1 1 1 1 1]
+ [3 3 3 1 1 1 1 1]
+ [1 1 3 1 1 1 1 1]
+ [3 1 1 1 1 1 1 1]
+ [1 3 1 3 1 3 1 1]
+ [3 1 3 1 2 1 1 3]]
+best 0.6768248300652837 cost counts (array([1, 2, 3]), array([42, 12, 10])) components [0.06849402 0.06178857 0.06849402 0.07758772] [7.69102294 7.57609083 7.8156462  8.1111087 ] [0.3922912  0.27078521 0.33248806 0.38073071]
+[[1 3 2 1 3 2 1 1]
+ [2 1 1 1 1 1 2 1]
+ [1 2 1 1 1 1 1 1]
+ [3 2 2 1 1 1 1 1]
+ [1 1 3 1 1 1 1 1]
+ [3 1 1 1 1 1 1 1]
+ [3 3 2 3 1 3 1 1]
+ [3 1 2 1 2 2 1 2]]
+inversion_proximity_0
+cost pattern [[0 1 2 3]]
+seed 1.25 cost counts (array([1]), array([64])) components [0.10301581 0.10301581 0.10301581 0.10301581] [18.05998457 17.73350205 18.3984114  18.5353488 ] [2.47297694 2.62212648 1.59076891 3.28269271]
+[[1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]]
+baseline 0.7228605988976645 cost counts (array([1, 3]), array([48, 16])) components [0.0641494 0.0641494 0.0641494 0.0641494] [10.86462352 10.82264837 11.00722883 11.26227749] [0.99072613 0.92597965 0.56670485 0.98627981]
+[[1 3 1 3 1 1 1 1]
+ [1 1 1 1 1 1 1 3]
+ [3 1 1 1 3 1 1 3]
+ [1 1 1 1 3 1 1 1]
+ [1 3 1 1 1 3 1 1]
+ [1 1 1 3 1 1 1 3]
+ [1 1 3 1 1 1 1 1]
+ [1 3 3 1 3 3 1 1]]
+best 0.6177802545646659 cost counts (array([1, 2, 3]), array([39, 18,  7])) components [0.0645846  0.05543054 0.0645846  0.07699902] [ 9.28386178  9.10951108  9.4667128  10.14321269] [0.40682828 0.53130825 0.44750883 0.66462766]
+[[1 3 1 3 1 1 1 2]
+ [3 2 1 1 1 1 2 2]
+ [2 1 1 1 3 1 2 2]
+ [1 1 2 2 3 1 1 1]
+ [1 2 2 1 1 2 1 1]
+ [1 1 1 3 1 1 1 2]
+ [1 1 2 2 1 1 1 1]
+ [1 2 2 1 3 2 1 1]]
+scenario_competition_0
+cost pattern [[0 1 2 3]]
+seed 1.25 cost counts (array([1]), array([64])) components [0.1061397  0.1061397  0.10575365 0.10474563] [17.16066992 17.077819   17.05712413 16.83655386] [1.71879726 1.73418928 1.71773903 1.51552258]
+[[1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]
+ [1 1 1 1 1 1 1 1]]
+baseline 0.7690783488088919 cost counts (array([1, 2, 3]), array([47,  2, 15])) components [0.0657507  0.06606904 0.06781684 0.07034724] [10.39355671 10.67112401 10.6740067  10.57340426] [0.60186172 0.92970453 0.89895028 0.73972408]
+[[1 3 1 1 3 1 1 1]
+ [1 1 1 3 1 1 1 1]
+ [1 1 1 1 3 1 1 1]
+ [1 1 1 2 1 3 1 1]
+ [1 3 3 1 1 1 1 3]
+ [1 2 3 3 1 3 1 1]
+ [1 1 1 3 1 1 3 1]
+ [3 1 1 1 3 1 1 1]]
+best 0.7441107659420766 cost counts (array([1, 2, 3]), array([44,  8, 12])) components [0.06131558 0.0628304  0.07245471 0.0884277 ] [ 9.71075952 10.26628172 10.42167968 10.28281477] [0.55254821 0.89153818 0.7978032  0.61580074]
+[[1 3 1 1 1 1 1 1]
+ [1 1 1 3 1 1 1 1]
+ [2 1 1 1 3 1 1 1]
+ [1 1 3 2 1 3 1 2]
+ [1 3 3 1 1 1 1 3]
+ [1 2 3 3 1 2 1 1]
+ [1 1 1 3 1 1 2 1]
+ [3 1 1 2 2 1 1 1]]
+
+**Analyzing cost patterns**
+
+I'm looking at a cost pattern [0,1,3,?]. There's an alternative branch that offers low cost but has global issues due to topology. I need to explore unary cost candidates, using techniques like continuous mean field annealing and loopy belief propagation for efficiency. It seems the energy cost is tiny, but the topological constraints might lead to penalties. A competing branch could create a coherent region, but there are challenges with topology jumps and double moves. Balancing these costs requires careful consideration.
+**Exploring optimization techniques**
+
+I’m considering search strategies that can deal with high flux losses of around 0.4. It seems feasible to look into perturbing the capacity, but crossing certain barriers might be tricky. The initial report shows a gap of less than 8, which suggests that the target might be straightforward. I need to explore using an advanced optimizer, potentially with simulated annealing for swaps and multi-site approaches. Trying fully random restarts and longer annealing times at varying costs could yield better results.
+exec
+/bin/bash -c 'date; ps -eo pid,etimes,pcpu,rss,args | head -25' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant
+**Evaluating cost optimization**
+
+I’m thinking about optimizing the greedy single descent on the penalized score to fix costs before pairing. I need to avoid soft adaptation if the budget is exceeded — I can just skip that. I also want to print metrics related to CPU time. I’m adding native anneal as the primary timing method. It seems like I could use four multithreads with independent seeds and data duplication, but for now, single-core descents are working fine, though I could run separate strategies to potentially improve efficiency.
+ succeeded in 33658ms:
+Fri Aug 28 15:39:17 PDT 2026
+    PID ELAPSED %CPU   RSS COMMAND
+      1      11  4.0 17172 /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/authoring/runtime_homes/fresh-3c2h_74u/tmp/arg0/codex-arg0dhPSTI/codex-linux-sandbox --sandbox-policy-cwd /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant --command-cwd /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant --permission-profile {"type":"managed","file_system":{"type":"restricted","entries":[{"path":{"type":"path","path":"/srv/home/xuandong/.codex/packages/standalone/releases/0.150.1-x86_64-unknown-linux-musl/bin/codex"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/authoring/runtime_homes/fresh-3c2h_74u/packages"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/authoring/runtime_homes/fresh-3c2h_74u/tmp/arg0"},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1"},"access":"write"},{"path":{"type":"path","path":"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant"},"access":"read"},{"path":{"type":"special","value":{"kind":"minimal"}},"access":"read"},{"path":{"type":"path","path":"/srv/home/xuandong/.codex/packages/standalone/releases/0.150.1-x86_64-unknown-linux-musl/codex-resources/zsh/bin/zsh"},"access":"read"}]},"network":"restricted"} --apply-seccomp-then-exec -- /bin/bash -c date; ps -eo pid,etimes,pcpu,rss,args | head -25
+      2       0  0.0  3376 /bin/bash -c date; ps -eo pid,etimes,pcpu,rss,args | head -25
+      4       0  0.0  1616 ps -eo pid,etimes,pcpu,rss,args
+      5       0  0.0  1056 head -25
+
+**Evaluating token budget and time**
+
+I realize it's only been 7 minutes! Commands are dispatching asynchronously, so while they're taking time, my reasoning is pretty quick. I have about 50 minutes left, which gives me plenty of time. As for the token budget, I might need around 40,000 tokens, but I initially thought I had 24,000? So, let's figure out what I have—initially 197, then 33? Anyway, I should evaluate coherent patches in Python to optimize for zero cost.
+codex
+Swaps help, but cheap candidates may need coordinated regions. I’ll test those next.
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python3 - <<'PY'
+import sys,json,time,numpy as np
+from pathlib import Path
+root=Path('../../participant').resolve();sys.path.insert(0,str(root/'workspace'))
+from atlas import Atlas
+for directory in sorted((root/'input').glob('*/')):
+    atlas=Atlas.load(directory);baseline=np.load(directory/'arrays.npz')['baseline_choices'];order=np.argsort(atlas.costs,axis=1)
+    print(directory.name,flush=True)
+    candidates=[]; descriptions=[]; nx=atlas.metadata['nx'];ny=atlas.metadata['ny']
+    for rank in range(4):
+        choice=order[:,rank].copy()
+        for vertex,label in atlas.anchors.items():choice[vertex]=label
+        print('all rank',rank,atlas.score(choice),flush=True)
+    for width in range(1,nx+1):
+        for height in range(1,ny+1):
+            for start in range(atlas.vertices):
+                choice=baseline.copy()
+                patch=[((start//nx+dy)%ny)*nx+(start%nx+dx)%nx for dy in range(height) for dx in range(width)]
+                choice[patch]=order[patch,0]
+                for vertex,label in atlas.anchors.items():choice[vertex]=label
+                candidates.append(choice);descriptions.append((start,width,height))
+    candidates=np.array(candidates);scores=[];feasible=[]
+    for batch in np.array_split(candidates,32):
+        result=atlas.evaluate_many(batch);scores.extend(result['objective']);feasible.extend(result['feasible'])
+    scores=np.where(feasible,scores,np.inf); indices=np.argsort(scores)[:10]
+    print('patch feasible',np.sum(feasible),'best',[(descriptions[index],scores[index]) for index in indices],flush=True)
+    np.savez(directory.name+'_patches.npz',choices=candidates[indices])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1
+**Considering ILS phases**
+
+I need to think about the initial phase of ILS. Instead of applying all of it at once, I’m planning to run 1/4 ILS perturb and then follow it up with 3/4 anneal cycles strengths. I wonder how this adjustment will impact the overall effectiveness. It feels like a smart way to balance the two phases, but I want to make sure I’m approaching this with careful consideration.
+ exited 1 in 60617ms:
+anisotropic_warping_0
+all rank 0 {'objective': 3.462739856743349, 'raw_loss': [51.24212883572369, 48.82675970956042, 47.281366945023336, 47.237602619176634], 'normalized_loss': [2.79787806522351, 2.7270568422849717, 2.560075536059948, 2.545608676270634], 'chern': [1.0000000000000004, 0.9999999999999994, 1.0000000000000004, 1.0000000000000002], 'cost': 2, 'minimum_link': 0.06813519782110922, 'branch_margin': 0.13084686856983652, 'topology_error': 2.0000000000000004, 'feasible': False}
+all rank 1 {'objective': 1.25, 'raw_loss': [18.314639752404716, 17.904562513133758, 18.46873901923657, 18.556505978122544], 'normalized_loss': [1.0, 1.0, 1.0, 1.0], 'chern': [-1.0, -0.9999999999999994, -1.0000000000000002, -1.0], 'cost': 64, 'minimum_link': 0.19142013082729417, 'branch_margin': 2.1093135270852477, 'topology_error': 5.551115123125783e-16, 'feasible': True}
+all rank 2 {'objective': 1.732430641289306, 'raw_loss': [16.72150869856713, 10.59696943398955, 17.371613890169044, 27.745222709506287], 'normalized_loss': [0.9130132464861392, 0.5918586073363268, 0.9405955583689397, 1.4951749398414178], 'chern': [-0.9999999999999994, -1.0000000000000002, -0.9999999999999996, -1.0000000000000002], 'cost': 126, 'minimum_link': 0.3461220604893301, 'branch_margin': 1.7783126259629485, 'topology_error': 5.551115123125783e-16, 'feasible': False}
+all rank 3 {'objective': 0.33652660430019676, 'raw_loss': [4.554782408195138, 4.803325746007954, 4.997845278601613, 4.8958159782605195], 'normalized_loss': [0.24869625991945016, 0.2682738403959611, 0.2706110727644147, 0.2638328564672957], 'chern': [-0.9999999999999994, -1.0000000000000013, -0.9999999999999994, -0.9999999999999997], 'cost': 188, 'minimum_link': 0.6799510967892712, 'branch_margin': 2.4568699873028272, 'topology_error': 1.3322676295501878e-15, 'feasible': False}
+patch feasible 383 best [((0, 1, 1), 0.6865244015525833), ((32, 1, 1), 0.6865244015525833), ((14, 1, 1), 0.8856902973479308), ((26, 1, 1), 0.8894166008388911), ((34, 1, 1), 0.9076887881014621), ((44, 1, 1), 0.9095097883073062), ((51, 1, 1), 0.9206013045883455), ((35, 1, 1), 0.9224978054177656), ((8, 1, 1), 0.9242318010203032), ((0, 1, 2), 0.9242318010203032)]
+gap_hotspots_0
+all rank 0 {'objective': 2.7162513098741328, 'raw_loss': [35.11616012354598, 32.7463246879222, 32.55658769865239, 32.11163285220808], 'normalized_loss': [2.2141937589847824, 1.8615464698446436, 1.9560837778083258, 2.0701995862267712], 'chern': [5.654319433712919e-16, -2.8271597168564594e-16, -6.361109362927033e-16, -7.774689221355263e-16], 'cost': 2, 'minimum_link': 0.2000107030573577, 'branch_margin': 1.3169989751745255, 'topology_error': 1.0000000000000007, 'feasible': False}
+all rank 1 {'objective': 1.25, 'raw_loss': [15.859569642923615, 17.590925189557616, 16.643759366549265, 15.511370529609675], 'normalized_loss': [1.0, 1.0, 1.0, 1.0], 'chern': [-1.0000000000000002, -0.9999999999999999, -1.0000000000000002, -1.0000000000000002], 'cost': 64, 'minimum_link': 0.3333369570060402, 'branch_margin': 1.8194312754147262, 'topology_error': 2.220446049250313e-16, 'feasible': True}
+all rank 2 {'objective': 1.7191002638493729, 'raw_loss': [12.238903145198806, 7.882142745169846, 14.449559280766852, 23.339517881136572], 'normalized_loss': [0.7717046187731635, 0.44808005606486634, 0.8681667982900347, 1.5046715463719815], 'chern': [-1.0000000000000004, -0.999999999999999, -0.9999999999999996, -1.0], 'cost': 126, 'minimum_link': 0.15830517327348717, 'branch_margin': 1.8256633839976537, 'topology_error': 9.992007221626409e-16, 'feasible': False}
+all rank 3 {'objective': 0.3231485823660526, 'raw_loss': [3.877053807963723, 4.00595150087494, 4.165851689456967, 4.063578244569585], 'normalized_loss': [0.24446147627301013, 0.22772830068386435, 0.25029511648849734, 0.26197415868653356], 'chern': [-1.0000000000000004, -0.9999999999999994, -0.9999999999999997, -1.0000000000000009], 'cost': 188, 'minimum_link': 0.6845940639748942, 'branch_margin': 1.8775618527597642, 'topology_error': 8.881784197001252e-16, 'feasible': False}
+patch feasible 417 best [((0, 1, 1), 0.7280240734709607), ((32, 1, 1), 0.7280240734709607), ((34, 1, 1), 0.9258020281536175), ((26, 1, 1), 0.9312692141882366), ((35, 1, 1), 0.932242728718181), ((42, 1, 1), 0.9356099115075606), ((61, 1, 1), 0.9378647217625078), ((52, 1, 1), 0.9385382278717296), ((43, 1, 1), 0.943125409665668), ((25, 1, 1), 0.9597782197428453)]
+inversion_proximity_0
+all rank 0 {'objective': 2.7624864116139363, 'raw_loss': [42.886334555481305, 45.46755294083337, 43.35563373566763, 47.313180667524534], 'normalized_loss': [2.0782313287395278, 2.2224127951311696, 2.157834488446888, 2.1583439152234773], 'chern': [0.9999999999999999, 1.0000000000000002, 1.0000000000000007, 1.0000000000000002], 'cost': 2, 'minimum_link': 0.16545820238164444, 'branch_margin': 0.3876314914413186, 'topology_error': 2.000000000000001, 'feasible': False}
+all rank 1 {'objective': 1.25, 'raw_loss': [20.63597731513959, 20.458644334861212, 20.092196119672302, 21.921057313345578], 'normalized_loss': [1.0, 1.0, 1.0, 1.0], 'chern': [-0.9999999999999994, -0.9999999999999996, -1.0000000000000007, -1.0000000000000004], 'cost': 64, 'minimum_link': 0.2729572648906543, 'branch_margin': 1.4298003550060443, 'topology_error': 6.661338147750939e-16, 'feasible': True}
+all rank 2 {'objective': 1.8186206731154162, 'raw_loss': [16.350844263354993, 10.4724484489034, 19.269549366378868, 34.805632082939205], 'normalized_loss': [0.7923464933913835, 0.5118837923712526, 0.9590564043674659, 1.5877715926480187], 'chern': [-0.9999999999999997, -1.0, -0.9999999999999999, -4.947529504498804e-16], 'cost': 126, 'minimum_link': 0.24212102193827292, 'branch_margin': 0.28475987274911674, 'topology_error': 0.9999999999999996, 'feasible': False}
+all rank 3 {'objective': 0.3268638405809018, 'raw_loss': [4.732829356991734, 5.003839682015102, 5.332944506983891, 5.266003622278926], 'normalized_loss': [0.22934844736040158, 0.2445831502866804, 0.2654236737099334, 0.24022580421214323], 'chern': [-0.9999999999999997, -0.9999999999999991, -0.9999999999999996, -0.9999999999999996], 'cost': 188, 'minimum_link': 0.694813267908915, 'branch_margin': 2.3025752370414168, 'topology_error': 8.881784197001252e-16, 'feasible': False}
+patch feasible 422 best [((0, 1, 1), 0.7228605988976645), ((32, 1, 1), 0.7228605988976645), ((43, 1, 1), 0.877173643648949), ((51, 1, 1), 0.9276831504526275), ((53, 1, 1), 0.9413330079283706), ((44, 1, 1), 0.9446414134069375), ((17, 1, 1), 0.9649386332881877), ((52, 1, 1), 0.9665871861021637), ((61, 1, 1), 0.9859119677340569), ((45, 1, 1), 0.9866965659454786)]
+Traceback (most recent call last):
+  File "<stdin>", line 6, in <module>
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant/workspace/atlas.py", line 75, in load
+    metadata = json.loads((directory / 'case.json').read_text())
+  File "/usr/lib/python3.10/pathlib.py", line 1134, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+  File "/usr/lib/python3.10/pathlib.py", line 1119, in open
+    return self._accessor.open(self, mode, buffering, encoding, errors,
+NotADirectoryError: [Errno 20] Not a directory: '/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant/input/manifest.json/case.json'
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/optimizer.cpp
+@@
+ struct State {
+@@
+     double loss[4] = {};
++    double flux[4] = {};
++    double invalid = 0;
+@@
+     State best;
++    double target_flux[4] = {};
++    int ranked[MAX_VERTICES][4];
++    int nx;
++    int ny;
+@@
+         for (int vertex = 0; vertex < vertices; ++vertex) {
+             if (anchors[vertex] < 0) free_vertices.push_back(vertex);
++            for (int choice = 0; choice < 4; ++choice) ranked[vertex][choice] = choice;
++            std::sort(ranked[vertex], ranked[vertex] + 4, [&](int left, int right) {
++                return costs[4 * vertex + left] < costs[4 * vertex + right];
++            });
+         }
++        nx = factors[vertices + 1].members[1];
++        ny = vertices / nx;
+@@
+-            for (int scenario = 0; scenario < 4; ++scenario)
++            for (int scenario = 0; scenario < 4; ++scenario) {
+                 state.loss[scenario] += factor.table[index].loss[scenario];
++                state.flux[scenario] += factor.table[index].flux[scenario];
++            }
++            state.invalid += factor.table[index].invalid;
+@@
+     bool feasible(const State& state, const Delta& delta) const {
+@@
+     }
++
++    bool valid(const State& state) const {
++        if (state.cost > budget || state.invalid > 0.5) return false;
++        for (int scenario = 0; scenario < 4; ++scenario)
++            if (std::abs(state.flux[scenario] - target_flux[scenario]) > 1e-6) return false;
++        return true;
++    }
++
++    void record(const State& state) {
++        if (state.objective < best.objective - 1e-12 && valid(state)) best = state;
++    }
+@@
+-        for (int scenario = 0; scenario < 4; ++scenario) state.loss[scenario] += delta.loss[scenario];
++        for (int scenario = 0; scenario < 4; ++scenario) {
++            state.loss[scenario] += delta.loss[scenario];
++            state.flux[scenario] += delta.flux[scenario];
++        }
++        state.invalid += delta.invalid;
+         state.objective = objective(state.loss);
+-        if (state.objective < best.objective - 1e-12) best = state;
++        record(state);
+@@
+     void perturb(State& state, int count, double temperature) {
+@@
+     }
++
++    double penalty(const State& state, double cost_penalty, double topology_penalty) const {
++        double value = cost_penalty * std::max(0, state.cost - budget) + 2.0 * state.invalid;
++        for (int scenario = 0; scenario < 4; ++scenario)
++            value += topology_penalty * std::abs(state.flux[scenario] - target_flux[scenario]) / (2.0 * M_PI);
++        return value;
++    }
++
++    void anneal(State& state, int steps, double starting_temperature, bool hard_budget) {
++        double log_decay = std::log(0.00002 / starting_temperature);
++        double temperature = starting_temperature;
++        double cost_penalty = 0.008;
++        double topology_penalty = 0.04;
++        for (int step = 0; step < steps; ++step) {
++            if (step % 256 == 0) {
++                if (expired()) return;
++                double progress = static_cast<double>(step) / steps;
++                temperature = starting_temperature * std::exp(log_decay * progress);
++                cost_penalty = 0.008 + 0.09 * progress * progress;
++                topology_penalty = 0.04 + 0.30 * progress;
++            }
++            double old_value = state.objective + penalty(state, cost_penalty, topology_penalty);
++            double uniform = (random() >> 11) * 0x1.0p-53;
++            if (step % 128 == 0) {
++                auto choices = state.choices;
++                int start = random() % vertices;
++                int width = 1 + random() % nx;
++                int height = 1 + random() % ny;
++                int rank = random() % 6;
++                rank = std::max(0, rank - 2);
++                for (int offset_y = 0; offset_y < height; ++offset_y) {
++                    for (int offset_x = 0; offset_x < width; ++offset_x) {
++                        int vertex = ((start / nx + offset_y) % ny) * nx + (start % nx + offset_x) % nx;
++                        if (anchors[vertex] < 0) choices[vertex] = ranked[vertex][rank];
++                    }
++                }
++                State proposal = initialize(choices.data());
++                if (hard_budget && proposal.cost > budget) continue;
++                double difference = proposal.objective + penalty(proposal, cost_penalty, topology_penalty) - old_value;
++                if (difference < 0 || uniform < std::exp(-difference / temperature)) {
++                    state = proposal;
++                    record(state);
++                }
++                continue;
++            }
++            int first = free_vertices[random() % free_vertices.size()];
++            int first_choice = (state.choices[first] + 1 + random() % 3) % 4;
++            Delta delta = single(state, first, first_choice);
++            int second = -1;
++            int second_choice = -1;
++            if (random() % 2 == 0) {
++                second = free_vertices[random() % free_vertices.size()];
++                if (second == first) continue;
++                second_choice = (state.choices[second] + 1 + random() % 3) % 4;
++                Delta right = single(state, second, second_choice);
++                delta = combine(state, first, first_choice, delta, second, second_choice, right);
++            }
++            if (hard_budget && state.cost + delta.cost > budget) continue;
++            double value = trial(state, delta);
++            value += cost_penalty * std::max(0, state.cost + delta.cost - budget);
++            value += 2.0 * (state.invalid + delta.invalid);
++            for (int scenario = 0; scenario < 4; ++scenario)
++                value += topology_penalty * std::abs(state.flux[scenario] + delta.flux[scenario] - target_flux[scenario]) / (2.0 * M_PI);
++            double difference = value - old_value;
++            if (difference < 0 || uniform < std::exp(-difference / temperature))
++                apply(state, first, first_choice, second, second_choice, delta);
++        }
++    }
+@@
+         best = initialize(initial);
++        for (int scenario = 0; scenario < 4; ++scenario) target_flux[scenario] = best.flux[scenario];
+         State current = best;
+@@
+-            if (iteration % 4 == 0) current = best;
+-            int strength = 3 + random() % 16;
+-            double temperature = 0.003 * std::pow(2.0, static_cast<double>(random() % 5));
+-            perturb(current, strength, temperature);
+-            descent(current);
++            if (iteration % 4 "'!= 3) {
++                current = best;
++                double temperature = 0.008 * std::pow(2.0, static_cast<double>(random() % 5));
++                anneal(current, 60000, temperature, iteration % 2 == 0);
++                if (valid(current)) descent(current);
++                else current = best;
++            } else {
++                int strength = 3 + random() % 48;
++                double temperature = 0.003 * std::pow(2.0, static_cast<double>(random() % 5));
++                perturb(current, strength, temperature);
++                descent(current);
++            }
+*** End Patch
+PATCH
+g++ -std=c++17 -O3 -fPIC -shared optimizer.cpp -o optimizer.so
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 benchmark.py --seconds 20' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1
+**Evaluating candidates and constraints**
+
+I need to consider four candidates while keeping in mind specific constraints related to topology and linear flux. The sum should equal 2π, and I must identify the target_s as well. It's important to exclude any invalid conditions, like tables or links that aren’t applicable. This will help me streamline my choices and focus on what really matters for the task. Let's work through each step carefully to make sure nothing gets overlooked!
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python3 - <<'PY'
+import inspect,scipy.optimize
+from scipy.optimize._highs._highs_wrapper import _highs_wrapper
+print(inspect.signature(scipy.optimize.linprog));print(_highs_wrapper.__doc__)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/participant
+**Considering CPU tests**
+
+I need to be careful about running CPU tests. It's best to limit the number of tests to one per CPU at a time, and I should stick with using NumPy for any calculations. I’ll also take the time to write a diagnostic log to keep track of any issues that come up. That way, I can ensure everything runs smoothly and efficiently. Let's focus on that!
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/relaxation.py
++import os
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++import itertools
++import json
++import sys
++import time
++from pathlib import Path
++import numpy as np
++from scipy.optimize import linprog
++from scipy.sparse import coo_matrix
++
++ROOT = Path(__file__).resolve().parents[2] / 'participant'
++sys.path.insert(0, str(ROOT / 'workspace'))
++from atlas import Atlas
++
++
++def relaxation(atlas, seconds=20):
++    candidates = 3
++    vertex_count = atlas.vertices
++    edge_count = len(atlas.edges)
++    face_count = len(atlas.plaquettes)
++    order = np.argsort(atlas.costs, axis=1)[:, 1:]
++    unary_count = vertex_count * candidates
++    pair_count = edge_count * candidates ** 2
++    quad_count = face_count * candidates ** 4
++    variable_count = unary_count + pair_count + quad_count + 1
++    losses = np.zeros((4, variable_count))
++    fluxes = np.zeros((4, variable_count))
++    acquisition = np.zeros(variable_count)
++    bounds = np.zeros((variable_count, 2))
++    bounds[:, 1] = 1
++    bounds[-1, 1] = np.inf
++    for vertex in range(vertex_count):
++        for choice in range(candidates):
++            index = vertex * candidates + choice
++            label = order[vertex, choice]
++            losses[:, index] = atlas.unary[:, vertex, label]
++            acquisition[index] = atlas.costs[vertex, label]
++            if vertex in atlas.anchors and label "'!= atlas.anchors[vertex]:
++                bounds[index, 1] = 0
++    for edge, (source, destination) in enumerate(atlas.edges):
++        for first, second in itertools.product(range(candidates), repeat=2):
++            index = unary_count + edge * candidates ** 2 + first * candidates + second
++            first_label, second_label = order[source, first], order[destination, second]
++            losses[:, index] = atlas.pair[:, edge, first_label, second_label]
++            if np.any(atlas.link_magnitude[:, edge, first_label, second_label] < atlas.minimum_link):
++                bounds[index, 1] = 0
++    for face, corners in enumerate(atlas.plaquettes):
++        for choices in itertools.product(range(candidates), repeat=4):
++            offset = ((choices[0] * candidates + choices[1]) * candidates + choices[2]) * candidates + choices[3]
++            index = unary_count + pair_count + face * candidates ** 4 + offset
++            labels = order[corners, choices]
++            losses[:, index] = atlas.face[:, face, *labels]
++            fluxes[:, index] = atlas.flux[:, face, *labels]
++            if np.any(np.pi - np.abs(fluxes[:, index]) < atlas.branch_margin):
++                bounds[index, 1] = 0
++    losses /= atlas.normalizers[:, None]
++    objective = (atlas.mean_weight * atlas.weights / atlas.weights.sum()) @ losses
++    objective[-1] = 1
++    rows, columns, values, right_hand = [], [], [], []
++    def add_row(indices, coefficients, target):
++        rows.extend([len(right_hand)] * len(indices))
++        columns.extend(indices)
++        values.extend(coefficients)
++        right_hand.append(target)
++    for vertex in range(vertex_count):
++        add_row(list(range(vertex * candidates, (vertex + 1) * candidates)), [1] * candidates, 1)
++    for edge, (source, destination) in enumerate(atlas.edges):
++        for position, vertex in enumerate((source, destination)):
++            for choice in range(candidates):
++                indices = [vertex * candidates + choice]
++                coefficients = [-1]
++                for other in range(candidates):
++                    offset = choice * candidates + other if position == 0 else other * candidates + choice
++                    indices.append(unary_count + edge * candidates ** 2 + offset)
++                    coefficients.append(1)
++                add_row(indices, coefficients, 0)
++    tuples = list(itertools.product(range(candidates), repeat=4))
++    for face, corners in enumerate(atlas.plaquettes):
++        edges = [(2 * corners[0], 0, 1), (2 * corners[1] + 1, 1, 2),
++                 (2 * corners[3], 3, 2), (2 * corners[0] + 1, 0, 3)]
++        for edge, first_position, second_position in edges:
++            for first, second in itertools.product(range(candidates), repeat=2):
++                indices = [unary_count + edge * candidates ** 2 + first * candidates + second]
++                coefficients = [-1]
++                for offset, choices in enumerate(tuples):
++                    if choices[first_position] == first and choices[second_position] == second:
++                        indices.append(unary_count + pair_count + face * candidates ** 4 + offset)
++                        coefficients.append(1)
++                add_row(indices, coefficients, 0)
++    for scenario in range(4):
++        indices = np.flatnonzero(fluxes[scenario])
++        add_row(indices.tolist(), fluxes[scenario, indices].tolist(), 2 * np.pi * atlas.targets[scenario])
++    equalities = coo_matrix((values, (rows, columns)), shape=(len(right_hand), variable_count)).tocsr()
++    inequalities = np.vstack((acquisition, losses))
++    inequalities[1:, -1] = -1
++    inequality_targets = np.array([atlas.budget, 0, 0, 0, 0])
++    started = time.monotonic()
++    result = linprog(objective, A_eq=equalities, b_eq=right_hand,
++                     A_ub=inequalities, b_ub=inequality_targets,
++                     bounds=bounds, method='"'highs', options={'time_limit': seconds})
++    print('LP', time.monotonic() - started, result.message, flush=True)
++    if result.x is not None:
++        probabilities = result.x[:unary_count].reshape(vertex_count, candidates)
++        choice = order[np.arange(vertex_count), np.argmax(probabilities, axis=1)]
++        print('bound', result.fun, 'fractional', np.sum(np.max(probabilities, axis=1) < 0.99999), flush=True)
++        print('rounding', atlas.score(choice), flush=True)
++        return order, probabilities
++
++
++if __name__ == '__main__':
++    for case in json.loads((ROOT / 'input' / 'manifest.json').read_text())['cases']:
++        atlas = Atlas.load(ROOT / 'input' / case['directory'])
++        print(case['id'], flush=True)
++        result = relaxation(atlas)
++        if result is not None:
++            np.savez(Path(__file__).with_name(case['id'] + '_relax.npz'), order=result[0], probabilities=result[1])
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 relaxation.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1
+ succeeded in 96531ms:
+(c, A_ub=None, b_ub=None, A_eq=None, b_eq=None, bounds=None, method='interior-point', callback=None, options=None, x0=None)
+Solve linear programs using HiGHS [1]_.
+
+    Assume problems of the form:
+
+        MIN c.T @ x
+        s.t. lhs <= A @ x <= rhs
+             lb <= x <= ub
+
+    Parameters
+    ----------
+    c : 1-D array, (n,)
+        Array of objective value coefficients.
+    astart : 1-D array
+        CSC format index array.
+    aindex : 1-D array
+        CSC format index array.
+    avalue : 1-D array
+        Data array of the matrix.
+    lhs : 1-D array (or None), (m,)
+        Array of left hand side values of the inequality constraints.
+        If ``lhs=None``, then an array of ``-inf`` is assumed.
+    rhs : 1-D array, (m,)
+        Array of right hand side values of the inequality constraints.
+    lb : 1-D array (or None), (n,)
+        Lower bounds on solution variables x.  If ``lb=None``, then an
+        array of all `0` is assumed.
+    ub : 1-D array (or None), (n,)
+        Upper bounds on solution variables x.  If ``ub=None``, then an
+        array of ``inf`` is assumed.
+    options : dict
+        A dictionary of solver options with the following fields:
+
+            - allowed_simplex_cost_scale_factor : int
+                Undocumented advanced option.
+
+            - allowed_simplex_matrix_scale_factor : int
+                Undocumented advanced option.
+
+            - dual_feasibility_tolerance : double
+                Dual feasibility tolerance for simplex.
+                ``min(dual_feasibility_tolerance,
+                primal_feasibility_tolerance)`` will be used for
+                ipm feasibility tolerance.
+
+            - dual_objective_value_upper_bound : double
+                Upper bound on objective value for dual simplex:
+                algorithm terminates if reached
+
+            - dual_simplex_cleanup_strategy : int
+                Undocumented advanced option.
+
+            - dual_simplex_cost_perturbation_multiplier : double
+                Undocumented advanced option.
+
+            - dual_steepest_edge_weight_log_error_threshhold : double
+                Undocumented advanced option.
+
+            - infinite_bound : double
+                Limit on abs(constraint bound): values larger than
+                this will be treated as infinite
+
+            - infinite_cost : double
+                Limit on cost coefficient: values larger than this
+                will be treated as infinite.
+
+            - ipm_iteration_limit : int
+                Iteration limit for interior-point solver.
+
+            - ipm_optimality_tolerance : double
+                Optimality tolerance for IPM.
+
+            - keep_n_rows : int {-1, 0, 1}
+                Undocumented advanced option.
+
+                    - ``-1``: ``KEEP_N_ROWS_DELETE_ROWS``
+                    - ``0``: ``KEEP_N_ROWS_DELETE_ENTRIES``
+                    - ``1``: ``KEEP_N_ROWS_KEEP_ROWS``
+
+            - large_matrix_value : double
+                Upper limit on abs(matrix entries): values larger than
+                this will be treated as infinite
+
+            - less_infeasible_DSE_check : bool
+                Undocumented advanced option.
+
+            - less_infeasible_DSE_choose_row : bool
+                Undocumented advanced option.
+
+            - max_threads : int
+                Maximum number of threads in parallel execution.
+
+            - message_level : int {0, 1, 2, 4, 7}
+                Verbosity level, corresponds to:
+
+                    - ``0``: ``ML_NONE``
+                        All messaging to stdout is supressed.
+
+                    - ``1``: ``ML_VERBOSE``
+                        Includes a once-per-iteration report on simplex/ipm
+                        progress and information about each nonzero row and
+                        column.
+
+                    - ``2``: ``ML_DETAILED``
+                        Includes technical information about progress and
+                        events in applying the simplex method.
+
+                    - ``4``: ``ML_MINIMAL``
+                        Once-per-solve information about progress as well as a
+                        once-per-basis-matrix-reinversion report on progress in
+                        simplex or a once-per-iteration report on progress in IPX.
+
+                ``message_level`` behaves like a bitmask, i.e., any
+                combination of levels is possible using the bit-or
+                operator.
+
+            - min_threads : int
+                Minimum number of threads in parallel execution.
+
+            - mps_parser_type_free : bool
+                Use free format MPS parsing.
+
+            - parallel : bool
+                Run the solver in serial (False) or parallel (True).
+
+            - presolve : bool
+                Run the presolve or not (or if ``None``, then choose).
+
+            - primal_feasibility_tolerance : double
+                Primal feasibility tolerance.
+                ``min(dual_feasibility_tolerance,
+                primal_feasibility_tolerance)`` will be used for
+                ipm feasibility tolerance.
+
+            - run_as_hsol : bool
+                Undocumented advanced option.
+
+            - run_crossover : bool
+                Advanced option. Toggles running the crossover routine
+                for IPX.
+
+            - sense : int {1, -1}
+                ``sense=1`` corresponds to the MIN problem, ``sense=-1``
+                corresponds to the MAX problem. TODO: NOT IMPLEMENTED
+
+            - simplex_crash_strategy : int {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+                Strategy for simplex crash: off / LTSSF / Bixby (0/1/2).
+                Default is ``0``.  Corresponds to the following:
+
+                    - ``0``: ``SIMPLEX_CRASH_STRATEGY_OFF``
+                    - ``1``: ``SIMPLEX_CRASH_STRATEGY_LTSSF_K``
+                    - ``2``: ``SIMPLEX_CRASH_STRATEGY_BIXBY``
+                    - ``3``: ``SIMPLEX_CRASH_STRATEGY_LTSSF_PRI``
+                    - ``4``: ``SIMPLEX_CRASH_STRATEGY_LTSF_K``
+                    - ``5``: ``SIMPLEX_CRASH_STRATEGY_LTSF_PRI``
+                    - ``6``: ``SIMPLEX_CRASH_STRATEGY_LTSF``
+                    - ``7``: ``SIMPLEX_CRASH_STRATEGY_BIXBY_NO_NONZERO_COL_COSTS``
+                    - ``8``: ``SIMPLEX_CRASH_STRATEGY_BASIC``
+                    - ``9``: ``SIMPLE_CRASH_STRATEGY_TEST_SING``
+
+            - simplex_dualise_strategy : int
+                Undocumented advanced option.
+
+            - simplex_dual_edge_weight_strategy : int {0, 1, 2, 3, 4}
+                Strategy for simplex dual edge weights:
+                Dantzig / Devex / Steepest Edge. Corresponds
+                to the following:
+
+                    - ``0``: ``SIMPLEX_DUAL_EDGE_WEIGHT_STRATEGY_DANTZIG``
+                    - ``1``: ``SIMPLEX_DUAL_EDGE_WEIGHT_STRATEGY_DEVEX``
+                    - ``2``: ``SIMPLEX_DUAL_EDGE_WEIGHT_STRATEGY_STEEPEST_EDGE_TO_DEVEX_SWITCH``
+                    - ``3``: ``SIMPLEX_DUAL_EDGE_WEIGHT_STRATEGY_STEEPEST_EDGE``
+                    - ``4``: ``SIMPLEX_DUAL_EDGE_WEIGHT_STRATEGY_STEEPEST_EDGE_UNIT_INITIAL``
+
+            - simplex_initial_condition_check : bool
+                Undocumented advanced option.
+
+            - simplex_initial_condition_tolerance : double
+                Undocumented advanced option.
+
+            - simplex_iteration_limit : int
+                Iteration limit for simplex solver.
+
+            - simplex_permute_strategy : int
+                Undocumented advanced option.
+
+            - simplex_price_strategy : int
+                Undocumented advanced option.
+
+            - simplex_primal_edge_weight_strategy : int {0, 1}
+                Strategy for simplex primal edge weights:
+                Dantzig / Devex.  Corresponds to the following:
+
+                    - ``0``: ``SIMPLEX_PRIMAL_EDGE_WEIGHT_STRATEGY_DANTZIG``
+                    - ``1``: ``SIMPLEX_PRIMAL_EDGE_WEIGHT_STRATEGY_DEVEX``
+
+            - simplex_scale_strategy : int {0, 1, 2, 3, 4, 5}
+                Strategy for scaling before simplex solver:
+                off / on (0/1)
+
+                    - ``0``:  ``SIMPLEX_SCALE_STRATEGY_OFF``
+                    - ``1``: ``SIMPLEX_SCALE_STRATEGY_HIGHS``
+                    - ``2``: ``SIMPLEX_SCALE_STRATEGY_HIGHS_FORCED``
+                    - ``3``: ``SIMPLEX_SCALE_STRATEGY_HIGHS_015``
+                    - ``4``: ``SIMPLEX_SCALE_STRATEGY_HIGHS_0157``
+                    - ``5``: ``SIMPLEX_SCALE_STRATEGY_HSOL``
+
+            - simplex_strategy : int {0, 1, 2, 3, 4}
+                Strategy for simplex solver. Default: 1. Corresponds
+                to the following:
+
+                    - ``0``: ``SIMPLEX_STRATEGY_MIN``
+                    - ``1``: ``SIMPLEX_STRATEGY_DUAL``
+                    - ``2``: ``SIMPLEX_STRATEGY_DUAL_TASKS``
+                    - ``3``: ``SIMPLEX_STRATEGY_DUAL_MULTI``
+                    - ``4``: ``SIMPLEX_STRATEGY_PRIMAL``
+
+            - simplex_update_limit : int
+                Limit on the number of simplex UPDATE operations.
+
+            - small_matrix_value : double
+                Lower limit on abs(matrix entries): values smaller
+                than this will be treated as zero.
+
+            - solution_file : str
+                Solution file
+
+            - solver : str {'simplex', 'ipm'}
+                Choose which solver to use.  If ``solver='simplex'``
+                and ``parallel=True`` then PAMI will be used.
+
+            - start_crossover_tolerance : double
+                Tolerance to be satisfied before IPM crossover will
+                start.
+
+            - time_limit : double
+                Max number of seconds to run the solver for.
+
+            - use_original_HFactor_logic : bool
+                Undocumented advanced option.
+
+            - write_solution_to_file : bool
+                Write the primal and dual solution to a file
+
+            - write_solution_pretty : bool
+                Write the primal and dual solution in a pretty
+                (human-readable) format
+
+        See [2]_ for a list of all non-advanced options.
+
+    Returns
+    -------
+    res : dict
+
+        If model_status is one of OPTIMAL,
+        REACHED_DUAL_OBJECTIVE_VALUE_UPPER_BOUND, REACHED_TIME_LIMIT,
+        REACHED_ITERATION_LIMIT:
+
+            - ``status`` : int
+                Model status code.
+
+            - ``message`` : str
+                Message corresponding to model status code.
+
+            - ``x`` : list
+                Solution variables.
+
+            - ``slack`` : list
+                Slack variables.
+
+            - ``lambda`` : list
+                Lagrange multipliers assoicated with the constraints
+                Ax = b.
+
+            - ``s`` : list
+                Lagrange multipliers associated with the constraints
+                x >= 0.
+
+            - ``fun``
+                Final objective value.
+
+            - ``simplex_nit`` : int
+                Number of iterations accomplished by the simplex
+                solver.
+
+            - ``ipm_nit`` : int
+                Number of iterations accomplished by the interior-
+                point solver.
+
+        If model_status is not one of the above:
+
+            - ``status`` : int
+                Model status code.
+
+            - ``message`` : str
+                Message corresponding to model status code.
+
+    Notes
+    -----
+    If ``options['write_solution_to_file']`` is ``True`` but
+    ``options['solution_file']`` is unset or ``''``, then the solution
+    will be printed to ``stdout``.
+
+    If any iteration limit is reached, no solution will be
+    available.
+
+    ``OptimizeWarning`` will be raised if any option value set by
+    the user is found to be incorrect.
+
+    References
+    ----------
+    .. [1] https://www.maths.ed.ac.uk/hall/HiGHS
+    .. [2] https://www.maths.ed.ac.uk/hall/HiGHS/HighsOptions.html
+    
+
+ succeeded in 146195ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/optimizer.cpp
+objective 0.676824830065 descents 1945 evaluations 59673858
+{"objective": 0.6768248300652837, "raw_loss": [8.151808169846086, 7.908664616478444, 8.21662828197553, 8.56942712460622], "normalized_loss": [0.5139993299555479, 0.4495877579635898, 0.4936762242843622, 0.5524609903585264], "chern": [-1.0, -0.9999999999999994, -1.0000000000000004, -0.9999999999999997], "cost": 96, "minimum_link": 0.4821609725430083, "branch_margin": 1.8018707313038362, "topology_error": 5.551115123125783e-16, "feasible": true, "gain": 0.07032630550467533, "case": "gap_hotspots_0", "seconds": 25.315630999044515}
+objective 0.617780254565 descents 1552 evaluations 33857775
+{"objective": 0.6177802545646659, "raw_loss": [9.755274664169393, 9.696249868219171, 9.978806232377467, 10.884839378322694], "normalized_loss": [0.472731410545428, 0.4739439089664857, 0.4966508475699778, 0.4965471885197793], "chern": [-1.0000000000000007, -1.0, -1.0, -1.0000000000000007], "cost": 96, "minimum_link": 0.585716751742395, "branch_margin": 2.063351364964606, "topology_error": 6.661338147750939e-16, "feasible": true, "gain": 0.14536737026923618, "case": "inversion_proximity_0", "seconds": 20.103473939932883}
+objective 0.646903484472 descents 1604 evaluations 43757832
+{"objective": 0.6469034844716789, "raw_loss": [9.319268476086215, 9.225264749342669, 9.546567737917561, 9.615475724743474], "normalized_loss": [0.5088425763254554, 0.515246588269082, 0.5169041442393062, 0.5181727495510079], "chern": [-0.9999999999999999, -0.9999999999999989, -1.0000000000000009, -0.9999999999999994], "cost": 96, "minimum_link": 0.5257025103737755, "branch_margin": 2.2435562993197404, "topology_error": 1.1102230246251565e-15, "feasible": true, "gain": 0.05771232164698192, "case": "anisotropic_warping_0", "seconds": 20.1548476080643}
+objective 0.743190416233 descents 1630 evaluations 47925934
+{"objective": 0.7431904162333217, "raw_loss": [10.557795664565639, 11.250245073311028, 11.161319836314842, 11.013846112436678], "normalized_loss": [0.5560947158765058, 0.5946800439674229, 0.5911522885151109, 0.5967357801569118], "chern": [-1.0000000000000007, -1.0000000000000002, -0.9999999999999997, -1.0000000000000007], "cost": 96, "minimum_link": 0.4150244932065992, "branch_margin": 1.7611873180551, "topology_error": 6.661338147750939e-16, "feasible": true, "gain": 0.03366098215567248, "case": "scenario_competition_0", "seconds": 20.19055588496849}
+mean gain 0.07676674489414148
+
+ exited 1 in 76975ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/relaxation.py
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/relaxation.py", line 54
+    losses[:, index] = atlas.face[:, face, *labels]
+                                           ^
+SyntaxError: invalid syntax
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/relaxation.py
+@@
+-            losses[:, index] = atlas.face[:, face, *labels]
+-            fluxes[:, index] = atlas.flux[:, face, *labels]
++            losses[:, index] = atlas.face[(slice(None), face, *labels)]
++            fluxes[:, index] = atlas.flux[(slice(None), face, *labels)]
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 relaxation.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1
+**Improving search objectives**
+
+I've got about 15 minutes left to improve the search objective. I need to check for potential issues with normals in my C++ strides and if the Python code for reshaping the flat face scenario is correct using numpy's methods. I also want to ensure that I'm applying changes sequentially to the indices for correct joint deltas. The flux topology approach needs re-evaluation—current descent might be unfeasible, and I have to decide whether I can reach optimum values. Let's explore all possible improvements.
+**Optimizing triple descent calculations**
+
+I need to implement a triple descent strategy, targeting about 1 million combinations but with high penalties when costs are included. Optimizing shared corrections for the third variable is key. I'll calculate the joint deltas by combining them and ensure to track any interactions between all three. It sounds like I might need to precompute adjustments efficiently, especially for triples that aren't neighboring each other, as many triples share common factors. With careful precomputation, I hope to manage the complexity effectively!
+**Considering delta computations**
+
+I’m thinking about computing the delta pair sum and the second derivatives for each pair, along with their triple interactions. This could provide deeper insights into the relationships between the pairs and how they affect each other. I need to ensure that I take into account the complexities of these interactions to get accurate results. It sounds straightforward, but I have to double-check that I don’t overlook any critical components in the calculations. Let’s make this as precise as possible!
+ succeeded in 41824ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/relaxation.py
+gap_hotspots_0
+LP 0.3987747839419171 Optimization terminated successfully.
+bound 0.676438528900184 fractional 1
+rounding {'objective': 0.6846090238495504, 'raw_loss': [8.067691829973636, 7.924682023752449, 8.376359371650386, 8.677960145518249], 'normalized_loss': [0.5086955076093985, 0.4504983074145938, 0.5032732802232918, 0.5594579878646364], 'chern': [-1.0000000000000002, -0.9999999999999994, -1.0000000000000004, -0.9999999999999997], 'cost': 95, 'minimum_link': 0.4821609725430083, 'branch_margin': 1.8018707313038362, 'topology_error': 5.551115123125783e-16, 'feasible': True}
+inversion_proximity_0
+LP 0.762632341007702 Optimization terminated successfully.
+bound 0.6177802545646659 fractional 0
+rounding {'objective': 0.6177802545646659, 'raw_loss': [9.755274664169393, 9.696249868219171, 9.978806232377467, 10.884839378322694], 'normalized_loss': [0.472731410545428, 0.4739439089664857, 0.4966508475699778, 0.4965471885197793], 'chern': [-1.0000000000000007, -1.0, -1.0, -1.0000000000000007], 'cost': 96, 'minimum_link': 0.585716751742395, 'branch_margin': 2.063351364964606, 'topology_error': 6.661338147750939e-16, 'feasible': True}
+anisotropic_warping_0
+LP 0.7129799970425665 Optimization terminated successfully.
+bound 0.646540717770751 fractional 4
+rounding {'objective': 0.6469034844716789, 'raw_loss': [9.319268476086215, 9.225264749342669, 9.546567737917561, 9.615475724743474], 'normalized_loss': [0.5088425763254554, 0.515246588269082, 0.5169041442393062, 0.5181727495510079], 'chern': [-0.9999999999999999, -0.9999999999999989, -1.0000000000000009, -0.9999999999999994], 'cost': 96, 'minimum_link': 0.5257025103737755, 'branch_margin': 2.2435562993197404, 'topology_error': 1.1102230246251565e-15, 'feasible': True}
+scenario_competition_0
+LP 0.7446553319459781 Optimization terminated successfully.
+bound 0.7401244182633808 fractional 6
+rounding {'objective': 0.7235679193502806, 'raw_loss': [10.071242487807522, 10.899731211377064, 10.93465800202626, 10.733110825381907], 'normalized_loss': [0.5304672402950065, 0.5761521276893525, 0.5791472869540261, 0.5815253996206305], 'chern': [-1.0000000000000007, -1.0000000000000002, -0.9999999999999997, -1.0000000000000007], 'cost': 98, 'minimum_link': 0.4150244932065992, 'branch_margin': 1.7611873180551, 'topology_error': 6.661338147750939e-16, 'feasible': False}
+
+codex
+The relaxation puts most public results near their bounds. I’ll check the remaining candidates.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/relaxation.py
+@@
+-    candidates = 3
++    candidates = 4
+@@
+-    order = np.argsort(atlas.costs, axis=1)[:, 1:]
++    order = np.argsort(atlas.costs, axis=1)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 relaxation.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1
+exec
+/bin/bash -c "date; ls -lh optimizer.so; OPENBLAS_NUM_THREADS=1 python3 - <<'PY'
+import sys
+from pathlib import Path
+import numpy as np
+root=Path('../../participant').resolve();sys.path.insert(0,str(root/'workspace'))
+from atlas import Atlas
+atlas=Atlas.load(root/'input'/'gap_hotspots_0')
+print('cost zero unary raw means',np.sum(np.take_along_axis(atlas.unary,np.argmin(atlas.costs,axis=1)[None,:,None],axis=2),axis=(1,2)))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1
+ succeeded in 26694ms:
+Fri Aug 28 15:45:59 PDT 2026
+-rwxrwxr-x 1 xuandong xuandong 50K Aug 28 15:41 optimizer.so
+cost zero unary raw means [2.74752935 2.72583747 2.70709943 2.69483659]
+
+ succeeded in 62212ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/relaxation.py
+gap_hotspots_0
+LP 3.080870941048488 Optimization terminated successfully.
+bound 0.6764385289001842 fractional 1
+rounding {'objective': 0.6682680339508169, 'raw_loss': [7.938743791128632, 7.742586817929603, 8.135335640450233, 8.469537146914584], 'normalized_loss': [0.500564893617452, 0.4401466514408113, 0.4887919526642931, 0.5460211997867677], 'chern': [-1.0, -0.9999999999999994, -1.0000000000000004, -0.9999999999999997], 'cost': 97, 'minimum_link': 0.4821609725430083, 'branch_margin': 1.8018707313038362, 'topology_error': 5.551115123125783e-16, 'feasible': False}
+inversion_proximity_0
+LP 4.130970658035949 Optimization terminated successfully.
+bound 0.6177802545646659 fractional 0
+rounding {'objective': 0.6177802545646659, 'raw_loss': [9.755274664169393, 9.696249868219171, 9.978806232377467, 10.884839378322694], 'normalized_loss': [0.472731410545428, 0.4739439089664857, 0.4966508475699778, 0.4965471885197793], 'chern': [-1.0000000000000007, -1.0, -1.0, -1.0000000000000007], 'cost': 96, 'minimum_link': 0.585716751742395, 'branch_margin': 2.063351364964606, 'topology_error': 6.661338147750939e-16, 'feasible': True}
+anisotropic_warping_0
+LP 5.215827924897894 Optimization terminated successfully.
+bound 0.6465407177707546 fractional 4
+rounding {'objective': 0.6469034844716789, 'raw_loss': [9.319268476086215, 9.225264749342669, 9.546567737917561, 9.615475724743474], 'normalized_loss': [0.5088425763254554, 0.515246588269082, 0.5169041442393062, 0.5181727495510079], 'chern': [-0.9999999999999999, -0.9999999999999989, -1.0000000000000009, -0.9999999999999994], 'cost': 96, 'minimum_link': 0.5257025103737755, 'branch_margin': 2.2435562993197404, 'topology_error': 1.1102230246251565e-15, 'feasible': True}
+scenario_competition_0
+LP 4.3502300209365785 Optimization terminated successfully.
+bound 0.7401244182633768 fractional 6
+rounding {'objective': 0.7235679193502806, 'raw_loss': [10.071242487807522, 10.899731211377064, 10.93465800202626, 10.733110825381907], 'normalized_loss': [0.5304672402950065, 0.5761521276893525, 0.5791472869540261, 0.5815253996206305], 'chern': [-1.0000000000000007, -1.0000000000000002, -0.9999999999999997, -1.0000000000000007], 'cost': 98, 'minimum_link': 0.4150244932065992, 'branch_margin': 1.7611873180551, 'topology_error': 6.661338147750939e-16, 'feasible': False}
+
+Joint search reaches within 0.5% of full four-candidate LP bounds on every public case. I’m adding bound-guided refinement and early stopping to improve reliability without spending the entire time limit.
+  ✓ Inspect schema, baseline, and public cases
+  ✓ Develop topology-safe robust optimization
+  → Benchmark and refine across case families
+  • Validate and package final solver
+codex
+I’ll add bound-guided refinement and early stopping to save runtime.
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/linear.py
++import heapq
++import itertools
++import os
++import time
++
++import numpy as np
++from scipy.optimize import linprog
++from scipy.sparse import coo_matrix, csr_matrix
++
++
++class Relaxation:
++    def __init__(self, atlas):
++        self.atlas = atlas
++        self.vertex_count = atlas.vertices
++        self.unary_count = 4 * atlas.vertices
++        self.pair_count = 16 * len(atlas.edges)
++        self.face_offset = self.unary_count + self.pair_count
++        self.variable_count = self.face_offset + 256 * len(atlas.plaquettes) + 1
++        losses = np.concatenate([
++            np.moveaxis(values / atlas.normalizers.reshape((-1,) + (1,) * (values.ndim - 1)), 0, -1).reshape(-1, 4)
++            for values in (atlas.unary, atlas.pair, atlas.face)
++        ]).T
++        self.objective = np.zeros(self.variable_count)
++        self.objective[:-1] = (atlas.mean_weight * atlas.weights / atlas.weights.sum()) @ losses
++        self.objective[-1] = 1
++        self.bounds = np.zeros((self.variable_count, 2))
++        self.bounds[:, 1] = 1
++        self.bounds[-1, 1] = np.inf
++        invalid_pairs = np.any(atlas.link_magnitude < atlas.minimum_link, axis=0).reshape(-1)
++        invalid_faces = np.any(np.pi - np.abs(atlas.flux) < atlas.branch_margin, axis=0).reshape(-1)
++        self.bounds[self.unary_count:self.face_offset, 1] = ~invalid_pairs
++        self.bounds[self.face_offset:-1, 1] = ~invalid_faces
++        for vertex, choice in atlas.anchors.items():
++            self.bounds[4 * vertex:4 * vertex + 4, 1] = 0
++            self.bounds[4 * vertex + choice, 1] = 1
++        inequalities = np.zeros((5, self.variable_count))
++        inequalities[0, :self.unary_count] = atlas.costs.reshape(-1)
++        inequalities[1:, :-1] = losses
++        inequalities[1:, -1] = -1
++        self.inequalities = csr_matrix(inequalities)
++        self.inequality_targets = np.array([atlas.budget, 0, 0, 0, 0])
++        rows, columns, coefficients, targets = [], [], [], []
++
++        def add_row(indices, values, target=0):
++            rows.extend([len(targets)] * len(indices))
++            columns.extend(indices)
++            coefficients.extend(values)
++            targets.append(target)
++
++        for vertex in range(atlas.vertices):
++            add_row(list(range(4 * vertex, 4 * vertex + 4)), [1] * 4, 1)
++        for edge, endpoints in enumerate(atlas.edges):
++            pair_indices = np.arange(self.unary_count + 16 * edge, self.unary_count + 16 * edge + 16).reshape(4, 4)
++            for position, vertex in enumerate(endpoints):
++                for choice in range(4):
++                    selected = pair_indices[choice] if position == 0 else pair_indices[:, choice]
++                    add_row([4 * vertex + choice] + selected.tolist(), [-1] + [1] * 4)
++        digits = np.indices((4, 4, 4, 4)).reshape(4, 256)
++        for face, corners in enumerate(atlas.plaquettes):
++            edges = [(2 * corners[0], 0, 1), (2 * corners[1] + 1, 1, 2),
++                     (2 * corners[3], 3, 2), (2 * corners[0] + 1, 0, 3)]
++            for edge, first_position, second_position in edges:
++                for first, second in itertools.product(range(4), repeat=2):
++                    selected = np.flatnonzero((digits[first_position] == first) &
++                                              (digits[second_position] == second))
++                    add_row([self.unary_count + 16 * edge + 4 * first + second] +
++                            (self.face_offset + 256 * face + selected).tolist(), [-1] + [1] * 16)
++        for scenario in range(4):
++            selected_flux = atlas.flux[scenario].reshape(-1)
++            selected = np.flatnonzero(np.abs(selected_flux) > 1e-12)
++            add_row((self.face_offset + selected).tolist(), selected_flux[selected].tolist(),
++                    2 * np.pi * atlas.targets[scenario])
++        self.equalities = coo_matrix((coefficients, (rows, columns)),
++                                    shape=(len(targets), self.variable_count)).tocsr()
++        self.equality_targets = np.asarray(targets)
++        self.digits = digits
++
++    def solve(self, allowed, seconds):
++        bounds = self.bounds.copy()
++        bounds[:self.unary_count, 1] = allowed.reshape(-1)
++        pair_allowed = allowed[self.atlas.edges[:, 0], :, None] & allowed[self.atlas.edges[:, 1], None, :]
++        bounds[self.unary_count:self.face_offset, 1] *= pair_allowed.reshape(-1)
++        face_allowed = np.ones((self.atlas.vertices, 256), dtype=bool)
++        for position in range(4):
++            face_allowed &= allowed[self.atlas.plaquettes[:, position, None], self.digits[position]]
++        bounds[self.face_offset:-1, 1] *= face_allowed.reshape(-1)
++        return linprog(self.objective, A_eq=self.equalities, b_eq=self.equality_targets,
++                       A_ub=self.inequalities, b_ub=self.inequality_targets,
++                       bounds=bounds, method='highs', options={'time_limit': seconds})
++
++
++def rounded_candidates(atlas, probabilities):
++    choices = np.argmax(probabilities, axis=1).astype(np.int32)
++    fractional = np.flatnonzero(np.max(probabilities, axis=1) < 1 - 1e-6)
++    supports = [np.flatnonzero(probabilities[vertex] > 1e-6) for vertex in fractional]
++    count = 1
++    for support in supports:
++        count *= len(support)
++        if count > 2048:
++            return choices[None]
++    candidates = np.tile(choices, (count, 1))
++    if len(fractional):
++        candidates[:, fractional] = np.asarray(list(itertools.product(*supports)))
++    costs = atlas.costs[np.arange(atlas.vertices), candidates].sum(axis=1)
++    return candidates[costs <= atlas.budget]
++
++
++def refine(atlas, initial, seconds, polish):
++    deadline = time.monotonic() + seconds
++    best = np.asarray(initial, dtype=np.int32).copy()
++    incumbent = atlas.score(best)['objective']
++    model = Relaxation(atlas)
++    allowed = model.bounds[:model.unary_count, 1].reshape(atlas.vertices, 4).astype(bool)
++    queue = [(0.0, 0, allowed)]
++    sequence = 0
++    root_bound = 0.0
++    nodes = 0
++    interrupted = False
++    while queue and time.monotonic() < deadline - 0.2:
++        bound, _, allowed = heapq.heappop(queue)
++        if bound >= incumbent - 1e-9:
++            continue
++        seconds_left = deadline - time.monotonic()
++        result = model.solve(allowed, min(12.0 if nodes == 0 else 4.0, seconds_left))
++        nodes += 1
++        if result.status == 2:
++            continue
++        if not result.success:
++            interrupted = True
++            break
++        bound = float(result.fun)
++        if nodes == 1:
++            root_bound = bound
++        if bound >= incumbent - 1e-9:
++            continue
++        probabilities = np.clip(result.x[:model.unary_count].reshape(atlas.vertices, 4), 0, 1)
++        candidates = rounded_candidates(atlas, probabilities)
++        for batch_start in range(0, len(candidates), 128):
++            batch = candidates[batch_start:batch_start + 128]
++            values = atlas.evaluate_many(batch)
++            objectives = np.where(values['feasible'], values['objective'], np.inf)
++            selected = int(np.argmin(objectives))
++            if objectives[selected] < incumbent - 1e-10:
++                best = batch[selected].copy()
++                best = polish(best, min(0.08, max(0.001, deadline - time.monotonic())))
++                incumbent = atlas.score(best)['objective']
++        if bound >= incumbent - 1e-9:
++            continue
++        reduced_cost = result.lower.marginals[:model.unary_count].reshape(atlas.vertices, 4)
++        removable = (probabilities < 1e-7) & (reduced_cost > incumbent - bound + 1e-8)
++        allowed = allowed & ~removable
++        if np.any(~np.any(allowed, axis=1)):
++            continue
++        fractionality = np.minimum(probabilities, 1 - probabilities)
++        fractionality[~allowed] = 0
++        vertex, choice = np.unravel_index(np.argmax(fractionality), fractionality.shape)
++        if fractionality[vertex, choice] < 1e-7:
++            continue
++        for selected in (True, False):
++            child = allowed.copy()
++            if selected:
++                child[vertex] = False
++                child[vertex, choice] = True
++            else:
++                child[vertex, choice] = False
++            if np.any(~np.any(child, axis=1)):
++                continue
++            sequence += 1
++            heapq.heappush(queue, (bound, sequence, child))
++    if interrupted:
++        lower_bound = root_bound
++    elif queue:
++        lower_bound = min(incumbent, min(item[0] for item in queue))
++    else:
++        lower_bound = incumbent
++    if os.environ.get('ATLAS_DEBUG'):
++        import sys
++        print('LP nodes', nodes, 'lower bound', lower_bound, 'incumbent', incumbent, file=sys.stderr)
++    return best, lower_bound
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/solve.py
+@@
+-    answer = baseline.copy()
+     library = ctypes.CDLL(str(Path(__file__).with_name('optimizer.so')))
+@@
+-    seconds = max(0.01, float(os.environ.get('ATLAS_SECONDS', '78')) - (time.monotonic() - STARTED))
+-    library.optimize(vertices, len(widths), widths.ctypes.data_as(integer_pointer),
+-                     members.ctypes.data_as(integer_pointer), tables.ctypes.data_as(double_pointer),
+-                     costs.ctypes.data_as(integer_pointer), anchors.ctypes.data_as(integer_pointer),
+-                     baseline.ctypes.data_as(integer_pointer), weights.ctypes.data_as(double_pointer),
+-                     atlas.budget, seconds, int(os.environ.get('ATLAS_SEED', '81473')),
+-                     answer.ctypes.data_as(integer_pointer))
++    deadline = STARTED + float(os.environ.get('ATLAS_SECONDS', '78'))
++    seed = int(os.environ.get('ATLAS_SEED', '81473'))
++
++    def polish(initial, seconds):
++        nonlocal seed
++        answer = np.ascontiguousarray(initial, dtype=np.int32).copy()
++        seed += 7919
++        library.optimize(vertices, len(widths), widths.ctypes.data_as(integer_pointer),
++                         members.ctypes.data_as(integer_pointer), tables.ctypes.data_as(double_pointer),
++                         costs.ctypes.data_as(integer_pointer), anchors.ctypes.data_as(integer_pointer),
++                         answer.ctypes.data_as(integer_pointer), weights.ctypes.data_as(double_pointer),
++                         atlas.budget, max(0.001, seconds), seed,
++                         answer.ctypes.data_as(integer_pointer))
++        return answer
++
++    answer = polish(baseline, min(1.5, max(0.001, deadline - time.monotonic())))
++    lower_bound = 0.0
++    if deadline - time.monotonic() > 8 and not os.environ.get('ATLAS_NO_LP'):
++        from linear import refine
++        answer, lower_bound = refine(atlas, answer, min(30.0, deadline - time.monotonic() - 3), polish)
++    while deadline - time.monotonic() > 0.05:
++        value = atlas.score(answer)['objective']
++        if value - lower_bound <= max(1e-8, 0.0001 * value):
++            break
++        answer = polish(answer, min(3.0, deadline - time.monotonic()))
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 benchmark.py --seconds 45" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1
+ succeeded in 68338ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/linear.py
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/concept_1/attempts/v_1/solve.py
+objective 0.676824830065 descents 149 evaluations 4702983
+LP nodes 7 lower bound 0.6768248300652837 incumbent 0.6768248300652837
+{"objective": 0.6768248300652837, "raw_loss": [8.151808169846086, 7.908664616478444, 8.21662828197553, 8.56942712460622], "normalized_loss": [0.5139993299555479, 0.4495877579635898, 0.4936762242843622, 0.5524609903585264], "chern": [-1.0, -0.9999999999999994, -1.0000000000000004, -0.9999999999999997], "cost": 96, "minimum_link": 0.4821609725430083, "branch_margin": 1.8018707313038362, "topology_error": 5.551115123125783e-16, "feasible": true, "gain": 0.07032630550467533, "case": "gap_hotspots_0", "seconds": 5.550842357100919}
+objective 0.617780254565 descents 110 evaluations 2409191
+LP nodes 1 lower bound 0.6177802545646659 incumbent 0.6177802545646659
+{"objective": 0.6177802545646659, "raw_loss": [9.755274664169393, 9.696249868219171, 9.978806232377467, 10.884839378322694], "normalized_loss": [0.472731410545428, 0.4739439089664857, 0.4966508475699778, 0.4965471885197793], "chern": [-1.0000000000000007, -1.0, -1.0, -1.0000000000000007], "cost": 96, "minimum_link": 0.585716751742395, "branch_margin": 2.063351364964606, "topology_error": 6.661338147750939e-16, "feasible": true, "gain": 0.14536737026923618, "case": "inversion_proximity_0", "seconds": 7.06295511208009}
+objective 0.646903484472 descents 122 evaluations 3585700
+LP nodes 7 lower bound 0.6469034844716789 incumbent 0.6469034844716789
+{"objective": 0.6469034844716789, "raw_loss": [9.319268476086215, 9.225264749342669, 9.546567737917561, 9.615475724743474], "normalized_loss": [0.5088425763254554, 0.515246588269082, 0.5169041442393062, 0.5181727495510079], "chern": [-0.9999999999999999, -0.9999999999999989, -1.0000000000000009, -0.9999999999999994], "cost": 96, "minimum_link": 0.5257025103737755, "branch_margin": 2.2435562993197404, "topology_error": 1.1102230246251565e-15, "feasible": true, "gain": 0.05771232164698192, "case": "anisotropic_warping_0", "seconds": 9.805269835982472}
+objective 0.743190416233 descents 137 evaluations 3952072
+LP nodes 113 lower bound 0.7431904162333217 incumbent 0.7431904162333217
+{"objective": 0.7431904162333217, "raw_loss": [10.557795664565639, 11.250245073311028, 11.161319836314842, 11.013846112436678], "normalized_loss": [0.5560947158765058, 0.5946800439674229, 0.5911522885151109, 0.5967357801569118], "chern": [-1.0000000000000007, -1.0000000000000002, -0.9999999999999997, -1.0000000000000007], "cost": 96, "minimum_link": 0.4150244932065992, "branch_margin": 1.7611873180551, "topology_error": 6.661338147750939e-16, "feasible": true, "gain": 0.03366098215567248, "case": "scenario_competition_0", "seconds": 28.454446892021224}
+mean gain 0.07676674489414148
+
+**Reviewing validation results**
+
+I've validated all four public cases, and they're feasible and better than the baseline, showing a mean reduction of 7.68%, which is below the advertised 12% target. That feels honest to me. I’ve included the final directory solver, and I’m using the output command to write the final artifact as a JSON file instead of a final message. I think we can also include the README for validation, but not the keys output. Sounds good!
+**Modifying benchmark for memory test**
+
+I’m looking at the NativeCDLLlibsourcepathnamefilesystem, which seems to allow the package import in Python. I want to use `subprocess` to modify the benchmark command with a memory limit. I should set `resource` with a timeout of 90 seconds and ensure no debugging mode if it’s quiet. I’ll need to record the result in a summary file, and since I've already got some optional changes in the documentation, I'll keep that in mind.
+codex
+All public cases are feasible and improved, but their mean gain is 7.68%, below 12%. I’ll finish resource-limit validation.
+

@@ -1,0 +1,16 @@
+# Private concept screening — 2026-08-28
+
+The seed is arXiv:2407.12651, especially sections 2.8, 3.5.3, 3.6, 3.9.4 and its lattice/heterostructure construction. The official kdotpy 1.4.1 source distribution (2026-06-26) was retrieved from PyPI. This is generation-time material, never a tested-agent asset. The previously generated atlas task and its private heuristic were inspected; its empty timed-out submission is not evidence about the new tasks.
+
+Eight concepts were considered before building:
+
+1. **A — Robust non-Abelian band atlas improvement (selected).** Globally choose eigenspace candidates under a common acquisition budget and scenario-dependent Chern constraints. Builds on the previous private passing heuristic, but uses baseline-relative improvement rather than unverifiable claims of exact optimality. Difficulty comes from topological sectors, frustrated local choices, and worst-scenario quality, not implementing the local formulas.
+2. **B — False spectral-window convergence (selected).** Construct a bounded, smooth, Hermitian semiconductor-inspired lattice model where multiple retained-band Berry sums agree yet miss the complete response. Validate independently against a complete eigensystem and analytic/finite-difference derivatives. The claimed method is an explicitly supplied convergence heuristic, not a theorem attributed to kdotpy.
+3. **C — Robust isolated topological-band design (selected).** Construct a finite-range semiconductor-inspired lattice design with nontrivial topology, isolation, and flatness under manufacturing perturbations. Spectral and Wilson-loop conditions give a reference-free witness checker. The model is explicitly a reduced surrogate, not a quantitatively calibrated Kane model.
+4. **E — Active spectral tomography of buried interfaces.** Adaptive queries could recover geometry near avoided crossings, but identifiability/noise calibration is a larger evaluator risk than the selected tasks.
+5. **D — Hidden prediction of disorder-induced gap closures.** Potentially difficult, but acquiring enough independent source-native training/test data and proving no label shortcut is costly; not selected.
+6. **F — Repair non-Abelian band tracking and derivative cache invalidation.** Grounded in band alignment and later fixes, but risks rewarding upstream patch copying rather than investigation; not selected.
+7. **A — Sparse interior eigensolver improvement.** Real resource gap, but a task dominated by replacing one standard solver would violate the concept criterion; not selected.
+8. **B — Spurious-state renormalization failure.** Grounded in 1.4.0 renormalization and 1.4.1 sign correction, but a simple sign regression is too easy and calibrated physical validity is more demanding; not selected.
+
+Maximum three built concepts; three primary modes A/B/C. Fixed targets and evaluator tests must precede the first tournament. Failures are empirically scoped to one fresh ultima-alpha attempt per generation with a 3600-second ceiling, never universal impossibility claims. A valid evaluator with no known passing witness may be retained as hard_open_candidate. Solved concepts require a scientifically meaningful champion challenge search, not immediate rejection.
