@@ -1,0 +1,770 @@
+[
+  {
+    "name": "same_scalar_twice_independent_dummies",
+    "case": {
+      "dimensions": {
+        "o": 3
+      },
+      "tensors": {
+        "A": [
+          "o"
+        ],
+        "B": [
+          "o"
+        ]
+      },
+      "index_types": {
+        "i": "o",
+        "j": "o"
+      },
+      "memory_cap": 2,
+      "terms": [
+        {
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "i"
+            ],
+            [
+              "A",
+              "j"
+            ],
+            [
+              "B",
+              "j"
+            ]
+          ],
+          "output": ""
+        }
+      ]
+    },
+    "plan": {
+      "steps": [
+        {
+          "id": "shared",
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "i"
+            ]
+          ],
+          "output": ""
+        },
+        {
+          "id": "square",
+          "inputs": [
+            [
+              "shared",
+              ""
+            ],
+            [
+              "shared",
+              ""
+            ]
+          ],
+          "output": ""
+        },
+        {
+          "emit": 0,
+          "input": [
+            "square",
+            ""
+          ],
+          "output": ""
+        }
+      ]
+    },
+    "result": {
+      "valid": true,
+      "flops": 7,
+      "peak_elements": 2,
+      "resource_score": 0.0,
+      "outputs": 1
+    },
+    "expected_valid": true,
+    "root_graph_edges": 1,
+    "same_child_root_edges": 1
+  },
+  {
+    "name": "same_matrix_twice_rebound_open_axes",
+    "case": {
+      "dimensions": {
+        "o": 2
+      },
+      "tensors": {
+        "A": [
+          "o",
+          "o"
+        ],
+        "B": [
+          "o",
+          "o"
+        ]
+      },
+      "index_types": {
+        "i": "o",
+        "j": "o",
+        "k": "o",
+        "l": "o",
+        "m": "o",
+        "n": "o"
+      },
+      "memory_cap": 20,
+      "terms": [
+        {
+          "inputs": [
+            [
+              "A",
+              "ik"
+            ],
+            [
+              "B",
+              "kj"
+            ],
+            [
+              "A",
+              "ml"
+            ],
+            [
+              "B",
+              "ln"
+            ]
+          ],
+          "output": "ijmn"
+        }
+      ]
+    },
+    "plan": {
+      "steps": [
+        {
+          "id": "shared",
+          "inputs": [
+            [
+              "A",
+              "ik"
+            ],
+            [
+              "B",
+              "kj"
+            ]
+          ],
+          "output": "ij"
+        },
+        {
+          "id": "outer",
+          "inputs": [
+            [
+              "shared",
+              "ij"
+            ],
+            [
+              "shared",
+              "mn"
+            ]
+          ],
+          "output": "ijmn"
+        },
+        {
+          "emit": 0,
+          "input": [
+            "outer",
+            "ijmn"
+          ],
+          "output": "ijmn"
+        }
+      ]
+    },
+    "result": {
+      "valid": true,
+      "flops": 32,
+      "peak_elements": 20,
+      "resource_score": 0.0,
+      "outputs": 1
+    },
+    "expected_valid": true,
+    "root_graph_edges": 1,
+    "same_child_root_edges": 1
+  },
+  {
+    "name": "same_matrix_twice_transposed_binding",
+    "case": {
+      "dimensions": {
+        "o": 2
+      },
+      "tensors": {
+        "A": [
+          "o",
+          "o"
+        ],
+        "B": [
+          "o",
+          "o"
+        ]
+      },
+      "index_types": {
+        "i": "o",
+        "j": "o",
+        "k": "o",
+        "l": "o",
+        "m": "o",
+        "n": "o"
+      },
+      "memory_cap": 5,
+      "terms": [
+        {
+          "inputs": [
+            [
+              "A",
+              "ik"
+            ],
+            [
+              "B",
+              "kj"
+            ],
+            [
+              "A",
+              "jl"
+            ],
+            [
+              "B",
+              "li"
+            ]
+          ],
+          "output": ""
+        }
+      ]
+    },
+    "plan": {
+      "steps": [
+        {
+          "id": "shared",
+          "inputs": [
+            [
+              "A",
+              "ik"
+            ],
+            [
+              "B",
+              "kj"
+            ]
+          ],
+          "output": "ij"
+        },
+        {
+          "id": "trace",
+          "inputs": [
+            [
+              "shared",
+              "ij"
+            ],
+            [
+              "shared",
+              "ji"
+            ]
+          ],
+          "output": ""
+        },
+        {
+          "emit": 0,
+          "input": [
+            "trace",
+            ""
+          ],
+          "output": ""
+        }
+      ]
+    },
+    "result": {
+      "valid": true,
+      "flops": 24,
+      "peak_elements": 5,
+      "resource_score": 0.0,
+      "outputs": 1
+    },
+    "expected_valid": true,
+    "root_graph_edges": 2,
+    "same_child_root_edges": 2
+  },
+  {
+    "name": "retained_internal_index_summed_later",
+    "case": {
+      "dimensions": {
+        "o": 2,
+        "v": 3
+      },
+      "tensors": {
+        "A": [
+          "o"
+        ],
+        "B": [
+          "o"
+        ],
+        "C": [
+          "v"
+        ]
+      },
+      "index_types": {
+        "i": "o",
+        "a": "v"
+      },
+      "memory_cap": 5,
+      "terms": [
+        {
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "i"
+            ],
+            [
+              "C",
+              "a"
+            ]
+          ],
+          "output": "a"
+        }
+      ]
+    },
+    "plan": {
+      "steps": [
+        {
+          "id": "hadamard",
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "i"
+            ]
+          ],
+          "output": "i"
+        },
+        {
+          "id": "result",
+          "inputs": [
+            [
+              "hadamard",
+              "i"
+            ],
+            [
+              "C",
+              "a"
+            ]
+          ],
+          "output": "a"
+        },
+        {
+          "emit": 0,
+          "input": [
+            "result",
+            "a"
+          ],
+          "output": "a"
+        }
+      ]
+    },
+    "result": {
+      "valid": true,
+      "flops": 14,
+      "peak_elements": 5,
+      "resource_score": 0.0,
+      "outputs": 1
+    },
+    "expected_valid": true,
+    "root_graph_edges": 2,
+    "same_child_root_edges": 0
+  },
+  {
+    "name": "premature_separate_sums_cannot_reconnect",
+    "case": {
+      "dimensions": {
+        "o": 2,
+        "v": 3
+      },
+      "tensors": {
+        "A": [
+          "o"
+        ],
+        "B": [
+          "o"
+        ],
+        "C": [
+          "v"
+        ]
+      },
+      "index_types": {
+        "i": "o",
+        "a": "v"
+      },
+      "memory_cap": 5,
+      "terms": [
+        {
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "i"
+            ],
+            [
+              "C",
+              "a"
+            ]
+          ],
+          "output": "a"
+        }
+      ]
+    },
+    "plan": {
+      "steps": [
+        {
+          "id": "wrong",
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "j"
+            ]
+          ],
+          "output": ""
+        },
+        {
+          "id": "result",
+          "inputs": [
+            [
+              "wrong",
+              ""
+            ],
+            [
+              "C",
+              "a"
+            ]
+          ],
+          "output": "a"
+        },
+        {
+          "emit": 0,
+          "input": [
+            "result",
+            "a"
+          ],
+          "output": "a"
+        }
+      ]
+    },
+    "result": {
+      "valid": false,
+      "reason": "output is not the specified contraction: 0"
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "split_indices_cannot_be_diagonalized_later",
+    "case": {
+      "dimensions": {
+        "o": 2,
+        "v": 3
+      },
+      "tensors": {
+        "A": [
+          "o"
+        ],
+        "B": [
+          "o"
+        ],
+        "C": [
+          "v"
+        ]
+      },
+      "index_types": {
+        "i": "o",
+        "a": "v"
+      },
+      "memory_cap": 100,
+      "terms": [
+        {
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "i"
+            ],
+            [
+              "C",
+              "a"
+            ]
+          ],
+          "output": "a"
+        }
+      ]
+    },
+    "plan": {
+      "steps": [
+        {
+          "id": "split",
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "j"
+            ]
+          ],
+          "output": "ij"
+        },
+        {
+          "id": "result",
+          "inputs": [
+            [
+              "split",
+              "ii"
+            ],
+            [
+              "C",
+              "a"
+            ]
+          ],
+          "output": "a"
+        },
+        {
+          "emit": 0,
+          "input": [
+            "result",
+            "a"
+          ],
+          "output": "a"
+        }
+      ]
+    },
+    "result": {
+      "valid": false,
+      "reason": "diagonal indices are not supported"
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "summed_dummy_cannot_be_rebound",
+    "case": {
+      "dimensions": {
+        "o": 2,
+        "v": 3
+      },
+      "tensors": {
+        "A": [
+          "o"
+        ],
+        "B": [
+          "o"
+        ],
+        "C": [
+          "v"
+        ]
+      },
+      "index_types": {
+        "i": "o",
+        "a": "v"
+      },
+      "memory_cap": 5,
+      "terms": [
+        {
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "i"
+            ],
+            [
+              "C",
+              "a"
+            ]
+          ],
+          "output": "a"
+        }
+      ]
+    },
+    "plan": {
+      "steps": [
+        {
+          "id": "closed",
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "i"
+            ]
+          ],
+          "output": ""
+        },
+        {
+          "id": "result",
+          "inputs": [
+            [
+              "closed",
+              "i"
+            ],
+            [
+              "C",
+              "a"
+            ]
+          ],
+          "output": "a"
+        },
+        {
+          "emit": 0,
+          "input": [
+            "result",
+            "a"
+          ],
+          "output": "a"
+        }
+      ]
+    },
+    "result": {
+      "valid": false,
+      "reason": "rank mismatch"
+    },
+    "expected_valid": false
+  },
+  {
+    "name": "emitted_external_store_cannot_be_reused",
+    "case": {
+      "dimensions": {
+        "o": 3
+      },
+      "tensors": {
+        "A": [
+          "o"
+        ],
+        "B": [
+          "o"
+        ]
+      },
+      "index_types": {
+        "i": "o",
+        "j": "o"
+      },
+      "memory_cap": 2,
+      "terms": [
+        {
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "i"
+            ]
+          ],
+          "output": ""
+        },
+        {
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "i"
+            ],
+            [
+              "A",
+              "j"
+            ],
+            [
+              "B",
+              "j"
+            ]
+          ],
+          "output": ""
+        }
+      ]
+    },
+    "plan": {
+      "steps": [
+        {
+          "id": "shared",
+          "inputs": [
+            [
+              "A",
+              "i"
+            ],
+            [
+              "B",
+              "i"
+            ]
+          ],
+          "output": ""
+        },
+        {
+          "emit": 0,
+          "input": [
+            "shared",
+            ""
+          ],
+          "output": ""
+        },
+        {
+          "delete": "shared"
+        },
+        {
+          "id": "square",
+          "inputs": [
+            [
+              "shared",
+              ""
+            ],
+            [
+              "shared",
+              ""
+            ]
+          ],
+          "output": ""
+        },
+        {
+          "emit": 1,
+          "input": [
+            "square",
+            ""
+          ],
+          "output": ""
+        }
+      ]
+    },
+    "result": {
+      "valid": false,
+      "reason": "unknown or freed tensor shared"
+    },
+    "expected_valid": false
+  }
+]
