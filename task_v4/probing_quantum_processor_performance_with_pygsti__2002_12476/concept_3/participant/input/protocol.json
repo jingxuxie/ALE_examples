@@ -1,0 +1,28 @@
+{
+  "protocol_version": "memory-prediction-v1",
+  "verification_mode": "D_HIDDEN_PREDICTION",
+  "frozen_before_fresh_attempt": true,
+  "target_definition_date": "2026-08-28",
+  "target_rationale": "Two percentage points aggregate probability RMSE, with fixed family and device/family safeguards; exact marginalized targets remove test-shot luck.",
+  "core_rmse_max": 0.020,
+  "family_rmse_max": {
+    "germ_repetition": 0.025,
+    "refocusing": 0.025,
+    "burst_switching": 0.025,
+    "drift_transfer": 0.025
+  },
+  "device_family_rmse_max": 0.040,
+  "core_score_definition": "1 / (1 + macro_family_mse / core_rmse_max**2); higher is better",
+  "worst_family_score_definition": "minimum over families of 1 / (1 + family_mse / family_rmse_max[family]**2); higher is better",
+  "pass_rule": "valid and core_score >= 0.5 and worst_family_score >= 0.5 and every device/family RMSE <= 0.040",
+  "test_queries_per_device_family": 512,
+  "development_queries_per_device_family": 128,
+  "max_submission_bytes": 2097152,
+  "wall_time_seconds": 3600,
+  "cpu_affinity_size": 8,
+  "max_address_space_gib_per_process": 8,
+  "memory_limit_semantics": "RLIMIT_AS per process; not a total-RAM limit across the process tree",
+  "runtime_seconds_semantics": "Evaluator validation and scoring time only; participant computation time is independently limited by the fresh-agent runner.",
+  "secondary_metrics": ["macro_rmse", "family_rmse", "device_family_rmse", "mean_bernoulli_kl", "family_rmse_bootstrap_95pct"],
+  "solvability_note": "A private exact simulator validates labels, not recoverability. Its access to true parameters is not itself an achievable participant solution."
+}
