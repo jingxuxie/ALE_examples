@@ -1,0 +1,5 @@
+# Submission isolation and non-physics hardening
+
+The C evaluator only parses a small NPZ. It does not execute Python from the submission. Archives must have exactly one numeric array, no pickle, a one-MiB compressed and uncompressed limit, finite entries and a bounded shape. The outer evaluator additionally rejects a symlink as the final artifact, preventing a link to an invisible private artifact from being resolved by the trusted parent. This safety check does not change any tensor, observable or score threshold. Public participant files remain immutable throughout the tournament.
+
+The tournament manifest rejects symlinks in supplied participant trees. Submitted output symlinks are recorded as links, not followed while hashing. Code-submission evaluators must run in a separate networkless filesystem namespace, with private labels and generation-time data absent. There is no unsandboxed fallback when nested sandbox setup is unavailable; invoke the trusted evaluator with the approved host permissions instead.

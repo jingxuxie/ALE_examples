@@ -1,0 +1,274 @@
+{
+  "assurance_limit": "Static source review only. No claim of exhaustive kernel, process-isolation, cleanup, scientific-score, or runtime regression verification.",
+  "corrected_grading_and_archive_note": {
+    "archive": "concept_1/generations/generation_0",
+    "corrected_reports_complete_and_valid": true,
+    "note": "WG-01 remains a no-false-pass classification issue in archived infra2. Main accepted the narrow follow-up after quiescence; no evaluator patch is applied here. Corrected grade validity is a bookkeeping check, not an additional sandbox regression.",
+    "recorded_utc": "2026-08-28T16:55:56.602836+00:00",
+    "runtime_tests_or_grades_executed_by_reviewer": 0,
+    "scores": {
+      "v_1": 99.695452828125,
+      "v_2": 99.776330515625
+    },
+    "selected_champion": "concept_1/champions/generation_1/submission"
+  },
+  "created_utc": "2026-08-28T16:30:04.170856+00:00",
+  "earlier_review": {
+    "kind": "bounded_static_security_review_of_proposed_supervisor_wall_guard",
+    "superseded_by": "actual patch review for the source hashes recorded here; earlier design recommendations were not runtime tests"
+  },
+  "findings": [
+    {
+      "concrete_path": [
+        "An untrusted child replaces /work/stderr.log with a symlink or other non-regular entry, stops its supervisor, and remains alive until the fixed outer watchdog fires.",
+        "The supervisor cannot produce its post-reap report; the resource file is still empty or otherwise unauthoritative.",
+        "The host kills/reaps the outer process, then the stderr metadata branch returns process_valid=false before checking outer_timed_out and not accounted.",
+        "The evaluator treats a returned invalid process as a failed scientific stage instead of aborting as infrastructure_error with score=null."
+      ],
+      "follow_up_fixture": "Mock an expired outer watchdog with no accounting and symlink/non-regular/missing stderr; each must abort with infrastructure_error and null score. Test an ordinary genuine worker timeout separately: that remains a resource failure.",
+      "id": "WG-01",
+      "impact": "Violates the promised no-authoritative-accounting timeout classification. Does not make process_valid true, extend the worker budget, or create a passing score.",
+      "issue": "The non-regular/non-single-link stderr early return precedes the outer_timed_out and not accounted infrastructure exception. Missing stderr also raises before the intended infrastructure classification.",
+      "locations": [
+        "concept_1/evaluator/sandbox_runner.py:137",
+        "concept_1/evaluator/sandbox_runner.py:144",
+        "concept_1/evaluator/evaluate.py:121"
+      ],
+      "minimal_recommendation": "Move the existing outer_timed_out and not accounted SandboxUnavailable check immediately after accounting parsing and before stderr metadata/read/early-return handling. Keep the pass gate unchanged.",
+      "runtime_reproduction": "Not executed; this is a static control-flow counterexample, not a reproduced grade or sandbox escape.",
+      "severity": "medium: result classification, not false acceptance",
+      "status": "confirmed_by_source_control_flow_in_reviewed_snapshot"
+    },
+    {
+      "example": {
+        "accounting": "protected supervisor wait4 on direct solver child",
+        "cpu_seconds": "0",
+        "worker_exitcode": false,
+        "worker_timed_out": false,
+        "worker_wall_seconds": false
+      },
+      "id": "WG-02",
+      "impact": "The example passes the resource parser when the outer exit is zero. No child-to-success exploit is established: on that path the protected supervisor has already reaped the only untrusted child and rewritten the report with genuine numeric/integer fields. This is not a false-pass blocker under that trust boundary.",
+      "issue": "CPU and wall are float-coerced, and isinstance(child_exitcode, int) accepts JSON booleans. The parser is finite/bounded but not a strict numeric/integer schema; default json.loads also does not reject duplicate keys.",
+      "locations": [
+        "concept_1/evaluator/sandbox_runner.py:123",
+        "concept_1/evaluator/sandbox_runner.py:130"
+      ],
+      "minimal_recommendation": "If strict malformed-report rejection is required, check exact integer/non-bool numeric types before conversion and reject duplicate keys. Do not replace or weaken the protected final-write/clean-exit requirement.",
+      "runtime_reproduction": "Not executed; parser behavior is derived directly from the expressions.",
+      "severity": "low: defensive schema strictness",
+      "status": "confirmed_by_parser_expressions_in_reviewed_snapshot"
+    }
+  ],
+  "follow_up_revision_plan": {
+    "basis_revision": 2,
+    "changes": [
+      "Check outer timeout without authoritative accounting before any stderr access or early return (WG-01).",
+      "Read supervisor bootstrap from the same staged worker copy used by the solver child."
+    ],
+    "focused_tests": [
+      "Outer timeout plus no accounting with missing, symlink or nonregular stderr must abort as null-score infrastructure.",
+      "An authenticated worker wall timeout remains a resource failure, not an infrastructure waiver.",
+      "Live source mutation after staging cannot change either staged worker execution path."
+    ],
+    "physical_or_public_target_change": false,
+    "regrading_by_this_sidecar": false,
+    "scientific_ratchet": false,
+    "status": "planned_by_main_after_archive_and_grade_quiescence_not_applied_here"
+  },
+  "nonblocking_caveats": [
+    {
+      "assessment": "Post-SIGKILL reaps remain blocking; host Popen construction and filesystem cleanup are also outside a separately bounded cleanup loop. Thus 120+wall is the polling trigger, not a demonstrated absolute end-to-end return cap under uninterruptible kernel/IO stalls. This can hang/invalidate but is not a false-pass path.",
+      "id": "C1",
+      "locations": [
+        "concept_1/evaluator/worker.py:70",
+        "concept_1/evaluator/sandbox_runner.py:108"
+      ],
+      "recommendation": "Retain an outer harness operational deadline and verify no live namespace after timeout. Do not infer a solver result if cleanup/accounting is incomplete. A stronger cleanup guarantee needs separate containment, not a timer reset."
+    },
+    {
+      "assessment": "The child worker is staged once but supervisor bootstrap is read again from the live source. Concurrent source edits can mix worker revisions. This is a deployment/coherence risk, not a submitted-child escape.",
+      "id": "C2",
+      "locations": [
+        "concept_1/evaluator/sandbox_runner.py:47",
+        "concept_1/evaluator/sandbox_runner.py:64"
+      ],
+      "recommendation": "Keep graders quiescent across paired deployment; optionally read the supervisor bootstrap from the same staged worker copy. Record source hashes for already-running tests."
+    }
+  ],
+  "primary_reference_notes": [
+    {
+      "purpose": "Wait semantics and returned per-child resource usage; direct-process/group operations must not be confused.",
+      "sections": [
+        "os.wait4",
+        "os.WNOHANG",
+        "os.waitstatus_to_exitcode",
+        "os.killpg"
+      ],
+      "source": "CPython 3.10 os documentation"
+    },
+    {
+      "purpose": "close_fds=True closes nonstandard descriptors before child execution.",
+      "section": "Popen close_fds",
+      "source": "CPython 3.10 subprocess documentation"
+    },
+    {
+      "purpose": "Supports retaining a nondumpable supervisor; not a substitute for testing the complete sandbox.",
+      "section": "PR_SET_DUMPABLE and classic ptrace checks",
+      "source": "Linux kernel Yama documentation"
+    }
+  ],
+  "readiness": "Core protected-worker timing/pass predicate appears sound under preserved isolation assumptions; repair WG-01 for the promised null-score infrastructure semantics. Runtime regressions remain owned by main and were not awaited.",
+  "recommended_focused_tests": [
+    {
+      "id": "T1",
+      "purpose": "Trusted pre-spawn startup delay exceeds child wall but stays within outer allowance; fast child remains eligible. Child bootstrap/import delay remains charged."
+    },
+    {
+      "id": "T2",
+      "purpose": "Sleeping/SIGSTOP child and near-deadline exit cases; timeout latches and kills/reaps, and actual over-budget wall cannot pass with a false timeout flag."
+    },
+    {
+      "id": "T3",
+      "purpose": "Normal child and CPU burner; real direct-child CPU remains authoritative and original CPU/wall limits are unchanged."
+    },
+    {
+      "id": "T4",
+      "purpose": "Rewrite request and forge/hide/replace/link/truncate resource; no timer resets or success with attacker final accounting."
+    },
+    {
+      "id": "T5",
+      "purpose": "Stop supervisor with forged/missing resource and tampered stderr; outer watchdog yields no pass, and no authoritative accounting yields null infrastructure result even when stderr is malformed (WG-01)."
+    },
+    {
+      "id": "T6",
+      "purpose": "Proc memory/FD, raw process/thread/exec, and setsid variants; existing barriers hold and no untrusted actor survives finalization/cleanup."
+    },
+    {
+      "id": "T7",
+      "purpose": "Legacy/malformed/NaN/Inf/negative/inconsistent resource records reject; type-strict cases in WG-02 are defense-in-depth expectations if adopted."
+    }
+  ],
+  "review_kind": "bounded_static_review_of_actual_wall_guard_patch_and_archived_originals",
+  "schema_version": 2,
+  "scope": {
+    "additional_source_read": "concept_1/evaluator/evaluate.py exception route only; archived original worker.py and sandbox_runner.py",
+    "attempt_or_champion_edits": false,
+    "calibration_read_or_changed": false,
+    "evaluator_or_participant_edits": false,
+    "existing_final_isolation_audit_reopened_or_changed": false,
+    "fresh_agents_launched": 0,
+    "grade_records_read": 0,
+    "grades_executed_or_repeated": 0,
+    "main_regressions": "User reports four new plus six previous tests running; results not inspected, awaited, duplicated or claimed passed.",
+    "only_written_files": [
+      "authoring/wall_guard_review.json",
+      "authoring/wall_guard_review.md"
+    ],
+    "runtime_tests_executed": 0,
+    "source_files_reviewed": [
+      "concept_1/evaluator/worker.py",
+      "concept_1/evaluator/sandbox_runner.py"
+    ],
+    "submitted_programs_executed": 0,
+    "validation_performed": [
+      "read-only source diff against archived originals",
+      "source hashing",
+      "in-memory AST syntax parse",
+      "static control-flow and passing-predicate review"
+    ]
+  },
+  "source_snapshots": [
+    {
+      "archived_original": "concept_1/adversary/wall_guard_repair/original/worker.py",
+      "archived_original_matches_prepatch_review": true,
+      "archived_original_sha256": "eded093a70f66bbca10cb963de0be67b65747e85229d4217aa370d792e3a9d5a",
+      "current_source_ast_parse": "passed",
+      "path": "concept_1/evaluator/worker.py",
+      "reviewed_sha256": "0648a2f8dea65c7618e4cf1786a78aaa22782f845cdb0afd30a0162d16be42cf",
+      "sha256_at_report_write": "0648a2f8dea65c7618e4cf1786a78aaa22782f845cdb0afd30a0162d16be42cf",
+      "still_matches_reviewed_snapshot": true
+    },
+    {
+      "archived_original": "concept_1/adversary/wall_guard_repair/original/sandbox_runner.py",
+      "archived_original_matches_prepatch_review": true,
+      "archived_original_sha256": "24283bbaef3410d5b9b6d38a09d3bd85f02cd64f5f57a9d23af2ba5964dbe248",
+      "current_source_ast_parse": "passed",
+      "path": "concept_1/evaluator/sandbox_runner.py",
+      "reviewed_sha256": "2574e9053110c37788ef5a92b4b42963a2fda7f9f8e98518f0ff4b439624b8bc",
+      "sha256_at_report_write": "2574e9053110c37788ef5a92b4b42963a2fda7f9f8e98518f0ff4b439624b8bc",
+      "still_matches_reviewed_snapshot": true
+    }
+  ],
+  "source_snapshots_still_match": true,
+  "tampering_review": [
+    {
+      "assessment": "Edits after solver launch cannot change the supervisor local wall_limit or host request object; child resource setup occurs before submitted code.",
+      "surface": "Mutable request"
+    },
+    {
+      "assessment": "The file is same-UID writable while the child runs; its existence and early contents are not authentication. In the successful path, reap precedes identity checking and the last trusted rewrite, so no untrusted descendant may remain to race it.",
+      "surface": "Resource marker/report"
+    },
+    {
+      "assessment": "Missing or changed inode/link identity invalidates the supervisor. Restoring the original inode before child exit still leaves the trusted final rewrite. No timer depends on this marker.",
+      "surface": "Hiding/replacing resource"
+    },
+    {
+      "assessment": "Stopping/signaling the supervisor can cause delay, invalidation or the outer guard. It cannot reset the monotonic start or grant a clean authenticated pass. WG-01 concerns the resulting failure classification only.",
+      "surface": "Parent signals"
+    },
+    {
+      "assessment": "The existing nondumpable/capability/seccomp/close-fds barriers are unchanged. This review found no new bypass in the patch, but did not empirically probe those barriers.",
+      "surface": "Proc/memory/FD access"
+    },
+    {
+      "assessment": "Normal report emission follows direct-child reap. That rules out the direct child remaining alive; absence of additional untrusted processes relies on the unchanged seccomp barrier. Host-kill namespace cleanup still merits the existing regression probe.",
+      "surface": "Child live after final report"
+    }
+  ],
+  "updated_utc": "2026-08-28T16:43:42.722913+00:00",
+  "verdict": "No concrete false-pass or timer-reset escape found in the reviewed patch. One confirmed timeout-classification ordering gap (WG-01); defensive schema and operational/deployment caveats remain. This is not empirical sandbox certification.",
+  "verified_static_invariants": [
+    {
+      "id": "I1",
+      "location": "concept_1/evaluator/worker.py:58",
+      "result": "Supervisor reads wall before spawn, takes one monotonic start before Popen, never rereads the request or resets the deadline."
+    },
+    {
+      "id": "I2",
+      "location": "concept_1/evaluator/worker.py:63",
+      "result": "One direct-PID wait4 owner polls WNOHANG, latches timeout, kills that PID, and reaps before final accounting. Elapsed wall is sampled immediately after the wait loop."
+    },
+    {
+      "id": "I3",
+      "location": "concept_1/evaluator/worker.py:73",
+      "result": "Actual elapsed wall is reported even if the wait4 completion branch wins a deadline race; the host still rejects a reported over-budget wall when worker_timed_out is false."
+    },
+    {
+      "id": "I4",
+      "location": "concept_1/evaluator/worker.py:52",
+      "result": "Nondumpable supervisor, exclusive/no-follow preopened report descriptor, post-reap inode/link check, close_fds=True, and final descriptor truncate/rewrite are preserved."
+    },
+    {
+      "id": "I5",
+      "location": "concept_1/evaluator/worker.py:27",
+      "result": "Existing pre-submission no-process/no-thread/no-exec and memory/FD/namespace syscall restrictions remain unchanged. Direct-child sufficiency depends on those restrictions actually holding."
+    },
+    {
+      "id": "I6",
+      "location": "concept_1/evaluator/sandbox_runner.py:105",
+      "result": "Host watchdog is a fixed 120 seconds plus original wall budget, with no marker or timer resets. Outer elapsed time remains diagnostic instead of being substituted for the successful child wall."
+    },
+    {
+      "id": "I7",
+      "location": "concept_1/evaluator/sandbox_runner.py:129",
+      "result": "Host checks finite nonnegative CPU/wall, boolean timeout, integer exit status and supervisor/outer exit consistency. Clean outer exit plus the mapping implies child exit zero on any passing path."
+    },
+    {
+      "id": "I8",
+      "location": "concept_1/evaluator/sandbox_runner.py:146",
+      "result": "Pass additionally requires no timeout, valid accounting, and original host CPU/wall budgets. Missing/partial accounting cannot pass and outer CPU is not a passing fallback."
+    }
+  ]
+}
