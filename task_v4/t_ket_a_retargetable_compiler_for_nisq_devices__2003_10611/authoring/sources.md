@@ -1,0 +1,14 @@
+# Source inspection and provenance
+
+- Paper: https://arxiv.org/abs/2003.10611 and https://arxiv.org/pdf/2003.10611, inspected 2026-08-28. Sections 4–7 describe exact circuit structure, transformations, phase gadgets, and architecture-dependent routing. Section 9 explicitly distinguishes logical operation count, depth, routing, noise-aware placement, and circuit-family-dependent optimization. The benchmark warning about checking only one input state motivates complete symbolic/replay checks here.
+- Original benchmark repository: https://github.com/CQCL/tket_benchmarking (now under Quantinuum). Paper identifies IBM mapping, UCCSD, and product-formula families. Our data are newly generated, not copies of inaccessible benchmark labels.
+- Official compiler repository: https://github.com/Quantinuum/tket, releases and issue history inspected. No claim is made that the supplied lightweight router is the upstream TKET implementation.
+- The official `tket/src/Mapping/LexiRoute.cpp` source was downloaded to `source_snapshot/LexiRoute.cpp` and inspected, including frontier candidate generation and the lookahead comparison between a chosen SWAP and a possible BRIDGE. Our routing contracts deliberately use opaque two-qubit operations / explicitly specified routing primitives, not a source-code reproduction challenge.
+- Routing follow-up/precursor: https://arxiv.org/abs/1902.08091, *On the qubit routing problem*. Architecture-agnostic heuristic routing motivates a portfolio-quality task and a constructive falsification task.
+- Phase synthesis: https://arxiv.org/abs/1906.01734, *Phase Gadget Synthesis for Shallow Circuits*. Shared parity computation and architecture/depth tradeoffs motivate exact bounded network construction.
+- Official issue https://github.com/Quantinuum/tket/issues/1771 (opened 2025-02-08): PhasedX rebasing followed by GreedyPauliSimp can violate equivalence in the reported version. Rejected as a direct-reproducer task.
+- Official issue https://github.com/Quantinuum/tket/issues/1463 (opened 2024-06-23): RoutingPass with Unitary2qBox can fail to terminate. Motivates explicit resource limits and supported-input contracts; not copied as a task.
+- Later study https://arxiv.org/abs/2601.16779, *Investigating Retargetability Claims for Quantum Compilers*. Inspected as follow-up evidence for studying architecture-dependent performance rather than treating retargetability as a single aggregate score.
+- Local prior task packages were inspected for isolation/runner conventions. No previous task or submission for this paper was found in tasks_v2, tasks_v3, or tasks_v4 at discovery start.
+
+These generation-time artifacts are not participant assets. Source versions relevant to each generated mathematical task are frozen in its participant files rather than depending on a moving upstream package.

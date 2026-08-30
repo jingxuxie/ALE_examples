@@ -1,0 +1,11 @@
+# Frozen A2 champion audit
+
+This directory alone contains new audit scripts and artifacts. The parent stress pool, G2, original exact checker, shared Landlock/seccomp sandbox, and immutable `attempts/v_2.frozen` submission are read-only inputs. No fresh agent is launched and no generation 3 is built. Private route certificates remain private.
+
+The primary audit runs all 24 frozen stress cases once in their frozen order. Reference costs are the original baseline routes and exact costs already frozen in the stress manifest; the reference is not regenerated or optimized. The same geometric quality scoring, core 0.40 / every-family 0.30 targets, 12-second case / 360-second suite limits, single CPU, 2 GiB memory, and 128 MiB submission limit apply. The shared sandbox copies the immutable submission into its usual isolated temporary directory for each execution.
+
+Per-case and per-family results compare the champion with both the baseline and the private legal certificate. A diagnostic substantial certificate gap means at least 15% excess certificate cost and at least five percentage points of baseline-normalized improvement left available. This is not a changed task target and is not by itself an aggregate audit failure. A case below 40% individually is also not by itself a failure of the aggregate contract.
+
+Failed executions and cases above twelve seconds receive three isolated reruns. Primary results and all reruns are preserved separately; a first successful rerun may establish the missing quality observation, but timings are never silently replaced. Timing-only failures do not justify another generation. Main decides whether any genuine quality failure warrants a prospectively fixed, scientifically meaningful new target.
+
+`provenance.json` records source hashes, immutable inputs, the fixed contract, and main-reported canonical G2 results (not independently rerun here). `executions/` and `routes/` retain private exact replay artifacts. `report.json` contains primary results, timing diagnostics, family comparisons, and ranked certificate gaps. `python3 -B audit.py --freeze` independently replays every valid saved answer, rechecks all frozen inputs, and writes this audit's own hash inventory without altering its parent freeze.

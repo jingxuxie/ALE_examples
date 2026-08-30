@@ -1,0 +1,642 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/concept_3/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 01a048f8-965c-7012-aa1d-cc57ee966541
+--------
+user
+Solve the professional task in TASK.md. The participant directory is /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/concept_3/participant; the initially empty writable submission directory is /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/concept_3/attempts/v_1. Read the task and assets, then investigate, implement, and test your solution autonomously. Write all deliverables and development files inside the submission directory. You have a maximum of 3600 seconds (one hour) of wall-clock time for this attempt; use the time for substantive implementation and validation. Your final artifact, not a plan or explanation, is evaluated. The participant directory is read-only. Only participant assets, your output directory, and standard runtime/toolchain paths are authorized. Do not use network, other tasks, other submissions, hidden evaluators, or subagents. Before solving, confirm that TASK.md is readable and that ../evaluator/hidden cannot be read; do not probe any other private paths. Do not stop merely because the baseline runs.
+codex
+I’ll confirm the access boundaries, then read the task and assets.
+
+exec
+/bin/bash -lc "pwd; if test -r TASK.md; then printf 'TASK.md is readable\\n'; else printf 'TASK.md is NOT readable\\n'; fi; if test -r ../evaluator/hidden; then printf 'ERROR: ../evaluator/hidden appears readable\\n'; else printf '../evaluator/hidden cannot be read\\n'; fi; printf '\\nInstruction files:\\n'; rg --files -g 'AGENTS.md' -g 'TASK.md' -g '"'!evaluator'"' .; printf '\\nTASK.md:\\n'; cat TASK.md" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/concept_3/participant
+exec
+/bin/bash -c "pwd; if test -r TASK.md; then printf 'TASK.md is readable\\n'; else printf 'TASK.md is NOT readable\\n'; fi; if test -r ../evaluator/hidden; then printf 'ERROR: ../evaluator/hidden appears readable\\n'; else printf '../evaluator/hidden cannot be read\\n'; fi; printf '\\nInstruction files:\\n'; rg --files -g 'AGENTS.md' -g 'TASK.md' .; printf '\\nTASK.md:\\n'; cat TASK.md" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/concept_3/participant
+ succeeded in 39179ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/concept_3/participant
+TASK.md is readable
+../evaluator/hidden cannot be read
+
+Instruction files:
+./TASK.md
+
+TASK.md:
+# Native parity-walk synthesis
+
+## Mission
+Construct compact, architecture-native CNOT circuits that implement six exact
+binary linear maps **and** expose every specified intermediate parity. The
+parities represent independently parameterized phase obligations: computing the
+final map alone is insufficient.
+
+The fixed suite has 12–20 physical qubits on ladder, grid, and branched graphs.
+Both CNOT count and two-qubit depth have hard, per-case budgets. Physical wire
+labels are fixed; there are no spare qubits, free permutations, or remote gates.
+Feasibility has been checked constructively; no reference circuit is supplied.
+
+## Assets and interface
+- `input/instances.json`: all six graphs, target matrices, parity masks, budgets.
+- `input/FORMAT.md`: exact algebra, witness schema, depth rule, and limits.
+- `baseline/synthesize.py`: dependency-free, semantically correct but deliberately
+  inefficient starting point; its output need not meet the budgets.
+- `workspace/`: starter assets. Submit **`submission/witness.json`** relative to
+  your solution directory, with a circuit for every case. No executable is graded.
+
+From this directory, run
+`python3 baseline/synthesize.py --output OUTPUT_DIR/submission/witness.json`,
+where `OUTPUT_DIR` is your writable solution directory.
+Improve or replace this baseline; the task is circuit design, not package/API
+replication. The public instance suite and scoring rules are frozen.
+
+## Fixed bounds and scoring
+Submit at most 50,000 CNOTs per case in a UTF-8 JSON file of at most 8 MiB.
+`valid` means every circuit obeys the graph, reaches its exact target, and visits
+all required parities. `passed` additionally requires both budgets on every case.
+`core_score` is the fraction of cases passing both budgets and semantics;
+`worst_family_score` is the smallest family pass fraction. `resource_score` is
+the mean of each valid case's capped count/depth efficiency, as defined in
+`FORMAT.md`; invalid cases contribute zero. All scores lie in [0,1]; one is best.
+No timing measurements, floating-point simulation, or reference comparison enter
+the score. Synthesis runtime is not scored; the runner's authoring deadline still
+applies.
+
+Motivation: Sivarajah et al., *t|ket>: A Retargetable Compiler for NISQ Devices*,
+arXiv:2003.10611, Sections 6.3 and 7; Cowtan et al., *Phase Gadget Synthesis for
+Shallow Circuits*, arXiv:1906.01734. This is a new finite synthesis benchmark,
+not a reproduction of either paper's experiment.
+
+exec
+/bin/bash -c "printf 'Files:\\n'; rg --files .; printf '\\nFormat:\\n'; cat input/FORMAT.md; printf '\\nBaseline:\\n'; cat baseline/synthesize.py; printf '\\nWorkspace listing:\\n'; ls -la workspace; printf '\\nSubmission directory:\\n'; ls -la /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/concept_3/attempts/v_1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/concept_3/participant
+**Considering command delays**
+
+I’m thinking about how the commands might begin to cause significant delays, possibly around 80 seconds each. It seems we’ll need several lengthy commands. I’ll want to plan accordingly after assigning assets. It may work best to update the plan while we're waiting for them to execute. This way, we can keep everything organized and ensure that we make efficient use of our time!
+  → Inspect constraints and instance structure
+  • Develop architecture-native parity synthesis
+  • Optimize circuits against both budgets
+  • Validate and write final witness
+ succeeded in 52876ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/concept_3/participant
+TASK.md is readable
+../evaluator/hidden cannot be read
+
+Instruction files:
+./TASK.md
+
+TASK.md:
+# Native parity-walk synthesis
+
+## Mission
+Construct compact, architecture-native CNOT circuits that implement six exact
+binary linear maps **and** expose every specified intermediate parity. The
+parities represent independently parameterized phase obligations: computing the
+final map alone is insufficient.
+
+The fixed suite has 12–20 physical qubits on ladder, grid, and branched graphs.
+Both CNOT count and two-qubit depth have hard, per-case budgets. Physical wire
+labels are fixed; there are no spare qubits, free permutations, or remote gates.
+Feasibility has been checked constructively; no reference circuit is supplied.
+
+## Assets and interface
+- `input/instances.json`: all six graphs, target matrices, parity masks, budgets.
+- `input/FORMAT.md`: exact algebra, witness schema, depth rule, and limits.
+- `baseline/synthesize.py`: dependency-free, semantically correct but deliberately
+  inefficient starting point; its output need not meet the budgets.
+- `workspace/`: starter assets. Submit **`submission/witness.json`** relative to
+  your solution directory, with a circuit for every case. No executable is graded.
+
+From this directory, run
+`python3 baseline/synthesize.py --output OUTPUT_DIR/submission/witness.json`,
+where `OUTPUT_DIR` is your writable solution directory.
+Improve or replace this baseline; the task is circuit design, not package/API
+replication. The public instance suite and scoring rules are frozen.
+
+## Fixed bounds and scoring
+Submit at most 50,000 CNOTs per case in a UTF-8 JSON file of at most 8 MiB.
+`valid` means every circuit obeys the graph, reaches its exact target, and visits
+all required parities. `passed` additionally requires both budgets on every case.
+`core_score` is the fraction of cases passing both budgets and semantics;
+`worst_family_score` is the smallest family pass fraction. `resource_score` is
+the mean of each valid case's capped count/depth efficiency, as defined in
+`FORMAT.md`; invalid cases contribute zero. All scores lie in [0,1]; one is best.
+No timing measurements, floating-point simulation, or reference comparison enter
+the score. Synthesis runtime is not scored; the runner's authoring deadline still
+applies.
+
+Motivation: Sivarajah et al., *t|ket>: A Retargetable Compiler for NISQ Devices*,
+arXiv:2003.10611, Sections 6.3 and 7; Cowtan et al., *Phase Gadget Synthesis for
+Shallow Circuits*, arXiv:1906.01734. This is a new finite synthesis benchmark,
+not a reproduction of either paper's experiment.
+
+exec
+/usr/bin/sh -c 'date; cat input/FORMAT.md; cat baseline/synthesize.py; ls -la workspace; wc -c input/instances.json' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/concept_3/participant
+**Assessing initialization time**
+
+I'm thinking that it looks like the command sandbox initialization might take over three minutes. Given that I have about 3500 seconds to wait, that should be enough time, but I need to keep an eye on it. I want to ensure everything runs smoothly, so I’m just being cautious and checking if I might need to make a plan in case something doesn’t go as expected. I hope it works as intended!
+exec
+/bin/bash -c '/bin/bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/concept_3/attempts/v_1
+ succeeded in 77116ms:
+Files:
+./TASK.md
+./input/FORMAT.md
+./input/instances.json
+./workspace/README.md
+./baseline/README.md
+./baseline/synthesize.py
+./baseline/__pycache__/synthesize.cpython-310.pyc
+
+Format:
+# Exact instance and witness formats, version 1
+
+## Public instances
+`instances.json` is an object with exactly `schema_version` (integer 1) and
+`instances` (an array). Every instance contains:
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Unique case identifier, used verbatim in the witness |
+| `family` | `ladder`, `grid`, or `branched` |
+| `n` | Number of physical qubits; indices are 0 through n-1 |
+| `edges` | Distinct undirected native edges `[u,v]`; either control direction is legal |
+| `target_rows` | n positive integer bitmasks encoding the rows of an invertible GF(2) matrix |
+| `required_parities` | Distinct positive integer masks; each must occur on some wire at some prefix |
+| `max_cnots` | Inclusive upper bound on native CNOT count |
+| `max_depth` | Inclusive upper bound on two-qubit depth |
+
+Bit j of a mask is the coefficient of input bit x_j. Thus mask 5 means
+x_0 XOR x_2. Masks are decimal JSON integers, not arrays or strings. Rows are
+ordered by physical **output** wire: y_q is the dot product of `target_rows[q]`
+with x over GF(2). Input and output labels may not be permuted for free.
+
+## Submission
+Supply `submission/witness.json` under your solution directory:
+
+```json
+{"schema_version":1,"circuits":{"case_id":[[0,1],[1,2]]}}
+```
+
+Replace `case_id` and the toy gates with **all six actual identifiers** and
+their circuits. `circuits` must have exactly the instance identifiers. A circuit
+is an ordered array of `[control,target]` pairs, with distinct in-range integers
+forming a native edge. Empty lists are syntactically legal but still undergo
+all semantic tests. No other operations, ancillas, placements, metadata, phase
+claims, count claims, or depth claims are accepted. Extra keys, duplicate JSON
+keys, floats, booleans in integer positions, NaN, and Infinity are rejected.
+
+The evaluator reads only this static JSON; it never imports or executes submitted
+code. The filename and any untrusted submission subdirectory must not be symlinks.
+For evaluator convenience an explicit regular witness file, or a directory
+directly containing `witness.json`, may also be supplied to its CLI/API.
+
+## Algebra and parity visits
+Start with row masks r_q = 1 << q. For every gate `[c,t]`, perform
+`r_t = r_t XOR r_c`, leaving all other rows unchanged. Check the final ordered
+row list against `target_rows` exactly. Every required mask must equal a current
+row at at least one prefix, including the empty prefix and the full circuit.
+Visits may occur in any order, on any wire, and may repeat. The obligations are
+not a prescribed sequence, and neither their order nor their original locations
+are supplied. Exact Python integer XOR is sufficient for verification.
+
+To interpret this as a phase circuit, give each required mask m its own formal
+angle theta_m and insert diag(1, exp(i theta_m)) on a wire when that mask is
+present, once for that obligation. The resulting basis-state phase is
+exp(i sum_m theta_m * parity_m(x)) followed by the specified linear map.
+This is an exact, independent-symbol obligation model, not numeric-angle
+equivalence modulo 2*pi. Only parity availability is submitted and checked;
+phase insertion is implicit, and single-qubit phase operations carry no charged
+CNOT count or two-qubit depth. Further phase obligations are not allowed or
+needed. No amplitude/statevector approximation is used.
+
+## Scheduling and limits
+Initialize `clock[q] = 0` for every wire. In submitted gate order, for `[c,t]`
+set `level = 1 + max(clock[c], clock[t])`, then set both endpoint clocks to
+`level`. Depth is the maximum clock, or zero for an empty circuit. Gates with
+disjoint endpoints can overlap. Two gates sharing even just a control cannot
+occupy the same layer. The evaluator does not commute gates sharing a wire or
+perform optimizations for you. Reordering disjoint gates does not change this
+depth or the available parities. There is no separate scheduling certificate.
+
+Hard parser safety bounds: 8,388,608 bytes per file and 50,000 gates per case.
+These are **not** the synthesis budgets. Both `max_cnots` and `max_depth` are
+inclusive and are checked independently. Over-budget circuits may be `valid`
+but are never `passed`. Out-of-format, missing-case, or oversized submissions
+receive zero aggregate scores; for a well-shaped complete submission, semantic
+or resource failures are scored per case.
+
+For a semantically valid case with count C, depth D, and budgets B_C, B_D:
+
+`efficiency = (min(1, B_C/max(1,C)) + min(1, B_D/max(1,D))) / 2`.
+
+Invalid cases have efficiency zero. `resource_score` averages efficiency over
+all six cases. `core_score` averages the Boolean `passed` indicators.
+`worst_family_score` is the minimum, over the three families, of that family's
+average `passed` indicator. Aggregate `valid` and `passed` are conjunctions.
+The evaluator reports actual count, actual depth, missing masks, semantic
+diagnostics, budget failures, and these three scores. No hidden test instances
+or comparison against a secret circuit affect acceptance. The trusted evaluator
+uses a frozen copy of these public targets, so changing your input file cannot
+change the task.
+
+Baseline:
+import argparse
+from collections import deque
+import json
+from pathlib import Path
+
+
+def shortest_path(adjacency, start, finish):
+    queue = deque([start])
+    parents = {start: None}
+    while queue:
+        current = queue.popleft()
+        if current == finish:
+            path = []
+            while current is not None:
+                path.append(current)
+                current = parents[current]
+            return path[::-1]
+        for neighbor in adjacency[current]:
+            if neighbor not in parents:
+                parents[neighbor] = current
+                queue.append(neighbor)
+    raise ValueError("disconnected architecture")
+
+
+def remote_cnot(adjacency, control, target):
+    path = shortest_path(adjacency, control, target)
+    swaps = list(zip(path[:-2], path[1:-1]))
+    gates = []
+    for first, second in swaps:
+        gates.extend([[first, second], [second, first], [first, second]])
+    gates.append([path[-2], path[-1]])
+    for first, second in reversed(swaps):
+        gates.extend([[first, second], [second, first], [first, second]])
+    return gates
+
+
+def synthesize_case(case, include_parities=True):
+    size = case["n"]
+    adjacency = [[] for _ in range(size)]
+    for first, second in case["edges"]:
+        adjacency[first].append(second)
+        adjacency[second].append(first)
+    for neighbors in adjacency:
+        neighbors.sort()
+    routed = {
+        (control, target): remote_cnot(adjacency, control, target)
+        for control in range(size)
+        for target in range(size)
+        if control != target
+    }
+    gates = []
+    if include_parities:
+        for mask in case["required_parities"]:
+            support = [wire for wire in range(size) if (mask >> wire) & 1]
+            target = support[0]
+            compute = []
+            for control in support[1:]:
+                compute.extend(routed[control, target])
+            gates.extend(compute)
+            gates.extend(reversed(compute))
+    rows = case["target_rows"][:]
+    elimination = []
+
+    def add(control, target):
+        rows[target] ^= rows[control]
+        elimination.append((control, target))
+
+    for column in range(size):
+        pivot = next(row for row in range(column, size) if (rows[row] >> column) & 1)
+        if pivot != column:
+            add(pivot, column)
+            add(column, pivot)
+            add(pivot, column)
+        for row in range(size):
+            if row != column and (rows[row] >> column) & 1:
+                add(column, row)
+    if rows != [1 << wire for wire in range(size)]:
+        raise ValueError("noninvertible target")
+    for control, target in reversed(elimination):
+        gates.extend(routed[control, target])
+    return gates
+
+
+def synthesize(suite):
+    return {
+        "schema_version": 1,
+        "circuits": {
+            case["id"]: synthesize_case(case) for case in suite["instances"]
+        },
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", type=Path, default=Path(__file__).resolve().parents[1] / "input" / "instances.json")
+    parser.add_argument("--output", type=Path, default=Path("submission/witness.json"))
+    arguments = parser.parse_args()
+    witness = synthesize(json.loads(arguments.input.read_text()))
+    arguments.output.parent.mkdir(parents=True, exist_ok=True)
+    arguments.output.write_text(json.dumps(witness, separators=(",", ":")) + "\n")
+    print(json.dumps({"output": str(arguments.output), "counts": {name: len(gates) for name, gates in witness["circuits"].items()}}))
+
+
+if __name__ == "__main__":
+    main()
+
+Workspace listing:
+total 12
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 08:13 .
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 08:13 ..
+-rw-rw-r-- 1 xuandong xuandong  226 Aug 28 08:24 README.md
+
+Submission directory:
+total 4
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 08:28 .
+drwx------ 3 xuandong xuandong   60 Aug 28 08:28 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 08:28 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 08:28 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 08:28 .git
+
+ succeeded in 66582ms:
+Fri Aug 28 08:28:37 PDT 2026
+# Exact instance and witness formats, version 1
+
+## Public instances
+`instances.json` is an object with exactly `schema_version` (integer 1) and
+`instances` (an array). Every instance contains:
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Unique case identifier, used verbatim in the witness |
+| `family` | `ladder`, `grid`, or `branched` |
+| `n` | Number of physical qubits; indices are 0 through n-1 |
+| `edges` | Distinct undirected native edges `[u,v]`; either control direction is legal |
+| `target_rows` | n positive integer bitmasks encoding the rows of an invertible GF(2) matrix |
+| `required_parities` | Distinct positive integer masks; each must occur on some wire at some prefix |
+| `max_cnots` | Inclusive upper bound on native CNOT count |
+| `max_depth` | Inclusive upper bound on two-qubit depth |
+
+Bit j of a mask is the coefficient of input bit x_j. Thus mask 5 means
+x_0 XOR x_2. Masks are decimal JSON integers, not arrays or strings. Rows are
+ordered by physical **output** wire: y_q is the dot product of `target_rows[q]`
+with x over GF(2). Input and output labels may not be permuted for free.
+
+## Submission
+Supply `submission/witness.json` under your solution directory:
+
+```json
+{"schema_version":1,"circuits":{"case_id":[[0,1],[1,2]]}}
+```
+
+Replace `case_id` and the toy gates with **all six actual identifiers** and
+their circuits. `circuits` must have exactly the instance identifiers. A circuit
+is an ordered array of `[control,target]` pairs, with distinct in-range integers
+forming a native edge. Empty lists are syntactically legal but still undergo
+all semantic tests. No other operations, ancillas, placements, metadata, phase
+claims, count claims, or depth claims are accepted. Extra keys, duplicate JSON
+keys, floats, booleans in integer positions, NaN, and Infinity are rejected.
+
+The evaluator reads only this static JSON; it never imports or executes submitted
+code. The filename and any untrusted submission subdirectory must not be symlinks.
+For evaluator convenience an explicit regular witness file, or a directory
+directly containing `witness.json`, may also be supplied to its CLI/API.
+
+## Algebra and parity visits
+Start with row masks r_q = 1 << q. For every gate `[c,t]`, perform
+`r_t = r_t XOR r_c`, leaving all other rows unchanged. Check the final ordered
+row list against `target_rows` exactly. Every required mask must equal a current
+row at at least one prefix, including the empty prefix and the full circuit.
+Visits may occur in any order, on any wire, and may repeat. The obligations are
+not a prescribed sequence, and neither their order nor their original locations
+are supplied. Exact Python integer XOR is sufficient for verification.
+
+To interpret this as a phase circuit, give each required mask m its own formal
+angle theta_m and insert diag(1, exp(i theta_m)) on a wire when that mask is
+present, once for that obligation. The resulting basis-state phase is
+exp(i sum_m theta_m * parity_m(x)) followed by the specified linear map.
+This is an exact, independent-symbol obligation model, not numeric-angle
+equivalence modulo 2*pi. Only parity availability is submitted and checked;
+phase insertion is implicit, and single-qubit phase operations carry no charged
+CNOT count or two-qubit depth. Further phase obligations are not allowed or
+needed. No amplitude/statevector approximation is used.
+
+## Scheduling and limits
+Initialize `clock[q] = 0` for every wire. In submitted gate order, for `[c,t]`
+set `level = 1 + max(clock[c], clock[t])`, then set both endpoint clocks to
+`level`. Depth is the maximum clock, or zero for an empty circuit. Gates with
+disjoint endpoints can overlap. Two gates sharing even just a control cannot
+occupy the same layer. The evaluator does not commute gates sharing a wire or
+perform optimizations for you. Reordering disjoint gates does not change this
+depth or the available parities. There is no separate scheduling certificate.
+
+Hard parser safety bounds: 8,388,608 bytes per file and 50,000 gates per case.
+These are **not** the synthesis budgets. Both `max_cnots` and `max_depth` are
+inclusive and are checked independently. Over-budget circuits may be `valid`
+but are never `passed`. Out-of-format, missing-case, or oversized submissions
+receive zero aggregate scores; for a well-shaped complete submission, semantic
+or resource failures are scored per case.
+
+For a semantically valid case with count C, depth D, and budgets B_C, B_D:
+
+`efficiency = (min(1, B_C/max(1,C)) + min(1, B_D/max(1,D))) / 2`.
+
+Invalid cases have efficiency zero. `resource_score` averages efficiency over
+all six cases. `core_score` averages the Boolean `passed` indicators.
+`worst_family_score` is the minimum, over the three families, of that family's
+average `passed` indicator. Aggregate `valid` and `passed` are conjunctions.
+The evaluator reports actual count, actual depth, missing masks, semantic
+diagnostics, budget failures, and these three scores. No hidden test instances
+or comparison against a secret circuit affect acceptance. The trusted evaluator
+uses a frozen copy of these public targets, so changing your input file cannot
+change the task.
+import argparse
+from collections import deque
+import json
+from pathlib import Path
+
+
+def shortest_path(adjacency, start, finish):
+    queue = deque([start])
+    parents = {start: None}
+    while queue:
+        current = queue.popleft()
+        if current == finish:
+            path = []
+            while current is not None:
+                path.append(current)
+                current = parents[current]
+            return path[::-1]
+        for neighbor in adjacency[current]:
+            if neighbor not in parents:
+                parents[neighbor] = current
+                queue.append(neighbor)
+    raise ValueError("disconnected architecture")
+
+
+def remote_cnot(adjacency, control, target):
+    path = shortest_path(adjacency, control, target)
+    swaps = list(zip(path[:-2], path[1:-1]))
+    gates = []
+    for first, second in swaps:
+        gates.extend([[first, second], [second, first], [first, second]])
+    gates.append([path[-2], path[-1]])
+    for first, second in reversed(swaps):
+        gates.extend([[first, second], [second, first], [first, second]])
+    return gates
+
+
+def synthesize_case(case, include_parities=True):
+    size = case["n"]
+    adjacency = [[] for _ in range(size)]
+    for first, second in case["edges"]:
+        adjacency[first].append(second)
+        adjacency[second].append(first)
+    for neighbors in adjacency:
+        neighbors.sort()
+    routed = {
+        (control, target): remote_cnot(adjacency, control, target)
+        for control in range(size)
+        for target in range(size)
+        if control != target
+    }
+    gates = []
+    if include_parities:
+        for mask in case["required_parities"]:
+            support = [wire for wire in range(size) if (mask >> wire) & 1]
+            target = support[0]
+            compute = []
+            for control in support[1:]:
+                compute.extend(routed[control, target])
+            gates.extend(compute)
+            gates.extend(reversed(compute))
+    rows = case["target_rows"][:]
+    elimination = []
+
+    def add(control, target):
+        rows[target] ^= rows[control]
+        elimination.append((control, target))
+
+    for column in range(size):
+        pivot = next(row for row in range(column, size) if (rows[row] >> column) & 1)
+        if pivot != column:
+            add(pivot, column)
+            add(column, pivot)
+            add(pivot, column)
+        for row in range(size):
+            if row != column and (rows[row] >> column) & 1:
+                add(column, row)
+    if rows != [1 << wire for wire in range(size)]:
+        raise ValueError("noninvertible target")
+    for control, target in reversed(elimination):
+        gates.extend(routed[control, target])
+    return gates
+
+
+def synthesize(suite):
+    return {
+        "schema_version": 1,
+        "circuits": {
+            case["id"]: synthesize_case(case) for case in suite["instances"]
+        },
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", type=Path, default=Path(__file__).resolve().parents[1] / "input" / "instances.json")
+    parser.add_argument("--output", type=Path, default=Path("submission/witness.json"))
+    arguments = parser.parse_args()
+    witness = synthesize(json.loads(arguments.input.read_text()))
+    arguments.output.parent.mkdir(parents=True, exist_ok=True)
+    arguments.output.write_text(json.dumps(witness, separators=(",", ":")) + "\n")
+    print(json.dumps({"output": str(arguments.output), "counts": {name: len(gates) for name, gates in witness["circuits"].items()}}))
+
+
+if __name__ == "__main__":
+    main()
+total 12
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 08:13 .
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 08:13 ..
+-rw-rw-r-- 1 xuandong xuandong  226 Aug 28 08:24 README.md
+10910 input/instances.json
+
+**Considering command timing**
+
+I see that "Date08:28:37" suggests the command started right on time, but there's a delay with the output tool. Hmm, I'm wondering if the environment time is static. It looks like we're functioning within the budget and starting at 08:28, which seems fine. I'll keep an eye on timing to ensure everything runs smoothly.
+**Evaluating polling methods**
+
+I think we should avoid overwhelming the system with too many polls. It's helpful to consider an algorithm that meets the circuit obligations, likely focusing on sizes between 40 to 100. This makes sense since having a balanced approach can help optimize performance. But then, I realize we need more data to make an informed decision. Gathering this information feels crucial for refining the method moving forward.
+codex
+The budgets are tight; I’ll synthesize parities and maps jointly.
+
+**Exploring circuit synthesis**
+
+I'm considering building a local solver using libz3 and ctypes to represent state parity A equations as XOR. This would involve using SAT Gaussian elimination. I notice that synthesizing random CNOT circuits is tricky and could take more than an hour. However, I think exploiting masks for phase parity scheduling could yield better heuristics. By focusing on effective random intermediate masks, I could potentially simplify matching neighbors and reduce total Hamming distances. It'll be important to track remaining masks efficiently!
+**Optimizing circuit synthesis**
+
+I'm focusing on manipulating the basis so that each required expression is represented as a single bit. My approach will involve targeting rows while using a greedy localized CX method to minimize the sums of weights in the expressions. This phase polynomial synthesis includes lazy linear synthesis where I can recursively choose parities. I’m aiming for layered matching optimizations with a weighted cost to manage the aggregate residual requirements efficiently. By aligning CNOTs to maximize support counts, I believe I’ll achieve better results!
+**Evaluating mask requirements**
+
+I’m considering the necessary masks for a task, specifically focusing on sparse locally disconnected configurations, like branched14 4099. It seems they could derive from paths in a graph. I'm also thinking about dense targets, like r13 bits, which might lead to swaps. Additionally, a family of branched original gate distributions could be random with about 40 layers shaped by 3-round CNOT sweeps. There seems to be a potential for recovering the situation using a greedy dual complexity approach.
+**Reviewing algorithm optimizations**
+
+I’m considering using a joint bidirectional algorithm with beam search and visited hashes for positive moves. The best depth might be around 50, plus a parity cost of about 100. First, I need to measure and optimize it. I’ll use hill climbing for joint costs with single or double gate moves and random noise, refining with beam search. I'm contemplating C++ implementation, targeting joint evaluation while optimizing across bit costs. I’ll also look into scheduling separately for efficient operation counts.
+**Optimizing score selection**
+
+I’m figuring out how to score my gate selection related to delC and added depth while keeping a balance across layers. For problem C minima, I’ll focus on lookahead and bridges. A greedy approach to minimize the sum of costs for P, Q, and M/Inv seems fitting. Each move will account for the cost change plus penalties for recently visited states. I'll also allow for some taboo and noise, ensuring the best potential outcomes with a fallback Gaussian approach. Later, I can handle parity and write a C++ class for the state elements.
+  ✓ Inspect constraints and instance structure
+  → Develop architecture-native parity synthesis
+  • Optimize circuits against both budgets
+  • Validate and write final witness
+**Evaluating cost versus pathway**
+
+I'm thinking about how strong depth weight can lead to increased costs when filling idle wires, which seems like a bad approach. I wonder if we really need positive score gates. If high weight doesn't allow movement to the next layer until all idle wires are filled, maybe creating extra gates could help establish a useful pathway. It looks like negative scores can influence decisions, especially when overlapping candidates require additional weight. I’ll keep pondering this interaction!
+codex
+Joint synthesis cuts count substantially. Depth is now the bottleneck.
+
+**Optimizing main conflict resolution**
+
+I'm working on resolving a conflict in the code related to defining the main function in optimize.cpp. I need to ensure that the right guards are in place to avoid generating duplicate main functions. For search.cpp, I'll wrap the main function with the SEARCH_LIBRARY guard and explicitly return 0. Then, I'll optimize the inclusion by defining the SEARCH_LIBRARY macro and including it. I also need to surround the main function for OPTIMIZE_LIBRARY. Let's fix that!
+**Evaluating beam time generation**
+
+I see that I have 16 minutes remaining, which is enough to generate the beam time needed for 600. It’s not high priority, but I might consider generating about 200 counts with a depth of 50. I think I could read data now and check the progress of other programs too. There’s a lot to consider, but I want to make sure I’m effectively using this time!
+codex
+Three cases pass both budgets. I’m improving the remaining three.
+
+**Figuring out mapping options**
+
+I need to consider a permutation-aware root weight for early stages, specifically between 0.3 and 1.8. Low root cost is important, and I should think about how to map the residual for better route cost calculations. My algorithm can manage track mapping freely for now, though the reference might need a fixed physical aspect. I wonder if optimizing the mapping to decompose later could be useful, giving me more options to work with!
+**Calculating weight cost**
+
+I'm trying to figure out weight calculations for something. It looks like it involves the cost before and after, plus a bonus per gate, which I might set to 1.0 to encourage maximum throughput. Then, I need to match the maximum weight, which picks from 4 to 8 CNots. There are a few factors at play, but I want to ensure my calculations line up correctly for optimizing whatever this is related to.
+**Addressing computational challenges**
+
+I'm noticing that 20 minutes have passed with 40 minutes left, but there are still no improvements. I might need to identify the root issue—perhaps the phase parities suggest a complex random walk? The general problems seem hard, so maybe we should allocate 35 minutes for a SAT grid with light cone pruning. The full Z3 ladder times out in 20 minutes, which ends at 08:52; I might not finish with n12. I wonder if we can use Boolector that’s installed? I'll check the allowed standard paths for binaries.
+**Exploring algorithm parameters**
+
+I'm considering a case where I have a target but can reconstruct a suffix using algorithm matching and some randomness difference. It seems like the original row might be used in a rough way, especially with events connected to the target being untraced. If I can't pinpoint the exact seed circuit, could all targets still involve a random walk? I’ll look into implementing a bounded approach for this setup.
+**Optimizing parity gathering**
+
+I’m focusing on optimizing high random circuits but encountering challenges without original witness data. We have about 36 minutes to improve grid double depth by designing global SAT with smaller observability time chunks. The goal is to gather and select parities efficiently to minimize cost and improve tree routes for future goals. I’ll explore using a large beam search to maintain independent paths and avoid local minima, all while attempting to manage costs and heuristic depth effectively.
+**Evaluating matrix relations**
+
+I'm looking at how all states linear relations work at every layer. Doubling the variables seems to help with SAT units. The final matrix's relation to the input supports propagation, even when using partial choices. It feels redundant, but the solver unit propagation is still useful. When considering existing full SAT bounds, it looks like there's no way to invert the light cone. So, there's some interesting complexity here!
+**Evaluating macro efficiency**
+
+I'm noting that I have around 31 minutes left, from 08:57 to 09:28. The wall clock shows 29 minutes. I'm experimenting with a macro that was running at a rate of 241 attempts per minute, which seems to be working well. I need to focus on getting the best results from this macro. I'll investigate the results, looking specifically at the viagrep portion, not just the logs, to check overall progress.
+**Optimizing header includes**
+
+I need to compile a project, and I'm focusing on optimizing my includes. It seems I’m getting errors due to missing headers, specifically I need to include `<unordered_map>` in my optimizations. I have to avoid including other unordered maps unnecessarily, as it could cause compilation failures. Also, I should ensure the correct order of includes to prevent issues and that all necessary components are included. It’s crucial to catch these before they lead to bigger issues.
+codex
+One case is one layer over budget. I’m testing local rewrites.
+
+**Evaluating search placements**
+
+I’m thinking about the need to handle search placements independently. It seems that pairs restore the matrix and commute with the old circuit, but I also need to note that resource clocks can cause delays. It looks like I have two options: I can choose one at a time, possibly using a greedy method or even enumerating the best 10 placement combinations since that might be sufficient. There’s a lot to consider here!
