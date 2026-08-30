@@ -1,0 +1,116 @@
+--- archived/group_search.cpp
++++ adapted/group_search.cpp
+@@ -8,12 +8,11 @@
+ #include <random>
+ #include <vector>
+ 
+-constexpr int length = 2048;
+-constexpr int checks = 384;
+-constexpr int words = length / 64;
++#include "geometry.hpp"
++constexpr int words = (length + 63) / 64;
+ constexpr int hash_bits = 20;
+ using Row = std::array<uint64_t, words>;
+-using Column = std::array<uint64_t, 6>;
++using Column = std::array<uint64_t, syndrome_words>;
+ struct PairEntry {
+     uint16_t first;
+     uint16_t second;
+@@ -22,20 +21,23 @@
+ std::array<Row, checks> original{};
+ std::array<Row, checks> matrix;
+ std::array<Column, length> columns;
+-std::array<std::array<int, 32>, 64> groups;
++std::vector<std::vector<int>> groups;
+ std::array<int, length> group_id;
+ std::array<int, checks> pivots;
+ std::array<bool, length> is_pivot;
+ std::array<uint32_t, length> keys;
+ std::array<int, 1 << hash_bits> heads;
+ std::vector<PairEntry> entries;
+-int best = 20;
++#ifndef INITIAL_BEST
++#define INITIAL_BEST 20
++#endif
++int best = INITIAL_BEST;
+ 
+ bool candidate(int first, int second, int third, int fourth, int rank) {
+     Column encoded{};
+     int extra = 1 + (second >= 0) + (third >= 0 ? 2 : 0);
+     int weight = extra;
+-    for (int word = 0; word < 6; ++word) {
++    for (int word = 0; word < syndrome_words; ++word) {
+         encoded[word] = columns[first][word];
+         if (second >= 0) encoded[word] ^= columns[second][word];
+         if (third >= 0) encoded[word] ^= columns[third][word] ^ columns[fourth][word];
+@@ -75,20 +77,22 @@
+     int chosen_groups = argc > 4 ? std::stoi(argv[4]) : 10;
+     std::mt19937 generator(seed);
+     std::ifstream input("blocks.txt");
+-    std::array<int, 64> counts{};
++    groups.resize(group_counts[grouping_pass]);
+     for (int position = 0; position < length; ++position) for (int pass = 0; pass < 6; ++pass) {
+         int group;
+         input >> group;
+-        original[64 * pass + group][position / 64] |= 1ULL << (position % 64);
++        original[check_offsets[pass] + group][position / 64] |= 1ULL << (position % 64);
+         if (pass == grouping_pass) {
+             group_id[position] = group;
+-            groups[group][counts[group]++] = position;
++            groups[group].push_back(position);
+         }
+     }
+-    std::array<int, 64> group_order;
++    std::vector<int> group_order(groups.size());
+     std::iota(group_order.begin(), group_order.end(), 0);
+     std::array<int, length> order;
+     entries.reserve(32768);
++    if (chosen_groups < 0 || chosen_groups > int(groups.size())) return 2;
++    std::cout << "CONFIG n " << length << " checks " << checks << " rank " << matrix_rank << " pass " << grouping_pass << " groups " << chosen_groups << " initial_best " << best << std::endl;
+     auto start = std::chrono::steady_clock::now();
+     for (int trial = 0; ; ++trial) {
+         matrix = original;
+@@ -100,7 +104,9 @@
+             std::shuffle(members.begin(), members.end(), generator);
+             for (int position : members) order[offset++] = position;
+         }
+-        std::shuffle(order.begin() + chosen_groups * 32, order.end(), generator);
++        int retained_positions = 0;
++        for (int group_index = 0; group_index < chosen_groups; ++group_index) retained_positions += groups[group_order[group_index]].size();
++        std::shuffle(order.begin() + retained_positions, order.end(), generator);
+         int rank = 0;
+         for (int position : order) {
+             int selected = rank;
+@@ -115,7 +121,7 @@
+             }
+             pivots[rank++] = position;
+             is_pivot[position] = true;
+-            if (rank == 379) break;
++            if (rank == matrix_rank) break;
+         }
+         for (auto& column : columns) column.fill(0);
+         keys.fill(0);
+@@ -136,8 +142,8 @@
+         for (int position = 0; position < length; ++position) {
+             if (!is_pivot[position] && candidate(position, -1, -1, -1, rank)) return 0;
+         }
+-        for (int group = 0; group < 64; ++group) {
+-            for (int first_index = 0; first_index < 32; ++first_index) {
++        for (int group = 0; group < int(groups.size()); ++group) {
++            for (int first_index = 0; first_index < int(groups[group].size()); ++first_index) {
+                 int first = groups[group][first_index];
+                 if (is_pivot[first]) continue;
+                 for (int second_index = 0; second_index < first_index; ++second_index) {
+@@ -156,7 +162,10 @@
+             }
+         }
+         double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+-        if (trial % 100 == 0) std::cout << "PROGRESS " << trial << ' ' << elapsed << " rank " << rank << std::endl;
+-        if (elapsed > seconds) return 0;
++        if (trial % 10 == 0) std::cout << "PROGRESS " << trial << ' ' << elapsed << " rank " << rank << std::endl;
++        if (elapsed > seconds) {
++            std::cout << "END trials " << trial + 1 << " elapsed " << elapsed << std::endl;
++            return 0;
++        }
+     }
+ }

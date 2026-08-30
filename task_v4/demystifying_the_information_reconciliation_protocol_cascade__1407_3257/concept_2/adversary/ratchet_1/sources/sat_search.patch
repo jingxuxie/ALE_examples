@@ -1,0 +1,38 @@
+--- archived/sat_search.py
++++ adapted/sat_search.py
+@@ -2,6 +2,7 @@
+ import ctypes
+ import json
+ import time
++import re
+ from pathlib import Path
+ 
+ 
+@@ -10,8 +11,8 @@
+ parser.add_argument('--force', type=int, nargs='*', default=[])
+ parser.add_argument('--seconds', type=int, default=1800)
+ arguments = parser.parse_args()
+-output = Path(__file__).resolve().parent
+-deployment = json.loads(Path('/tmp/cascade-c2-v1-lrzw9x7v/participant/input/deployment.json').read_text())
++output = Path.cwd()
++deployment = json.loads(Path('deployment.json').read_text())
+ library = ctypes.CDLL('libz3.so.4')
+ pointer = ctypes.c_void_p
+ 
+@@ -37,6 +38,8 @@
+ stats_string = api('Z3_stats_to_string', ctypes.c_char_p, pointer, pointer)
+ config = make_config()
+ set_config(config, b'timeout', str(arguments.seconds * 1000).encode())
++set_global = api('Z3_global_param_set', None, ctypes.c_char_p, ctypes.c_char_p)
++set_global(b'sat.random_seed', str(arguments.seed).encode())
+ context = make_context(config)
+ tactic = make_tactic(context, b'sat')
+ solver = make_solver(context, tactic)
+@@ -58,5 +61,7 @@
+ if result == 1:
+     text = model_string(context, get_model(context, solver)).decode()
+     print(text, flush=True)
++    support = sorted(int(position) for position in re.findall(r'x(\d+)\s*->\s*true', text))
++    (output / 'sat_core.json').write_text(json.dumps({'errors': support}) + '\n')
+     (output / f'model_{arguments.seed}.txt').write_text(text)
+ print(stats_string(context, get_stats(context, solver)).decode(), flush=True)
