@@ -1,0 +1,48 @@
+{
+  "audit_name": "source-faithful champion REPLAY supported-interface cold audit",
+  "registered_date": "2026-08-28",
+  "seed": 2026082802,
+  "no_fitting_or_science_edits": true,
+  "replay_is_not_bitwise_original_champion": true,
+  "existing_stress": {
+    "source": "../response_stress/queries.json",
+    "included_families": ["zero_field", "readout_field"],
+    "included_count": 60,
+    "excluded_families": ["neighbor_field", "remote_field"],
+    "excluded_count": 60,
+    "exclusion_reason": "Recovered native.predict assumes every perturbation is in the readout column; unsupported nonlocal cases are not in-scope scientific failures."
+  },
+  "cold_design": {
+    "betas": [4.0, 6.0, 8.0, 10.0],
+    "queries_per_beta": 24,
+    "total_queries": 96,
+    "six_visible_readout_columns": [0, 1, 3, 4, 6, 7, 9, 10],
+    "columns_without_six_visible_sites": [2, 5, 8, 11],
+    "coverage_limitation": "All eight eligible columns are covered at each beta. The other four have only four visible spins, so six-visible-spin queries cannot cover all twelve columns without changing the interface.",
+    "families_per_column": ["zero_field", "local_coherent_2", "local_balanced_4"],
+    "coherent_rule": "Choose two readout sites without replacement, a fair sign, and amplitude 0.5 for even eligible-column position or 1.0 for odd position. Both fields have the same sign.",
+    "balanced_rule": "Choose four readout sites without replacement, independently shuffle exactly two +1 and two -1 amplitudes.",
+    "cross_beta_rule": "The same readout and local perturbation patterns are used at every beta to isolate cooling sensitivity.",
+    "design_inputs": "Only public topology/mask and the preregistered seed; no labels or fitted predictions are used for query design."
+  },
+  "models": {
+    "posterior_replay": "Use unchanged recovered NativeLikelihood.predict on every one of the four frozen chains' 2400 theta draws; average all 9600 predictive distributions exactly as the recovered final summarize.py. No thinning, refitting, or parameter-mean substitution.",
+    "best_weakfit": "Use the already-frozen public_data_portfolio/latent_fit_weak/fitted_parameters.npz with public edge signs and exact public transfer helper."
+  },
+  "label_policy": "Write queries and a hash-bearing QUERIES_FROZEN.json before opening evaluator/hidden/model.npz. Freeze all predictions before computing new exact labels. Old supported stress labels may be loaded only in the final scoring phase.",
+  "validation": [
+    "Verify recovered science source and public input hashes before and after audit.",
+    "Recompute original 24 public predictions from all draws; compare to frozen replay output, not claim bitwise archived champion identity.",
+    "Compare native local reweighting with generic exact transfer on fixed posterior draws at beta 4 and 10.",
+    "Check every new true probability vector against an independent dense 256x256 transfer implementation.",
+    "Check every new true label by global spin-flip symmetry with reversed fields/readout states.",
+    "Require finite, strictly positive, normalized probability vectors; load NPZ without pickle."
+  ],
+  "fixed_reference_gates": {"mean_forward_kl": 0.02, "worst_family_mean_forward_kl": 0.035, "max_total_variation": 0.12},
+  "score_reporting": "Report supported old 60 and new cold 96 separately, and cold per-beta/per-family summaries. Per-query KL > 0.02 is diagnostic, not an original single-query gate. Do not select, revise, or refit after scores.",
+  "uncertainty_diagnostics": [
+    "For every query, posterior-draw TV to posterior mean (median and 95th percentile), mean KL(draw||posterior mean), maximum per-chain mean TV, and maximum outcome probability 95-percent interval width.",
+    "After labels, per-query fraction of true outcome probabilities inside marginal 95-percent posterior intervals, and cold expected readout magnetization interval coverage.",
+    "Posterior spread is conditional on the assumed model, prior, data and approximate MCMC. It is not a proof of irreducible uncertainty, calibrated coverage, or failure of every algorithm. Chain agreement is not proof of global mixing. No new fit or score-driven calibration is allowed."
+  ]
+}
