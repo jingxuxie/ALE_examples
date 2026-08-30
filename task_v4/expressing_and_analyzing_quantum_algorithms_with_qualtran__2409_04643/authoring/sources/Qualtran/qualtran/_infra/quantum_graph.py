@@ -1,0 +1,299 @@
+#  Copyright 2023 Google LLC
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+"""Plumbing for bloq-to-bloq `Connection`s."""
+
+import warnings
+from functools import cached_property
+from typing import Optional, Tuple, TYPE_CHECKING, Union
+
+import attrs
+import numpy as np
+import sympy
+from attrs import field, frozen
+
+if TYPE_CHECKING:
+    from qualtran import Bloq, BloqBuilder, QCDType, QVarT, Register
+
+
+@frozen
+class BloqInstance:
+    """A unique instance of a Bloq within a `CompositeBloq`.
+
+    Args:
+        bloq: The `Bloq`.
+        i: An arbitrary index to disambiguate this instance from other Bloqs of the same type
+            within a `CompositeBloq`.
+    """
+
+    bloq: 'Bloq'
+    i: int
+
+    def __str__(self):
+        return f'{self.bloq}<{self.i}>'
+
+    def bloq_is(self, t) -> bool:
+        """Helper method that does `isinstance(self.bloq, t)`, but works safely on
+        `Union[BloqInstance, DanglingT]`"""
+        return isinstance(self.bloq, t)
+
+    def __hash__(self):
+        return hash(self.i)
+
+
+class DanglingT:
+    """The type of the singleton objects `LeftDangle` and `RightDangle`.
+
+    These objects are placeholders for the `binst` field of a `Soquet` that represents
+    an "external wire". We can consider `Soquets` of this type to represent input or
+    output data of a `CompositeBloq`.
+    """
+
+    def __init__(self, name: str):
+        self._name = name
+
+    def __repr__(self):
+        return self._name
+
+    def bloq_is(self, t) -> bool:
+        """`DanglingT.bloq_is(...)` is always False, but works safely on
+        `Union[BloqInstance, DanglingT]`.
+        """
+        return False
+
+
+def _to_tuple(x: Union[int, Tuple[int, ...]]) -> Tuple[int, ...]:
+    if isinstance(x, int):
+        return (x,)
+    return x
+
+
+@frozen
+class _Soquet:
+    """One half of a connection.
+
+    Users should not construct these directly. They should be marshaled
+    by a `BloqBuilder`.
+
+    A `Soquet` acts as the node type in our quantum compute graph. It is a particular
+    register (by name and optional index) on a particular `Bloq` instance.
+
+    A `Soquet` can also be present in an external connection (i.e. represent an unconnected input
+    or output) by setting the `binst` attribute to `LeftDangle` or `RightDangle`.
+
+    Args:
+        binst: The BloqInstance to which this soquet belongs.
+        reg: The register that this soquet is an instance of.
+        idx: Registers with non-empty `shape` attributes are multi-dimensional. A soquet
+            is an explicitly indexed instantiation of one element of the multi-dimensional
+            register.
+    """
+
+    binst: Union[BloqInstance, DanglingT]
+    reg: 'Register'
+    idx: Tuple[int, ...] = field(converter=_to_tuple, default=tuple())
+
+    @idx.validator
+    def _check_idx(self, attribute, value):
+        reg_shape = self.reg._shape
+        if not value and not reg_shape:
+            return value
+        if len(value) != len(reg_shape):
+            raise ValueError(f"Bad index shape {value} for {self.reg}.")
+        for i, shape in zip(value, reg_shape):
+            if i >= shape:
+                raise ValueError(f"Bad index {i} for {self.reg}.")
+        return value
+
+    @property
+    def dtype(self) -> 'QCDType':
+        return self.reg.dtype
+
+    @property
+    def shape(self) -> Tuple[int, ...]:
+        return ()
+
+    def item(self, *args) -> '_Soquet':
+        if args:
+            raise ValueError("Tried to index into a single soquet.")
+        return self
+
+    def pretty(self) -> str:
+        label = self.reg.name
+        if len(self.idx) > 0:
+            return f'{label}[{", ".join(str(i) for i in self.idx)}]'
+        return label
+
+    def __str__(self) -> str:
+        return f'{self.binst}.{self.pretty()}'
+
+
+@attrs.mutable
+class _QVar:
+    """A handle to a quantum variable used during bloq building.
+
+    Do not construct these objects directly. Please use the `QVar` `typing.Protocol` for
+    type annotations.
+    """
+
+    soquet: _Soquet
+    bb: 'BloqBuilder' = field(kw_only=True)
+    _split_components: Optional['QVarT'] = field(default=None)
+    ssa_name: Optional[str] = field(default=None, kw_only=True)
+
+    @property
+    def dtype(self) -> 'QCDType':
+        return self.soquet.dtype
+
+    @property
+    def shape(self) -> Tuple[int, ...]:
+        return ()
+
+    def item(self, *args):
+        if args and args != ((),):
+            raise ValueError(f"Tried to index {args!r} into a single soquet.")
+        return self
+
+    @property
+    def reg(self) -> 'Register':
+        warnings.warn(
+            "Accessing the register property of a quantum variable is highly discouraged "
+            "and will be dis-allowed in the future.",
+            DeprecationWarning,
+        )
+        return self.soquet.reg
+
+    def __hash__(self):
+        raise TypeError("QVar objects during bloq building are *not* hashable.")
+
+    def __str__(self) -> str:
+        if self.ssa_name is not None:
+            return self.ssa_name
+        return str(self.soquet)
+
+    def __getitem__(self, item):
+        if self._split_components is None:
+            self._split_components = self.bb.split(self)
+
+        return self._split_components[item]
+
+    def __setitem__(self, key, value):
+        raise TypeError("Cannot assign to a component of an individual QVar.")
+
+    def __len__(self):
+        return self.dtype.num_bits
+
+    def __array__(self, dtype=None, copy=None):
+        # This method is super important --
+        # throughout the library, we use np.asarray(soqs)
+        arr = np.empty(shape=(), dtype=object)
+        arr[()] = self
+        if copy is None:
+            return arr
+        if copy:
+            raise NotImplementedError()
+        return arr
+
+    def __invert__(self):
+        import qualtran.dtype as qdt
+        from qualtran.bloqs.arithmetic import BitwiseNot
+        from qualtran.bloqs.basic_gates import XGate
+
+        if self.dtype == qdt.QBit():
+            return XGate.qcall(self)
+
+        return BitwiseNot.qcall(self)
+
+    def __add__(self, other):
+        from qualtran.bloqs.arithmetic import Add
+
+        if isinstance(other, _QVar):
+            return Add.qcall(self, other)
+
+        return NotImplemented
+
+    def __iadd__(self, other):
+        if isinstance(other, (int, sympy.Expr)):
+            from qualtran.bloqs.arithmetic import AddK
+
+            return AddK.qcall(k=other, x=self)
+        return NotImplemented
+
+
+LeftDangle = DanglingT("LeftDangle")
+RightDangle = DanglingT("RightDangle")
+
+
+def _singleton_error(self, x):
+    raise ValueError("Do not instantiate a new DanglingT. Use `LeftDangle` or `RightDangle`.")
+
+
+DanglingT.__init__ = _singleton_error  # type: ignore[method-assign]
+
+
+@frozen
+class Connection:
+    """A connection between two `Soquet`s.
+
+    Quantum data flows from left to right. The graph implied by a collection of `Connections`s
+    is directed.
+    """
+
+    left: _Soquet
+    right: _Soquet
+
+    @cached_property
+    def num_qubits(self) -> int:
+        """The number of qubits in the connection.
+
+        This excludes classical bits.
+        """
+        lq = self.left.reg.dtype.num_qubits
+        rq = self.right.reg.dtype.num_qubits
+
+        if lq != rq:
+            raise ValueError(f"Invalid Connection {self}: num_qubits mismatch: {lq} != {rq}")
+        return lq
+
+    @cached_property
+    def num_cbits(self) -> int:
+        """The number of classical bits in the connection."""
+        lc = self.left.reg.dtype.num_cbits
+        rc = self.right.reg.dtype.num_cbits
+
+        if lc != rc:
+            raise ValueError(f"Invalid Connection {self}: num_cbits mismatch: {lc} != {rc}")
+        return lc
+
+    @cached_property
+    def num_bits(self) -> int:
+        """The number of bits in the connection (quantum + classical)."""
+        lb = self.left.reg.dtype.num_bits
+        rb = self.right.reg.dtype.num_bits
+
+        if lb != rb:
+            raise ValueError(f"Invalid Connection {self}: shape mismatch: {lb} != {rb}")
+        return lb
+
+    @cached_property
+    def shape(self) -> int:
+        """The number of bits in the connection (quantum + classical).
+
+        This is a misleading name for this property kept for backwards compatibility.
+        Please prefer `.num_bits`.
+        """
+        return self.num_bits
+
+    def __str__(self) -> str:
+        return f'{self.left} -> {self.right}'

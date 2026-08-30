@@ -1,0 +1,971 @@
+private-root: isolated root ready; executing unchanged allowlisted runner (ultima-alpha)
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/concept_2/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 01a0499b-e4eb-78a1-92f3-9125ff1ffa44
+--------
+user
+You are a completely fresh independent participant. Read TASK.md and the supplied local assets. Solve the task autonomously and write the required artifact to /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/concept_2/attempts/v_5. You have up to 3600 seconds, four CPU threads and 8 GiB memory. The participant directory is read-only; write all code, experiments and scratch files in the output directory. Use only the participant assets and system dependencies. Do not seek other sessions, hidden evaluation data, authoring files, prior attempts or network access. Your task is the mission in TASK.md, not infrastructure exploration. Keep improving until the target is reached or time runs out. Submit your best artifact even if the target remains unmet. Shell startup can be slow in this isolated environment; persistent terminal sessions are supported for efficient local work.
+codex
+I’ll read the task and assets, then build and validate the artifact in the output directory.
+
+exec
+/bin/bash -c 'pwd; ls -la; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/concept_2/participant
+**Considering task execution**
+
+I’m trying to figure out how to manage the task. I've got 3600 seconds to work, so I need to be efficient! It seems like I don’t have the necessary instructions, though. I think I should check the current working directory (cwd) and see what assets I have at my disposal. The shell startup is running a bit slow, so maybe I can use persistent TTY to keep the current command active after a wait.
+ succeeded in 22952ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/concept_2/participant
+total 20
+drwxrwxr-x 5 root root 4096 Aug 28 10:32 .
+drwx------ 4 root root   80 Aug 28 11:23 ..
+-rw-rw-r-- 1 root root 1171 Aug 28 11:22 TASK.md
+drwxrwxr-x 3 root root 4096 Aug 28 10:35 baseline
+drwxrwxr-x 2 root root 4096 Aug 28 10:37 input
+drwxrwxr-x 3 root root 4096 Aug 28 10:34 workspace
+# Find a compact silent GQSP compilation failure
+
+You are auditing the numerical reliability of compact quantum signal-processing blocks. Produce a dense, strictly contractive complex polynomial of degree **8 through 12** for which the supplied Qualtran FFT-completion and phase-extraction pipeline returns an inaccurate quantum transformation, even though completion succeeds accurately and no near-zero phase branch is taken.
+
+The frozen numerical method, a local diagnostic, source provenance, and a runnable starting candidate are provided. The complete artifact format, admissibility requirements, six evaluation configurations, and score are in `workspace/interface.md`.
+
+Submit `counterexample.json` in your output directory. This is a data-only submission; evaluation does not execute your code. All six configurations must have phase-invariant RMS amplitude error at least **0.05**. Invalid inputs, inaccurate complements, crashes, and near-zero phase branches do not count as counterexamples.
+
+Use the available one-hour session. The evaluator allows 60 seconds and at most 64 KiB of submitted JSON. No full quantum simulator or reference solution is required.
+
+exec
+/bin/bash -c 'exec bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/concept_2/participant
+exec
+/bin/bash -c 'find . -name AGENTS.md -print; rg --files .; cat workspace/interface.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/concept_2/participant
+**Exploring command execution**
+
+I’m considering how we can run multiple commands effectively using persistent operations. It’s important to ensure that everything isn’t in a prohibited state. I’ll also check that apply_patch is available. There’s a possibility to run persistent Python commands with execution helpers, but I need to think through the implications of that and ensure everything works as intended!
+ succeeded in 33912ms:
+/bin/bash: line 1: rg: command not found
+# Executable contract
+
+Submit `counterexample.json` containing exactly `{"P": [...], "H": [...]}`.
+Each array is an ascending-power coefficient list; each complex coefficient is
+`[real, imaginary]`. JSON numbers are interpreted as finite binary64 values.
+Booleans, duplicate object keys, nonfinite numbers, extra fields and symlink
+artifacts are rejected. Both arrays must have the same length.
+
+## Admissibility
+
+- P has degree 8 through 12 inclusive.
+- Its coefficient energy E = sum |P[k]|² is between 0.08 and 0.30.
+- Every coefficient magnitude is between 0.25 and 4 times sqrt(E/(degree+1)).
+- |sum P[k]²| <= 0.8 E, excluding real polynomials up to a common phase.
+- H certifies strict whole-circle contractivity: the exact binary64 polynomial
+  |P(z)|² + |H(z)|² differs from 16/25 by at most 1e-12 on |z|=1, as certified
+  by the coefficient bound described below. Thus |P|² <= 0.640000000001.
+- Every submitted real or imaginary component has magnitude at most 2.
+
+For polynomials A,B, form the autocorrelation coefficients of |A|²+|B|².
+The certificate bound for target constant c is
+`abs(r[0]-c) + 2*sum(abs(real(r[k])) + abs(imag(r[k])))` for k>0.
+The checker computes these coefficients exactly as dyadic integers/rationals,
+not on a sampled grid. H is only a certificate; the compiler never uses it.
+
+## Method and witness
+
+`target_method.py` freezes the supplied numerical route: Qualtran's FFT
+complement routine with tolerance zero, followed by its binary64 phase-factor
+extraction. This route is NOT the library's default root-based constructor.
+Use the supplied code, including its padding and Fourier cutoff conventions.
+No claim is made that all Qualtran compilation routes behave identically.
+
+The six configurations are the Cartesian product of `num_modes` = 4096, 8192,
+16384 and these two coefficient gauges:
+
+1. P[k] unchanged.
+2. P[k] multiplied in binary64 by exp(i*(0.3125 + 0.2718281828459045*k)).
+
+For each transformed P, recompute Q using the frozen FFT method. The exact
+autocorrelation certificate for |P|²+|Q|² must be <=1e-12 relative to 1.
+At every descending phase-extraction stage with leading coefficients a,b,
+both |b| and |a*conj(b)| must be >=1e-8. This excludes near-zero branch guards.
+Nonfinite results, inaccurate complements and exceptions are not witnesses.
+
+The returned circuit is R_d diag(z,1) ... R_1 diag(z,1) R_0. R_0 uses the
+returned lambda; every other rotation uses lambda zero. The rotation convention
+is given by `rotation_matrix` in the supplied method. The evaluator independently
+expands its first column using 80-decimal-digit arithmetic on the returned
+binary64 angles. Its error is the coefficient L2 norm of the difference from
+the joint target first column [P,Q], minimized over one common unit-modulus
+phase. By Parseval this is continuous-circle RMS vector-amplitude error, not
+an error measured at a finite set of signal values. Top-block-only error is also
+reported, but the witness condition concerns the complete first-column contract.
+
+All six errors must be >=0.05. Core and worst-configuration scores are
+`min(1, min_error/0.05)` when every admissibility condition holds, otherwise zero.
+Only a score of 1 passes. The 60-second evaluator never executes submitted code.
+Python, NumPy and mpmath are available. Construction gets one hour, four CPU
+threads and 8 GiB memory; the artifact limit is 64 KiB.
+
+```
+python3 baseline/solve.py --output /YOUR_OUTPUT/counterexample.json
+python3 workspace/probe.py --submission /YOUR_OUTPUT
+```
+
+The public probe has the full deterministic scoring semantics. The private
+evaluator uses immutable copies and adversarial parser/independent numerical
+validation tests; there is no hidden reference answer.
+
+  → Inspect scoring and baseline behavior
+  • Construct and optimize admissible polynomials
+  • Validate all six configurations
+  • Submit best counterexample artifact
+codex
+The baseline compiles accurately. I’ll search for unstable phase-extraction cases.
+
+Read the full contract and verified that the supplied baseline is admissible but has only rounding-level error.
+  ✓ Inspect scoring and baseline behavior
+  → Construct and optimize admissible polynomials
+  • Validate all six configurations
+  • Submit best counterexample artifact
+**Evaluating targets**
+
+I’m thinking about the immediate confirms being around 1e-4, which seems like a solid starting point. My target might be around .05, but perhaps that’s only for rare rootlarge low energy cases? If I use a batch size of 10,000, it could help me reach that target more effectively. It feels like I’m on the right track, but I definitely need to keep refining my approach!
+**Improving order limits**
+
+I need to refine a few orders, possibly addressing stiffness in large roots at 13. The best current option has a largest root near 12, but I propose a maximum of 14 that could yield a factor of about 5.5. I’m considering stability limits and density as feasible for my task. I should look for alternative ways to find a large root, maybe near the inside while ensuring my calculations with FFT meet required precision levels. I want to make it all feasible!
+**Exploring instability cases**
+
+I need to discover more about unstable cases using smaller leading P and larger P_{d-1}, focusing on a degree 12 plateau. I'm estimating errors that could be around .01, with a target root at 14. To control coefficients, I'm aiming for a minimum RMS of .25 and a maximum energy of .3. This might strengthen noise in lower energy situations. I'll also evaluate how errors might cancel out during phase synthesis, leading to potential reductions in maximum errors. Exploring roots of Q seems worth a try too!
+**Examining spectral factors**
+
+I need to check the equality of Q and the true spectral factor. The FFT convention calculates Q with a constant positive outer value. In numpy, if I set `norm="forward"`, the IFFT and FFT should match, which is good. The math routine seems stable at the unit circle, but using HPC libraries might influence rounding errors. I’m considering generating coefficients with a polynomial and looking into how to manage the coefficients for norms and phases effectively. This all feels quite complex!
+exec
+/bin/bash -c 'exec bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/concept_2/attempts/v_5
+**Processing optimization details**
+
+I’m focusing on optimizing the FFT vectorization to reduce overhead. I need to ensure that the maximum run count doesn't stop at partial results, and I'm considering separate paths for reporting between parent and main final saves. Also, I should check on the search process to see if it will finish soon—maybe around 1k? Let’s keep an eye on the polling to ensure everything goes smoothly!
+codex
+Concentrating energy near the leading term exposes error amplification. I’ll optimize that pattern across all six configurations.
+
+ exited 1 in 564875ms:
+ls
+bash: cannot set terminal process group (1): Inappropriate ioctl for device
+bash: no job control in this shell
+bash-5.1# ls
+TASK.md  baseline  input  workspace
+bash-5.1# <t workspace/target_method.py; cat baseline/solve.py
+find: warning: you have specified the global option -maxdepth after the argument -type, but global options are not positional, i.e., -maxdepth affects tests specified before it as well as those specified after it.  Please specify global options before other arguments.
+baseline/solve.py
+baseline/__pycache__/solve.cpython-310.pyc
+baseline/counterexample.json
+input/contract.json
+workspace/SOURCE.md
+workspace/checker.py
+workspace/interface.md
+workspace/LICENSE.qualtran
+workspace/__pycache__/target_method.cpython-310.pyc
+workspace/__pycache__/checker.cpython-310.pyc
+workspace/probe.py
+workspace/target_method.py
+"""Numerically faithful extraction from Qualtran 096a2d009059faee0cfae462c3d59cb055300eb9."""
+
+import numpy as np
+
+
+def rotation_matrix(theta, phi, lambd):
+    return np.exp(1j * 0) * np.array(
+        [
+            [
+                np.exp(1j * (lambd + phi)) * np.cos(theta),
+                np.exp(1j * phi) * np.sin(theta),
+            ],
+            [np.exp(1j * lambd) * np.sin(theta), -np.cos(theta)],
+        ]
+    )
+
+
+def fft_complementary_polynomial(polynomial, tolerance=1e-4, num_modes=500):
+    polynomial = np.array(polynomial)
+
+    def scale(values):
+        return (1 - tolerance / 4) * values
+
+    def pad_poly(values):
+        return np.pad(scale(values), (0, num_modes - 1))
+
+    def evaluate(values):
+        return np.fft.ifft(pad_poly(values), norm="forward")
+
+    def get_log(values):
+        return np.log(1 - (np.abs(evaluate(values))) ** 2)
+
+    def fourier_multiplier(the_log):
+        modes = np.fft.fft(the_log, norm="forward")
+        modes[0] *= 1 / 2
+        modes[num_modes // 2 + 1 :] = 0
+        return modes
+
+    def get_modes(values):
+        return np.fft.ifft(fourier_multiplier(get_log(values)), norm="forward")
+
+    return np.fft.fft(np.exp(get_modes(polynomial)), norm="forward")[: polynomial.shape[0]]
+
+
+def qsp_phase_factors(polynomial, complement):
+    if len(polynomial) != len(complement):
+        raise ValueError("Polynomials P and Q must have the same degree.")
+    state = np.array([polynomial, complement])
+    length = state.shape[1]
+    theta = np.zeros(length)
+    phi = np.zeros(length)
+    lambd = 0
+
+    def safe_angle(value):
+        return 0 if np.isclose(value, 0, atol=1e-10) else np.angle(value)
+
+    for degree in reversed(range(length)):
+        assert state.shape == (2, degree + 1)
+        leading, other = state[:, degree]
+        theta[degree] = np.arctan2(np.abs(other), np.abs(leading))
+        phi[degree] = (
+            0
+            if np.isclose(np.abs(other), 0, atol=1e-10)
+            else safe_angle(leading * np.conj(other))
+        )
+        if degree == 0:
+            lambd = safe_angle(other)
+        else:
+            state = rotation_matrix(theta[degree], phi[degree], 0).conj().T @ state
+            state = np.array([state[0][1 : degree + 1], state[1][0:degree]])
+    return theta, phi, lambd
+
+
+def phase_guard_margin(polynomial, complement, theta, phi):
+    state = np.array([polynomial, complement])
+    minimum = float("inf")
+    for degree in reversed(range(len(polynomial))):
+        leading, other = state[:, degree]
+        minimum = min(minimum, float(abs(other)), float(abs(leading * np.conj(other))))
+        if degree:
+            state = rotation_matrix(theta[degree], phi[degree], 0).conj().T @ state
+            state = np.array([state[0][1 : degree + 1], state[1][0:degree]])
+    return minimum
+import argparse
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "workspace"))
+from target_method import fft_complementary_polynomial
+
+
+def candidate(seed=73000, degree=12):
+    rng = np.random.default_rng(seed)
+    polynomial = np.exp(1j * rng.uniform(-np.pi, np.pi, degree + 1))
+    polynomial *= 0.78 / np.max(np.abs(np.fft.fft(polynomial, 65536)))
+    certificate = 0.8 * fft_complementary_polynomial(polynomial / 0.8, tolerance=0, num_modes=65536)
+    return {"P": [[float(value.real), float(value.imag)] for value in polynomial],
+            "H": [[float(value.real), float(value.imag)] for value in certificate]}
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--seed", type=int, default=73000)
+    parser.add_argument("--degree", type=int, default=12)
+    args = parser.parse_args()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(candidate(args.seed, args.degree)))
+
+
+if __name__ == "__main__":
+    main()
+bash-5.1# <ounterexample.json; command -v apply_patch; date -u
+import json
+import math
+import time
+from fractions import Fraction
+from pathlib import Path
+
+import mpmath as mp
+import numpy as np
+
+from target_method import fft_complementary_polynomial, phase_guard_margin, qsp_phase_factors
+
+CONFIGURATIONS = [(resolution, gauge) for resolution in (4096, 8192, 16384) for gauge in (0, 1)]
+
+
+def unique(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+
+def finite(value):
+    raise ValueError("nonfinite JSON constant")
+
+
+def coefficients(data):
+    if type(data) is not list or not 1 <= len(data) <= 256:
+        raise ValueError("coefficient array length")
+    values = []
+    for pair in data:
+        if type(pair) is not list or len(pair) != 2 or any(type(value) not in (int, float) for value in pair):
+            raise ValueError("complex coefficients must be finite numeric pairs")
+        converted = [float(value) for value in pair]
+        if any(not math.isfinite(value) or abs(value) > 2 for value in converted):
+            raise ValueError("coefficient magnitude out of range")
+        values.append(complex(*converted))
+    return np.array(values, dtype=np.complex128)
+
+
+def exact_residual(polynomial, complement, target=Fraction(1)):
+    arrays = [np.asarray(polynomial), np.asarray(complement)]
+    ratios = [[(float(value.real).as_integer_ratio(), float(value.imag).as_integer_ratio()) for value in array] for array in arrays]
+    exponent = max(denominator.bit_length() - 1 for array in ratios for pair in array for _, denominator in pair)
+    integers = [[(real[0] << (exponent - (real[1].bit_length() - 1)), imag[0] << (exponent - (imag[1].bit_length() - 1))) for real, imag in array] for array in ratios]
+    constant = sum(real * real + imag * imag for array in integers for real, imag in array)
+    off_diagonal = 0
+    for lag in range(1, max(map(len, integers))):
+        real_sum = 0
+        imag_sum = 0
+        for array in integers:
+            for index in range(len(array) - lag):
+                left_real, left_imag = array[index + lag]
+                right_real, right_imag = array[index]
+                real_sum += left_real * right_real + left_imag * right_imag
+                imag_sum += left_imag * right_real - left_real * right_imag
+        off_diagonal += 2 * (abs(real_sum) + abs(imag_sum))
+    denominator = 1 << (2 * exponent)
+    return abs(Fraction(constant, denominator) - target) + Fraction(off_diagonal, denominator)
+
+
+def reconstructed_error(polynomial, complement, angles, digits=80):
+    with mp.workdps(digits):
+        theta, phi, lambd = angles
+        angle = mp.mpf(float(theta[0]))
+        phase = mp.mpf(float(phi[0]))
+        initial = mp.mpf(float(lambd))
+        top = [mp.exp(1j * (phase + initial)) * mp.cos(angle)]
+        bottom = [mp.exp(1j * initial) * mp.sin(angle)]
+        for index in range(1, len(theta)):
+            cosine = mp.cos(mp.mpf(float(theta[index])))
+            sine = mp.sin(mp.mpf(float(theta[index])))
+            rotation_phase = mp.exp(1j * mp.mpf(float(phi[index])))
+            shifted = [mp.mpc(0)] + top
+            padded = bottom + [mp.mpc(0)]
+            top = [rotation_phase * (cosine * upper + sine * lower) for upper, lower in zip(shifted, padded)]
+            bottom = [sine * upper - cosine * lower for upper, lower in zip(shifted, padded)]
+        target = [mp.mpc(float(value.real), float(value.imag)) for value in np.concatenate((polynomial, complement))]
+        actual = top + bottom
+        overlap = sum(mp.conj(expected) * obtained for expected, obtained in zip(target, actual))
+        common_phase = overlap / abs(overlap) if overlap else mp.mpc(1)
+        residuals = [abs(obtained - common_phase * expected) ** 2 for expected, obtained in zip(target, actual)]
+        return float(mp.sqrt(sum(residuals))), float(mp.sqrt(sum(residuals[:len(top)])))
+
+
+def audit_pair(polynomial, digits=80):
+    records = []
+    for resolution, gauge in CONFIGURATIONS:
+        transformed = polynomial.copy()
+        if gauge:
+            transformed *= np.exp(1j * (0.3125 + 0.2718281828459045 * np.arange(len(polynomial))))
+        complement = fft_complementary_polynomial(transformed, tolerance=0, num_modes=resolution)
+        if not np.all(np.isfinite(complement)):
+            raise ValueError("completion returned nonfinite coefficients")
+        residual = exact_residual(transformed, complement)
+        angles = qsp_phase_factors(transformed, complement)
+        margin = phase_guard_margin(transformed, complement, angles[0], angles[1])
+        error, block_error = reconstructed_error(transformed, complement, angles, digits)
+        records.append({"num_modes": resolution, "gauge": gauge, "completion_residual_bound": float(residual),
+                        "phase_guard_margin": margin, "rms_error": error, "top_block_error": block_error,
+                        "completion_valid": residual <= Fraction(1, 10**12), "guard_valid": margin >= 1e-8})
+    return records
+
+
+def evaluate(submission):
+    started = time.monotonic()
+    try:
+        artifact = submission / "counterexample.json"
+        if artifact.is_symlink() or not artifact.is_file() or artifact.stat().st_size > 65536:
+            raise ValueError("missing, linked or oversized counterexample.json")
+        data = json.loads(artifact.read_text(), object_pairs_hook=unique, parse_constant=finite)
+        if type(data) is not dict or set(data) != {"P", "H"}:
+            raise ValueError("expected exactly P and H")
+        polynomial, certificate = coefficients(data["P"]), coefficients(data["H"])
+        degree = len(polynomial) - 1
+        if not 8 <= degree <= 12 or len(certificate) != len(polynomial):
+            raise ValueError("degree must be 8 through 12; certificate length must match")
+        energy = float(np.vdot(polynomial, polynomial).real)
+        if not 0.08 <= energy <= 0.30:
+            raise ValueError("coefficient energy outside [0.08,0.30]")
+        rms = math.sqrt(energy / len(polynomial))
+        if np.any(np.abs(polynomial) < 0.25 * rms) or np.any(np.abs(polynomial) > 4 * rms):
+            raise ValueError("coefficient density constraints fail")
+        if abs(np.sum(polynomial * polynomial)) > 0.8 * energy:
+            raise ValueError("polynomial is insufficiently complex")
+        norm_bound = exact_residual(polynomial, certificate, Fraction(16, 25))
+        if norm_bound > Fraction(1, 10**12):
+            raise ValueError("whole-circle contraction certificate fails")
+        records = audit_pair(polynomial)
+        admissible = all(record["completion_valid"] and record["guard_valid"] for record in records)
+        minimum = min(record["rms_error"] for record in records)
+        core = min(1.0, minimum / 0.05) if admissible else 0.0
+        passed = admissible and minimum >= 0.05
+        return {"core_score": core, "worst_family_score": core, "resource_score": 1.0,
+                "minimum_rms_error": minimum, "input_valid": True, "admissible": admissible,
+                "valid": passed, "passed": passed, "degree": degree, "energy": energy,
+                "contraction_residual_bound": float(norm_bound), "configurations": records,
+                "runtime_seconds": time.monotonic() - started,
+                "reason": "robust silent compiler failure certified" if passed else
+                          "all-six error threshold unmet" if admissible else "completion or phase-guard requirements fail"}
+    except (ValueError, TypeError, KeyError, OSError, OverflowError, RecursionError, AssertionError) as error:
+        return {"core_score": 0.0, "worst_family_score": 0.0, "resource_score": 0.0,
+                "valid": False, "passed": False, "input_valid": False, "reason": str(error),
+                "runtime_seconds": time.monotonic() - started}
+import argparse
+import json
+from pathlib import Path
+
+from checker import evaluate
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--submission", type=Path, required=True)
+parser.add_argument("--report", type=Path)
+args = parser.parse_args()
+result = evaluate(args.submission)
+text = json.dumps(result, indent=2)
+if args.report:
+    args.report.write_text(text + "\n")
+print(text)
+# Supplied method provenance
+
+The numerical method is extracted from the official quantumlib/Qualtran source,
+commit 096a2d009059faee0cfae462c3d59cb055300eb9:
+
+- qualtran/bloqs/qsp/fft_qsp.py: fft_complementary_polynomial
+- qualtran/bloqs/qsp/generalized_qsp.py: qsp_phase_factors
+- qualtran/bloqs/basic_gates/su2_rotation.py: rotation_matrix
+
+The extraction removes package/type dependencies and adds a separate read-only
+phase-guard diagnostic. The arithmetic and return values of the tested methods
+are preserved. The original code is copyright Google LLC and provided under
+Apache License 2.0; see LICENSE.qualtran. Checker and witness-domain definitions
+are benchmark-specific. The complete repository and authoring diagnostics are
+not supplied.
+{"degree_min":8,"degree_max":12,"energy_min":0.08,"energy_max":0.30,"rms_error_target":0.05,"fft_modes":[4096,8192,16384],"certificate_residual":1e-12,"phase_guard_margin":1e-8}
+{"P": [[-0.10153808916235527, 0.04230586977514971], [0.10680391739882757, -0.026319069064819796], [-0.03393538423661099, -0.10463345480718826], [-0.10494542012598794, -0.03295798784443949], [-0.05394810484945535, -0.09586121296607146], [0.008261161384636744, -0.10968830102044302], [0.07727832232178213, 0.07828046414850313], [-0.021641054818050565, -0.10784913033741378], [0.10911600274600892, 0.013909281538142375], [-0.10423233924680861, -0.03514810981137588], [0.06594046853838906, -0.08804331193856837], [-0.1045287501736618, 0.03425654032891432], [-0.09711389638316889, -0.051659087268877205]], "H": [[0.670382459421204, -2.40692882291782e-18], [0.06967653295741012, -0.03956528802842755], [-0.06702887907085618, 0.07052534907871735], [-0.014277437874472854, -0.068206058669149], [0.022769083724409868, 0.04020117028022857], [-0.03295127184878954, -0.050254820519081866], [0.014565377508565985, 0.025878865075937757], [-0.035938864112811775, -0.0022160378281003853], [0.0015877019206787188, 0.028276520920906004], [-0.05103506842973193, 0.014846671669539993], [0.022074040004864983, -0.0016643252171488036], [-0.004183728122407747, 0.012760907448556012], [-0.01144910154389243, -0.01395300955662355]]}/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/authoring/infrastructure/runtimes/fresh_5570vphq/tmp/arg0/codex-arg0tiM5uE/apply_patch
+Fri Aug 28 18:25:01 UTC 2026
+bash-5.1# <ssion baseline --report "$OUT/baseline_report.json"
+
+def audit_pair(polynomial, digits=80):
+    records = []
+    for resolution, gauge in CONFIGURATIONS:
+        transformed = polynomial.copy()
+        if gauge:
+            transformed *= np.exp(1j * (0.3125 + 0.2718281828459045 * np.arange(len(polynomial))))
+        complement = fft_complementary_polynomial(transformed, tolerance=0, num_modes=resolution)
+        if not np.all(np.isfinite(complement)):
+            raise ValueError("completion returned nonfinite coefficients")
+        residual = exact_residual(transformed, complement)
+        angles = qsp_phase_factors(transformed, complement)
+        margin = phase_guard_margin(transformed, complement, angles[0], angles[1])
+        error, block_error = reconstructed_error(transformed, complement, angles, digits)
+        records.append({"num_modes": resolution, "gauge": gauge, "completion_residual_bound": float(residual),
+                        "phase_guard_margin": margin, "rms_error": error, "top_block_error": block_error,
+                        "completion_valid": residual <= Fraction(1, 10**12), "guard_valid": margin >= 1e-8})
+    return records
+
+
+def evaluate(submission):
+    started = time.monotonic()
+    try:
+        artifact = submission / "counterexample.json"
+        if artifact.is_symlink() or not artifact.is_file() or artifact.stat().st_size > 65536:
+            raise ValueError("missing, linked or oversized counterexample.json")
+        data = json.loads(artifact.read_text(), object_pairs_hook=unique, parse_constant=finite)
+        if type(data) is not dict or set(data) != {"P", "H"}:
+            raise ValueError("expected exactly P and H")
+        polynomial, certificate = coefficients(data["P"]), coefficients(data["H"])
+        degree = len(polynomial) - 1
+        if not 8 <= degree <= 12 or len(certificate) != len(polynomial):
+            raise ValueError("degree must be 8 through 12; certificate length must match")
+        energy = float(np.vdot(polynomial, polynomial).real)
+        if not 0.08 <= energy <= 0.30:
+            raise ValueError("coefficient energy outside [0.08,0.30]")
+        rms = math.sqrt(energy / len(polynomial))
+        if np.any(np.abs(polynomial) < 0.25 * rms) or np.any(np.abs(polynomial) > 4 * rms):
+            raise ValueError("coefficient density constraints fail")
+        if abs(np.sum(polynomial * polynomial)) > 0.8 * energy:
+            raise ValueError("polynomial is insufficiently complex")
+        norm_bound = exact_residual(polynomial, certificate, Fraction(16, 25))
+        if norm_bound > Fraction(1, 10**12):
+            raise ValueError("whole-circle contraction certificate fails")
+        records = audit_pair(polynomial)
+        admissible = all(record["completion_valid"] and record["guard_valid"] for record in records)
+        minimum = min(record["rms_error"] for record in records)
+        core = min(1.0, minimum / 0.05) if admissible else 0.0
+        passed = admissible and minimum >= 0.05
+        return {"core_score": core, "worst_family_score": core, "resource_score": 1.0,
+                "minimum_rms_error": minimum, "input_valid": True, "admissible": admissible,
+                "valid": passed, "passed": passed, "degree": degree, "energy": energy,
+                "contraction_residual_bound": float(norm_bound), "configurations": records,
+                "runtime_seconds": time.monotonic() - started,
+                "reason": "robust silent compiler failure certified" if passed else
+                          "all-six error threshold unmet" if admissible else "completion or phase-guard requirements fail"}
+    except (ValueError, TypeError, KeyError, OSError, OverflowError, RecursionError, AssertionError) as error:
+        return {"core_score": 0.0, "worst_family_score": 0.0, "resource_score": 0.0,
+                "valid": False, "passed": False, "input_valid": False, "reason": str(error),
+                "runtime_seconds": time.monotonic() - started}
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/numpy/core/__init__.py", line 22, in <module>
+    from . import multiarray
+  File "/usr/lib/python3/dist-packages/numpy/core/multiarray.py", line 12, in <module>
+    from . import overrides
+  File "/usr/lib/python3/dist-packages/numpy/core/overrides.py", line 7, in <module>
+    from numpy.core._multiarray_umath import (
+ImportError: libblas.so.3: cannot open shared object file: No such file or directory
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/concept_2/participant/workspace/probe.py", line 5, in <module>
+    from checker import evaluate
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/concept_2/participant/workspace/checker.py", line 8, in <module>
+    import numpy as np
+  File "/usr/lib/python3/dist-packages/numpy/__init__.py", line 150, in <module>
+    from . import core
+  File "/usr/lib/python3/dist-packages/numpy/core/__init__.py", line 48, in <module>
+    raise ImportError(msg)
+ImportError: 
+
+IMPORTANT: PLEASE READ THIS FOR ADVICE ON HOW TO SOLVE THIS ISSUE!
+
+Importing the numpy C-extensions failed. This error can happen for
+many reasons, often due to issues with your setup or how NumPy was
+installed.
+
+We have compiled some common reasons and troubleshooting tips at:
+
+    https://numpy.org/devdocs/user/troubleshooting-importerror.html
+
+Please note and check the following:
+
+  * The Python version is: Python3.10 from "/usr/bin/python3"
+  * The NumPy version is: "1.21.5"
+
+and make sure that they are the versions you expect.
+Please carefully study the documentation linked above for further help.
+
+Original error was: libblas.so.3: cannot open shared object file: No such file or directory
+
+bash-5.1# <me '*blas*.so*' -o -name '*lapack*.so*' 2>/dev/null
+lrwxrwxrwx 1 nobody nogroup   44 Feb  7  2024  /usr/lib/x86_64-linux-gnu/libblas.a -> /etc/alternatives/libblas.a-x86_64-linux-gnu
+lrwxrwxrwx 1 nobody nogroup   45 Feb  7  2024  /usr/lib/x86_64-linux-gnu/libblas.so -> /etc/alternatives/libblas.so-x86_64-linux-gnu
+lrwxrwxrwx 1 nobody nogroup   47 Feb  7  2024  /usr/lib/x86_64-linux-gnu/libblas.so.3 -> /etc/alternatives/libblas.so.3-x86_64-linux-gnu
+lrwxrwxrwx 1 nobody nogroup   46 Feb  7  2024  /usr/lib/x86_64-linux-gnu/liblapack.a -> /etc/alternatives/liblapack.a-x86_64-linux-gnu
+lrwxrwxrwx 1 nobody nogroup   47 Feb  7  2024  /usr/lib/x86_64-linux-gnu/liblapack.so -> /etc/alternatives/liblapack.so-x86_64-linux-gnu
+lrwxrwxrwx 1 nobody nogroup   49 Feb  7  2024  /usr/lib/x86_64-linux-gnu/liblapack.so.3 -> /etc/alternatives/liblapack.so.3-x86_64-linux-gnu
+
+/usr/lib/x86_64-linux-gnu/blas/:
+total 660
+lrwxrwxrwx 1 nobody nogroup     17 Jan 12  2022 libblas.so.3 -> libblas.so.3.10.0
+-rw-r--r-- 1 nobody nogroup 673632 Jan 12  2022 libblas.so.3.10.0
+
+/usr/lib/x86_64-linux-gnu/lapack/:
+total 7392
+lrwxrwxrwx 1 nobody nogroup      19 Jan 12  2022 liblapack.so.3 -> liblapack.so.3.10.0
+-rw-r--r-- 1 nobody nogroup 7567224 Jan 12  2022 liblapack.so.3.10.0
+
+/usr/lib/x86_64-linux-gnu/openblas-pthread:
+total 104092
+drwxr-xr-x 3 nobody nogroup     4096 Feb  7  2024 cmake
+lrwxrwxrwx 1 nobody nogroup       13 Feb 21  2022 libblas.a -> libopenblas.a
+lrwxrwxrwx 1 nobody nogroup       12 Feb 21  2022 libblas.so -> libblas.so.3
+-rw-r--r-- 1 nobody nogroup   395776 Feb 21  2022 libblas.so.3
+lrwxrwxrwx 1 nobody nogroup       13 Feb 21  2022 liblapack.a -> libopenblas.a
+lrwxrwxrwx 1 nobody nogroup       14 Feb 21  2022 liblapack.so -> liblapack.so.3
+-rw-r--r-- 1 nobody nogroup  7092680 Feb 21  2022 liblapack.so.3
+lrwxrwxrwx 1 nobody nogroup       22 Feb 21  2022 libopenblas.a -> libopenblasp-r0.3.20.a
+lrwxrwxrwx 1 nobody nogroup       23 Feb 21  2022 libopenblas.so -> libopenblasp-r0.3.20.so
+lrwxrwxrwx 1 nobody nogroup       23 Feb 21  2022 libopenblas.so.0 -> libopenblasp-r0.3.20.so
+-rw-r--r-- 1 nobody nogroup 61070074 Feb 21  2022 libopenblasp-r0.3.20.a
+-rw-r--r-- 1 nobody nogroup 38017672 Feb 21  2022 libopenblasp-r0.3.20.so
+drwxr-xr-x 2 nobody nogroup     4096 Feb  7  2024 pkgconfig
+/usr/bin/python
+/usr/bin/python3
+drwxr-xr-x 3 nobody nogroup 4096 Feb 17  2023 /usr/local/lib/python3.10
+/usr/lib/x86_64-linux-gnu/libblas.so.3
+/usr/lib/x86_64-linux-gnu/liblapack.so
+/usr/lib/x86_64-linux-gnu/liblapack.so.3
+/usr/lib/x86_64-linux-gnu/libblas.so
+/usr/lib/x86_64-linux-gnu/stubs/libcublasLt.so
+/usr/lib/x86_64-linux-gnu/stubs/libcublas.so
+/usr/lib/x86_64-linux-gnu/libcublasLt.so
+/usr/lib/x86_64-linux-gnu/libopenblas.so.0
+/usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3
+/usr/lib/x86_64-linux-gnu/lapack/liblapack.so.3.10.0
+/usr/lib/x86_64-linux-gnu/libopenblas.so
+/usr/lib/x86_64-linux-gnu/libnvblas.so.12.8.4.1
+/usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3
+/usr/lib/x86_64-linux-gnu/openblas-pthread/liblapack.so
+/usr/lib/x86_64-linux-gnu/openblas-pthread/liblapack.so.3
+/usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so
+/usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.20.so
+/usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas.so.0
+/usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas.so
+/usr/lib/x86_64-linux-gnu/libcublas.so.12
+/usr/lib/x86_64-linux-gnu/libnvblas.so.12
+/usr/lib/x86_64-linux-gnu/libcublasLt.so.12
+/usr/lib/x86_64-linux-gnu/blas/libblas.so.3
+/usr/lib/x86_64-linux-gnu/blas/libblas.so.3.10.0
+/usr/lib/x86_64-linux-gnu/libcublas.so
+/usr/lib/x86_64-linux-gnu/libcublasLt.so.12.8.4.1
+/usr/lib/x86_64-linux-gnu/libnvblas.so
+/usr/lib/x86_64-linux-gnu/libcublas.so.12.8.4.1
+/usr/lib/python3/dist-packages/numpy/linalg/lapack_lite.cpython-310-x86_64-linux-gnu.so
+/usr/lib/python3/dist-packages/jaxlib/cpu/_lapack.cpython-310-x86_64-linux-gnu.so
+/usr/lib/python3/dist-packages/sklearn/utils/_cython_blas.cpython-310-x86_64-linux-gnu.so
+/usr/lib/python3/dist-packages/scipy/linalg/_flapack.cpython-310-x86_64-linux-gnu.so
+/usr/lib/python3/dist-packages/scipy/linalg/cython_blas.cpython-310-x86_64-linux-gnu.so
+/usr/lib/python3/dist-packages/scipy/linalg/_fblas.cpython-310-x86_64-linux-gnu.so
+/usr/lib/python3/dist-packages/scipy/linalg/cython_lapack.cpython-310-x86_64-linux-gnu.so
+bash-5.1# <ssion baseline --report "$OUT/baseline_report.json"
+{
+  "core_score": 2.3968751802131494e-14,
+  "worst_family_score": 2.3968751802131494e-14,
+  "resource_score": 1.0,
+  "minimum_rms_error": 1.1984375901065748e-15,
+  "input_valid": true,
+  "admissible": true,
+  "valid": false,
+  "passed": false,
+  "degree": 12,
+  "energy": 0.15729701218626635,
+  "contraction_residual_bound": 1.1989310646977637e-15,
+  "configurations": [
+    {
+      "num_modes": 4096,
+      "gauge": 0,
+      "completion_residual_bound": 1.333427377776741e-15,
+      "phase_guard_margin": 0.00135521244803991,
+      "rms_error": 5.1623839026848275e-15,
+      "top_block_error": 4.756203732724106e-15,
+      "completion_valid": true,
+      "guard_valid": true
+    },
+    {
+      "num_modes": 4096,
+      "gauge": 1,
+      "completion_residual_bound": 9.623748449263957e-16,
+      "phase_guard_margin": 0.0013552124480399085,
+      "rms_error": 3.587131899666741e-15,
+      "top_block_error": 3.2987212843098917e-15,
+      "completion_valid": true,
+      "guard_valid": true
+    },
+    {
+      "num_modes": 8192,
+      "gauge": 0,
+      "completion_residual_bound": 9.887298103647153e-16,
+      "phase_guard_margin": 0.0013552124480399079,
+      "rms_error": 1.1984375901065748e-15,
+      "top_block_error": 1.1120958855498298e-15,
+      "completion_valid": true,
+      "guard_valid": true
+    },
+    {
+      "num_modes": 8192,
+      "gauge": 1,
+      "completion_residual_bound": 6.906114669870634e-16,
+      "phase_guard_margin": 0.0013552124480399046,
+      "rms_error": 6.75559418403179e-15,
+      "top_block_error": 6.250029340536132e-15,
+      "completion_valid": true,
+      "guard_valid": true
+    },
+    {
+      "num_modes": 16384,
+      "gauge": 0,
+      "completion_residual_bound": 1.8507814535089036e-15,
+      "phase_guard_margin": 0.0013552124480399048,
+      "rms_error": 4.115462159683758e-15,
+      "top_block_error": 3.816965714144802e-15,
+      "completion_valid": true,
+      "guard_valid": true
+    },
+    {
+      "num_modes": 16384,
+      "gauge": 1,
+      "completion_residual_bound": 1.830669222766139e-15,
+      "phase_guard_margin": 0.0013552124480399055,
+      "rms_error": 3.0267608442324085e-15,
+      "top_block_error": 2.818086546351331e-15,
+      "completion_valid": true,
+      "guard_valid": true
+    }
+  ],
+  "runtime_seconds": 0.12668415496591479,
+  "reason": "all-six error threshold unmet"
+}
+bash-5.1# cd "$OUT"; apply_patch <<'PATCH'
+> *** Begin Patch
+> *** Add File: search.py
+> +import argparse
+> +import json
+> +import math
+> +import sys
+> +import time
+> +from fractions import Fraction
+> +from pathlib import Path
+> +
+> +import numpy as np
+> +
+> <s_with_qualtran__2409_04643/concept_2/participant')
+> +sys.path.insert(0, str(ASSETS / 'workspace'))
+> <_phase_factors, phase_guard_margin, rotation_matrix
+> +from checker import audit_pair, exact_residual, evaluate
+> +
+> +
+> +def fast_error(polynomial, complement, angles):
+> +    theta, phi, lambd = angles
+> +    top = np.array([np.exp(1j * (phi[0] + lambd)) * np.cos(theta[0])])
+> +    bottom = np.array([np.exp(1j * lambd) * np.sin(theta[0])])
+> +    for index in range(1, len(theta)):
+> +        upper = np.pad(top, (1, 0))
+> +        lower = np.pad(bottom, (0, 1))
+> +        cosine = np.cos(theta[index])
+> +        sine = np.sin(theta[index])
+> +        top = np.exp(1j * phi[index]) * (cosine * upper + sine * lower)
+> +        bottom = sine * upper - cosine * lower
+> +    target = np.concatenate((polynomial, complement))
+> +    actual = np.concatenate((top, bottom))
+> +    overlap = np.vdot(target, actual)
+> +    phase = overlap / abs(overlap) if overlap else 1
+> +    return float(np.linalg.norm(actual - phase * target))
+> +
+> +
+> +def assess(polynomial, modes=4096, gauge=0):
+> +    transformed = polynomial.copy()
+> +    if gauge:
+> <+ 0.2718281828459045 * np.arange(len(polynomial))))
+> <lynomial(transformed, tolerance=0, num_modes=modes)
+> +    angles = qsp_phase_factors(transformed, complement)
+> +    error = fast_error(transformed, complement, angles)
+> <rgin(transformed, complement, angles[0], angles[1])
+> +
+> +
+> +def certificate(polynomial):
+> <ial(polynomial / 0.8, tolerance=0, num_modes=65536)
+> +
+> +
+> +def save(polynomial, filename):
+> +    companion = certificate(polynomial)
+> <alue.real), float(value.imag)] for value in values]
+> +               for name, values in [('P', polynomial), ('H', companion)]}
+> +    Path(filename).write_text(json.dumps(payload))
+> +    return float(exact_residual(polynomial, companion, Fraction(16, 25)))
+> +
+> +
+> +def admissible(polynomial):
+> +    energy = np.vdot(polynomial, polynomial).real
+> +    rms = np.sqrt(energy / len(polynomial))
+> +    return (0.08 <= energy <= 0.30
+> +            and min(abs(polynomial)) >= 0.25 * rms
+> +            and max(abs(polynomial)) <= 4 * rms
+> +            and abs(np.sum(polynomial ** 2)) <= 0.8 * energy
+> +            and max(abs(np.fft.fft(polynomial, 1024))) < 0.795)
+> +
+> +
+> +def generate(rng, index):
+> +    count = 13
+> +    phase = rng.uniform(-np.pi, np.pi, count)
+> +    amplitude = rng.uniform(0.25, 0.5, count)
+> +    amplitude[-1] = rng.uniform(0.250001, 0.28)
+> +    amplitude[-2] = rng.uniform(2.9, 3.5)
+> +    if index % 2 == 0:
+> +        amplitude[rng.integers(0, count - 2)] = rng.uniform(0.5, 1.5)
+> +    polynomial = amplitude * np.exp(1j * phase)
+> +    energy = rng.uniform(0.08001, 0.28)
+> +    polynomial *= math.sqrt(energy / np.vdot(polynomial, polynomial).real)
+> +    return polynomial
+> +
+> +
+> +def main():
+> +    parser = argparse.ArgumentParser()
+> +    parser.add_argument('--count', type=int, default=10000)
+> +    parser.add_argument('--seed', type=int, default=174311)
+> +    args = parser.parse_args()
+> +    rng = np.random.default_rng(args.seed)
+> +    best = 0
+> +    valid = 0
+> +    started = time.monotonic()
+> +    for index in range(args.count):
+> +        polynomial = generate(rng, index)
+> +        if not admissible(polynomial):
+> +            continue
+> +        valid += 1
+> +        error, margin = assess(polynomial)
+> +        if error <= best or margin < 1e-8:
+> +            continue
+> <r modes in (4096, 8192, 16384) for gauge in (0, 1)]
+> <f min(value[1] for value in results) >= 1e-8 else 0
+> +        if score > best:
+> +            best = score
+> +            residual = save(polynomial, 'counterexample.json')
+> <elapsed': time.monotonic() - started}), flush=True)
+> +            if best >= 0.05 and residual < 1e-12:
+> <.dumps(evaluate(Path.cwd()), indent=2), flush=True)
+> +                break
+> +    print('done', valid, best, time.monotonic() - started, flush=True)
+> +
+> +
+> +if __name__ == '__main__':
+> +    main()
+> *** End Patch
+> PATCH
+Success. Updated the following files:
+A search.py
+bash-5.1# python3 search.py --count 10000 | tee search.log
+{"index": 2, "valid": 1, "best": 2.661121183749917e-05, "errors": [0.00010008851584047588, 7.330739213900831e-05, 3.388207289507594e-05, 7.877230200511303e-05, 4.918413376780078e-05, 2.661121183749917e-05], "margin": 2.1460482475783126e-05, "certificate": 7.360389159721759e-16, "elapsed": 0.16643665300216526}
+{"index": 20, "valid": 3, "best": 7.454597087197575e-05, "errors": [0.00016772597273135182, 0.00013806635587858734, 0.00019013174579641102, 7.454597087197575e-05, 8.640603149038822e-05, 8.059347689641214e-05], "margin": 4.169212136138285e-05, "certificate": 1.1385936363029325e-15, "elapsed": 0.3655119710601866}
+{"index": 62, "valid": 10, "best": 7.583259844502502e-05, "errors": [0.0002874346611487293, 0.00040925321996479946, 0.00017249877810730552, 0.0005746963314877988, 7.922015514437374e-05, 7.583259844502502e-05], "margin": 5.185304968058465e-05, "certificate": 9.918400796948307e-16, "elapsed": 0.6891335629625246}
+{"index": 123, "valid": 24, "best": 0.00011388608874644831, "errors": [0.0002236533881641644, 0.00021852415306317972, 0.00012702350345226594, 0.00015208653496043883, 0.0001638199116539941, 0.00011388608874644831], "margin": 7.22991018200054e-05, "certificate": 9.11585786727574e-16, "elapsed": 1.3639715439639986}
+{"index": 214, "valid": 37, "best": 0.00011706010959980293, "errors": [0.00037008725943400586, 0.0003349199813556739, 0.0001883540844718096, 0.00014173879912312426, 0.00019292990253461532, 0.00011706010959980293], "margin": 3.9748692375078894e-05, "certificate": 1.0521768394290825e-15, "elapsed": 1.8197487000143155}
+{"index": 442, "valid": 75, "best": 0.00011966097331894218, "errors": [0.0005649658095440302, 0.0005339028790940376, 0.00013543208473253457, 0.00019743716552045632, 0.0001319003763609558, 0.00011966097331894218], "margin": 8.975820869139116e-06, "certificate": 6.555993508291431e-16, "elapsed": 2.929672988015227}
+{"index": 896, "valid": 140, "best": 0.0001311357267791957, "errors": [0.0002081733409804566, 0.0004013575168395724, 0.00028024891121072317, 0.00031508979438887353, 0.0002969206422611247, 0.0001311357267791957], "margin": 1.9990822303639443e-05, "certificate": 8.478193308954906e-16, "elapsed": 5.030461258022115}
+{"index": 1586, "valid": 255, "best": 0.0001327373451189533, "errors": [0.0003953052132460018, 0.0002898784106427771, 0.00015535886233817783, 0.00021053796057516607, 0.00015621790723359643, 0.0001327373451189533], "margin": 1.65908210191875e-05, "certificate": 8.149447800513586e-16, "elapsed": 8.289881370030344}
+{"index": 1964, "valid": 307, "best": 0.00018325497690254501, "errors": [0.0006184427136795965, 0.0003745375869580566, 0.00038881094252128, 0.00018325497690254501, 0.0003254846740561626, 0.00020334240297877344], "margin": 1.296012272371496e-05, "certificate": 9.098230589696527e-16, "elapsed": 9.948887150967494}
+{"index": 2088, "valid": 329, "best": 0.00021956108966842173, "errors": [0.0004297881684660565, 0.0004933063020690626, 0.00042323255283794074, 0.0006527653251392202, 0.0002930535129190308, 0.00021956108966842173], "margin": 4.201663552358636e-05, "certificate": 1.2639764473059019e-15, "elapsed": 10.642571354983374}
+{"index": 2846, "valid": 436, "best": 0.00023492088155344608, "errors": [0.0003907080097276343, 0.0004092444368299504, 0.0005474705364739153, 0.0003098263464532185, 0.00025675710688072685, 0.00023492088155344608], "margin": 4.613948125819895e-05, "certificate": 1.2563249906606473e-15, "elapsed": 12.696174242999405}
+done 1518 0.00023492088155344608 30.264610894024372
+bash-5.1# python3 - <<'PY'
+> import json, numpy as np
+> from search import *
+> values=json.load(open('counterexample.json'))
+> polynomial=np.array([complex(*pair) for pair in values['P']])
+> energy=np.vdot(polynomial,polynomial).real
+> <gy/13),'complexity',abs(sum(polynomial**2))/energy)
+> print('roots',sorted(abs(np.roots(polynomial[::-1]))))
+> comp=fft_complementary_polynomial(polynomial,tolerance=0,num_modes=4096)
+> theta,phi,lambd=qsp_phase_factors(polynomial,comp)
+> state=np.array([polynomial,comp])
+> for degree in range(12,-1,-1):
+>     leading,other=state[:,degree]
+>     if degree:
+>         state=rotation_matrix(theta[degree],phi[degree],0).conj().T@state
+> <ding),'other',abs(other),'discard',abs(state[0,0]))
+>         state=np.array([state[0,1:degree+1],state[1,0:degree]])
+>     else:
+>         print(0,state)
+> PY
+energy 0.23039312831847314 amp/rms [0.29552122 0.33975316 0.30256152 0.27627822 0.2814881  0.41718241
+ 0.30333561 0.28047253 0.35283284 1.17801796 0.3983487  3.23598363
+ 0.25083607] complexity 0.7743995485166753
+roots [0.6596802519582929, 0.7052183455508966, 0.7353460210346757, 0.7711827574225969, 0.7886880270587934, 0.8241620585527109, 0.8416043286334197, 0.8488620249801555, 0.8614138338879003, 0.8986432552591495, 0.9522429994269065, 13.046158500115235]
+12 lead 0.03339281875794043 other 0.0015095244047886602 discard 2.4308422019174933e-16
+11 lead 0.03342692041647437 other 0.0017022419905667917 discard 3.123811525322574e-15
+10 lead 0.03347023508019864 other 0.0015482852435003156 discard 4.090097461859603e-14
+9 lead 0.03350602667459991 other 0.001386906795664126 discard 5.329954379469477e-13
+8 lead 0.033534718337550715 other 0.0013758720383702015 discard 6.94736926295022e-12
+7 lead 0.03356293130590398 other 0.0022551974697189174 discard 9.042182549687589e-11
+6 lead 0.03363861283513718 other 0.0014937501646220559 discard 1.1787602130631367e-09
+5 lead 0.0336717621015973 other 0.0014198567015565656 discard 1.536335804005944e-08
+4 lead 0.03370168476618817 other 0.0018025534653760321 discard 2.0011558994565557e-07
+3 lead 0.03374985563043284 other 0.006177890177674933 discard 2.5661961620538107e-06
+2 lead 0.03431062637321668 other 0.0023193862466873716 discard 3.337223255849967e-05
+1 lead 0.03438893186308342 other 0.016968493175537905 discard 0.0003892716422849486
+0 [[-0.01830289+0.03369766j]
+ [ 0.99926438-0.00011665j]]
+bash-5.1# apply_patch <<'PATCH'
+> *** Begin Patch
+> *** Update File: search.py
+> @@
+>  def generate(rng, index):
+>      count = 13
+> -    phase = rng.uniform(-np.pi, np.pi, count)
+> -    amplitude = rng.uniform(0.25, 0.5, count)
+> -    amplitude[-1] = rng.uniform(0.250001, 0.28)
+> -    amplitude[-2] = rng.uniform(2.9, 3.5)
+> -    if index % 2 == 0:
+> -        amplitude[rng.integers(0, count - 2)] = rng.uniform(0.5, 1.5)
+> +    main_phase = rng.uniform(-np.pi, np.pi)
+> <rs(0, 2, count) * np.pi + rng.normal(0, 0.1, count)
+> +    phase[-2] = main_phase
+> +    weights = np.full(count, 0.062501 / count)
+> +    weights[-2] = rng.uniform(0.875, 0.898)
+> +    extra = rng.dirichlet(np.full(count - 2, 0.3))
+> +    weights[:-2] += extra * (1 - np.sum(weights))
+> +    amplitude = np.sqrt(weights)
+> *** End Patch
+> PATCH
+Success. Updated the following files:
+M search.py
+bash-5.1# python3 search.py --count 20000 --seed 779432 | tee search2.log
+{"index": 0, "valid": 1, "best": 0.00014456375897975858, "errors": [0.0009253913696409493, 0.0005154209393863635, 0.0003077682569800494, 0.0004209615909371366, 0.00014456375897975858, 0.0004491563226209199], "margin": 9.519641272730269e-06, "certificate": 4.847839125792227e-16, "elapsed": 0.1988386840093881}
+{"index": 1, "valid": 2, "best": 0.0002586306367882555, "errors": [0.0016016701629538662, 0.0008261296306814454, 0.0007866405208536561, 0.0005553154026543775, 0.0002586306367882555, 0.00042511219094250975], "margin": 1.771904142647624e-05, "certificate": 5.388446211847932e-16, "elapsed": 0.3872109120711684}
+{"index": 3, "valid": 4, "best": 0.0002801025249320338, "errors": [0.0012503297643685152, 0.0008837018112382738, 0.00034969265432068506, 0.0002801025249320338, 0.0005055070229673199, 0.00035480084260015334], "margin": 1.365611927703166e-05, "certificate": 5.533191234327718e-16, "elapsed": 0.6280170970130712}
+{"index": 5, "valid": 6, "best": 0.0003027382784227533, "errors": [0.0007771165492421674, 0.0011880623295982516, 0.0003027382784227533, 0.0003770795734609522, 0.0003303594377298537, 0.0006266920907998871], "margin": 4.0931082852937196e-05, "certificate": 7.904691069787465e-16, "elapsed": 0.9109009259846061}
+{"index": 44, "valid": 44, "best": 0.0003659817297330815, "errors": [0.0007400012895253705, 0.0008667958360707974, 0.0006632763025976241, 0.0003659817297330815, 0.0004264702779559788, 0.0003991450074459831], "margin": 1.123708637095599e-05, "certificate": 5.97756525320589e-16, "elapsed": 3.2070780029753223}
+{"index": 104, "valid": 100, "best": 0.0003966277981941543, "errors": [0.0011266060723308224, 0.0007557970384001047, 0.0007187752805691392, 0.0008066907162546609, 0.0007419063142978271, 0.0003966277981941543], "margin": 1.0418477240866352e-05, "certificate": 6.003357086556415e-16, "elapsed": 6.102490229066461}
+{"index": 141, "valid": 136, "best": 0.0004841185838053983, "errors": [0.0012939579958983734, 0.0016540015964845926, 0.0007395510588716791, 0.0007423552184801348, 0.0006793891341240665, 0.0004841185838053983], "margin": 9.220383165803873e-06, "certificate": 3.7867498347215243e-16, "elapsed": 8.258563225041144}
+{"index": 294, "valid": 281, "best": 0.0005033961006479558, "errors": [0.0005083945131711034, 0.0006794846669847972, 0.0008258729170329782, 0.0005033961006479558, 0.0007427229581513174, 0.0010188890200505181], "margin": 4.832498907688413e-05, "certificate": 8.763665367288388e-16, "elapsed": 15.460190808051266}
+{"index": 1068, "valid": 1021, "best": 0.0005056483555880648, "errors": [0.0005260566531568895, 0.000556576907659871, 0.0005215728427591147, 0.0005433656811294756, 0.0005056483555880648, 0.0006321892597251392], "margin": 5.96517668865128e-05, "certificate": 9.671738339863956e-16, "elapsed": 51.5063310690457}
+{"index": 3860, "valid": 3697, "best": 0.0005432849941411053, "errors": [0.0015781149827280873, 0.00122307136350062, 0.0007486350002351096, 0.0006094076603501272, 0.0007390751075725729, 0.0005432849941411053], "margin": 8.501982137774547e-06, "certificate": 4.842836475360192e-16, "elapsed": 182.0932969340356}
+{"index": 3991, "valid": 3821, "best": 0.0006993761158809498, "errors": [0.0009914237559472826, 0.0009841496198960311, 0.0007951045762518272, 0.0006993761158809498, 0.0007231646633469514, 0.0007100351372699622], "margin": 1.125885077470974e-05, "certificate": 6.814113834972267e-16, "elapsed": 187.22311024204828}
+^C
+**Analyzing batch process performance**
+
+I'm realizing I can't change the batch search while processing an imported task. I need to terminate the PID and its children. It seems like the background process is causing orphan tasks, which could be running for about a second and then becoming idle. That could be blocking memory. It might be better if the batch finishes quickly with a 64k count, ideally around 150 seconds. With 4 processes and configurations in mind, I'm estimating a total of about 2 minutes for completion.
+codex
+The best candidate remains admissible but below 0.05. I’ll now refine its coefficients at rounding-error scale.
+
+**Exploring computational options**
+
+I'm looking into a computational setup involving FFT and candidate verification, focusing on managing time per core efficiently. It seems like I could use Python for a small batch process with pure monomial phases. I’m weighing this against using local resources versus posting them, and I’ll collect errors based on quite a few candidates. Although I can't save results, I can gather max values to explore this new domain further!
+**Evaluating optimization strategy**
+
+I'm looking at an iterative process with a speed of 4 iterations per second, focused on evaluating various configurations for optimization. If the cutoff score for early evaluations isn't better than the best, I should skip checking other configurations. I'll need to maintain full scores for Pareto analysis, despite it being resource-intensive. The goal is to explore global noise while managing local artifacts effectively. By keeping a strong candidate set from best scores, I can better navigate towards potential peaks or new terrain with strategic randomness.
+codex
+The probe confirms valid complements and guards. I’m testing finer coefficient changes to increase the worst-case error.
+
+**Adjusting timing settings**
+
+Oh no, I think I messed up the default timing. I meant to set it to 240,000, but it’s stuck at 1,000! I realize I need to stop repeating the tool call. I can set the yield_time_ms to 1,000 — it won’t harm anything, and the developer suggests not to wait by reflex. I’ll go ahead and use 240,000 now. Let's make sure everything runs smoothly!
+**Considering writing limits**
+
+I'm pondering why I'm consistently writing 1000. Maybe it has to do with tool parameters or UI harness limits affecting yield time values? Our analysis guidelines require 240,000, but it seems the tool JSON has some autopilot feature. I think I'll explicitly set the `yield_time_ms` to 300,000 to meet those requirements better. It's all about ensuring everything works smoothly!
+codex
+Refinement has plateaued. I’m checking one final structured family.
+
+codex
+The final search improved the worst-case error. I’ll finish with the probe and higher-precision validation.
+
+Completed broad, structured, and rounding-scale searches. The best candidate remains below the required error threshold; validating and submitting that best artifact.
+  ✓ Inspect scoring and baseline behavior
+  ✓ Construct and optimize admissible polynomials
+  → Validate all six configurations
+  • Submit best counterexample artifact
+The final 1,232-byte artifact passes all input, exact complement-certificate, and phase-guard requirements. Both 80- and 160-digit checks agree on minimum RMS error 0.0011746431063262063, below 0.05. Submitted the best candidate as required.
+  ✓ Inspect scoring and baseline behavior
+  ✓ Construct and optimize admissible polynomials
+  ✓ Validate all six configurations
+  ✓ Submit best counterexample artifact
+codex
+Saved the best artifact to `/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/concept_2/attempts/v_5/counterexample.json`.
+
+All admissibility, complement, and phase-guard checks pass. Minimum RMS error is **0.0011746431**, confirmed at 160-digit precision; the **0.05 target remains unmet**.
+tokens used
+226,828
+Saved the best artifact to `/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/concept_2/attempts/v_5/counterexample.json`.
+
+All admissibility, complement, and phase-guard checks pass. Minimum RMS error is **0.0011746431**, confirmed at 160-digit precision; the **0.05 target remains unmet**.

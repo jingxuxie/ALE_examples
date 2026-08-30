@@ -1,0 +1,1976 @@
+#  Copyright 2023 Google LLC
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+"""Classes for building and manipulating `CompositeBloq`."""
+
+import warnings
+from collections.abc import Hashable
+from functools import cached_property
+from typing import (
+    _ProtocolMeta,
+    Callable,
+    cast,
+    Dict,
+    FrozenSet,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    overload,
+    Protocol,
+    Sequence,
+    Set,
+    Tuple,
+    TYPE_CHECKING,
+    TypeAlias,
+    TypeGuard,
+    TypeVar,
+    Union,
+)
+
+import attrs
+import networkx as nx
+import numpy as np
+import sympy
+from numpy.typing import NDArray
+
+from .binst_graph_iterators import greedy_topological_sort
+from .bloq import Bloq, DecomposeNotImplementedError, DecomposeTypeError
+from .data_types import check_dtypes_consistent, QAny, QBit, QCDType, QDType
+from .quantum_graph import (
+    _QVar,
+    _Soquet,
+    BloqInstance,
+    Connection,
+    DanglingT,
+    LeftDangle,
+    RightDangle,
+)
+from .registers import Register, Side, Signature
+
+if TYPE_CHECKING:
+    import cirq
+
+    from qualtran.bloqs.bookkeeping.auto_partition import Unused
+    from qualtran.cirq_interop._cirq_to_bloq import CirqQuregInT, CirqQuregT
+    from qualtran.drawing import WireSymbol
+    from qualtran.resource_counting import BloqCountDictT, SympySymbolAllocator
+    from qualtran.simulation.classical_sim import ClassicalValT
+    from qualtran.symbolics import SymbolicFloat, SymbolicInt
+
+
+class _NoSoquetIsInstanceMeta(_ProtocolMeta):
+    def __instancecheck__(cls, instance):
+        warnings.warn("isinstance(..., Soquet) is deprecated.", DeprecationWarning)
+        return isinstance(instance, (_Soquet, _QVar))
+        # raise TypeError(
+        #     "Do not rely on isinstance(..., Soquet). "
+        #     "To distinguish a single soquet quantum variable "
+        #     "from an n-dimensional array of them, use "
+        #     "`SoquetT.is_single(soq)` and/or `SoquetT.is_ndarray(soq)`."
+        # )
+
+
+class Soquet(Protocol, metaclass=_NoSoquetIsInstanceMeta):
+    """A typing protocol for a soquet or qvar.
+
+    In Qualtran v0.7 and earlier, the immutable `Soquet` object represented both the "quantum
+    variables" being passed around during bloq building as well as the nodes of the compute graph.
+    In Qualtran v0.8+, these concerns are separated. The compute graph nodes are frozen dataclasses
+    of type `_Soquet`, and the quantum variables are *mutable* objects of type `_QVar`. We put
+    additional helper attributes and methods onto `_QVar` to assist in bloq building.
+
+    For backwards compatibility, the `Soquet` name is now assigned to this class: a
+    `typing.Protocol` that encapsulates the duck-typing behavior of the union of
+    `_Soquet` and `_QVar`, which may result in code that type-checks correctly but raises
+    an error at runtime. Backwards compatibility (i.e. not having to update type annotations
+    for existing bloqs) is prioritized over strict type-checking.
+
+     - Only `_Soquet` objects can be hashed.
+     - Only `_QVar` objects have a `.bb` attribute.
+     - Both `_Soquet.reg` and `_QVar.reg` are deprecated.
+
+    `isinstance(..., Soquet)` checks will emit a deprecation warning
+    and return True for *either* `_Soquet` or `_QVar`.
+
+    If you're using isinstance(soq, Soquet) to determine whether an item is a single object
+    or an ndarray of those objects, use `BloqBuilder.is_single(x)` or
+    `BloqBuilder.is_ndarray(x)`. See the documentation in `QVarT` for an example.
+
+    If you're developing library functionality, you can port isinstance checks to either
+    `_Soquet` or `QVar` as appropriate.
+    """
+
+    def __new__(cls, *args, **kwargs):
+        warnings.warn(
+            "Constructing a soquet via `Soquet(...)` is deprecated. "
+            "User code should never construct soquets directly: "
+            "please use BloqBuilder.",
+            DeprecationWarning,
+        )
+        return _Soquet(*args, **kwargs)
+
+    @property
+    def shape(self) -> Tuple[int, ...]: ...
+
+    def item(self, *args) -> _QVar: ...
+
+    @property
+    def dtype(self) -> 'QCDType': ...
+
+    def __hash__(self):
+        """Note! This is _Soquet only. _QVar is mutable."""
+
+    @property
+    def reg(self) -> 'Register': ...
+
+    def __getitem__(self, item) -> 'QVarT': ...
+
+    def __setitem__(self, key, value) -> None:
+        """For protocol compatibility with QVarT. Not supported on a single _QVar."""
+
+    @property
+    def bb(self) -> 'BloqBuilder':
+        """Note! This is _QVar only. Not _Soquet."""
+
+
+class _SoquetT(Protocol):
+    """Either an actual _Soquet or an array thereof."""
+
+    @property
+    def shape(self) -> Tuple[int, ...]: ...
+
+    def item(self, *args) -> _Soquet: ...
+
+
+class QVarT(Protocol):
+    """Either a QVar or an array thereof.
+
+    To narrow objects of this type, use `BloqBuilder.is_single(qvar)` and/or
+    `BloqBuilder.is_ndarray(qvars)`.
+
+    Example:
+        >>> qvar_or_qvars: QVarT
+        ... if BloqBuilder.is_ndarray(qvar_or_qvars):
+        ...     first_soq = qvar_or_qvars.reshape(-1).item(0)
+        ... else:
+        ...     # Note: `.item()` raises if not a single item.
+        ...     first_soq = qvar_or_qvars.item()
+
+    """
+
+    @property
+    def shape(self) -> Tuple[int, ...]: ...
+
+    def item(self, *args) -> _QVar: ...
+
+    def __getitem__(self, item) -> 'QVarT': ...
+
+    def __setitem__(self, key, value) -> None: ...
+
+
+# Compatibilities aliases
+SoquetT: TypeAlias = QVarT
+QVar: TypeAlias = Soquet
+
+
+SoquetInT = Union[QVarT, Sequence[QVarT]]
+"""A soquet or array-like of soquets.
+
+This type alias is used for input argument to parts of the library that are more
+permissive about the types they accept. Under-the-hood, such functions will
+canonicalize and return `SoquetT`.
+"""
+
+_ConnectionType = TypeVar('_ConnectionType', bound=np.generic)
+
+ConnectionT = Union[Connection, NDArray[_ConnectionType]]
+"""A `Connection` or array of connections."""
+
+
+def _to_tuple(x: Iterable[Connection]) -> Sequence[Connection]:
+    """mypy-compatible attrs converter for CompositeBloq.connections"""
+    return tuple(x)
+
+
+def _to_set(x: Iterable[BloqInstance]) -> FrozenSet[BloqInstance]:
+    """mypy-compatible attrs converter for CompositeBloq.bloq_instances"""
+    return frozenset(x)
+
+
+@attrs.frozen
+class CompositeBloq(Bloq):
+    """A composition of sub-bloqs that additionally satisfies the `Bloq` interface.
+
+    `CompositeBloq` represents a quantum subroutine (i.e. a composition of sub-bloqs) as a
+    dataflow compute graph. The specific native representation is a list of `qualtran.Connection`
+    objects (i.e. a list of graph edges); but additional views of the graph are provided by
+    methods and properties. This container should be considered immutable.
+
+    `CompositeBloq` performs two distrinct roles. First and foremost, it is a container
+    for a collection of sub-bloqs that are composed according to the graph edges. For example,
+    the result of calling `decompose_bloq()` on a bloq object is a `CompositeBloq` object. This
+    role is analogous to an object representing a quantum circuit.
+
+    Additionally, `CompositeBloq` implements the `qualtran.Bloq` interface. Any analysis
+    methods available via the `Bloq` interface can be called directly on a `CompositeBloq`;
+    and the analysis will be performed by composing the effects of sub-bloqs, rather than
+    short-circuiting via specialized implementations on bloq classes. This role is
+    analogous to a classical anonymous function ("lambda function").
+
+    The class is named for this second role, although a name like "`BloqComposition`" would
+    be equally valid. A bloq can be defined by its decomposition
+    (by implementing `build_composite_bloq`) without being a descendant of `CompositeBloq`.
+
+    Users should not construct `CompositeBloq` objects directly. Rather, use `qualtran.BloqBuilder`
+    directly or by overriding `Bloq.build_composite_bloq`.
+
+    Throughout this library we will often use the variable name `cbloq` to refer to a
+    composite bloq.
+
+    Args:
+        connections: A sequence of `Connection` encoding the quantum compute graph.
+        signature: The registers defining the inputs and outputs of this Bloq. This
+            should correspond to the dangling `Soquets` in the `cxns`.
+        bloq_instances: Optionally specify the unique bloq instances. Otherwise, deduce them from
+            the connections.
+        decomposed_from: Optionally include a reference to the bloq from whence this
+            `CompositeBloq` was decomposed. This can be used for debugging and error
+            reporting, but is never used for deriving any properties.
+        bloq_key: An optional string key for this bloq. This can be used for debugging and
+            error reporting, but is never used for deriving any properties.
+    """
+
+    connections: Tuple[Connection, ...] = attrs.field(converter=_to_tuple)
+    signature: Signature
+    bloq_instances: FrozenSet[BloqInstance] = attrs.field(converter=_to_set)
+
+    decomposed_from: Optional[Bloq] = attrs.field(default=None, kw_only=True)
+    bloq_key: Optional[str] = attrs.field(default=None, kw_only=True)
+
+    @bloq_instances.default
+    def _default_bloq_instances(self):
+        return {
+            soq.binst
+            for cxn in self.connections
+            for soq in [cxn.left, cxn.right]
+            if not isinstance(soq.binst, DanglingT)
+        }
+
+    @cached_property
+    def all_soquets(self) -> FrozenSet[_Soquet]:
+        """A set of all `Soquet`s present in the compute graph."""
+        soquets = {cxn.left for cxn in self.connections}
+        soquets |= {cxn.right for cxn in self.connections}
+        return frozenset(soquets)
+
+    @cached_property
+    def _binst_graph(self) -> nx.DiGraph:
+        """Get a cached version of this composite bloq's BloqInstance graph.
+
+        The BloqInstance graph (or binst_graph) records edges between bloq instances
+        and stores the `Connection` (i.e. Soquet-Soquet) information on an edge attribute
+        named `cxns`.
+
+        NetworkX graphs are mutable. We require that any uses of this private property
+        do not mutate the graph. It is cached for performance reasons. Use g.copy() to
+        get a copy.
+        """
+        return _create_binst_graph(self.connections, self.bloq_instances)
+
+    def as_cirq_op(
+        self, qubit_manager: 'cirq.QubitManager', **cirq_quregs: 'CirqQuregT'
+    ) -> Tuple['cirq.Operation', Dict[str, 'CirqQuregT']]:
+        """Return a `cirq.CircuitOperation` version of this cbloq."""
+        import cirq
+
+        circuit, out_quregs = self.to_cirq_circuit_and_quregs(
+            qubit_manager=qubit_manager, **cirq_quregs
+        )
+        return cirq.CircuitOperation(circuit), out_quregs
+
+    def to_cirq_circuit_and_quregs(
+        self, qubit_manager: Optional['cirq.QubitManager'] = None, **cirq_quregs: 'CirqQuregInT'
+    ) -> Tuple['cirq.FrozenCircuit', Dict[str, 'CirqQuregT']]:
+        """Convert this CompositeBloq to a `cirq.Circuit` and output qubit registers.
+
+        Args:
+            qubit_manager: A `cirq.QubitManager` to allocate new qubits. If not provided,
+                uses `cirq.SimpleQubitManager()` by default.
+            **cirq_quregs: Mapping from left register names to Cirq qubit arrays.
+
+        Returns:
+            circuit: The cirq.FrozenCircuit version of this composite bloq.
+            cirq_quregs: The output mapping from right register names to Cirq qubit arrays.
+        """
+        import cirq
+
+        from qualtran.cirq_interop._bloq_to_cirq import _cbloq_to_cirq_circuit
+
+        if qubit_manager is None:
+            qubit_manager = cirq.ops.SimpleQubitManager()
+
+        return _cbloq_to_cirq_circuit(
+            self.signature, cirq_quregs, self._binst_graph, qubit_manager=qubit_manager
+        )
+
+    def to_cirq_circuit(
+        self,
+        *,
+        qubit_manager: Optional['cirq.QubitManager'] = None,
+        cirq_quregs: Optional[Mapping[str, 'CirqQuregInT']] = None,
+    ) -> 'cirq.FrozenCircuit':
+        """Convert this CompositeBloq to a `cirq.Circuit`.
+
+        Args:
+            qubit_manager: A `cirq.QubitManager` to allocate new qubits. If not provided,
+                uses `cirq.SimpleQubitManager()` by default.
+            cirq_quregs: Mapping from left register names to Cirq qubit arrays. If not provided,
+                uses `get_named_qubits(self.signature.lefts())` by default.
+
+        Returns:
+            circuit: The cirq.FrozenCircuit version of this composite bloq.
+        """
+        from qualtran._infra.gate_with_registers import get_named_qubits
+
+        if cirq_quregs is None:
+            cirq_quregs = get_named_qubits(self.signature.lefts())
+
+        return self.to_cirq_circuit_and_quregs(qubit_manager=qubit_manager, **cirq_quregs)[0]
+
+    @classmethod
+    def from_cirq_circuit(cls, circuit: 'cirq.Circuit') -> 'CompositeBloq':
+        """Construct a composite bloq from a Cirq circuit.
+
+        Each `cirq.Operation` will be wrapped by a `CirqGateAsBloq` wrapper. The
+        resultant composite bloq will represent a unitary with one thru-register
+        named "qubits" of shape `(n_qubits,)`.
+
+        See `qualtran.cirq_interop.cirq_optree_to_cbloq` for more.
+        """
+        from qualtran.cirq_interop import cirq_optree_to_cbloq
+
+        return cirq_optree_to_cbloq(circuit)
+
+    def on_classical_vals(
+        self, **vals: Union[sympy.Symbol, 'ClassicalValT']
+    ) -> Dict[str, 'ClassicalValT']:
+        """`CompositeBloq` implementation of `Bloq.on_classical_vals`.
+
+        This override determines the classical action of this composite bloq by correctly
+        composing the classical action of the subbloqs.
+        """
+        from qualtran.simulation.classical_sim import call_cbloq_classically
+
+        out_vals, _ = call_cbloq_classically(self.signature, vals, self._binst_graph)
+        return out_vals
+
+    def as_composite_bloq(self) -> 'CompositeBloq':
+        """Returns this composite bloq unmodified.
+
+        This overrides `Bloq.as_composite_bloq`."""
+        return self
+
+    def decompose_bloq(self) -> 'CompositeBloq':
+        """Raise an error if this method is called.
+
+        This overrides `Bloq.decompose_bloq` to unconditionally raise an exception:
+        decomposing a CompositeBloq is ill-defined. Depending on your intentions, you can
+        just use the composite bloq in place or use something like `.flatten()`.
+        """
+        raise ValueError(
+            "Calling `decompose_bloq` on a CompositeBloq is ill-defined. "
+            "Consider using the composite bloq directly or using `.flatten()`."
+        )
+
+    def build_call_graph(self, ssa: Optional['SympySymbolAllocator']) -> 'BloqCountDictT':
+        """`CompositeBloq` implementation of `Bloq.build_call_graph`.
+
+        Build this composite bloq's call graph by counting up all the subbloqs.
+        """
+        from qualtran.resource_counting import build_cbloq_call_graph
+
+        return build_cbloq_call_graph(self)
+
+    def iter_bloqnections(
+        self,
+    ) -> Iterator[Tuple[BloqInstance, List[Connection], List[Connection]]]:
+        """Iterate over Bloqs and their connections in topological order.
+
+        Yields:
+            A bloq instance, its predecessor connections, and its successor connections. The
+                bloq instances are yielded in a topologically-sorted order. The predecessor
+                and successor connections are lists of `Connection` objects feeding into or out of
+                (respectively) the binst. Dangling nodes are not included as the binst (but
+                connections to dangling nodes are included in predecessors and successors).
+                Every connection that does not involve a dangling node will appear twice: once as
+                a predecessor and again as a successor.
+        """
+        g = self._binst_graph
+        for binst in greedy_topological_sort(g):
+            if isinstance(binst, DanglingT):
+                continue
+            pred_cxns, succ_cxns = _binst_to_cxns(binst, binst_graph=g)
+            yield binst, pred_cxns, succ_cxns
+
+    def iter_bloqsoqs(
+        self,
+    ) -> Iterator[Tuple[BloqInstance, Dict[str, _SoquetT], Tuple[_SoquetT, ...]]]:
+        """Iterate over bloq instances and their input soquets.
+
+        This method is helpful for "adding from" this existing composite bloq. You must
+        use `map_soqs` to map this cbloq's soquets to the correct ones for the
+        new bloq.
+
+        Examples:
+            This snippet re-creates an existing composite bloq
+
+            >>> from qualtran.bloqs.for_testing.with_decomposition import TestParallelCombo
+            >>> cbloq = TestParallelCombo().decompose_bloq()
+            >>> bb, _ = BloqBuilder.from_signature(cbloq.signature)
+            >>> soq_map = bb.initial_soq_map(cbloq.signature.lefts())
+            >>> for binst, in_soqs, old_out_soqs in cbloq.iter_bloqsoqs():
+            ...    in_soqs = bb.map_soqs(in_soqs, soq_map)
+            ...    new_out_soqs = bb.add_t(binst.bloq, **in_soqs)
+            ...    soq_map.extend(zip(old_out_soqs, new_out_soqs))
+            >>> bb.finalize(**bb.map_soqs(cbloq.final_soqs(), soq_map))
+            CompositeBloq(...)
+
+        Yields:
+            binst: The current bloq instance
+            in_soqs: A dictionary mapping the binst's register names to predecessor soquets.
+                This is suitable for `bb.add(binst.bloq, **in_soqs)`
+            out_soqs: A tuple of the output soquets of `binst`. This can be used to update
+                the mapping from this cbloq's soquets to a modified copy, see the example code.
+        """
+
+        for binst, preds, succs in self.iter_bloqnections():
+            in_soqs = _cxns_to_soq_dict(
+                binst.bloq.signature.lefts(),
+                preds,
+                get_me=lambda x: x.right,
+                get_assign=lambda x: x.left,
+            )
+            out_soqs = tuple(_reg_to_soq(binst, reg) for reg in binst.bloq.signature.rights())
+            yield binst, in_soqs, out_soqs
+
+    def final_soqs(self) -> Dict[str, _SoquetT]:
+        """Return the final output soquets.
+
+        This method is helpful for finalizing an "add from" operation, see `iter_bloqsoqs`.
+        """
+        if RightDangle not in self._binst_graph:
+            return {}
+        final_preds, _ = _binst_to_cxns(RightDangle, binst_graph=self._binst_graph)
+        return _cxns_to_soq_dict(
+            self.signature.rights(),
+            final_preds,
+            get_me=lambda x: x.right,
+            get_assign=lambda x: x.left,
+        )
+
+    def copy(self) -> 'CompositeBloq':
+        """Create a copy of this composite bloq by re-building it."""
+        bb, _ = BloqBuilder.from_signature(self.signature, bloq_key=self.bloq_key)
+        soq_map = bb.initial_soq_map(self.signature.lefts())
+
+        for binst, in_soqs, old_out_soqs in self.iter_bloqsoqs():
+            mapped_in_soqs = _map_soqs(in_soqs, soq_map)
+            new_out_soqs = bb.add_t(binst.bloq, **mapped_in_soqs)
+            soq_map.extend(zip(old_out_soqs, new_out_soqs))
+
+        fsoqs = _map_soqs(self.final_soqs(), soq_map)
+        return bb.finalize(**fsoqs)
+
+    def flatten_once(
+        self, pred: Callable[[BloqInstance], bool] = lambda binst: True
+    ) -> 'CompositeBloq':
+        """Decompose and flatten each subbloq that satisfies `pred`.
+
+        This will only flatten "once". That is, we will go through the bloq instances
+        contained in this composite bloq and (optionally) flatten each one but will not
+        recursively flatten the results. For a recursive version see `flatten`.
+
+        Args:
+            pred: A predicate that takes a bloq instance and returns True if it should
+                be decomposed and flattened or False if it should remain undecomposed.
+                If the bloq does not have a decomposition, it will remain undecomposed.
+                By default, flatten everything.
+
+        Returns:
+            cbloq: A new composite bloq where subbloqs matching `pred` have been decomposed and
+                flattened.
+
+        Raises:
+            DidNotFlattenAnythingError: If the operation did not actually flatten anything.
+                This could be because none of the bloq instances satisfied `pred` or none of
+                the bloqs have decompositions.
+
+        """
+        if len(self.bloq_instances) == 0:
+            raise DidNotFlattenAnythingError()
+
+        bb, _ = BloqBuilder.from_signature(self.signature)
+
+        # We take particular care during flattening to preserve the `binst.i` of bloq instances
+        # that are not flattened. We do this by initializing the bloq builder's `i` counter
+        # to one greater than the existing maximum value, so all calls to `add_from` will result
+        # in new, higher `binst.i` values.
+        # pylint: disable=protected-access
+        bb._i = max(binst.i for binst in self.bloq_instances) + 1
+
+        soq_map = bb.initial_soq_map(self.signature.lefts())
+        new_out_soqs: Tuple[QVarT, ...]
+        did_work = False
+        for binst, _in_soqs, old_out_soqs in self.iter_bloqsoqs():
+            in_soqs = _map_soqs(_in_soqs, soq_map)  # update `in_soqs` from old to new.
+            if pred(binst):
+                try:
+                    new_out_soqs = bb.add_from(binst.bloq, **in_soqs)
+                    did_work = True
+                except (DecomposeTypeError, DecomposeNotImplementedError):
+                    new_out_soqs = tuple(soq for _, soq in bb._add_binst(binst, in_soqs=in_soqs))
+            else:
+                # Since we took care to not reuse existing `binst.i` values for flattened
+                # bloqs, it is safe to call `bb._add_binst` with the old `binst` (and in
+                # particular with the old `binst.i`) to preserve the `binst.i` of unflattened
+                # bloqs.
+                # pylint: disable=protected-access
+                new_out_soqs = tuple(soq for _, soq in bb._add_binst(binst, in_soqs=in_soqs))
+
+            soq_map.extend(zip(old_out_soqs, new_out_soqs))
+
+        if not did_work:
+            raise DidNotFlattenAnythingError()
+
+        fsoqs = _map_soqs(self.final_soqs(), soq_map)
+        return bb.finalize(**fsoqs)
+
+    def flatten(
+        self, pred: Callable[[BloqInstance], bool] = lambda binst: True, max_depth: int = 1_000
+    ) -> 'CompositeBloq':
+        """Recursively decompose and flatten subbloqs until none satisfy `pred`.
+
+        This will continue flattening the results of subbloq.decompose_bloq() until
+        all bloqs which would satisfy `pred` have been flattened.
+
+        Args:
+            pred: A predicate that takes a bloq instance and returns True if it should
+                be decomposed and flattened or False if it should remain undecomposed.
+                If the bloq does not have a decomposition, it will remain undecomposed.
+                By default, flatten as much as possible.
+            max_depth: To avoid infinite recursion, give up after this many recursive steps.
+
+        Returns:
+            cbloq: A new composite bloq where all recursive subbloqs matching `pred` have been
+                decomposed and flattened.
+        """
+        cbloq = self
+        for _ in range(max_depth):
+            try:
+                cbloq = cbloq.flatten_once(pred)
+            except DidNotFlattenAnythingError:
+                break
+        else:
+            raise ValueError("Max recursion depth exceeded in `flatten`.")
+
+        return cbloq
+
+    def adjoint(self) -> 'CompositeBloq':
+        """Get a composite bloq which is the adjoint of this composite bloq.
+
+        The adjoint of a composite bloq is another composite bloq where the order of
+        operations is reversed and each subbloq is replaced with its adjoint.
+        """
+        from .adjoint import _adjoint_cbloq
+
+        return _adjoint_cbloq(self)
+
+    @staticmethod
+    def _debug_binst(g: nx.DiGraph, binst: BloqInstance) -> List[str]:
+        """Helper method used in `debug_text`"""
+        lines = [f'{binst}']
+        pred_cxns, succ_cxns = _binst_to_cxns(binst, binst_graph=g)
+        for pred_cxn in pred_cxns:
+            lines.append(
+                f'  {pred_cxn.left.binst}.{pred_cxn.left.pretty()} -> {pred_cxn.right.pretty()}'
+            )
+        for succ_cxn in succ_cxns:
+            lines.append(
+                f'  {succ_cxn.left.pretty()} -> {succ_cxn.right.binst}.{succ_cxn.right.pretty()}'
+            )
+        return lines
+
+    def debug_text(self) -> str:
+        """Print connection information to assist in debugging.
+
+        The output will be a topologically sorted list of BloqInstances with each
+        topological generation separated by a horizontal line. Each bloq instance is followed
+        by a list of its incoming and outgoing connections. Note that all non-dangling
+        connections are represented twice: once as the output of a binst and again as the input
+        to a subsequent binst.
+        """
+        g = self._binst_graph
+        gen_texts = []
+        for gen in nx.topological_generations(g):
+            gen_lines = []
+            for binst in gen:
+                if isinstance(binst, DanglingT):
+                    continue
+
+                gen_lines.extend(self._debug_binst(g, binst))
+
+            if gen_lines:
+                gen_texts.append('\n'.join(gen_lines))
+
+        delimited_gens = ('\n' + '-' * 20 + '\n').join(gen_texts)
+        return delimited_gens
+
+    def wire_symbol(
+        self, reg: Optional['Register'], idx: Tuple[int, ...] = tuple()
+    ) -> 'WireSymbol':
+        from qualtran.drawing import Text
+
+        if reg is None:
+            if self.decomposed_from is not None:
+                return self.decomposed_from.wire_symbol(None)
+            if self.bloq_key is not None:
+                return Text(self.bloq_key)
+            return Text('cbloq')
+
+        return super().wire_symbol(reg, idx)
+
+    def __str__(self):
+        if self.bloq_key is not None:
+            return self.bloq_key
+        return f'CompositeBloq([{len(self.bloq_instances)} subbloqs...])'
+
+    def __repr__(self):
+        if self.bloq_key is not None:
+            return f'CompositeBloq(..., bloq_key={self.bloq_key!r})'
+        return f'CompositeBloq([{len(self.bloq_instances)} subbloqs...])'
+
+
+def _create_binst_graph(
+    cxns: Iterable[Connection], nodes: Iterable[BloqInstance] = ()
+) -> nx.DiGraph:
+    """Helper function to create a NetworkX graph so we can topologically visit BloqInstances.
+
+    `CompositeBloq` defines a directed acyclic graph, so we can iterate in (time) order.
+    Here, we make two changes to our view of the graph:
+        1. Our nodes are now BloqInstances because they are the objects to time-order. Soquet
+           connections are added as edge attributes.
+        2. We use networkx so we can use their algorithms for topological sorting.
+    """
+    binst_graph = nx.DiGraph()
+    for cxn in cxns:
+        binst_edge = (cxn.left.binst, cxn.right.binst)
+        if binst_edge in binst_graph.edges:
+            binst_graph.edges[binst_edge]['cxns'].append(cxn)
+        else:
+            binst_graph.add_edge(*binst_edge, cxns=[cxn])
+    binst_graph.add_nodes_from(nodes)
+    return binst_graph
+
+
+def _binst_to_cxns(
+    binst: Union[BloqInstance, DanglingT], binst_graph: nx.DiGraph
+) -> Tuple[List[Connection], List[Connection]]:
+    """Helper method to extract all predecessor and successor Connections for a binst."""
+    if binst not in binst_graph.nodes:
+        return [], []
+
+    pred_cxns: List[Connection] = []
+    for pred in binst_graph.pred[binst]:
+        pred_cxns.extend(binst_graph.edges[pred, binst]['cxns'])
+
+    succ_cxns: List[Connection] = []
+    for succ in binst_graph.succ[binst]:
+        succ_cxns.extend(binst_graph.edges[binst, succ]['cxns'])
+
+    return pred_cxns, succ_cxns
+
+
+def _get_soquet(
+    binst: 'BloqInstance',
+    reg_name: str,
+    right: bool = False,
+    idx: Tuple[int, ...] = (),
+    *,
+    binst_graph: nx.DiGraph,
+) -> '_Soquet':
+    """Retrieve a soquet given identifying information.
+
+    We can uniquely address a Soquet by the arguments to this function.
+
+    Args:
+        binst: The bloq instance associated with the desired soquet.
+        reg_name: The name of the register associated with the desired soquet.
+        right: If False, get the input, left soquet. Otherwise: the right, output soquet
+        idx: The index of the soquet within a multidimensional register, or the empty
+            tuple for basic registers.
+    """
+    preds, succs = _binst_to_cxns(binst, binst_graph=binst_graph)
+    if right:
+        for suc in succs:
+            me = suc.left
+            if me.reg.name == reg_name and me.idx == idx:
+                return me
+    else:
+        for pred in preds:
+            me = pred.right
+            if me.reg.name == reg_name and me.idx == idx:
+                return me
+
+    raise ValueError(
+        f"Could not find the requested soquet with {binst=}, {reg_name=}, {right=}, {idx=}"
+    )
+
+
+def _cxns_to_soq_dict(
+    regs: Iterable[Register],
+    cxns: Iterable[Connection],
+    get_me: Callable[[Connection], _Soquet],
+    get_assign: Callable[[Connection], _Soquet],
+) -> Dict[str, '_SoquetT']:
+    """Helper function to get a dictionary of soquets from a list of connections.
+
+    Args:
+        regs: Left or right registers (used as a reference to initialize multidimensional
+            registers correctly).
+        cxns: Predecessor or successor connections from which we get the soquets of interest.
+        get_me: A function that says which soquet is used to derive keys for the returned
+            dictionary. Generally: if `cxns` is predecessor connections, this will return the
+            `right` element of the connection and opposite of successor connections.
+        get_assign: A function that says which soquet is used to derive the values for the
+            returned dictionary. Generally, this is the opposite side vs. `get_me`, but we
+            do something fancier in `cbloq_to_quimb`.
+
+    Returns:
+        soqdict: A dictionary mapping register name to the selected soquets.
+    """
+    soqdict: Dict[str, '_SoquetT'] = {}
+
+    # Initialize multi-dimensional dictionary values.
+    for reg in regs:
+        if reg._shape:
+            soqdict[reg.name] = np.empty(reg.shape, dtype=object)
+
+    # In the abstract: set `soqdict[me] = assign`. Specifically: use the register name as
+    # keys and handle multi-dimensional registers.
+    for cxn in cxns:
+        me = get_me(cxn)
+        assign = get_assign(cxn)
+
+        if me.reg._shape:
+            soqdict[me.reg.name][me.idx] = assign  # type: ignore[index]
+        else:
+            soqdict[me.reg.name] = assign
+
+    return soqdict
+
+
+def _cxns_to_cxn_dict(
+    regs: Iterable[Register], cxns: Iterable[Connection], get_me: Callable[[Connection], _Soquet]
+) -> Dict[str, ConnectionT]:
+    """Helper function to get a dictionary of connections from a list of connections
+
+    Args:
+        regs: Left or right registers (used as a reference to initialize multidimensional
+            registers correctly).
+        cxns: Predecessor or successor connections from which we get the connections of interest.
+        get_me: A function that says which soquet is used to derive keys for the returned
+            dictionary. Generally: if `cxns` is predecessor connections, this will return the
+            `right` element of the connection (opposite for successor connections).
+
+    Returns:
+        cxndict: A dictionary mapping register name to the selected connections.
+    """
+    cxndict: Dict[str, ConnectionT] = {}
+
+    # Initialize multi-dimensional dictionary values.
+    for reg in regs:
+        if reg.shape:
+            cxndict[reg.name] = np.empty(reg.shape, dtype=object)
+
+    # In the abstract: set `soqdict[me] = assign`. Specifically: use the register name as
+    # keys and handle multi-dimensional registers.
+    for cxn in cxns:
+        me = get_me(cxn)
+        if me.reg.shape:
+            cxndict[me.reg.name][me.idx] = cxn  # type: ignore[index]
+        else:
+            cxndict[me.reg.name] = cxn
+
+    return cxndict
+
+
+def _get_dangling_soquets(signature: Signature, right: bool = True) -> Dict[str, _SoquetT]:
+    """Get instantiated dangling soquets from a `Signature`.
+
+    Args:
+        signature: The registers
+        right: If True, return soquets corresponding to right registers; otherwise left.
+
+    Returns:
+        all_soqs: A mapping from register name to a Soquet or Soquets. For multi-dimensional
+            registers, the value will be an array of indexed Soquets. For 0-dimensional (normal)
+            registers, the value will be a `Soquet` object.
+    """
+
+    if right:
+        regs = signature.rights()
+        dang = RightDangle
+    else:
+        regs = signature.lefts()
+        dang = LeftDangle
+
+    all_soqs: Dict[str, _SoquetT] = {}
+    for reg in regs:
+        all_soqs[reg.name] = _reg_to_soq(dang, reg)
+    return all_soqs
+
+
+def _flatten_soquet_collection(vals: Iterable[_SoquetT]) -> List[_Soquet]:
+    """Flatten SoquetT into a flat list of Soquet.
+
+    SoquetT is either a unit Soquet or an ndarray thereof.
+    """
+    soqvals = []
+    for soq_or_arr in vals:
+        if BloqBuilder.is_single(soq_or_arr):
+            soqvals.append(soq_or_arr.item())
+        else:
+            assert BloqBuilder.is_ndarray(soq_or_arr)
+            soqvals.extend(soq_or_arr.reshape(-1))
+    return soqvals
+
+
+def _get_flat_dangling_soqs(signature: Signature, right: bool) -> List[_Soquet]:
+    """Flatten out the values of the soquet dictionaries from `_get_dangling_soquets`."""
+    soqdict = _get_dangling_soquets(signature, right=right)
+    return _flatten_soquet_collection(soqdict.values())
+
+
+class BloqError(ValueError):
+    """A value error raised when CompositeBloq conditions are violated.
+
+    This error is raised during bloq building using `BloqBuilder`, which checks
+    for the validity of registers and connections during the building process. This error is
+    also raised by the validity assertion functions provided in this module.
+    """
+
+
+class DidNotFlattenAnythingError(ValueError):
+    """An exception raised if `flatten_once()` did not find anything to flatten."""
+
+
+class _IgnoreAvailable:
+    """Used as an argument in `_reg_to_soq` to ignore any `available.add()` tracking."""
+
+    def add(self, x: Hashable):
+        pass
+
+
+def _reg_to_soq(binst: Union[BloqInstance, DanglingT], reg: Register) -> _SoquetT:
+    """Create the soquet or array of soquets for a register.
+
+    Args:
+        binst: The output soquet's bloq instance.
+        reg: The register
+
+    Returns:
+        A Soquet or Soquets. For multi-dimensional
+        registers, the value will be an array of indexed Soquets. For 0-dimensional (normal)
+        registers, the value will be a `Soquet` object.
+    """
+    if reg.shape:
+        soqs = np.empty(reg.shape, dtype=object)
+        for ri in reg.all_idxs():
+            soq = _Soquet(binst, reg, idx=ri)
+            soqs[ri] = soq
+        return soqs
+
+    # Annoyingly, this must be a special case.
+    # Otherwise, x[i] = thing will nest *array* objects because our ndarray's type is
+    # 'object'. This wouldn't happen--for example--with an integer array.
+    soq = _Soquet(binst, reg)
+    return soq
+
+
+def _process_soquets(
+    registers: Iterable[Register],
+    in_soqs: Mapping[str, SoquetInT],
+    debug_str: str,
+    func: Callable[[_QVar, Register, Tuple[int, ...]], None],
+) -> None:
+    """Process and validate `in_soqs` in the context of `registers`.
+
+    This implements the following "outer loop" and calls
+    `func(indexed_soquet, register, index)` for every `register` and
+    corresponding soquets (from `in_soqs`) in the input.
+
+    ```
+    for reg in registers:
+        for idx in reg.all_idxs():
+           func(in_soqs[reg.name][idx], reg, idx)
+    ```
+
+    We also perform input validation to make sure that the set of register names
+    used as keys for `in_soqs` is identical to set of registers passed in `registers`.
+
+    Args:
+        registers: The registers to use for expected keys of `in_soqs`.
+        in_soqs: A dictionary from register name to input soquets.
+        debug_str: A string to use in error messages identifying what's being processed.
+        func: A callable for operating on an individual (indexed) soquet. Must accept
+            the incoming, indexed soquet as well as the register and (left-)index it
+            has been mapped to.
+    """
+    unchecked_names: Set[str] = set(in_soqs.keys())
+    for reg in registers:
+        try:
+            # if we want fancy indexing (which we do), we need numpy
+            # this also supports length-zero indexing natively, which is good too.
+            in_soq = np.asarray(in_soqs[reg.name])
+        except KeyError:
+            raise BloqError(f"During {debug_str}, we expected a value for '{reg.name}'.") from None
+
+        unchecked_names.remove(reg.name)  # so we can check for surplus arguments.
+
+        for li in reg.all_idxs():
+            idxed_soq = in_soq.item(li)
+            func(idxed_soq, reg, li)
+            if not check_dtypes_consistent(idxed_soq.dtype, reg.dtype):
+                extra_str = f"{idxed_soq}: {idxed_soq.dtype} vs {reg.name}: {reg.dtype}"
+                raise BloqError(
+                    f"{debug_str} register dtypes are not consistent {extra_str}."
+                ) from None
+    if unchecked_names:
+        raise BloqError(f"{debug_str} does not accept Soquets: {unchecked_names}.") from None
+
+
+def _map_soqs(
+    soqs: Dict[str, _SoquetT], soq_map: Iterable[Tuple[_SoquetT, QVarT]]
+) -> Dict[str, QVarT]:
+    """Map `soqs` according to `soq_map`.
+
+    See `CompositeBloq.iter_bloqsoqs` for example code. The public entry-point
+    for this function is the `BloqBuilder.map_soqs` static function.
+
+    Args:
+        soqs: A soquet dictionary mapping register names to Soquets or arrays
+            of Soquets. The values of this dictionary will be mapped.
+        soq_map: An iterable of (old_soq, new_soq) tuples that inform how to
+            perform the mapping. Note that this is a list of tuples (not a dictionary)
+            because `old_soq` may be an unhashable numpy array of Soquet.
+
+    Returns:
+        A mapped version of `soqs`.
+    """
+
+    # First: flatten out any numpy arrays
+    flat_soq_map: Dict[_Soquet, _QVar] = {}
+    for old_soqs, new_soqs in soq_map:
+        if BloqBuilder.is_single(old_soqs):
+            assert BloqBuilder.is_single(new_soqs), new_soqs
+            flat_soq_map[old_soqs.item()] = new_soqs.item()
+            continue
+
+        assert isinstance(old_soqs, np.ndarray), old_soqs
+        assert isinstance(new_soqs, np.ndarray), new_soqs
+        assert old_soqs.shape == new_soqs.shape, (old_soqs.shape, new_soqs.shape)
+        for o, n in zip(old_soqs.reshape(-1), new_soqs.reshape(-1)):
+            flat_soq_map[o] = n
+
+    # Then use vectorize to use the flat mapping.
+    def _map_soq(soq: _Soquet) -> _QVar:
+        # Helper function to map an individual soquet.
+        if soq in flat_soq_map:
+            return flat_soq_map[soq]
+
+        warnings.warn(
+            "You must initialize your `soq_map` with `bb.initial_soq_map`. "
+            "Using a fallback that will disable all QVar features. "
+            "See the docstring for `CompositeBloq.copy` for an example of how to structure your code."
+        )
+        return _QVar(soq, bb=None)  # type: ignore[arg-type]
+
+    # Use `vectorize` to call `_map_soq` on each element of the array.
+    vmap = np.vectorize(_map_soq, otypes=[object])
+
+    def _map_soqs(soqs: _SoquetT) -> 'QVarT':
+        if BloqBuilder.is_ndarray(soqs):
+            return vmap(soqs)
+        return _map_soq(soqs.item())
+
+    return {name: _map_soqs(soqs) for name, soqs in soqs.items()}
+
+
+def _map_flat_soqs(
+    soqs: Dict[str, SoquetT], flat_soq_map: Dict[Soquet, Soquet]
+) -> Dict[str, SoquetT]:
+
+    # use vectorize to use the flat mapping.
+    def _map_soq(soq: Soquet) -> Soquet:
+        # Helper function to map an individual soquet.
+        return flat_soq_map.get(soq, soq)
+
+    # Use `vectorize` to call `_map_soq` on each element of the array.
+    vmap = np.vectorize(_map_soq, otypes=[object])
+
+    def _map_soqs(soqs: SoquetT) -> SoquetT:
+        if isinstance(soqs, _Soquet):
+            return _map_soq(soqs)
+        return vmap(soqs)
+
+    return {name: _map_soqs(soqs) for name, soqs in soqs.items()}
+
+
+def _update_flat_soq_map(
+    soq_map: Iterable[Tuple[SoquetT, SoquetT]], flat_soq_map: Dict[Soquet, Soquet]
+):
+    """Flatten SoquetT into a flat_soq_map. This function mutates `flat_soq_map`."""
+    for old_soqs, new_soqs in soq_map:
+        if isinstance(old_soqs, _Soquet):
+            assert isinstance(new_soqs, _Soquet), new_soqs
+            flat_soq_map[old_soqs] = new_soqs
+            continue
+
+        assert isinstance(old_soqs, np.ndarray), old_soqs
+        assert isinstance(new_soqs, np.ndarray), new_soqs
+        assert old_soqs.shape == new_soqs.shape, (old_soqs.shape, new_soqs.shape)
+        for o, n in zip(old_soqs.reshape(-1), new_soqs.reshape(-1)):
+            flat_soq_map[o] = n
+
+
+class BloqBuilder:
+    """A builder class for composing bloqs.
+
+    In Qualtran, we write quantum programs by composing subroutines and gates. A bloq builder
+    object (`bb`) lets you write these compositions as a series of quantum function calls with
+    `bb.add(...)`.
+
+    ```python
+    q0, q1 = bb.add(CNOT(), ctrl=q0, target=q1)
+    q1, out = bb.add(CNOT(), ctrl=q1, target=q2)
+    ```
+
+    In this example, we "call" the `CNOT()` subroutine on various *quantum variables* `q0`, `q1`,
+    and `q2`. Each call "returns" the resultant quantum variables.
+
+    How you set up your bloq builder and quantum variables depends on the way you're using
+    `BloqBuilder`.
+
+    ### Usage in `build_composite_bloq`
+    If you are authoring a bloq by creating a subclass of `qualtran.Bloq` and overriding
+    the `build_composite_bloq` method, a `BloqBuilder` will be provided as the first argument
+    to the method, and quantum variables will be provided as the following keyword arguments
+    according to your bloq's `signature`. You can immediately start using `bb.add(...)` to
+    call subbloqs.
+
+    ```python
+    class MyBloq(Bloq):
+      @property
+      def signature(self):
+        return Signature.build(q0=1, q1=1)
+
+      def build_composite_bloq(self, bb: BloqBuilder, q0, q1):
+        # .. bb.add(subbloq, x=q0, ...)
+        return {'q0': q0_out, 'q1': q1_out}
+    ```
+
+    At the end of the `build_composite_bloq` method, you're expected to return a dictionary
+    mapping right (output) register names to the final quantum variables in accordance
+    with your bloq's `signature`.
+
+    ### Standalone usage
+    You can use `BloqBuilder` to construct a standalone `CompositeBloq`. In this case,
+    you must call `add_register` or its variants to configure the composition's signature as
+    well as initialize quantum variables.
+
+    ```python
+    bb = BloqBuilder()
+    q0 = bb.add_register('q0', 1)
+    q1 = bb.add_register('q1', 1)
+    # .. bb.add(subbloq, x=q0, ...)
+    cbloq = bb.finalize(q0=q0_out, q1=q1_out)
+    ```
+
+    You must also use the `finalize` method to freeze the composition into a `CompositeBloq`.
+
+    Args:
+        add_registers_allowed: Whether we allow the addition of registers during bloq building.
+            This is typically required to be True when using `BloqBuilder` in standalone mode, but
+            gives up some error checking. This is set to False if `BloqBuilder` was constructed
+            by the framework or by the `BloqBuilder.from_signature(s)` factory method.
+    """
+
+    def __init__(self, add_registers_allowed: bool = True, *, bloq_key: Optional[str] = None):
+        # To be appended to:
+        self._cxns: List[Connection] = []
+        self._regs: List[Register] = []
+        self._binsts: Set[BloqInstance] = set()
+
+        # Initialize our BloqInstance counter
+        self._i = 0
+
+        # Bookkeeping for linear types; Soquets must be used exactly once.
+        self._available: Set[_Soquet] = set()
+
+        # Whether we can call `add_register` and do non-strict `finalize()`.
+        self.add_register_allowed = add_registers_allowed
+
+        self._bloq_key = bloq_key
+
+    def add_register_from_dtype(
+        self, reg: Union[str, Register], dtype: Optional[QCDType] = None
+    ) -> Union[None, QVarT]:
+        """Add a new typed register to the composite bloq being built.
+
+        If this bloq builder was constructed with `add_registers_allowed=False`,
+        this operation is not allowed.
+
+        Args:
+            reg: Either the register or a register name. If this is a register, then `bitsize`
+                must also be provided and a default THRU register will be added.
+            dtype: If `reg` is a register name, this is the quantum data type for the added register.
+                Otherwise, this must not be provided.
+
+        Returns:
+            If `reg` is a LEFT or THRU register, return the soquet(s) corresponding to the
+                initial, left-dangling soquets for the register. Otherwise, this is a RIGHT register
+                and will be used for error checking in `finalize()` and nothing is returned.
+        """
+        from qualtran.symbolics import is_symbolic
+
+        if not self.add_register_allowed:
+            raise BloqError(
+                "This BloqBuilder was constructed from pre-specified registers. "
+                "Ad hoc addition of more registers is not allowed."
+            )
+
+        if isinstance(reg, Register):
+            if dtype is not None:
+                raise ValueError("`dtype` must not be specified if `reg` is a Register.")
+        else:
+            if not isinstance(reg, str):
+                raise ValueError("`reg` must be a string register name if not a Register.")
+            if not isinstance(dtype, QCDType):
+                raise ValueError(
+                    "`dtype` must be specified and must be a QCDType if `reg` is a register name."
+                )
+            reg = Register(name=reg, dtype=dtype)
+
+        if is_symbolic(*reg.shape_symbolic):
+            raise DecomposeTypeError(
+                f"cannot add register with symbolic shape {reg.shape_symbolic}"
+            )
+
+        self._regs.append(reg)
+        if reg.side & Side.LEFT:
+            return self._reg_to_qvar(LeftDangle, reg, track=True)
+        return None
+
+    @overload
+    def add_register(self, reg: Register, bitsize: None = None) -> Union[None, QVarT]: ...
+
+    @overload
+    def add_register(self, reg: str, bitsize: 'SymbolicInt') -> QVarT: ...
+
+    @overload
+    def add_register(self, reg: str, bitsize: 'QCDType') -> QVarT: ...
+
+    def add_register(
+        self, reg: Union[str, Register], bitsize: Union[None, 'QCDType', 'SymbolicInt'] = None
+    ) -> Union[None, QVarT]:
+        """Add a new register to the composite bloq being built.
+
+        If this bloq builder was constructed with `add_registers_allowed=False`,
+        this operation is not allowed.
+
+        Args:
+            reg: Either the register or a register name. If this is a register name, then `bitsize`
+                must also be provided and a default THRU register will be added.
+            bitsize: If `reg` is a register name, this is the bitsize or QCDType for the added
+                register. Otherwise, this must not be provided.
+
+        Returns:
+            If `reg` is a LEFT or THRU register, return the soquet(s) corresponding to the
+                initial, left-dangling soquets for the register. Otherwise, this is a RIGHT register
+                and will be used for error checking in `finalize()` and nothing is returned.
+        """
+        from qualtran.symbolics import is_symbolic
+
+        if isinstance(reg, str):
+            if bitsize is None:
+                raise ValueError(
+                    f"When calling `add_register` with register name {reg!r}, "
+                    f"a bitsize or data type must be provided as the second argument."
+                )
+            if isinstance(bitsize, QCDType):
+                return self.add_register_from_dtype(reg, dtype=bitsize)
+            if is_symbolic(bitsize) or isinstance(bitsize, int):
+                return self.add_register_from_dtype(reg, QBit() if bitsize == 1 else QAny(bitsize))
+            raise ValueError(f"Invalid bitsize {bitsize!r} for `add_register({reg!r}).")
+
+        return self.add_register_from_dtype(reg)
+
+    @classmethod
+    def from_signature(
+        cls,
+        signature: Signature,
+        add_registers_allowed: bool = False,
+        *,
+        bloq_key: Optional[str] = None,
+    ) -> Tuple['BloqBuilder', Dict[str, QVarT]]:
+        """Construct a BloqBuilder with a pre-specified signature.
+
+        This is safer if e.g. you're decomposing an existing Bloq and need the signatures
+        to match. This constructor is used by `Bloq.decompose_bloq()`.
+        """
+        # Initial construction: allow register addition for the following loop.
+        bb = cls(add_registers_allowed=True, bloq_key=bloq_key)
+
+        initial_soqs: Dict[str, QVarT] = {}
+        for reg in signature:
+            if reg.side & Side.LEFT:
+                register = bb.add_register_from_dtype(reg)
+                assert register is not None
+                initial_soqs[reg.name] = register
+            else:
+                bb.add_register_from_dtype(reg)
+
+        # Now we can set it to the desired value.
+        bb.add_register_allowed = add_registers_allowed
+
+        return bb, initial_soqs
+
+    @overload
+    @staticmethod
+    def is_single(x: '_SoquetT') -> TypeGuard['_Soquet']: ...
+
+    @overload
+    @staticmethod
+    def is_single(x: 'QVarT') -> TypeGuard['QVar']: ...
+
+    @staticmethod
+    def is_single(x):
+        """Returns True if `x` is a single soquet (not an ndarray of them).
+
+        This doesn't use stringent runtime type checking; it uses the SoquetT protocol
+        for "duck typing".
+        """
+        return x.shape == ()
+
+    @overload
+    @staticmethod
+    def is_ndarray(x: '_SoquetT') -> TypeGuard['NDArray']: ...
+
+    @overload
+    @staticmethod
+    def is_ndarray(x: 'QVarT') -> TypeGuard['NDArray']: ...
+
+    @staticmethod
+    def is_ndarray(x):
+        """Returns True if `x` is an ndarray of soquets (not a single one).
+
+        This doesn't use stringent runtime type checking; it uses the SoquetT protocol
+        for "duck typing".
+        """
+        return x.shape != ()
+
+    @staticmethod
+    def map_soqs(
+        soqs: Dict[str, _SoquetT], soq_map: Iterable[Tuple[_SoquetT, QVarT]]
+    ) -> Dict[str, QVarT]:
+        """Map `soqs` according to `soq_map`.
+
+        See `CompositeBloq.iter_bloqsoqs` for example code.
+
+        Args:
+            soqs: A soquet dictionary mapping register names to Soquets or arrays
+                of Soquets. The values of this dictionary will be mapped.
+            soq_map: An iterable of (old_soq, new_soq) tuples that inform how to
+                perform the mapping. Note that this is a list of tuples (not a dictionary)
+                because `old_soq` may be an unhashable numpy array of Soquet.
+
+        Returns:
+            A mapped version of `soqs`.
+        """
+        return _map_soqs(soqs=soqs, soq_map=soq_map)
+
+    def _new_binst_i(self) -> int:
+        i = self._i
+        self._i += 1
+        return i
+
+    def _make_qvar(
+        self, binst: Union[BloqInstance, DanglingT], reg: Register, idx: Tuple[int, ...] = ()
+    ):
+        return _QVar(_Soquet(binst, reg, idx), bb=self)
+
+    def _reg_to_qvar(
+        self, binst: Union[BloqInstance, DanglingT], reg: Register, *, track: bool = False
+    ) -> 'QVarT':
+        """Create the soquet or array of soquets for a register.
+
+        Args:
+            binst: The output soquet's bloq instance.
+            reg: The register
+            track: Whether this is making new qvars that we need to track to enforce linear logic.
+
+        Returns:
+            A Soquet or Soquets. For multi-dimensional
+            registers, the value will be an array of indexed Soquets. For 0-dimensional (normal)
+            registers, the value will be a `Soquet` object.
+        """
+        if reg.shape:
+            soqs = np.empty(reg.shape, dtype=object)
+            for ri in reg.all_idxs():
+                soq = _QVar(_Soquet(binst, reg, idx=ri), bb=self)
+                soqs[ri] = soq
+                if track:
+                    self._available.add(soq.soquet)
+            return soqs
+
+        # Annoyingly, this must be a special case.
+        # Otherwise, x[i] = thing will nest *array* objects because our ndarray's type is
+        # 'object'. This wouldn't happen--for example--with an integer array.
+        soq = _QVar(_Soquet(binst, reg), bb=self)
+        if track:
+            self._available.add(soq.soquet)
+        return soq
+
+    def _add_cxn(
+        self,
+        binst: Union[BloqInstance, DanglingT],
+        idxed_soq: _QVar,
+        reg: Register,
+        idx: Tuple[int, ...],
+    ) -> None:
+        """Helper function to be used as the base for the `func` argument of `_process_soquets`.
+
+        This creates a connection between the provided input `idxed_soq` to the current binst's
+        `(reg, idx)`.
+        """
+        try:
+            self._available.remove(idxed_soq.soquet)
+        except KeyError:
+            bloq = binst if isinstance(binst, DanglingT) else binst.bloq
+            raise BloqError(
+                f"During construction of the bloq, a quantum variable was reused.\n"
+                f"  When calling: {bloq}\n"
+                f"  Register name: {reg.name}\n"
+                f"  Reused soquet details: {idxed_soq.soquet}"
+            ) from None
+        cxn = Connection(idxed_soq.soquet, self._make_qvar(binst, reg, idx).soquet)
+        self._cxns.append(cxn)
+
+    def add_t(self, bloq: Bloq, **in_soqs: SoquetInT) -> Tuple[QVarT, ...]:
+        """Add a new bloq instance to the compute graph and always return a tuple of soquets.
+
+        This method will always return a tuple of soquets. See `BloqBuilder.add_d(..)` for a
+        method that returns a dictionary of soquets. See `BloqBuilder.add(..)` for a return
+        type that depends on the arity of the bloq.
+
+        Args:
+            bloq: The bloq representing the operation to add.
+            **in_soqs: Keyword arguments mapping the new bloq's register names to input
+                `Soquet`s or an array thereof. This is likely the output soquets from a prior
+                operation.
+
+        Returns:
+            A `Soquet` or an array thereof for each output register ordered according to
+                `bloq.signature`. If a bloq has one or zero output registers, we will return
+                a tuple of size one or zero, respectively. Note that the ordering is according
+                to `bloq.signature` and irrespective of the order of `**in_soqs`.
+        """
+        binst = BloqInstance(bloq, i=self._new_binst_i())
+        return tuple(soq for _, soq in self._add_binst(binst, in_soqs=in_soqs))
+
+    def add_d(self, bloq: Bloq, **in_soqs: SoquetInT) -> Dict[str, SoquetT]:
+        """Add a new bloq instance to the compute graph and return new soquets as a dictionary.
+
+        This method returns a dictionary of soquets. See `BloqBuilder.add_t(..)` for a method
+        that returns an ordered tuple of soquets. See `BloqBuilder.add(..)` for a return
+        type that depends on the arity of the bloq.
+
+        Args:
+            bloq: The bloq representing the operation to add.
+            **in_soqs: Keyword arguments mapping the new bloq's register names to input
+                `Soquet`s or an array thereof. This is likely the output soquets from a prior
+                operation.
+
+        Returns:
+            A dictionary mapping right (output) register names to SoquetT.
+        """
+        binst = BloqInstance(bloq, i=self._new_binst_i())
+        return dict(self._add_binst(binst, in_soqs=in_soqs))
+
+    def add_and_partition(
+        self,
+        bloq: Bloq,
+        partitions: Sequence[Tuple[Register, Sequence[Union[str, 'Unused']]]],
+        left_only: bool = False,
+        **in_soqs: SoquetInT,
+    ):
+        """Add a new bloq instance to the compute graph by partitioning input and output soquets to
+        fit the signature of the bloq.
+
+        Args:
+            bloq: The bloq representing the operation to add.
+            partitions: A sequence of pairs specifying each register that is exposed in the external
+                signature of the `AutoPartition` and the corresponding register names from `bloq`
+                that concatenate to form the externally exposed register. See `AutoPartition`.
+            left_only: If False, the output soquets will also follow `partition`.
+                Otherwise, the output soquets will follow `bloq.signature.rights()`.
+                This flag must be set to True if `bloq` does not have the same LEFT and RIGHT
+                registers, as is required for the bloq to be fully wrapped on the left and right.
+            **in_soqs: Keyword arguments mapping the new bloq's register names to input
+                `Soquet`s. This is likely the output soquets from a prior operation.
+
+        Returns:
+            A `Soquet` or an array thereof for each right (output) register ordered according to
+                `bloq.signature` or `partition`.
+        """
+        from qualtran.bloqs.bookkeeping.auto_partition import AutoPartition
+
+        return self.add(AutoPartition(bloq, partitions, left_only), **in_soqs)
+
+    def add(self, bloq: Bloq, **in_soqs: SoquetInT):
+        """Add a new bloq instance to the compute graph.
+
+        This is the primary method for building a composite bloq. Each call to `add` adds a
+        new bloq instance to the compute graph, wires up the soquets from prior operations
+        into the new bloq, and returns new soquets to be used for subsequent bloqs.
+
+        This method will raise a `BloqError` if the addition is invalid. Soquets must be
+        used exactly once and soquets must match the `Register` specifications of the bloq.
+
+        See Also:
+            - `add_t` will always return a tuple of `SoquetT`, including cases where there
+              is only one return value.
+            - `add_d` will return a dictionary mapping right register name to `SoquetT`.
+            - `add_from` adds the contents of a bloq composition at once.
+
+        Args:
+            bloq: The bloq representing the operation to add.
+            **in_soqs: Keyword arguments mapping the new bloq's register names to input
+                `Soquet`s or an array thereof. This is likely the output soquets from a prior
+                operation.
+
+        Returns:
+            out_soq(s): A `Soquet` or an array thereof for each right (output) register ordered
+                according to `bloq.signature`. If `bloq` has no right registers, this will
+                return `None`. If there is one right register, we return one `SoquetT`.
+                If there are multiple right registers we return a tuple of `SoquetT` that can
+                be unpacked with tuple unpacking. In this final case, the ordering is according
+                to `bloq.signature` and irrespective of the order of `**in_soqs`.
+        """
+        try:
+            outs = self.add_t(bloq, **in_soqs)
+        except BloqError as be:
+            raise BloqError(*be.args) from be
+
+        if len(outs) == 0:
+            return None
+        if len(outs) == 1:
+            return outs[0]
+        return outs
+
+    def _add_binst(
+        self, binst: BloqInstance, in_soqs: Mapping[str, SoquetInT]
+    ) -> Iterator[Tuple[str, QVarT]]:
+        """Add a bloq instance.
+
+        Warning! Do not use this function externally! Untold bad things will happen if
+        the provided `binst.i` is not unique.
+        """
+        self._binsts.add(binst)
+
+        bloq = binst.bloq
+
+        def _add(idxed_soq: _QVar, reg: Register, idx: Tuple[int, ...]):
+            # close over `binst`
+            return self._add_cxn(binst, idxed_soq, reg, idx)
+
+        _process_soquets(
+            registers=bloq.signature.lefts(),
+            in_soqs=in_soqs,
+            debug_str=f'a call to {bloq}',
+            func=_add,
+        )
+        yield from (
+            (reg.name, self._reg_to_qvar(binst, reg, track=True)) for reg in bloq.signature.rights()
+        )
+
+    def initial_soq_map(self, lefts: Iterable[Register]) -> List[Tuple['_SoquetT', 'QVarT']]:
+        """The initial mapping from old soquets to new soquets known to this bloq builder.
+
+        This is used in patterns when you plan on calling `BloqBuilder.map_soqs` to add
+        connections from an "old" composite bloq to the "new" bloq we're currently building.
+        """
+        soq_map: List[Tuple['_SoquetT', 'QVarT']] = [
+            (_reg_to_soq(LeftDangle, reg), self._reg_to_qvar(LeftDangle, reg)) for reg in lefts
+        ]
+        return soq_map
+
+    def add_from(self, bloq: Bloq, **in_soqs: SoquetInT) -> Tuple['QVarT', ...]:
+        """Add all the sub-bloqs from `bloq` to the compute graph.
+
+        This is useful for adding multiple bloq instances at once in a "flat" or "unrolled" way.
+        If this method is called on a composite bloq, each subbloq will be added to the current
+        compute graph. If this method is called on an ordinary bloq object, we will first decompose
+        the bloq and add each of its subbloqs.
+
+        Args:
+            bloq: Where to add from. If this is a composite bloq, use its contents directly.
+                Otherwise, we call `decompose_bloq()` first.
+            **in_soqs: Keyword arguments mapping the bloq's register names to input
+                `Soquet`s or an array thereof.
+
+        Returns:
+            out_soqs: A `QVarT` for each right (output) register ordered
+                according to `bloq.signature`. The ordering is according
+                to `bloq.signature` and irrespective of the order of `**in_soqs`.
+        """
+        if isinstance(bloq, CompositeBloq):
+            cbloq = bloq
+        else:
+            cbloq = bloq.decompose_bloq()
+
+        for k, v in in_soqs.items():
+            in_soqs[k] = np.asarray(v)
+        in_soqs = cast(Dict[str, QVarT], in_soqs)
+
+        # Initial mapping of LeftDangle according to user-provided in_soqs.
+        soq_map: List[Tuple[_SoquetT, QVarT]] = [
+            (_reg_to_soq(LeftDangle, reg), in_soqs[reg.name]) for reg in cbloq.signature.lefts()
+        ]
+
+        for binst, _in_soqs, old_out_soqs in cbloq.iter_bloqsoqs():
+            in_soqs = _map_soqs(_in_soqs, soq_map)
+            new_out_soqs = self.add_t(binst.bloq, **in_soqs)
+            soq_map.extend(zip(old_out_soqs, new_out_soqs))
+
+        fsoqs = _map_soqs(cbloq.final_soqs(), soq_map)
+        return tuple(fsoqs[reg.name] for reg in cbloq.signature.rights())
+
+    def _change_THRU_to_LEFT(self, reg_name: str):
+        """Used during loose `finalize` to force LEFT registers."""
+        for reg_i, reg in enumerate(self._regs):
+            if reg.name == reg_name:
+                break
+        else:
+            raise AssertionError(f"{reg_name} doesn't exist in the registers.")
+
+        if reg.side != Side.THRU:
+            raise ValueError(f"{reg} is supposed to be a THRU register.")
+
+        new_reg = attrs.evolve(reg, side=Side.LEFT)
+
+        # Replace in `self._available`
+        soqs_to_replace = []
+        for soq in self._available:
+            if soq.binst is LeftDangle and soq.reg == reg:
+                soqs_to_replace.append(soq)
+        for soq in soqs_to_replace:
+            self._available.remove(soq)
+            self._available.add(attrs.evolve(soq, reg=new_reg))
+
+        # Replace in `self._cxns`
+        for j in range(len(self._cxns)):
+            cxn = self._cxns[j]
+            if cxn.left.reg == reg:
+                new_cxn = attrs.evolve(cxn, left=attrs.evolve(cxn.left, reg=new_reg))
+                self._cxns[j] = new_cxn
+
+        # Replace in `self._regs`
+        self._regs[reg_i] = new_reg
+
+    def finalize(self, **final_soqs: SoquetInT) -> CompositeBloq:
+        """Finish building a CompositeBloq and return the immutable CompositeBloq.
+
+        This method is similar to calling `add()` but instead of adding a new Bloq,
+        it configures the final "dangling" soquets that serve as the outputs for
+        the composite bloq as a whole.
+
+        If `self.add_registers_allowed` is set to `False`, the kwqargs to this method must
+        exactly match the signature configured for this bloq builder.
+        Otherwise:
+         - surplus arguments (with register names not in our signature) will be interpreted as
+           output quantum variables and we'll add a corresponding RIGHT register.
+         - missing arguments (i.e. a register name was introduced somewhere but
+           no quantum variable was provided for it), we will set that register to be a
+           LEFT register.
+
+        Args:
+            **final_soqs: Keyword arguments mapping the composite bloq's register names to
+                final`Soquet`s, e.g. the output soquets from a prior, final operation.
+        """
+        if not self.add_register_allowed:
+            return self._finalize_strict(**final_soqs)
+
+        # If items from `final_soqs` don't already exist in `_regs`, add RIGHT registers
+        # for them. Then call `_finalize_strict` where the actual dangling connections are added.
+
+        def _infer_shaped_dtype(soq: SoquetT) -> Tuple['QCDType', Tuple[int, ...]]:
+            """Extract (dtype, shape) from SoquetT"""
+            if BloqBuilder.is_single(soq):
+                return soq.item().dtype, ()
+
+            # Get info from 0th soquet in an ndarray.
+            assert BloqBuilder.is_ndarray(soq)
+            dtype = soq.reshape(-1).item(0).dtype
+            return dtype, soq.shape
+
+        existing_right_reg_names = [reg.name for reg in self._regs if reg.side & Side.RIGHT]
+        for name, soq in final_soqs.items():
+            if name not in existing_right_reg_names:
+                dtype, shape = _infer_shaped_dtype(np.asarray(soq))
+                self._regs.append(Register(name=name, dtype=dtype, shape=shape, side=Side.RIGHT))
+
+        # If a soquet is missing, we're charitable and consider it de-allocated, see docstring.
+        deletable_right_reg_names = [reg.name for reg in self._regs if reg.side == Side.THRU]
+        for name in deletable_right_reg_names:
+            if name not in final_soqs:
+                self._change_THRU_to_LEFT(reg_name=name)
+
+        return self._finalize_strict(**final_soqs)
+
+    def _finalize_strict(self, **final_soqs: SoquetInT) -> CompositeBloq:
+        """Finish building a CompositeBloq and return the immutable CompositeBloq.
+
+        Args:
+            **final_soqs: Keyword arguments mapping the composite bloq's register names to
+                final`Soquet`s, e.g. the output soquets from a prior, final operation.
+        """
+        signature = Signature(self._regs)
+
+        def _fin(idxed_soq: _QVar, reg: Register, idx: Tuple[int, ...]):
+            # close over `RightDangle`
+            return self._add_cxn(RightDangle, idxed_soq, reg, idx)
+
+        if self._bloq_key:
+            debug_str = f'finalization of {self._bloq_key}'
+        else:
+            debug_str = 'finalization'
+        _process_soquets(
+            registers=signature.rights(), debug_str=debug_str, in_soqs=final_soqs, func=_fin
+        )
+        if self._available:
+            if self._bloq_key is None:
+                ctx = ''
+            else:
+                ctx = f' of {self._bloq_key}'
+            raise BloqError(f"During finalization{ctx}, {self._available} Soquets were not used.")
+
+        return CompositeBloq(
+            connections=self._cxns,
+            signature=signature,
+            bloq_instances=self._binsts,
+            bloq_key=self._bloq_key,
+        )
+
+    def allocate(
+        self, n: Union[int, sympy.Expr] = 1, dtype: Optional[QDType] = None, dirty: bool = False
+    ) -> 'QVar':
+        from qualtran.bloqs.bookkeeping import Allocate
+
+        if dtype is not None:
+            return self.add(Allocate(dtype=dtype, dirty=dirty))
+        return self.add(Allocate(dtype=(QAny(n)), dirty=dirty))
+
+    def free(self, soq: QVarT, dirty: bool = False) -> None:
+        from qualtran.bloqs.bookkeeping import Free
+
+        if not BloqBuilder.is_single(soq):
+            raise ValueError("`free` expects a single Soquet to free.")
+
+        qdtype = soq.dtype
+        if not isinstance(qdtype, QDType):
+            raise ValueError("`free` can only free quantum registers.")
+
+        self.add(Free(dtype=qdtype, dirty=dirty), reg=soq)
+
+    def split(self, soq: QVarT) -> NDArray['QVar']:  # type: ignore[type-var]
+        """Add a Split bloq to split up a register."""
+        from qualtran.bloqs.bookkeeping import Split
+
+        if not BloqBuilder.is_single(soq):  # type: ignore[arg-type]
+            raise ValueError("`split` expects a single Soquet to split.")
+
+        qdtype = soq.dtype
+        if not isinstance(qdtype, QDType):
+            raise ValueError("`split` can only split quantum registers.")
+
+        return self.add(Split(dtype=qdtype), reg=soq)
+
+    def join(self, soqs: SoquetInT, dtype: Optional[QDType] = None) -> 'Soquet':
+        from qualtran.bloqs.bookkeeping import Join
+
+        try:
+            soqs = np.asarray(soqs)
+            (n,) = soqs.shape
+        except (AttributeError, ValueError) as e:
+            raise ValueError("`join` expects a 1-d array of input soquets to join.") from e
+
+        if not all(soq.dtype.num_bits == 1 for soq in soqs):
+            raise ValueError("`join` can only join equal-bitsized soquets, currently only size 1.")
+        if dtype is None:
+            dtype = QAny(n)
+
+        return self.add(Join(dtype=dtype), reg=soqs)
+
+    def in_register(self, name: str, dtype: QCDType, shape=()) -> Union[None, QVarT]:
+        return self.add_register_from_dtype(Register(name=name, dtype=dtype, shape=shape))
+
+    def alloc_qint(self, k: int, bitsize: int) -> 'QVar':
+        from qualtran.bloqs.basic_gates import IntState
+
+        return self.add(IntState(val=k, bitsize=bitsize))
+
+    def alloc_qbit(self, k: int = 0) -> 'QVar':
+        from qualtran.bloqs.basic_gates import OneState, ZeroState
+
+        if k == 0:
+            return self.add(ZeroState())
+        elif k == 1:
+            return self.add(OneState())
+        raise ValueError(f"Bad qubit value: {k}")
+
+    def free_qbit(self, q: 'QVar', k: int = 0) -> None:
+        from qualtran.bloqs.basic_gates import OneEffect, ZeroEffect
+
+        if k == 0:
+            return self.add(ZeroEffect(), q=q)
+        elif k == 1:
+            return self.add(OneEffect(), q=q)
+        raise ValueError(f"Bad qubit value: {k}")
+
+    def X(self, q: 'QVar'):
+        """Applies the XGate bloq."""
+        from qualtran.bloqs.basic_gates import XGate
+
+        return XGate.qcall(q=q)
+
+    def Z(self, q: 'QVar'):
+        """Applies the ZGate bloq."""
+        from qualtran.bloqs.basic_gates import ZGate
+
+        return ZGate.qcall(q=q)
+
+    def H(self, q: 'QVar'):
+        """Applies the Hadamard bloq."""
+        from qualtran.bloqs.basic_gates import Hadamard
+
+        return Hadamard.qcall(q=q)
+
+    def CZ(self, q1: 'QVar', q2: 'QVar'):
+        """Applies the CZ bloq."""
+        from qualtran.bloqs.basic_gates import CZ
+
+        return CZ.qcall(q1=q1, q2=q2)
+
+    def CNOT(self, ctrl: 'QVar', target: 'QVar'):
+        """Applies the CNOT bloq."""
+        from qualtran.bloqs.basic_gates import CNOT
+
+        return CNOT.qcall(ctrl=ctrl, target=target)
+
+    def And(self, ctrl: 'QVarT | Sequence[QVarT]', *, cv1: int = 1, cv2: int = 1):
+        """Applies the And bloq."""
+        from qualtran.bloqs.mcmt import And
+
+        return And.qcall(ctrl=ctrl, cv1=cv1, cv2=cv2)
+
+    def UnAnd(self, ctrl: 'QVarT | Sequence[QVarT]', target: 'QVar', *, cv1: int = 1, cv2: int = 1):
+        """Applies the And bloq."""
+        from qualtran.bloqs.mcmt import And
+
+        return And.qcall(ctrl=ctrl, target=target, cv1=cv1, cv2=cv2, uncompute=True)
+
+    def Toffoli(self, ctrl1: 'QVar', ctrl2: 'QVar', target: 'QVar'):
+        """Applies the Toffoli bloq."""
+        from qualtran.bloqs.basic_gates import Toffoli
+
+        return Toffoli.qcall(ctrl1, ctrl2, target)
+
+    def Y(self, q: 'QVar') -> 'QVar':
+        """Applies the YGate bloq."""
+        from qualtran.bloqs.basic_gates import YGate
+
+        return YGate.qcall(q=q)
+
+    def CY(self, ctrl: 'QVar', target: 'QVar'):
+        """Applies the CYGate bloq."""
+        from qualtran.bloqs.basic_gates import CYGate
+
+        return CYGate.qcall(ctrl=ctrl, target=target)
+
+    def CH(self, ctrl: 'QVar', target: 'QVar'):
+        """Applies the CHadamard bloq."""
+        from qualtran.bloqs.basic_gates import CHadamard
+
+        return CHadamard.qcall(ctrl=ctrl, target=target)
+
+    def T(self, q: 'QVar', *, is_adjoint: bool = False) -> 'QVar':
+        """Applies the TGate bloq."""
+        from qualtran.bloqs.basic_gates import TGate
+
+        return TGate.qcall(q=q, is_adjoint=is_adjoint)
+
+    def S(self, q: 'QVar', *, is_adjoint: bool = False) -> 'QVar':
+        """Applies the SGate bloq."""
+        from qualtran.bloqs.basic_gates import SGate
+
+        return SGate.qcall(q=q, is_adjoint=is_adjoint)
+
+    def swap(self, x: 'QVar', y: 'QVar') -> Tuple['QVar', 'QVar']:
+        """Applies the Swap bloq."""
+        from qualtran.bloqs.basic_gates import Swap
+
+        return Swap.qcall(x=x, y=y)
+
+    def cswap(self, ctrl: 'QVar', x: 'QVar', y: 'QVar'):
+        """Applies the CSwap bloq."""
+        from qualtran.bloqs.basic_gates import CSwap
+
+        return CSwap.qcall(ctrl=ctrl, x=x, y=y)
+
+    def rx(self, q: 'QVar', angle: 'SymbolicFloat', *, eps: 'SymbolicFloat' = 1e-11) -> 'QVar':
+        """Applies the Rx bloq."""
+        from qualtran.bloqs.basic_gates import Rx
+
+        return Rx.qcall(q=q, angle=angle, eps=eps)
+
+    def ry(self, q: 'QVar', angle: 'SymbolicFloat', *, eps: 'SymbolicFloat' = 1e-11) -> 'QVar':
+        """Applies the Ry bloq."""
+        from qualtran.bloqs.basic_gates import Ry
+
+        return Ry.qcall(q=q, angle=angle, eps=eps)
+
+    def rz(self, q: 'QVar', angle: 'SymbolicFloat', *, eps: 'SymbolicFloat' = 1e-11) -> 'QVar':
+        """Applies the Rz bloq."""
+        from qualtran.bloqs.basic_gates import Rz
+
+        return Rz.qcall(q=q, angle=angle, eps=eps)
+
+    def cry(self, ctrl: 'QVar', q: 'QVar', angle: 'SymbolicFloat', *, eps: 'SymbolicFloat' = 1e-11):
+        """Applies the CRy bloq."""
+        from qualtran.bloqs.basic_gates import CRy
+
+        return CRy.qcall(ctrl=ctrl, q=q, angle=angle, eps=eps)
+
+    def crz(self, ctrl: 'QVar', q: 'QVar', angle: 'SymbolicFloat', *, eps: 'SymbolicFloat' = 1e-11):
+        """Applies the CRz bloq."""
+        from qualtran.bloqs.basic_gates import CRz
+
+        return CRz.qcall(ctrl=ctrl, q=q, angle=angle, eps=eps)
+
+    def su2_rotation(
+        self,
+        q: 'QVar',
+        theta: 'SymbolicFloat',
+        phi: 'SymbolicFloat',
+        lambd: 'SymbolicFloat',
+        *,
+        global_shift: 'SymbolicFloat' = 0.0,
+        eps: 'SymbolicFloat' = 1e-11,
+    ) -> 'QVar':
+        """Applies the SU2RotationGate bloq."""
+        from qualtran.bloqs.basic_gates import SU2RotationGate
+
+        return SU2RotationGate.qcall(
+            q=q, theta=theta, phi=phi, lambd=lambd, global_shift=global_shift, eps=eps
+        )
+
+    def z_pow(
+        self, q: 'QVar', *, exponent: 'SymbolicFloat' = 1.0, eps: 'SymbolicFloat' = 1e-11
+    ) -> 'QVar':
+        """Applies the ZPowGate bloq."""
+        from qualtran.bloqs.basic_gates import ZPowGate
+
+        return ZPowGate.qcall(q=q, exponent=exponent, eps=eps)
+
+    def cz_pow(
+        self,
+        ctrl: 'QVar',
+        target: 'QVar',
+        *,
+        exponent: 'SymbolicFloat' = 1.0,
+        eps: 'SymbolicFloat' = 1e-11,
+    ):
+        """Applies the CZPowGate bloq."""
+        from qualtran.bloqs.basic_gates import CZPowGate
+
+        return CZPowGate.qcall(np.array([ctrl, target]), exponent=exponent, eps=eps)
+
+    def x_pow(
+        self,
+        q: 'QVar',
+        *,
+        exponent: 'SymbolicFloat' = 1.0,
+        global_shift: float = 0.0,
+        eps: 'SymbolicFloat' = 1e-11,
+    ) -> 'QVar':
+        """Applies the XPowGate bloq."""
+        from qualtran.bloqs.basic_gates import XPowGate
+
+        return XPowGate.qcall(q=q, exponent=exponent, global_shift=global_shift, eps=eps)
+
+    def y_pow(
+        self,
+        q: 'QVar',
+        *,
+        exponent: 'SymbolicFloat' = 1.0,
+        global_shift: float = 0.0,
+        eps: 'SymbolicFloat' = 1e-11,
+    ) -> 'QVar':
+        """Applies the YPowGate bloq."""
+        from qualtran.bloqs.basic_gates import YPowGate
+
+        return YPowGate.qcall(q=q, exponent=exponent, global_shift=global_shift, eps=eps)
+
+    def measure_x(self, q: 'QVar') -> 'QVar':
+        """Applies the MeasureX bloq."""
+        from qualtran.bloqs.basic_gates import MeasureX
+
+        return MeasureX.qcall(q=q)
+
+    def measure_z(self, q: 'QVar') -> 'QVar':
+        """Applies the MeasureZ bloq."""
+        from qualtran.bloqs.basic_gates import MeasureZ
+
+        return MeasureZ.qcall(q=q)
+
+    def identity(self, q: 'QVar') -> 'QVar':
+        """Applies the Identity bloq."""
+        from qualtran.bloqs.basic_gates import Identity
+
+        return Identity.qcall(q=q)
+
+    def discard(self, c: 'QVar') -> None:
+        """Applies the Discard bloq."""
+        from qualtran.bloqs.basic_gates import Discard
+
+        return Discard.qcall(c=c)
+
+    def discard_q(self, q: 'QVar') -> None:
+        """Applies the DiscardQ bloq."""
+        from qualtran.bloqs.basic_gates import DiscardQ
+
+        return DiscardQ.qcall(q=q)

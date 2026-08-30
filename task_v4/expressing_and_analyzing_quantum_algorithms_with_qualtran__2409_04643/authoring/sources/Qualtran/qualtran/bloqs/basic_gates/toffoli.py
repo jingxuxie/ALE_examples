@@ -1,0 +1,186 @@
+#  Copyright 2023 Google LLC
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+import itertools
+from functools import cached_property
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple, TYPE_CHECKING, Union
+
+import numpy as np
+from attrs import frozen
+from numpy.typing import NDArray
+
+from qualtran import (
+    Bloq,
+    bloq_example,
+    BloqBuilder,
+    BloqDocSpec,
+    CompositeBloq,
+    Connection,
+    CtrlSpec,
+    DecomposeTypeError,
+    QBit,
+    Register,
+    Signature,
+    SoquetT,
+)
+
+if TYPE_CHECKING:
+    import cirq
+    import quimb.tensor as qtn
+    from pennylane.operation import Operation
+    from pennylane.wires import Wires
+
+    from qualtran import AddControlledT
+    from qualtran.cirq_interop import CirqQuregT
+    from qualtran.drawing import WireSymbol
+    from qualtran.simulation.classical_sim import ClassicalValT
+
+
+@frozen
+class Toffoli(Bloq):
+    """The Toffoli gate.
+
+    This will flip the target bit if both controls are active. It can be thought of as
+    a reversible AND gate.
+
+    Like `TGate`, this is a common compilation target. The Clifford+Toffoli gateset is
+    universal.
+
+    References:
+        [Novel constructions for the fault-tolerant Toffoli gate](https://arxiv.org/abs/1212.5069).
+        Cody Jones. 2012. Provides a decomposition into 4 `TGate`.
+    """
+
+    @cached_property
+    def signature(self) -> Signature:
+        return Signature([Register('ctrl', QBit(), shape=(2,)), Register('target', QBit())])
+
+    @classmethod
+    def qcall(cls, ctrl1, ctrl2, target):
+        bb = ctrl1.bb
+        (ctrl1, ctrl2), target = bb.add(cls(), ctrl=[ctrl1, ctrl2], target=target)
+        return ctrl1, ctrl2, target
+
+    def adjoint(self) -> 'Bloq':
+        return self
+
+    def decompose_bloq(self) -> 'CompositeBloq':
+        raise DecomposeTypeError(f"{self} is atomic")
+
+    def my_tensors(
+        self,
+        incoming: Dict[str, NDArray[Connection]],  # type: ignore[type-var]
+        outgoing: Dict[str, NDArray[Connection]],  # type: ignore[type-var]
+    ) -> List['qtn.Tensor']:
+        import quimb.tensor as qtn
+
+        from qualtran.bloqs.basic_gates.cnot import XOR
+
+        # Set up the CTRL tensor which copies inputs to outputs and activates
+        # when a==1 and b==1
+        internal = qtn.rand_uuid()
+        inds = [
+            (incoming['ctrl'][0], 0),
+            (incoming['ctrl'][1], 0),
+            (outgoing['ctrl'][0], 0),
+            (outgoing['ctrl'][1], 0),
+            internal,
+        ]
+        CTRL = np.zeros((2,) * 5, dtype=np.complex128)
+        for a, b in itertools.product([0, 1], repeat=2):
+            CTRL[a, b, a, b, int(a == 1 and b == 1)] = 1.0
+
+        # Wire up the CTRL tensor to XOR to flip `target` when active.
+        return [
+            qtn.Tensor(data=CTRL, inds=inds, tags=['COPY']),
+            qtn.Tensor(
+                data=XOR,
+                inds=[(incoming['target'], 0), (outgoing['target'], 0), internal],
+                tags=['XOR'],
+            ),
+        ]
+
+    def on_classical_vals(
+        self, ctrl: NDArray[np.integer], target: 'ClassicalValT'
+    ) -> Dict[str, 'ClassicalValT']:
+        assert target in [0, 1]
+        if ctrl[0] == 1 and ctrl[1] == 1:
+            target = (target + 1) % 2
+
+        return {'ctrl': ctrl, 'target': target}
+
+    def as_cirq_op(
+        self,
+        qubit_manager: 'cirq.QubitManager',
+        ctrl: 'CirqQuregT',
+        target: 'CirqQuregT',  # type: ignore[type-var]
+    ) -> Tuple[Union['cirq.Operation', None], Dict[str, 'CirqQuregT']]:  # type: ignore[type-var]
+        import cirq
+
+        (trg,) = target
+        return cirq.CCNOT(*ctrl[:, 0], trg), {'ctrl': ctrl, 'target': target}
+
+    def as_pl_op(self, wires: 'Wires') -> 'Operation':
+        import pennylane as qml
+
+        return qml.Toffoli(wires=wires)
+
+    def wire_symbol(self, reg: Optional[Register], idx: Tuple[int, ...] = tuple()) -> 'WireSymbol':
+        from qualtran.drawing import Circle, ModPlus, Text
+
+        if reg is None:
+            return Text('')
+
+        if reg.name == 'ctrl':
+            return Circle(filled=True)
+        elif reg.name == 'target':
+            return ModPlus()
+        raise ValueError(f'Unknown wire symbol register name: {reg.name}')
+
+    def get_ctrl_system(self, ctrl_spec: 'CtrlSpec') -> Tuple['Bloq', 'AddControlledT']:
+        from qualtran.bloqs.basic_gates import XGate
+
+        # Perform the Logical-AND of `ctrl_spec` with Toffoli's implicit XGate ctrl spec
+        # of cvs=(1, 1).
+        anded_ctrl_spec = CtrlSpec(
+            qdtypes=ctrl_spec.qdtypes + (QBit(),), cvs=ctrl_spec.cvs + (np.array([1, 1]),)
+        )
+        ctrl_via_and, adder1 = XGate().get_ctrl_system(anded_ctrl_spec)
+
+        # We have to wire up the *new* ctrl registers vs Toffoli's *existing* ctrl register
+        # while also translating between Toffoli() and ControlledViaAnd(XGate(), cvs=(1,1)).
+        def adder2(
+            bb: 'BloqBuilder', ctrl_soqs: Sequence['SoquetT'], in_soqs: Dict[str, 'SoquetT']
+        ) -> Tuple[Iterable['SoquetT'], Iterable['SoquetT']]:
+            # Note: in adder2, `ctrl_soqs` matches the requested `ctrl_spec`
+            #       in adder1, `ctrl_soqs` matches `anded_ctrl_spec`
+            # Note: in adder2 `in_soqs` matches the signature of Toffoli
+            #       in adder1, `in_soqs` matches the signature of XGate
+            tof_ctrl = in_soqs['ctrl']
+            tof_target = in_soqs['target']
+            (*ctrl_soqs, tof_ctrl), (tof_target,) = adder1(
+                bb, list(ctrl_soqs) + [tof_ctrl], {'q': tof_target}
+            )
+
+            return ctrl_soqs, [tof_ctrl, tof_target]
+
+        return ctrl_via_and, adder2
+
+
+@bloq_example
+def _toffoli() -> Toffoli:
+    toffoli = Toffoli()
+    return toffoli
+
+
+_TOFFOLI_DOC = BloqDocSpec(bloq_cls=Toffoli, examples=[_toffoli])
