@@ -1,0 +1,1835 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a04979-e655-7d93-b141-af63e86424c5
+--------
+user
+Read TASK.md and solve the task autonomously. Write the complete required submission to /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2. You have at most 3600 seconds. Participant assets are read-only; use your output directory for all work. Decide your own investigation, implementation, and validation. Do not stop at a plan or placeholder. Only participant assets, system software, and your initially empty output directory are available. Networking, external repositories, private evaluators, generation artifacts, and other submissions are unavailable. Work independently without spawning agents. Use login=false for shell commands.
+warning: Model metadata for `ultima-alpha` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.
+codex
+I’ll read the task and inspect the available assets first.
+
+exec
+/bin/bash -c 'pwd && ls -la && cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant
+ succeeded in 24866ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 09:33 .
+drwx------ 4 xuandong xuandong   80 Aug 28 10:48 ..
+-rw-rw-r-- 1 xuandong xuandong 1720 Aug 28 10:44 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:44 baseline
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 09:47 input
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 28 09:47 workspace
+# Falsify a calibration screen under independent phase drift
+
+You are auditing a quantum-control team's claim that its compressed calibration screen certifies a qubit model for same-depth application circuits. Construct a physically valid coherent-leakage counterexample that remains a counterexample under the disclosed independent gate-phase tolerances: calibration accepts, but an application circuit has a large prediction error and little final leakage.
+
+Assets: the exact processor family, reported CPTP model, calibration circuits, and tolerance scenarios in `input/`; a NumPy simulator in `workspace/screen.py`; and the previous-generation champion in `baseline/witness.json`. That champion is a runnable starting point, not a passing solution for this generation. This challenges the supplied screen's sufficiency, not a GST theorem.
+
+Submit **one static `witness.json`** in the designated output directory. The complete interface is in `input/INTERFACE.md`. Run `python workspace/screen.py --witness PATH` for local measurements or `python baseline/search.py --output PATH` to emit the baseline. Submitted code is never executed by the evaluator.
+
+A passing witness satisfies every calibration and held-out bound in **all 21 enumerated tolerance scenarios**, including the original common-mode scenarios and independent phase corners. The circuit has exactly 64 gates. Scores report nominal and worst-scenario prediction error plus constraint violations. All scientific acceptance criteria are public; probabilities are independently reproduced by the private evaluator.
+
+Budget: one hour, four CPU cores, 4 GiB address space per process, no network. The JSON file is limited to 32 KiB. No report is required.
+
+exec
+/bin/bash -c 'find . -name AGENTS.md -print; ls -l input workspace baseline; cat input/INTERFACE.md; cat workspace/screen.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant
+**Avoiding slow calls**
+
+I need to ensure I'm not making slow calls when combining tasks or functions. That could lead to inefficiencies! I wonder if there's a more streamlined way to handle requests to keep everything running smoothly. It’s essential to maintain a good pace without unnecessary delays. I’m thinking about how to optimize the processes while avoiding redundant steps. I’ll keep this in mind as I work through requests to enhance performance!
+ succeeded in 26577ms:
+baseline:
+total 8
+-rw-rw-r-- 1 xuandong xuandong 333 Aug 28 10:44 search.py
+-rw-rw-r-- 1 xuandong xuandong 587 Aug 28 10:44 witness.json
+
+input:
+total 20
+-rw-rw-r-- 1 xuandong xuandong 4364 Aug 28 10:44 INTERFACE.md
+-rw-rw-r-- 1 xuandong xuandong 7883 Aug 28 09:47 calibration.json
+-rw-rw-r-- 1 xuandong xuandong 3752 Aug 28 10:44 specification.json
+
+workspace:
+total 12
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 09:47 __pycache__
+-rw-rw-r-- 1 xuandong xuandong 8046 Aug 28 09:47 screen.py
+# Static witness interface
+
+The only submission artifact is UTF-8 JSON with exactly these keys:
+
+```json
+{"version": 1, "gate_parameters": [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]], "circuit": "IXY..."}
+```
+
+The ellipsis is illustrative, not a valid gate. Rows are ordered `I, X, Y`; each row is `[phi, Re(a), Im(a), Re(b), Im(b)]`. Values must be finite JSON numbers, not booleans. The phase lies in `[-pi,pi]` and `sqrt(|a|^2+|b|^2) <= 0.04`. The circuit is a chronological string of exactly 64 symbols from `IXY`, with at least four of each symbol, and cannot equal a calibration circuit. Duplicate keys, extra fields, and nonstandard JSON constants are rejected. File and directory symlinks are not accepted.
+
+## Physical processor
+
+Basis states are `|0>, |1>, |2>`. The initial state is `|0><0|`, freshly prepared for each complete circuit. There is no reset inside a circuit. Let `R_I = identity(2)`, `R_X = exp(-i*pi*PauliX/4)`, and `R_Y = exp(-i*pi*PauliY/4)`. For each gate,
+
+```
+H = [[0, 0, a], [0, 0, b], [conj(a), conj(b), 0]]
+U = exp(-i*H) @ block_diag(R_gate, exp(-i*phi))
+```
+
+Every occurrence of a label uses the same unitary. The outcome-0 effect is `E0 = 0.005*identity(3) + 0.99*|0><0|`; the other outcome is its complement. No postselection occurs. Final leakage is `rho[2,2]` before readout noise.
+
+## Supplied reported model and screen
+
+The team uses the two-dimensional CPTP reset reduction of each physical gate, not the ideal gate and not a participant-chosen fit. Write `A = U[:2,:2]`, and let the only nonzero row of the 2-by-2 matrix `B` be `B[1,:] = U[2,:2]`. The reported gate is
+
+```
+Phi(rho) = A @ rho @ A.conj().T + B @ rho @ B.conj().T
+```
+
+The reported model starts in `|0><0|` and uses `E0 = 0.005*identity(2) + 0.99*|0><0|`. It predicts **every** circuit by composing these same maps. It reproduces a gate's reset-reduced one-step behavior, but it does not carry a leakage state between gates. `workspace/screen.py` supplies this method, including its acceptance rule.
+
+`calibration.json` contains explicit circuit strings grouped into seven named families: exhaustive words of length at most four, five streamlined-GST germ/fiducial families, and independent fixed random guards. Each family is a list without duplicate strings; if a string belongs to several families it participates in every corresponding family statistic. Preparation and measurement fiducials use the same imperfect gates as the rest of the circuit. Calibration errors are exact outcome-probability differences, not sampled counts or chi-square statistics.
+
+For **each** scenario in `specification.json`, multiply all four coupling coordinates by `coupling_scale`, then add `phase_shift` to the phases and construct both models anew. A scalar phase shift applies to all three gates; a three-element list applies separately in `I, X, Y` order. The 21 enumerated scenarios retain the original five common-mode checks and add the 16 corners formed by independent phase shifts of ±0.008 radians and coupling scales 0.98 or 1.02. These enumerated scenarios, not an entire continuous uncertainty interval, define robustness. Nominal parameter bounds apply to the submitted rows before perturbation.
+
+The screen accepts when, in every scenario, every calibration absolute error is at most **0.005**, and the RMS error within **each** calibration family is at most **0.002**. Falsification additionally requires an absolute held-out outcome-0 prediction error of at least **0.065** and final leakage at most **0.01**, in every scenario. The same submitted circuit is used in all scenarios. Arithmetic comparisons allow `1e-10` tolerance.
+
+## Measurements and scoring
+
+`python workspace/screen.py --witness /path/to/witness.json` prints JSON. `core_score` is nominal held-out absolute error; `worst_family_score` is its minimum over the 21 tolerance scenarios. Larger is better, but neither score overrides a failed constraint. `valid` means a structurally valid physical input; `passed` means all acceptance and falsification conditions hold. Results include `runtime_seconds`, `reason`, per-scenario probabilities, calibration family maxima/RMS values, and final leakage. There are no undisclosed scientific acceptance criteria. The authoritative evaluator uses a separate density-matrix/matrix-exponential implementation and an immutable copy of the input assets.
+import argparse
+import json
+import math
+import stat
+import time
+from pathlib import Path
+
+import numpy as np
+
+
+INPUT = Path(__file__).resolve().parents[1] / "input"
+SPEC = json.loads((INPUT / "specification.json").read_text())
+FAMILIES = json.loads((INPUT / "calibration.json").read_text())
+PAULIS = np.array([
+    [[1, 0], [0, 1]], [[0, 1], [1, 0]],
+    [[0, -1j], [1j, 0]], [[1, 0], [0, -1]],
+], dtype=complex)
+IDEALS = np.array([PAULIS[0], (PAULIS[0] - 1j * PAULIS[1]) / np.sqrt(2),
+                   (PAULIS[0] - 1j * PAULIS[2]) / np.sqrt(2)])
+
+
+def strict_pairs(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+
+def reject_constant(value):
+    raise ValueError("nonstandard JSON constant")
+
+
+def load_witness(path):
+    path = Path(path)
+    if path.is_symlink():
+        raise ValueError("symlink submission")
+    if path.is_dir():
+        path = path / "witness.json"
+    if path.is_symlink():
+        raise ValueError("symlink witness")
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_size > SPEC["maximum_json_bytes"]:
+        raise ValueError("submission must be a regular JSON file at most 32 KiB")
+    with path.open("rb") as handle:
+        payload = handle.read(SPEC["maximum_json_bytes"] + 1)
+    if len(payload) > SPEC["maximum_json_bytes"]:
+        raise ValueError("oversized JSON")
+    witness = json.loads(payload.decode("utf-8"), object_pairs_hook=strict_pairs, parse_constant=reject_constant)
+    validate_witness(witness)
+    return witness
+
+
+def validate_witness(witness):
+    if type(witness) is not dict or set(witness) != {"version", "gate_parameters", "circuit"}:
+        raise ValueError("expected exactly version, gate_parameters, circuit")
+    if type(witness["version"]) is not int or witness["version"] != 1:
+        raise ValueError("unsupported version")
+    rows = witness["gate_parameters"]
+    if type(rows) is not list or len(rows) != 3:
+        raise ValueError("expected three gate rows")
+    for row in rows:
+        if type(row) is not list or len(row) != 5:
+            raise ValueError("expected five numbers per gate")
+        if any(type(value) not in (int, float) or not math.isfinite(value) for value in row):
+            raise ValueError("gate parameters must be finite numbers")
+        if abs(row[0]) > SPEC["phase_absolute_max"]:
+            raise ValueError("phase bound exceeded")
+        if math.hypot(*row[1:]) > SPEC["coupling_norm_max"]:
+            raise ValueError("coupling norm bound exceeded")
+    word = witness["circuit"]
+    if type(word) is not str or len(word) != SPEC["circuit_length"] or set(word) - set("IXY"):
+        raise ValueError("expected a 64-gate IXY circuit")
+    if any(word.count(symbol) < SPEC["minimum_each_gate_count"] for symbol in "IXY"):
+        raise ValueError("circuit must contain at least four of every gate")
+    if any(word in words for words in FAMILIES.values()):
+        raise ValueError("held-out circuit is a calibration circuit")
+
+
+def encode(words):
+    encoded = np.full((len(words), max(map(len, words), default=0)), 3, dtype=int)
+    for index, word in enumerate(words):
+        encoded[index, :len(word)] = ["IXY".index(symbol) for symbol in word]
+    return encoded
+
+
+def operators(parameters):
+    unitaries = [np.eye(3, dtype=complex) for index in range(4)]
+    for index, row in enumerate(np.asarray(parameters).reshape(3, 5)):
+        couplings = np.array([row[1] + 1j * row[2], row[3] + 1j * row[4]])
+        hamiltonian = np.zeros((3, 3), dtype=complex)
+        hamiltonian[:2, 2] = couplings
+        hamiltonian[2, :2] = couplings.conj()
+        radius = np.linalg.norm(couplings)
+        mixing = np.eye(3) - 1j * np.sinc(radius / np.pi) * hamiltonian
+        mixing -= .5 * np.sinc(radius / (2 * np.pi)) ** 2 * (hamiltonian @ hamiltonian)
+        nominal = np.zeros((3, 3), dtype=complex)
+        nominal[:2, :2] = IDEALS[index]
+        nominal[2, 2] = np.exp(-1j * row[0])
+        unitaries[index] = mixing @ nominal
+    transfers = []
+    for unitary in unitaries:
+        first = unitary[:2, :2]
+        second = np.zeros((2, 2), dtype=complex)
+        second[1] = unitary[2, :2]
+        images = first @ PAULIS @ first.conj().T + second @ PAULIS @ second.conj().T
+        transfers.append((np.einsum("aij,bji->ab", PAULIS, images) / 2).real)
+    return np.asarray(unitaries), np.asarray(transfers)
+
+
+def probabilities(parameters, encoded):
+    unitaries, transfers = operators(parameters)
+    states = np.zeros((len(encoded), 3), dtype=complex)
+    states[:, 0] = 1
+    bloch = np.tile([1., 0., 0., 1.], (len(encoded), 1))
+    for column in encoded.T:
+        states = (unitaries[column] @ states[..., None])[..., 0]
+        bloch = (transfers[column] @ bloch[..., None])[..., 0]
+    truth = .005 + .99 * np.abs(states[:, 0]) ** 2
+    prediction = .005 + .99 * (bloch[:, 0] + bloch[:, 3]) / 2
+    leakage = np.abs(states[:, 2]) ** 2
+    return truth, prediction, leakage
+
+
+def measure(witness):
+    start = time.monotonic()
+    validate_witness(witness)
+    words = sum(FAMILIES.values(), []) + [witness["circuit"]]
+    encoded = encode(words)
+    scenarios = []
+    calibration_accepted = True
+    heldout_accepted = True
+    tolerance = SPEC["numerical_tolerance"]
+    for scenario in SPEC["scenarios"]:
+        parameters = np.asarray(witness["gate_parameters"], dtype=float).copy()
+        parameters[:, 0] += scenario["phase_shift"]
+        parameters[:, 1:] *= scenario["coupling_scale"]
+        truth, prediction, leakage = probabilities(parameters, encoded)
+        errors = abs(truth - prediction)
+        families = {}
+        offset = 0
+        for family, circuits in FAMILIES.items():
+            family_errors = errors[offset:offset + len(circuits)]
+            offset += len(circuits)
+            maximum = float(max(family_errors))
+            rms = float(np.sqrt(np.mean(family_errors ** 2)))
+            families[family] = {"max_abs_error": maximum, "rms_error": rms}
+            calibration_accepted &= maximum <= SPEC["calibration_max_abs_error"] + tolerance
+            calibration_accepted &= rms <= SPEC["calibration_max_family_rms_error"] + tolerance
+        heldout_accepted &= errors[-1] >= SPEC["heldout_min_abs_error"] - tolerance
+        heldout_accepted &= leakage[-1] <= SPEC["heldout_max_final_leakage"] + tolerance
+        scenarios.append({"name": scenario["name"], "calibration": families,
+                          "heldout_truth": float(truth[-1]), "heldout_prediction": float(prediction[-1]),
+                          "heldout_abs_error": float(errors[-1]), "final_leakage": float(leakage[-1])})
+    passed = bool(calibration_accepted and heldout_accepted)
+    reasons = []
+    if not calibration_accepted:
+        reasons.append("calibration screen rejected at least one scenario")
+    if not heldout_accepted:
+        reasons.append("held-out error or final-leakage bound failed")
+    return {"core_score": scenarios[0]["heldout_abs_error"],
+            "worst_family_score": min(scenario["heldout_abs_error"] for scenario in scenarios),
+            "runtime_seconds": time.monotonic() - start, "passed": passed, "valid": True,
+            "reason": "; ".join(reasons) if reasons else "valid robust counterexample",
+            "calibration_accepted": bool(calibration_accepted), "scenarios": scenarios}
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--witness", required=True, type=Path)
+    args = parser.parse_args()
+    start = time.monotonic()
+    try:
+        result = measure(load_witness(args.witness))
+    except (ValueError, TypeError, OSError, OverflowError, RecursionError) as error:
+        result = {"core_score": 0., "worst_family_score": 0., "runtime_seconds": time.monotonic() - start,
+                  "passed": False, "valid": False, "reason": "invalid submission: " + str(error)}
+    print(json.dumps(result, indent=2, allow_nan=False))
+
+
+if __name__ == "__main__":
+    main()
+
+  → Inspect simulator and baseline failures
+  • Optimize robust parameters and circuit
+  • Validate and submit static witness
+exec
+/bin/bash -c "cat input/specification.json; cat baseline/witness.json; sed -n '1,120p' workspace/screen.py; cat input/calibration.json" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python workspace/screen.py --witness baseline/witness.json > /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2/baseline_measurement.json; python -c \"import scipy, numpy; print(scipy.__version__); import importlib.util; print({x:importlib.util.find_spec(x) is not None for x in ['torch','jax','numba']})\"" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant
+**Optimizing tool latency**
+
+I'm noticing there's a 4-minute tool latency, but that's okay for now. I need to optimize, likely focusing on passing baselines and adjusting parameters for the phase corners. The goal is to use Scipy's SLSQP while keeping all constraints in mind, particularly with around 100 constraints across 21 variables and 15 fixed in the circuit. To make this efficient, I'll need a batched derivative approach using JAX, Torch, and NumPy for finite differences.
+**Evaluating output issues**
+
+I’ve noticed that there’s no output even after 60 seconds, which seems a bit strange. I’m starting to wonder if the environment is slowing things down. Maybe the bwrap is impacting performance? It’s possible there’s something in the setup affecting responsiveness. I’ll have to consider this as a potential issue and see if there’s a way to improve the environment so I can get things running smoothly again.
+ succeeded in 50872ms:
+{
+  "schema_version": 1,
+  "alphabet": "IXY",
+  "parameter_columns": [
+    "leakage_phase",
+    "coupling_0_real",
+    "coupling_0_imag",
+    "coupling_1_real",
+    "coupling_1_imag"
+  ],
+  "phase_absolute_max": 3.141592653589793,
+  "coupling_norm_max": 0.04,
+  "readout_bit_flip": 0.005,
+  "circuit_length": 64,
+  "minimum_each_gate_count": 4,
+  "maximum_json_bytes": 32768,
+  "calibration_max_abs_error": 0.005,
+  "calibration_max_family_rms_error": 0.002,
+  "heldout_min_abs_error": 0.065,
+  "heldout_max_final_leakage": 0.01,
+  "numerical_tolerance": 1e-10,
+  "scenarios": [
+    {
+      "name": "nominal",
+      "coupling_scale": 1.0,
+      "phase_shift": 0.0
+    },
+    {
+      "name": "coupling_low",
+      "coupling_scale": 0.98,
+      "phase_shift": 0.0
+    },
+    {
+      "name": "coupling_high",
+      "coupling_scale": 1.02,
+      "phase_shift": 0.0
+    },
+    {
+      "name": "phase_low",
+      "coupling_scale": 1.0,
+      "phase_shift": -0.002
+    },
+    {
+      "name": "phase_high",
+      "coupling_scale": 1.0,
+      "phase_shift": 0.002
+    },
+    {
+      "name": "independent_phase_5",
+      "coupling_scale": 0.98,
+      "phase_shift": [
+        -0.008,
+        -0.008,
+        -0.008
+      ]
+    },
+    {
+      "name": "independent_phase_6",
+      "coupling_scale": 0.98,
+      "phase_shift": [
+        -0.008,
+        -0.008,
+        0.008
+      ]
+    },
+    {
+      "name": "independent_phase_7",
+      "coupling_scale": 0.98,
+      "phase_shift": [
+        -0.008,
+        0.008,
+        -0.008
+      ]
+    },
+    {
+      "name": "independent_phase_8",
+      "coupling_scale": 0.98,
+      "phase_shift": [
+        -0.008,
+        0.008,
+        0.008
+      ]
+    },
+    {
+      "name": "independent_phase_9",
+      "coupling_scale": 0.98,
+      "phase_shift": [
+        0.008,
+        -0.008,
+        -0.008
+      ]
+    },
+    {
+      "name": "independent_phase_10",
+      "coupling_scale": 0.98,
+      "phase_shift": [
+        0.008,
+        -0.008,
+        0.008
+      ]
+    },
+    {
+      "name": "independent_phase_11",
+      "coupling_scale": 0.98,
+      "phase_shift": [
+        0.008,
+        0.008,
+        -0.008
+      ]
+    },
+    {
+      "name": "independent_phase_12",
+      "coupling_scale": 0.98,
+      "phase_shift": [
+        0.008,
+        0.008,
+        0.008
+      ]
+    },
+    {
+      "name": "independent_phase_13",
+      "coupling_scale": 1.02,
+      "phase_shift": [
+        -0.008,
+        -0.008,
+        -0.008
+      ]
+    },
+    {
+      "name": "independent_phase_14",
+      "coupling_scale": 1.02,
+      "phase_shift": [
+        -0.008,
+        -0.008,
+        0.008
+      ]
+    },
+    {
+      "name": "independent_phase_15",
+      "coupling_scale": 1.02,
+      "phase_shift": [
+        -0.008,
+        0.008,
+        -0.008
+      ]
+    },
+    {
+      "name": "independent_phase_16",
+      "coupling_scale": 1.02,
+      "phase_shift": [
+        -0.008,
+        0.008,
+        0.008
+      ]
+    },
+    {
+      "name": "independent_phase_17",
+      "coupling_scale": 1.02,
+      "phase_shift": [
+        0.008,
+        -0.008,
+        -0.008
+      ]
+    },
+    {
+      "name": "independent_phase_18",
+      "coupling_scale": 1.02,
+      "phase_shift": [
+        0.008,
+        -0.008,
+        0.008
+      ]
+    },
+    {
+      "name": "independent_phase_19",
+      "coupling_scale": 1.02,
+      "phase_shift": [
+        0.008,
+        0.008,
+        -0.008
+      ]
+    },
+    {
+      "name": "independent_phase_20",
+      "coupling_scale": 1.02,
+      "phase_shift": [
+        0.008,
+        0.008,
+        0.008
+      ]
+    }
+  ],
+  "generation": 1,
+  "independent_phase_radius": 0.008,
+  "uncertainty_description": "original five scenarios plus sixteen independent per-gate phase/coupling vertices"
+}
+{
+  "version": 1,
+  "gate_parameters": [
+    [
+      1.8845398090296093,
+      -0.0019735779007600757,
+      -0.006939368108878842,
+      -0.009174097819691229,
+      -0.00784503321524901
+    ],
+    [
+      -2.1270551687838033,
+      0.0016533944349065744,
+      0.002212118575230088,
+      0.004905607435374276,
+      0.023320927796308278
+    ],
+    [
+      -1.2711062503931299,
+      -0.0034053787207167043,
+      0.006205190136251064,
+      0.004745504403731027,
+      0.0014085651966261525
+    ]
+  ],
+  "circuit": "XIXIXXYYIXIXXIXIXIXIXXIXIXIXXIXIXIXXIXIXIXIXXIXIXIYXYIXIXIIXXXIX"
+}
+import argparse
+import json
+import math
+import stat
+import time
+from pathlib import Path
+
+import numpy as np
+
+
+INPUT = Path(__file__).resolve().parents[1] / "input"
+SPEC = json.loads((INPUT / "specification.json").read_text())
+FAMILIES = json.loads((INPUT / "calibration.json").read_text())
+PAULIS = np.array([
+    [[1, 0], [0, 1]], [[0, 1], [1, 0]],
+    [[0, -1j], [1j, 0]], [[1, 0], [0, -1]],
+], dtype=complex)
+IDEALS = np.array([PAULIS[0], (PAULIS[0] - 1j * PAULIS[1]) / np.sqrt(2),
+                   (PAULIS[0] - 1j * PAULIS[2]) / np.sqrt(2)])
+
+
+def strict_pairs(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+
+def reject_constant(value):
+    raise ValueError("nonstandard JSON constant")
+
+
+def load_witness(path):
+    path = Path(path)
+    if path.is_symlink():
+        raise ValueError("symlink submission")
+    if path.is_dir():
+        path = path / "witness.json"
+    if path.is_symlink():
+        raise ValueError("symlink witness")
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_size > SPEC["maximum_json_bytes"]:
+        raise ValueError("submission must be a regular JSON file at most 32 KiB")
+    with path.open("rb") as handle:
+        payload = handle.read(SPEC["maximum_json_bytes"] + 1)
+    if len(payload) > SPEC["maximum_json_bytes"]:
+        raise ValueError("oversized JSON")
+    witness = json.loads(payload.decode("utf-8"), object_pairs_hook=strict_pairs, parse_constant=reject_constant)
+    validate_witness(witness)
+    return witness
+
+
+def validate_witness(witness):
+    if type(witness) is not dict or set(witness) != {"version", "gate_parameters", "circuit"}:
+        raise ValueError("expected exactly version, gate_parameters, circuit")
+    if type(witness["version"]) is not int or witness["version"] != 1:
+        raise ValueError("unsupported version")
+    rows = witness["gate_parameters"]
+    if type(rows) is not list or len(rows) != 3:
+        raise ValueError("expected three gate rows")
+    for row in rows:
+        if type(row) is not list or len(row) != 5:
+            raise ValueError("expected five numbers per gate")
+        if any(type(value) not in (int, float) or not math.isfinite(value) for value in row):
+            raise ValueError("gate parameters must be finite numbers")
+        if abs(row[0]) > SPEC["phase_absolute_max"]:
+            raise ValueError("phase bound exceeded")
+        if math.hypot(*row[1:]) > SPEC["coupling_norm_max"]:
+            raise ValueError("coupling norm bound exceeded")
+    word = witness["circuit"]
+    if type(word) is not str or len(word) != SPEC["circuit_length"] or set(word) - set("IXY"):
+        raise ValueError("expected a 64-gate IXY circuit")
+    if any(word.count(symbol) < SPEC["minimum_each_gate_count"] for symbol in "IXY"):
+        raise ValueError("circuit must contain at least four of every gate")
+    if any(word in words for words in FAMILIES.values()):
+        raise ValueError("held-out circuit is a calibration circuit")
+
+
+def encode(words):
+    encoded = np.full((len(words), max(map(len, words), default=0)), 3, dtype=int)
+    for index, word in enumerate(words):
+        encoded[index, :len(word)] = ["IXY".index(symbol) for symbol in word]
+    return encoded
+
+
+def operators(parameters):
+    unitaries = [np.eye(3, dtype=complex) for index in range(4)]
+    for index, row in enumerate(np.asarray(parameters).reshape(3, 5)):
+        couplings = np.array([row[1] + 1j * row[2], row[3] + 1j * row[4]])
+        hamiltonian = np.zeros((3, 3), dtype=complex)
+        hamiltonian[:2, 2] = couplings
+        hamiltonian[2, :2] = couplings.conj()
+        radius = np.linalg.norm(couplings)
+        mixing = np.eye(3) - 1j * np.sinc(radius / np.pi) * hamiltonian
+        mixing -= .5 * np.sinc(radius / (2 * np.pi)) ** 2 * (hamiltonian @ hamiltonian)
+        nominal = np.zeros((3, 3), dtype=complex)
+        nominal[:2, :2] = IDEALS[index]
+        nominal[2, 2] = np.exp(-1j * row[0])
+        unitaries[index] = mixing @ nominal
+    transfers = []
+    for unitary in unitaries:
+        first = unitary[:2, :2]
+        second = np.zeros((2, 2), dtype=complex)
+        second[1] = unitary[2, :2]
+        images = first @ PAULIS @ first.conj().T + second @ PAULIS @ second.conj().T
+        transfers.append((np.einsum("aij,bji->ab", PAULIS, images) / 2).real)
+    return np.asarray(unitaries), np.asarray(transfers)
+
+
+def probabilities(parameters, encoded):
+    unitaries, transfers = operators(parameters)
+    states = np.zeros((len(encoded), 3), dtype=complex)
+    states[:, 0] = 1
+    bloch = np.tile([1., 0., 0., 1.], (len(encoded), 1))
+    for column in encoded.T:
+        states = (unitaries[column] @ states[..., None])[..., 0]
+        bloch = (transfers[column] @ bloch[..., None])[..., 0]
+    truth = .005 + .99 * np.abs(states[:, 0]) ** 2
+{
+  "short": [
+    "",
+    "I",
+    "X",
+    "Y",
+    "II",
+    "IX",
+    "IY",
+    "XI",
+    "XX",
+    "XY",
+    "YI",
+    "YX",
+    "YY",
+    "III",
+    "IIX",
+    "IIY",
+    "IXI",
+    "IXX",
+    "IXY",
+    "IYI",
+    "IYX",
+    "IYY",
+    "XII",
+    "XIX",
+    "XIY",
+    "XXI",
+    "XXX",
+    "XXY",
+    "XYI",
+    "XYX",
+    "XYY",
+    "YII",
+    "YIX",
+    "YIY",
+    "YXI",
+    "YXX",
+    "YXY",
+    "YYI",
+    "YYX",
+    "YYY",
+    "IIII",
+    "IIIX",
+    "IIIY",
+    "IIXI",
+    "IIXX",
+    "IIXY",
+    "IIYI",
+    "IIYX",
+    "IIYY",
+    "IXII",
+    "IXIX",
+    "IXIY",
+    "IXXI",
+    "IXXX",
+    "IXXY",
+    "IXYI",
+    "IXYX",
+    "IXYY",
+    "IYII",
+    "IYIX",
+    "IYIY",
+    "IYXI",
+    "IYXX",
+    "IYXY",
+    "IYYI",
+    "IYYX",
+    "IYYY",
+    "XIII",
+    "XIIX",
+    "XIIY",
+    "XIXI",
+    "XIXX",
+    "XIXY",
+    "XIYI",
+    "XIYX",
+    "XIYY",
+    "XXII",
+    "XXIX",
+    "XXIY",
+    "XXXI",
+    "XXXX",
+    "XXXY",
+    "XXYI",
+    "XXYX",
+    "XXYY",
+    "XYII",
+    "XYIX",
+    "XYIY",
+    "XYXI",
+    "XYXX",
+    "XYXY",
+    "XYYI",
+    "XYYX",
+    "XYYY",
+    "YIII",
+    "YIIX",
+    "YIIY",
+    "YIXI",
+    "YIXX",
+    "YIXY",
+    "YIYI",
+    "YIYX",
+    "YIYY",
+    "YXII",
+    "YXIX",
+    "YXIY",
+    "YXXI",
+    "YXXX",
+    "YXXY",
+    "YXYI",
+    "YXYX",
+    "YXYY",
+    "YYII",
+    "YYIX",
+    "YYIY",
+    "YYXI",
+    "YYXX",
+    "YYXY",
+    "YYYI",
+    "YYYX",
+    "YYYY"
+  ],
+  "germ_I": [
+    "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIXX",
+    "IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIXX",
+    "IIIIIIIIIIIIIIIIXX",
+    "IIIIIIIIXX",
+    "IIIIXX",
+    "IIXX",
+    "IXX",
+    "XIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIX",
+    "XIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIX",
+    "XIIIIIIIIIIIIIIIIX",
+    "XIIIIIIIIX",
+    "XIIIIX",
+    "XIIX",
+    "XIX",
+    "YYIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIYY",
+    "YYIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIYY",
+    "YYIIIIIIIIIIIIIIIIYY",
+    "YYIIIIIIIIYY",
+    "YYIIIIYY",
+    "YYIIYY",
+    "YYIYY"
+  ],
+  "germ_X": [
+    "XXX",
+    "XXXX",
+    "XXXXXX",
+    "XXXXXXX",
+    "XXXXXXXXX",
+    "XXXXXXXXXX",
+    "XXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXY",
+    "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXY",
+    "XXXXXXXXXXXXXXXXXXXY",
+    "XXXXXXXXXXXY",
+    "XXXXXXXY",
+    "XXXXXY",
+    "XXXXY",
+    "YYXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXYY",
+    "YYXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXYY",
+    "YYXXXXXXXXXXXXXXXXYY",
+    "YYXXXXXXXXYY",
+    "YYXXXXYY",
+    "YYXXYY",
+    "YYXYY"
+  ],
+  "germ_Y": [
+    "XXXYXXX",
+    "XXXYYXXX",
+    "XXXYYYYXXX",
+    "XXXYYYYYYYYXXX",
+    "XXXYYYYYYYYYYYYYYYYXXX",
+    "XXXYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYXXX",
+    "XXXYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYXXX",
+    "YY",
+    "YYXXX",
+    "YYY",
+    "YYYXXX",
+    "YYYY",
+    "YYYYY",
+    "YYYYYXXX",
+    "YYYYYY",
+    "YYYYYYYYY",
+    "YYYYYYYYYXXX",
+    "YYYYYYYYYY",
+    "YYYYYYYYYYYYYYYYY",
+    "YYYYYYYYYYYYYYYYYXXX",
+    "YYYYYYYYYYYYYYYYYY",
+    "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+    "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYXXX",
+    "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+    "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+    "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYXXX",
+    "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"
+  ],
+  "germ_XY": [
+    "XY",
+    "XYXXX",
+    "XYXY",
+    "XYXYXXX",
+    "XYXYXYXY",
+    "XYXYXYXYXXX",
+    "XYXYXYXYXYXYXYXY",
+    "XYXYXYXYXYXYXYXYXXX",
+    "XYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXY",
+    "XYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXXX",
+    "XYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXY",
+    "XYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXXX",
+    "YXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYYY",
+    "YXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYYY",
+    "YXYXYXYXYXYXYXYXYYY",
+    "YXYXYXYXYYY",
+    "YXYXYYY",
+    "YXYYY",
+    "YYXYXXX",
+    "YYXYXYXXX",
+    "YYXYXYXYXYXXX",
+    "YYXYXYXYXYXYXYXYXYXXX",
+    "YYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXXX",
+    "YYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXYXXX"
+  ],
+  "germ_XXY": [
+    "XXXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYYY",
+    "XXXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYYY",
+    "XXXXYXXYXXYXXYXXYYY",
+    "XXXXYXXYYY",
+    "XXXXYYY",
+    "XXXYXX",
+    "XXXYXXX",
+    "XXXYXXYXX",
+    "XXXYXXYXXX",
+    "XXXYXXYXXYXXYXXYXX",
+    "XXXYXXYXXYXXYXXYXXX",
+    "XXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXX",
+    "XXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXX",
+    "XXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXX",
+    "XXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXX",
+    "YYXXY",
+    "YYXXYXXX",
+    "YYXXYXXY",
+    "YYXXYXXYXXX",
+    "YYXXYXXYXXYXXYXXY",
+    "YYXXYXXYXXYXXYXXYXXX",
+    "YYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXY",
+    "YYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXX",
+    "YYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXY",
+    "YYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXX",
+    "YYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYYY",
+    "YYXXYXXYXXYXXYXXYXXYXXYXXYXXYXXYYY",
+    "YYXXYXXYXXYXXYXXYYY",
+    "YYXXYXXYYY",
+    "YYXXYYY"
+  ],
+  "guards": [
+    "YYIXIXYYIIIIXXYXYYIXXIYXIYIYXYIYXYIXXXYYXYXXIIIIIXYXXIYXIXIYIXIY",
+    "YXYIYXXYIXIXYXXXIYIIXXYIYIIYYXIYIIXXXXXIXXYIXIXYIYXYXXXYYXIIYXYY",
+    "IIYXIXXXIXYYXXYYYXIIYYXIIXYYYXXYXIYIYIXIYIIIXXXYIYYIIYIIXIXXIXXY",
+    "XXIIYYIIIIYYXXIIXYYXYXXYYXYYIIIIIYYXYYYXIYXIIXXIXXYYXYYIIIXIXYXX",
+    "YXYXYXXIXYYXXXYYYIIIXYXXXXIXYXXYYIYXXIIXYYYIXIXIXIIXYXYIXIIXIYII",
+    "YIIIYXYYXYIIIYIYYYIIXYIXIXXIYXIIYXXYIYXXYYIIIYYXXXIXYXXYYYXIIYYI",
+    "XXYXXIIYYXIIIYXYIIXIIXYIXXIXXYYIIIXXIYYIYIYXXXIIIIIIXXIIXYIIYYXX",
+    "IIIIIIIXYXXIIXYIYXIIYYXXIIIYXYIXXXIYXXIIXXYXXIIXXXYYXXIXYYIYYIYY",
+    "XYYYXIIXIXIIIXYYYXYYXXIYXIXXIIXIYYIYXXYXXIYXYYIIYYIIIXXIYIYYIIYI",
+    "XXYYIXYIYXIXIIYIYYIIIXIYIXXYIIYIYXYIYYIYIXXYIIXIIIXYXIYYXIYIYYYI",
+    "IYIYIYYIIIXIIXXXIYXIIIYYXYIIYIXIYYIXXYXIXYYIXXXIYYYXXIXYIYXYYYXX",
+    "XYXXYIXYYXXIXXYXYIYYYIXIYIIXIYXXXIXYYIYIXYXXYIXIYXYIYIXXYIXIXYYX",
+    "IXXXIIYIIYIYXIXIYYYXXYXXXXIIXIIIIXIXIXYIYYIYIYIIXXYIIXIYXYXXYYXY",
+    "IIYYXYIYIXIXXXIXXIYIIYXXXYIIYXXXXIXYIYIIXXIYYIXYXIXXYXYXYYXIXIYY",
+    "XYYYIYIYYXYXXIYXYXYYIIIXXXYXYXXIYYIYXYYYXIYYXIIXXIYIIXYYIXYIYXYX",
+    "IXYIYXXIYYYXXXIIIXXXXXYIYYYXYXXXYYYYIYYXYYIIYXXIXXYXYYXYXIYXIIYI",
+    "YIXXIIIYXYYYYXYXIXYXYXXXIXYXXYIXYXYIXXYYIXYYIIXIYIIYYYXYYYXYXXYI",
+    "YXIXYXXXXXYXIYXYIYXIXYIYIIXYYXXIXIXIXXYYYXIXXYIXYXXIYIXXYYXYYXXI",
+    "YIXIYIYYYIXXXXYIYXIYIXXIIXIIIYYXIIIIYIXIXYXIIYYXIXXYIIIXIIYIYYIY",
+    "IIYXYXIYIXYIIYYIYXXIIXXXXXXXXIYYXXYXYYYXIXYXXXYYXYIYYYXXXXXXIXYI",
+    "IXXXYYXYYXYYXYYXYXIXIXXIIXYYIYYXXYXYYXXYXXIYYIYXYXXXYIYIYYXYXIYI",
+    "XYXYYIYYXYIYXXXXYYIXYIXXXYIYYXIIXYYXIXXYXIYYIIIIIIYIXYXXXXXIYXXI",
+    "YIYXYXIYIIXYYIYIXYIYXYXYYIXYYIYYIIIXXXXXXYIYIIYYXYXYIIXXIIXYIYYI",
+    "IXXIYIYIIIYIYYIYXYYIXYXIYIXXIIYYIXXYIXYIXIIXYIIXIIYIIIYYYYIYXYXX",
+    "IXIIYYXXXIIIYIYXYXYYIYIIIXYXXXIXXIXXIIXYYXYYIIIXIIYIXYXIYXIYXYXY",
+    "YIYXYXXIYIIXIIIYIYIYIIXIIIYIXIXXXXXXYXIIIXIYIYYIXYXIXXYYYIXXXYYI",
+    "IXIXIXXYXXIYYIXXYYYXIXIYXIIYYIIXIXYXIYYXXIXYXYYYYYIIIXIIIIXYXXXI",
+    "XIIXIIIYIXIXYXXYYXXXIYXXIXIIIIIXXIYYIIYYYXYYIYYYYXIXXXYYYXIIIYII",
+    "XXXIXXIXXYXIYXXXIXYIYXYYYXIYYYYYYXIIYXYYIXXYYIIXYYXIIXXIYIIIYYIX",
+    "YXIIXXYIXXIIXIXYYYYIXYIXYIIIYYYXIXXXXIXIXIYIIIIYYIXYYYYXYXXXXXYI",
+    "XIYYIXIXIXIXYIIYYXYIIIIYIYIYYYXIYYXYIXIYXYYIIXYIIIXIYIXXYIIYXXII",
+    "YIYXXYIXXXIYYXYIYYIIYXIIYIXXYIIXIXXIYXIXYXXYIXIIIYIYYYXIIIYYYXII"
+  ]
+}
+
+ succeeded in 51146ms:
+1.8.0
+{'torch': True, 'jax': True, 'numba': False}
+
+exec
+/bin/bash -c "python - <<'PY'
+import json
+from pathlib import Path
+out=Path('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2')
+r=json.loads((out/'baseline_measurement.json').read_text())
+print({k:v for k,v in r.items() if k"'!='"'scenarios'})
+for s in r['scenarios']:
+ print(s['name'], 'error',s['heldout_abs_error'],'leak',s['final_leakage'], 'calmax',max(x['max_abs_error'] for x in s['calibration'].values()),'rms',max(x['rms_error'] for x in s['calibration'].values()))
+import jax
+print('jax',jax.__version__,jax.devices())
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant
+**Considering optimization for variables**
+
+I'm evaluating the current phase and it seems like we're facing potential failures linked to either a .01 leak or a .005 calibration issue. It's definitely a moment where I need to focus on optimizing the variables here. It feels important to ensure everything is calibrated correctly to prevent further complications down the line. There's definitely room for improvement, and I’m curious about the best way to tackle these issues effectively!
+exec
+/bin/bash -c "command -v apply_patch; ls -la /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2; sed -n '35,90p' workspace/screen.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant
+ succeeded in 25217ms:
+ERROR:2026-08-28 10:50:59,222:jax._src.xla_bridge:566: Jax plugin configuration error: Exception when calling jax_plugins.xla_cuda12.initialize()
+Traceback (most recent call last):
+  File "/usr/lib/python3/dist-packages/jax/_src/xla_bridge.py", line 564, in discover_pjrt_plugins
+    plugin_module.initialize()
+  File "/usr/lib/python3/dist-packages/jax_plugins/xla_cuda12/__init__.py", line 85, in initialize
+    c_api = xb.register_plugin(
+  File "/usr/lib/python3/dist-packages/jax/_src/xla_bridge.py", line 666, in register_plugin
+    c_api = xla_client.load_pjrt_plugin_dynamically(plugin_name, library_path)
+  File "/usr/lib/python3/dist-packages/jaxlib/xla_client.py", line 117, in load_pjrt_plugin_dynamically
+    return _xla.load_pjrt_plugin(plugin_name, library_path, c_api=None)
+jaxlib.xla_extension.XlaRuntimeError: INTERNAL: Failed to open /usr/lib/python3/dist-packages/jax_plugins/xla_cuda12/xla_cuda_plugin.so: libnccl.so.2: failed to map segment from shared object
+{'core_score': 0.10470045359041624, 'worst_family_score': 0.0923275469523116, 'runtime_seconds': 0.15519316995050758, 'passed': False, 'valid': True, 'reason': 'calibration screen rejected at least one scenario; held-out error or final-leakage bound failed', 'calibration_accepted': False}
+nominal error 0.10470045359041624 leak 0.009128489164097909 calmax 0.004768969381062531 rms 0.0019084728513250396
+coupling_low error 0.10091118199128352 leak 0.008967347816666357 calmax 0.0045815985000050435 rms 0.0018334182393547778
+coupling_high error 0.10853739903189707 leak 0.009279010994013058 calmax 0.004960000000098413 rms 0.001985000000013721
+phase_low error 0.10645837722783191 leak 0.009800000000054923 calmax 0.00476902565209544 rms 0.0019181358897193239
+phase_high error 0.10274379726734734 leak 0.008847547972905948 calmax 0.004768910420159372 rms 0.0019279455662081512
+independent_phase_5 error 0.10645128223330735 leak 0.013794016711352206 calmax 0.004581787775072142 rms 0.002041295406304689
+independent_phase_6 error 0.10632348404041264 leak 0.013083499529724197 calmax 0.004581787775072142 rms 0.0018493317870141204
+independent_phase_7 error 0.09983388946847888 leak 0.008690482045415917 calmax 0.004581370396667971 rms 0.0018502119638333428
+independent_phase_8 error 0.09937085624172487 leak 0.00854232543174589 calmax 0.004581370396667971 rms 0.0018782437012034572
+independent_phase_9 error 0.1023656188899752 leak 0.00952458686515733 calmax 0.004581787775072142 rms 0.0018679251947889594
+independent_phase_10 error 0.10197023567185187 leak 0.009264463066942048 calmax 0.004581787775072142 rms 0.0018605343247969604
+independent_phase_11 error 0.0930006644725368 leak 0.009758760022289035 calmax 0.004581370396667971 rms 0.0018675853340291578
+independent_phase_12 error 0.0923275469523116 leak 0.010078609703573684 calmax 0.004677677312037276 rms 0.0020586706769773833
+independent_phase_13 error 0.11447746887936194 leak 0.014430101092570185 calmax 0.00496022196612367 rms 0.0022102454190186045
+independent_phase_14 error 0.11434087094456274 leak 0.013667250078630785 calmax 0.00496022196612367 rms 0.0020023035890353474
+independent_phase_15 error 0.10738376493008067 leak 0.008990230423272542 calmax 0.004959892430559824 rms 0.002003242708346158
+independent_phase_16 error 0.1068866602724799 leak 0.008835030629193526 calmax 0.004959892430559824 rms 0.002033405820298205
+independent_phase_17 error 0.1100956321660514 leak 0.009865844823183301 calmax 0.00496022196612367 rms 0.002022453579677617
+independent_phase_18 error 0.10967134305857396 leak 0.00958963380910881 calmax 0.00496022196612367 rms 0.002014295967873006
+independent_phase_19 error 0.10004373328767241 leak 0.010186535358514224 calmax 0.004959913101375381 rms 0.0020219132413677385
+independent_phase_20 error 0.09932075948836344 leak 0.010536611117069364 calmax 0.005062011371117114 rms 0.00222859880998021
+jax 0.6.0 [CpuDevice(id=0)]
+
+**Analyzing system performance**
+
+I'm looking at system time, which shows I'm just under 3 minutes in. Starting at 10:48, things seem fine. A simple scale coupling of .84 reduces leakage and adjusts values. I’ll check the scaling from .82 to .9 using the simulator. It looks like scaling down to .83 might yield a low minimum error and leakage. I suspect that some part of the leakage comes from interference. I’ll need to modify phases and optimize the circuit.
+codex
+The baseline fails independent-phase checks. I’ll optimize for those corners.
+
+  ✓ Inspect simulator and baseline failures
+  → Optimize robust parameters and circuit
+  • Validate and submit static witness
+ succeeded in 28831ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/authoring/runtimes/fresh_t10y08f_/tmp/arg0/codex-arg0iuOXYj/apply_patch
+total 28
+drwxrwxr-x 5 xuandong xuandong  4096 Aug 28 10:50 .
+drwx------ 3 xuandong xuandong    60 Aug 28 10:51 ..
+dr-xr-xr-x 2 xuandong xuandong    40 Aug 28 10:51 .agents
+dr-xr-xr-x 2 xuandong xuandong    40 Aug 28 10:51 .codex
+dr-xr-xr-x 2 xuandong xuandong    40 Aug 28 10:51 .git
+-rw-rw-r-- 1 xuandong xuandong 24278 Aug 28 10:50 baseline_measurement.json
+def load_witness(path):
+    path = Path(path)
+    if path.is_symlink():
+        raise ValueError("symlink submission")
+    if path.is_dir():
+        path = path / "witness.json"
+    if path.is_symlink():
+        raise ValueError("symlink witness")
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_size > SPEC["maximum_json_bytes"]:
+        raise ValueError("submission must be a regular JSON file at most 32 KiB")
+    with path.open("rb") as handle:
+        payload = handle.read(SPEC["maximum_json_bytes"] + 1)
+    if len(payload) > SPEC["maximum_json_bytes"]:
+        raise ValueError("oversized JSON")
+    witness = json.loads(payload.decode("utf-8"), object_pairs_hook=strict_pairs, parse_constant=reject_constant)
+    validate_witness(witness)
+    return witness
+
+
+def validate_witness(witness):
+    if type(witness) is not dict or set(witness) != {"version", "gate_parameters", "circuit"}:
+        raise ValueError("expected exactly version, gate_parameters, circuit")
+    if type(witness["version"]) is not int or witness["version"] != 1:
+        raise ValueError("unsupported version")
+    rows = witness["gate_parameters"]
+    if type(rows) is not list or len(rows) != 3:
+        raise ValueError("expected three gate rows")
+    for row in rows:
+        if type(row) is not list or len(row) != 5:
+            raise ValueError("expected five numbers per gate")
+        if any(type(value) not in (int, float) or not math.isfinite(value) for value in row):
+            raise ValueError("gate parameters must be finite numbers")
+        if abs(row[0]) > SPEC["phase_absolute_max"]:
+            raise ValueError("phase bound exceeded")
+        if math.hypot(*row[1:]) > SPEC["coupling_norm_max"]:
+            raise ValueError("coupling norm bound exceeded")
+    word = witness["circuit"]
+    if type(word) is not str or len(word) != SPEC["circuit_length"] or set(word) - set("IXY"):
+        raise ValueError("expected a 64-gate IXY circuit")
+    if any(word.count(symbol) < SPEC["minimum_each_gate_count"] for symbol in "IXY"):
+        raise ValueError("circuit must contain at least four of every gate")
+    if any(word in words for words in FAMILIES.values()):
+        raise ValueError("held-out circuit is a calibration circuit")
+
+
+def encode(words):
+    encoded = np.full((len(words), max(map(len, words), default=0)), 3, dtype=int)
+    for index, word in enumerate(words):
+        encoded[index, :len(word)] = ["IXY".index(symbol) for symbol in word]
+    return encoded
+
+
+def operators(parameters):
+    unitaries = [np.eye(3, dtype=complex) for index in range(4)]
+    for index, row in enumerate(np.asarray(parameters).reshape(3, 5)):
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2/optimize.py
++import os
++
++os.environ['JAX_PLATFORMS'] = 'cpu'
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++os.environ['XLA_FLAGS'] = '--xla_cpu_multi_thread_eigen=false intra_op_parallelism_threads=4'
++os.sched_setaffinity(0, sorted(os.sched_getaffinity(0))[:4])
++
++import json
++import sys
++import time
++from pathlib import Path
++
++import jax
++import jax.numpy as jnp
++import numpy as np
++from scipy.optimize import minimize
++
++jax.config.update('jax_enable_x64', True)
++
++ROOT = Path('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant')
++OUT = Path(__file__).resolve().parent
++sys.path.insert(0, str(ROOT / 'workspace'))
++import screen
++
++BASE = json.loads((ROOT / 'baseline/witness.json').read_text())
++WORDS = list(dict.fromkeys(sum(screen.FAMILIES.values(), [])))
++WORD_INDEX = {word: index for index, word in enumerate(WORDS)}
++FAMILY_WEIGHTS = np.zeros((len(screen.FAMILIES), len(WORDS)))
++for index, words in enumerate(screen.FAMILIES.values()):
++    FAMILY_WEIGHTS[index, [WORD_INDEX[word] for word in words]] = 1 / len(words)
++FAMILY_WEIGHTS = jnp.asarray(FAMILY_WEIGHTS)
++SHIFTS = jnp.asarray([np.broadcast_to(scenario['phase_shift'], (3,)) for scenario in screen.SPEC['scenarios']])
++SCALES = jnp.asarray([scenario['coupling_scale'] for scenario in screen.SPEC['scenarios']])
++PAULIS = jnp.asarray(screen.PAULIS)
++IDEALS = jnp.asarray(screen.IDEALS)
++PARAM_SCALE = jnp.asarray([[1, .02, .02, .02, .02]] * 3)
++
++
++def make_operators(parameters):
++    phases = parameters[:, 0][None, :] + SHIFTS
++    coupling = parameters[:, 1:][None, :, :] * SCALES[:, None, None]
++    vectors = jnp.stack((coupling[:, :, 0] + 1j * coupling[:, :, 1],
++                         coupling[:, :, 2] + 1j * coupling[:, :, 3]), axis=-1)
++    radius = jnp.linalg.norm(vectors, axis=-1)
++    hamiltonians = jnp.zeros((len(SCALES), 3, 3, 3), dtype=jnp.complex128)
++    hamiltonians = hamiltonians.at[:, :, :2, 2].set(vectors)
++    hamiltonians = hamiltonians.at[:, :, 2, :2].set(vectors.conj())
++    mixing = jnp.eye(3) - 1j * jnp.sinc(radius / jnp.pi)[:, :, None, None] * hamiltonians
++    mixing -= .5 * jnp.sinc(radius / (2 * jnp.pi))[:, :, None, None] ** 2 * (hamiltonians @ hamiltonians)
++    nominal = jnp.zeros_like(hamiltonians).at[:, :, :2, :2].set(IDEALS)
++    nominal = nominal.at[:, :, 2, 2].set(jnp.exp(-1j * phases))
++    unitaries = mixing @ nominal
++    unitaries = jnp.concatenate((unities := unitaries, jnp.broadcast_to(jnp.eye(3), (len(SCALES), 1, 3, 3))), axis=1)
++    first = unitaries[:, :, :2, :2]
++    second = jnp.zeros_like(first).at[:, :, 1, :].set(unitaries[:, :, 2, :2])
++    images = first[:, :, None] @ PAULIS @ first[:, :, None].conj().swapaxes(-1, -2)
++    images += second[:, :, None] @ PAULIS @ second[:, :, None].conj().swapaxes(-1, -2)
++    transfers = (jnp.einsum('aij,sgbji->sgab', PAULIS, images) / 2).real
++    return unitaries, transfers
++
++
++def simulate(parameters, encoded):
++    unitaries, transfers = make_operators(parameters)
++    states = jnp.zeros((len(SCALES), encoded.shape[0], 3), dtype=jnp.complex128).at[:, :, 0].set(1)
++    bloch = jnp.broadcast_to(jnp.array([1., 0., 0., 1.]), (len(SCALES), encoded.shape[0], 4))
++
++    def advance(carry, column):
++        states, bloch = carry
++        states = jnp.einsum('swij,swj->swi', unitaries[:, column], states)
++        bloch = jnp.einsum('swij,swj->swi', transfers[:, column], bloch)
++        return (states, bloch), None
++
++    (states, bloch), _ = jax.lax.scan(advance, (states, bloch), encoded.T)
++    truth = .005 + .99 * jnp.abs(states[:, :, 0]) ** 2
++    prediction = .005 + .99 * (bloch[:, :, 0] + bloch[:, :, 3]) / 2
++    leakage = jnp.abs(states[:, :, 2]) ** 2
++    return truth, prediction, leakage
++
++
++def metrics(vector, encoded):
++    parameters = vector.reshape(3, 5) * PARAM_SCALE
++    truth, prediction, leakage = simulate(parameters, encoded)
++    errors = truth - prediction
++    squared_errors = errors[:, :-1] ** 2
++    cal_constraints = 1 - jnp.max(squared_errors, axis=0) / .00497 ** 2
++    rms_constraints = 1 - jnp.max(squared_errors @ FAMILY_WEIGHTS.T, axis=0) / .00199 ** 2
++    leak_constraint = 1 - jnp.max(leakage[:, -1]) / .0099
++    norms = 1 - jnp.sum(parameters[:, 1:] ** 2, axis=1) / .04 ** 2
++    objective = -jnp.min(jnp.abs(errors[:, -1])) / .1
++    return jnp.concatenate((jnp.array([objective]), cal_constraints, rms_constraints,
++                            jnp.array([leak_constraint]), norms))
++
++
++compiled_metrics = jax.jit(metrics)
++compiled_jacobian = jax.jit(jax.jacfwd(metrics, argnums=0))
++
++
++def run():
++    start = time.monotonic()
++    witness = BASE
++    if len(sys.argv) > 1:
++        witness = json.loads(Path(sys.argv[1]).read_text())
++    circuit = witness['circuit']
++    encoded = jnp.asarray(screen.encode(WORDS + [circuit]))
++    vector = (np.array(witness['gate_parameters']) / np.array(PARAM_SCALE)).ravel()
++    cached_vector = None
++    cached_values = None
++    best = -1
++    iteration = 0
++
++    def evaluate(vector):
++        nonlocal cached_vector, cached_values
++        if cached_vector is None or not np.array_equal(cached_vector, vector):
++            cached_vector = vector.copy()
++            cached_values = np.asarray(compiled_metrics(vector, encoded))
++        return cached_values
++
++    def jacobian(vector):
++        return np.asarray(compiled_jacobian(vector, encoded))
++
++    def callback(vector):
++        nonlocal best, iteration
++        iteration += 1
++        values = evaluate(vector)
++        score = -values[0] * .1
++        violation = max(0, -min(values[1:]))
++        print(f'{iteration:4d} time={time.monotonic()-start:.1f} error={score:.10f} violation={violation:.5g}', flush=True)
++        if violation <= 1e-7 and score > best:
++            best = score
++            candidate = {'version': 1, 'gate_parameters': (vector.reshape(3, 5) * np.array(PARAM_SCALE)).tolist(), 'circuit': circuit}
++            (OUT / 'witness.json').write_text(json.dumps(candidate, indent=2) + '\\n')
++            print('Saved feasible witness', flush=True)
++
++    print('Compiling', len(WORDS), 'unique calibration words', flush=True)
++    print('Initial metrics', evaluate(vector)[0], min(evaluate(vector)[1:]), flush=True)
++    print('Jacobian', jacobian(vector).shape, 'time', time.monotonic()-start, flush=True)
++    callback(vector)
++    result = minimize(lambda vector: evaluate(vector)[0], vector, jac=lambda vector: jacobian(vector)[0],
++                      constraints=[{'type': 'ineq', 'fun': lambda vector: evaluate(vector)[1:],
++                                    'jac': lambda vector: jacobian(vector)[1:]}],
++                      bounds=[(-np.pi, np.pi), (-2, 2), (-2, 2), (-2, 2), (-2, 2)] * 3,
++                      callback=callback, method='SLSQP', options={'maxiter': 200, 'ftol': 1e-11, 'disp': True})
++    callback(result.x)
++    print(result.message, flush=True)
++    if (OUT / 'witness.json').exists():
++        measured = screen.measure(json.loads((OUT / 'witness.json').read_text()))
++        (OUT / 'measurement.json').write_text(json.dumps(measured, indent=2) + '\\n')
++        print({key: value for key, value in measured.items() if key "'!= '"'scenarios'}, flush=True)
++
++
++if __name__ == '__main__':
++    run()
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python -u /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2/optimize.py > /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2/optimize.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant
+exec
+/bin/bash -c 'tail -n 25 optimize.log; date -u' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2
+ exited 134 in 42664ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2/optimize.py
+/bin/bash: line 159:     5 Aborted                 (core dumped) OPENBLAS_NUM_THREADS=1 python -u /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2/optimize.py > /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2/optimize.log 2>&1
+
+exec
+/bin/bash -c 'cat optimize.log; ls -lh; ulimit -a' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2
+ succeeded in 58798ms:
+2026-08-28 10:53:10.905505: F external/xla/xla/tsl/platform/default/env.cc:76] Check failed: ret == 0 (11 vs. 0)Thread tf_XLAEigen creation via pthread_create() failed.
+Fri Aug 28 17:53:38 UTC 2026
+
+ succeeded in 56253ms:
+2026-08-28 10:53:10.905505: F external/xla/xla/tsl/platform/default/env.cc:76] Check failed: ret == 0 (11 vs. 0)Thread tf_XLAEigen creation via pthread_create() failed.
+total 36K
+-rw-rw-r-- 1 xuandong xuandong  24K Aug 28 10:50 baseline_measurement.json
+-rw-rw-r-- 1 xuandong xuandong  169 Aug 28 10:53 optimize.log
+-rw-rw-r-- 1 xuandong xuandong 7.0K Aug 28 10:53 optimize.py
+real-time non-blocking time  (microseconds, -R) unlimited
+core file size              (blocks, -c) 0
+data seg size               (kbytes, -d) unlimited
+scheduling priority                 (-e) 0
+file size                   (blocks, -f) unlimited
+pending signals                     (-i) 6163716
+max locked memory           (kbytes, -l) unlimited
+max memory size             (kbytes, -m) unlimited
+open files                          (-n) 131072
+pipe size                (512 bytes, -p) 8
+POSIX message queues         (bytes, -q) 819200
+real-time priority                  (-r) 0
+stack size                  (kbytes, -s) 8192
+cpu time                   (seconds, -t) unlimited
+max user processes                  (-u) 6163716
+virtual memory              (kbytes, -v) 4194304
+file locks                          (-x) unlimited
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2/optimize_numpy.py
++import os
++
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++os.sched_setaffinity(0, sorted(os.sched_getaffinity(0))[:4])
++
++import json
++import sys
++import time
++from pathlib import Path
++
++import numpy as np
++from scipy.optimize import minimize
++from scipy.optimize._numdiff import approx_derivative
++
++ROOT = Path('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant')
++OUT = Path(__file__).resolve().parent
++sys.path.insert(0, str(ROOT / 'workspace'))
++import screen
++
++WORDS = list(dict.fromkeys(sum(screen.FAMILIES.values(), [])))
++WORD_INDEX = {word: index for index, word in enumerate(WORDS)}
++FAMILY_WEIGHTS = np.zeros((len(screen.FAMILIES), len(WORDS)))
++for index, words in enumerate(screen.FAMILIES.values()):
++    FAMILY_WEIGHTS[index, [WORD_INDEX[word] for word in words]] = 1 / len(words)
++PARAM_SCALE = np.array([[1, .02, .02, .02, .02]] * 3)
++
++
++def simulate(parameters, encoded):
++    scenarios = screen.SPEC['scenarios']
++    all_operators = []
++    for scenario in scenarios:
++        changed = parameters.copy()
++        changed[:, 0] += scenario['phase_shift']
++        changed[:, 1:] *= scenario['coupling_scale']
++        all_operators.append(screen.operators(changed))
++    unitaries = np.array([operators[0] for operators in all_operators])
++    transfers = np.array([operators[1] for operators in all_operators])
++    states = np.zeros((len(scenarios), len(encoded), 3), dtype=complex)
++    states[:, :, 0] = 1
++    bloch = np.broadcast_to(np.array([1., 0., 0., 1.]), (len(scenarios), len(encoded), 4))
++    for column in encoded.T:
++        states = (unitaries[:, column] @ states[..., None])[..., 0]
++        bloch = (transfers[:, column] @ bloch[..., None])[..., 0]
++    truth = .005 + .99 * np.abs(states[:, :, 0]) ** 2
++    prediction = .005 + .99 * (bloch[:, :, 0] + bloch[:, :, 3]) / 2
++    leakage = np.abs(states[:, :, 2]) ** 2
++    return truth, prediction, leakage
++
++
++def metrics(vector, encoded):
++    parameters = vector.reshape(3, 5) * PARAM_SCALE
++    truth, prediction, leakage = simulate(parameters, encoded)
++    errors = truth - prediction
++    squared_errors = errors[:, :-1] ** 2
++    cal_constraints = 1 - np.max(squared_errors, axis=0) / .00497 ** 2
++    rms_constraints = 1 - np.max(squared_errors @ FAMILY_WEIGHTS.T, axis=0) / .00199 ** 2
++    leak_constraint = 1 - np.max(leakage[:, -1]) / .0099
++    norms = 1 - np.sum(parameters[:, 1:] ** 2, axis=1) / .04 ** 2
++    objective = -np.min(np.abs(errors[:, -1])) / .1
++    return np.concatenate(([objective], cal_constraints, rms_constraints, [leak_constraint], norms))
++
++
++def run():
++    start = time.monotonic()
++    source = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / 'baseline/witness.json'
++    witness = json.loads(source.read_text())
++    circuit = witness['circuit']
++    encoded = screen.encode(WORDS + [circuit])
++    vector = (np.array(witness['gate_parameters']) / PARAM_SCALE).ravel()
++    cached_vector = None
++    cached_values = None
++    jac_vector = None
++    jac_values = None
++    best = -1
++    iteration = 0
++
++    def evaluate(vector):
++        nonlocal cached_vector, cached_values
++        if cached_vector is None or not np.array_equal(cached_vector, vector):
++            cached_vector = vector.copy()
++            cached_values = metrics(vector, encoded)
++        return cached_values
++
++    def jacobian(vector):
++        nonlocal jac_vector, jac_values
++        if jac_vector is None or not np.array_equal(jac_vector, vector):
++            jac_vector = vector.copy()
++            jac_values = approx_derivative(evaluate, vector, method='3-point', abs_step=2e-6)
++        return jac_values
++
++    def callback(vector):
++        nonlocal best, iteration
++        iteration += 1
++        values = evaluate(vector)
++        score = -values[0] * .1
++        violation = max(0, -min(values[1:]))
++        print(f'{iteration:4d} time={time.monotonic()-start:.1f} error={score:.10f} violation={violation:.5g}', flush=True)
++        if violation <= 1e-7 and score > best:
++            best = score
++            candidate = {'version': 1, 'gate_parameters': (vector.reshape(3, 5) * PARAM_SCALE).tolist(), 'circuit': circuit}
++            (OUT / 'witness.json').write_text(json.dumps(candidate, indent=2) + '\\n')
++            print('Saved feasible witness', flush=True)
++
++    print(len(WORDS), 'unique calibration words', flush=True)
++    print('Initial metrics', evaluate(vector)[0], min(evaluate(vector)[1:]), flush=True)
++    print('Jacobian', jacobian(vector).shape, 'time', time.monotonic()-start, flush=True)
++    callback(vector)
++    result = minimize(lambda vector: evaluate(vector)[0], vector, jac=lambda vector: jacobian(vector)[0],
++                      constraints=[{'type': 'ineq', 'fun': lambda vector: evaluate(vector)[1:],
++                                    'jac': lambda vector: jacobian(vector)[1:]}],
++                      bounds=[(-np.pi, np.pi), (-2, 2), (-2, 2), (-2, 2), (-2, 2)] * 3,
++                      callback=callback, method='SLSQP', options={'maxiter': 150, 'ftol': 1e-10, 'disp': True})
++    callback(result.x)
++    print(result.message, flush=True)
++    if (OUT / 'witness.json').exists():
++        measured = screen.measure(json.loads((OUT / 'witness.json').read_text()))
++        (OUT / 'measurement.json').write_text(json.dumps(measured, indent=2) + '\\n')
++        print({key: value for key, value in measured.items() if key "'!= '"'scenarios'}, flush=True)
++
++
++if __name__ == '__main__':
++    run()
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python -u optimize_numpy.py > optimize_numpy.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2/validate_independent.py
++import os
++
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++
++import json
++import sys
++from pathlib import Path
++
++import numpy as np
++from scipy.linalg import block_diag, expm
++
++ROOT = Path('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant')
++OUT = Path(__file__).resolve().parent
++sys.path.insert(0, str(ROOT / 'workspace'))
++import screen
++
++witness = screen.load_witness(OUT / 'witness.json')
++reference = screen.measure(witness)
++assert reference['passed'], reference['reason']
++families = json.loads((ROOT / 'input/calibration.json').read_text())
++specification = json.loads((ROOT / 'input/specification.json').read_text())
++words = sum(families.values(), []) + [witness['circuit']]
++encoded = screen.encode(words)
++identity = np.eye(2)
++pauli_x = np.array([[0, 1], [1, 0]])
++pauli_y = np.array([[0, -1j], [1j, 0]])
++ideals = [identity, expm(-1j * np.pi * pauli_x / 4), expm(-1j * np.pi * pauli_y / 4)]
++summaries = []
++largest_discrepancy = 0.
++for scenario, expected in zip(specification['scenarios'], reference['scenarios']):
++    parameters = np.array(witness['gate_parameters'])
++    parameters[:, 0] += scenario['phase_shift']
++    parameters[:, 1:] *= scenario['coupling_scale']
++    physical = []
++    kraus_first = []
++    kraus_second = []
++    for index, row in enumerate(parameters):
++        coupling_zero = row[1] + 1j * row[2]
++        coupling_one = row[3] + 1j * row[4]
++        hamiltonian = np.array([[0, 0, coupling_zero], [0, 0, coupling_one],
++                                [coupling_zero.conjugate(), coupling_one.conjugate(), 0]])
++        unitary = expm(-1j * hamiltonian) @ block_diag(ideals[index], np.exp(-1j * row[0]))
++        assert np.max(np.abs(unitary.conj().T @ unitary - np.eye(3))) < 1e-13
++        first = unitary[:2, :2]
++        second = np.zeros((2, 2), dtype=complex)
++        second[1] = unitary[2, :2]
++        assert np.max(np.abs(first.conj().T @ first + second.conj().T @ second - identity)) < 1e-13
++        physical.append(unitary)
++        kraus_first.append(first)
++        kraus_second.append(second)
++    physical = np.array(physical + [np.eye(3)])
++    kraus_first = np.array(kraus_first + [identity])
++    kraus_second = np.array(kraus_second + [np.zeros((2, 2))])
++    actual = np.zeros((len(words), 3, 3), dtype=complex)
++    actual[:, 0, 0] = 1
++    reported = np.zeros((len(words), 2, 2), dtype=complex)
++    reported[:, 0, 0] = 1
++    for column in encoded.T:
++        unitary = physical[column]
++        first = kraus_first[column]
++        second = kraus_second[column]
++        actual = unitary @ actual @ unitary.conj().swapaxes(-1, -2)
++        reported = first @ reported @ first.conj().swapaxes(-1, -2) + second @ reported @ second.conj().swapaxes(-1, -2)
++    truth = .005 * np.trace(actual, axis1=1, axis2=2).real + .99 * actual[:, 0, 0].real
++    prediction = .005 * np.trace(reported, axis1=1, axis2=2).real + .99 * reported[:, 0, 0].real
++    leakage = actual[:, 2, 2].real
++    errors = np.abs(truth - prediction)
++    scenario_maximum = 0.
++    scenario_rms = 0.
++    offset = 0
++    for family, circuits in families.items():
++        selected = errors[offset:offset + len(circuits)]
++        offset += len(circuits)
++        maximum = np.max(selected)
++        rms = np.sqrt(np.mean(selected ** 2))
++        assert maximum <= .005
++        assert rms <= .002
++        scenario_maximum = max(scenario_maximum, maximum)
++        scenario_rms = max(scenario_rms, rms)
++        largest_discrepancy = max(largest_discrepancy,
++                                  abs(maximum - expected['calibration'][family]['max_abs_error']),
++                                  abs(rms - expected['calibration'][family]['rms_error']))
++    assert errors[-1] >= .065
++    assert leakage[-1] <= .01
++    largest_discrepancy = max(largest_discrepancy, abs(truth[-1] - expected['heldout_truth']),
++                              abs(prediction[-1] - expected['heldout_prediction']),
++                              abs(leakage[-1] - expected['final_leakage']))
++    summaries.append({'name': scenario['name'], 'error': float(errors[-1]), 'leakage': float(leakage[-1]),
++                      'calibration_max': float(scenario_maximum), 'calibration_rms_max': float(scenario_rms)})
++summary = {'passed': True, 'scenario_count': len(summaries), 'nominal_error': summaries[0]['error'],
++           'worst_error': min(row['error'] for row in summaries),
++           'worst_leakage': max(row['leakage'] for row in summaries),
++           'worst_calibration_max': max(row['calibration_max'] for row in summaries),
++           'worst_family_rms': max(row['calibration_rms_max'] for row in summaries),
++           'largest_simulator_discrepancy': largest_discrepancy,
++           'circuit_counts': {symbol: witness['circuit'].count(symbol) for symbol in 'IXY'},
++           'coupling_norms': np.linalg.norm(np.array(witness['gate_parameters'])[:, 1:], axis=1).tolist(),
++           'scenarios': summaries}
++assert largest_discrepancy < 1e-11
++(OUT / 'independent_validation.json').write_text(json.dumps(summary, indent=2) + '\\n')
++print(json.dumps({key: value for key, value in summary.items() if key "'!= '"'scenarios'}, indent=2))
+*** End Patch
+PATCH
+tail -n 15 optimize_numpy.log" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2
+**Debugging and optimizing scripts**
+
+I’m working on debugging our initial JAX script, which we actually don’t need to worry about too much. I think it might be wise to optimize twice and even consider removing unnecessary parts of the JAX script. I need to ensure that we only use the apply_patch tool for generating output, and that’s permitted for users' code. Also, I’m thinking about optimizing the NumPy command completion since it might face out-of-memory issues with OpenBLAS. Let’s focus on that!
+**Evaluating monitoring process**
+
+I’m considering that the current time is around 10:56, and I have about 8 minutes left. I think I can optimize the process for 3 minutes without repeated polling. Instead, I could run a monitoring method with a sleep of 20 seconds. It seems like "no busy polling" truly applies to agents, not to the tool process. So, I want to avoid unnecessary polling while keeping an eye on the process, especially tailing the latest command.
+exec
+/bin/bash -c 'tail -n 20 optimize_numpy.log; test ! -f witness.json || cat witness.json; date -u' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2
+**Evaluating optimization progress**
+
+I'm thinking about what to do while I'm waiting for the optimizer to finish, which could take around 2000 seconds. I only need to verify the output, so the full hour isn't necessary. I want to ensure all scenarios pass and the margin is robust. If the score achieves 0.09, that's good. I'll finalize with "Created witness.json; passes all 21 scenarios" alongside two minimal metrics without any extras.
+**Evaluating command execution**
+
+I'm considering if each apply_patch command takes about a minute to launch. It seems the execution calls are lagging by a minute too, and the last command just started now. I should avoid launching too many commands at once. It's important that I track the actual time budget using timestamps. So, I think I need to wait for 30 seconds before calling any more tools to avoid any issues.
+**Optimizing tool use**
+
+I see that I'm using a lot of unnecessary tool polls, and that can slow things down. There's a suggestion to specify a yield time of 10,000 ms, but it looks like it should return normally after 30 seconds. I want to be effective here. The default wait is set to 5,000 ms, with a cap of 300,000 ms. Maybe I should choose 60,000 ms instead to optimize performance.
+ succeeded in 65170ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2/validate_independent.py
+  13 time=35.2 error=0.0792021978 violation=0.014648
+  14 time=37.9 error=0.0788582609 violation=0.0092268
+  15 time=40.5 error=0.0787844535 violation=0.0045953
+  16 time=42.9 error=0.0787446573 violation=0.0027714
+  17 time=45.4 error=0.0787129689 violation=0.00056194
+  18 time=47.7 error=0.0787404787 violation=0.0024221
+  19 time=50.1 error=0.0787053581 violation=0.0003718
+  20 time=52.4 error=0.0788421550 violation=0.03027
+  21 time=55.7 error=0.0790412267 violation=0.13021
+  22 time=58.5 error=0.0795454965 violation=0.79823
+  23 time=62.3 error=0.0797008039 violation=1.3225
+  24 time=65.2 error=0.0797695638 violation=1.7234
+  25 time=68.1 error=0.0797806012 violation=1.7813
+  26 time=71.1 error=0.0797831400 violation=1.7963
+  27 time=74.6 error=0.0797185018 violation=1.4584
+
+**Investigating run status**
+
+I'm thinking about checking the run status via exec. It isn't urgent since tool sessions seem to only return results once completely finished. The first tool command returned while the process was still running. I wonder about errors squared in terms of constraints; setting some to zero may make the derivative zero while being safely inactive. SLSQP can handle duplicate constraints, so I’m considering that for optimization. Time estimates suggest I’ll need about 4 minutes in total.
+ succeeded in 41353ms:
+  13 time=35.2 error=0.0792021978 violation=0.014648
+  14 time=37.9 error=0.0788582609 violation=0.0092268
+  15 time=40.5 error=0.0787844535 violation=0.0045953
+  16 time=42.9 error=0.0787446573 violation=0.0027714
+  17 time=45.4 error=0.0787129689 violation=0.00056194
+  18 time=47.7 error=0.0787404787 violation=0.0024221
+  19 time=50.1 error=0.0787053581 violation=0.0003718
+  20 time=52.4 error=0.0788421550 violation=0.03027
+  21 time=55.7 error=0.0790412267 violation=0.13021
+  22 time=58.5 error=0.0795454965 violation=0.79823
+  23 time=62.3 error=0.0797008039 violation=1.3225
+  24 time=65.2 error=0.0797695638 violation=1.7234
+  25 time=68.1 error=0.0797806012 violation=1.7813
+  26 time=71.1 error=0.0797831400 violation=1.7963
+  27 time=74.6 error=0.0797185018 violation=1.4584
+  28 time=77.8 error=0.0820947215 violation=1.8826
+  29 time=81.2 error=0.0427319950 violation=6.0116
+  30 time=83.9 error=0.0221699666 violation=7.8305
+  31 time=87.5 error=0.0472920789 violation=5.9653
+  32 time=90.1 error=0.0813158197 violation=0.94089
+Fri Aug 28 17:56:56 UTC 2026
+
+**Optimizing process parameters**
+
+I’m thinking about adjusting some parameters to improve scaling. For example, I could lower a value, adjust the calibration, and optimize some couplings for better accuracy. I shouldn’t wait for 150 iterations if things are failing; using Ctrl+C could help, but there’s a bit of a technical challenge with that. It seems simpler to finish the initial script in about 7 minutes instead of complicating things too much. I also want to keep track of outputs more effectively.
+**Stopping and rerunning processes**
+
+I need to stop the old process and run a new script. The command `pkill -f '^python -u optimize_numpy.py$'` will ensure I only kill my own script. After that, I'll execute the necessary patch and rerun the process. It seems important to reuse the metrics for adding full constraints and the epigraph. I’ll also need to modify the Numpy-only script's shape logic, saving the results accordingly.
+**Addressing scaling issues**
+
+I'm dealing with a nonsmooth max issue because changes in constraints affect the slope of the scene. A smooth resolution generally helps, but I need to consider a couple of scaling factors, like using .999 for future safety and .00497 for robustness. It's crucial for me to ensure these adjustments can handle potential complications effectively. I wonder how best to implement these scaling factors for optimal results!
+exec
+/bin/bash -c "pkill -f '"'^python -u optimize_numpy.py$'"' || true
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2/optimize_numpy.py
+@@
+-    parameters = vector.reshape(3, 5) * PARAM_SCALE
++    parameters = vector[:15].reshape(3, 5) * PARAM_SCALE
+@@
+-    cal_constraints = 1 - np.max(squared_errors, axis=0) / .00497 ** 2
+-    rms_constraints = 1 - np.max(squared_errors @ FAMILY_WEIGHTS.T, axis=0) / .00199 ** 2
+-    leak_constraint = 1 - np.max(leakage[:, -1]) / .0099
++    cal_constraints = 1 - squared_errors.ravel() / .00497 ** 2
++    rms_constraints = 1 - (squared_errors @ FAMILY_WEIGHTS.T).ravel() / .00199 ** 2
++    leak_constraints = 1 - leakage[:, -1] / .0099
+@@
+-    objective = -np.min(np.abs(errors[:, -1])) / .1
+-    return np.concatenate(([objective], cal_constraints, rms_constraints, [leak_constraint], norms))
++    heldout_constraints = np.abs(errors[:, -1]) / .1 - vector[-1]
++    return np.concatenate(([-vector[-1]], cal_constraints, rms_constraints, leak_constraints, norms, heldout_constraints))
+@@
+-    vector = (np.array(witness['gate_parameters']) / PARAM_SCALE).ravel()
++    vector = np.concatenate(((np.array(witness['gate_parameters']) / PARAM_SCALE).ravel(), [.7]))
+@@
+-        if violation <= 1e-7 and score > best:
+-            best = score
+-            candidate = {'version': 1, 'gate_parameters': (vector.reshape(3, 5) * PARAM_SCALE).tolist(), 'circuit': circuit}
++        candidate = {'version': 1, 'gate_parameters': (vector[:15].reshape(3, 5) * PARAM_SCALE).tolist(), 'circuit': circuit}
++        (OUT / 'latest.json').write_text(json.dumps(candidate, indent=2) + '\\n')
++        if violation <= .001 and score > best:
++            measured = screen.measure(candidate)
++            if not measured['passed']:
++                return
++            best = score
+@@
+-                      bounds=[(-np.pi, np.pi), (-2, 2), (-2, 2), (-2, 2), (-2, 2)] * 3,
++                      bounds=[(-np.pi, np.pi), (-2, 2), (-2, 2), (-2, 2), (-2, 2)] * 3 + [(0, 2)],
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 python -u optimize_numpy.py > optimize_smooth.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2
+codex
+I’m optimizing leakage cancellation across all 21 scenarios.
+
+exec
+/bin/bash -c 'tail -n 12 optimize_smooth.log; test ! -f witness.json || OPENBLAS_NUM_THREADS=1 python validate_independent.py; date -u' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2
+ succeeded in 30142ms:
+270 unique calibration words
+Initial metrics -0.7 -0.4575859689464832
+Jacobian (5863, 16) time 2.667772426037118
+   1 time=2.7 error=0.0700000000 violation=0.45759
+   2 time=2.8 error=0.0844102844 violation=0.85329
+   3 time=5.4 error=0.0862770964 violation=0.39792
+   4 time=8.1 error=0.0860729473 violation=1.2092
+   5 time=10.5 error=0.0817465717 violation=0.18073
+   6 time=12.9 error=0.0796756063 violation=0.081865
+   7 time=15.2 error=0.0798908609 violation=0.11686
+   8 time=18.2 error=0.0790162607 violation=0.023964
+   9 time=21.6 error=0.0790785797 violation=0.016531
+Fri Aug 28 17:58:33 UTC 2026
+
+**Planning compile process**
+
+I'm thinking through my compile process for 150 iterations over 4 minutes. I don't want to keep polling since that might slow things down. I can set it to run and just wait for the solver, making sure it doesn't exceed 600 seconds. This approach should help keep everything efficient. I'll stay focused on the timings and how I can optimize this!
+exec
+/bin/bash -c 'sleep 45; tail -n 20 optimize_smooth.log; if test -f witness.json; then OPENBLAS_NUM_THREADS=1 python validate_independent.py; fi' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2
+ succeeded in 83030ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2/optimize_numpy.py
+
+exec
+/bin/bash -c 'tail -n 35 optimize_smooth.log; OPENBLAS_NUM_THREADS=1 python validate_independent.py; cat witness.json' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2
+codex
+Optimization finished. I’m checking the candidate with density-matrix simulation.
+
+ succeeded in 41617ms:
+270 unique calibration words
+Initial metrics -0.7 -0.4575859689464832
+Jacobian (5863, 16) time 2.667772426037118
+   1 time=2.7 error=0.0700000000 violation=0.45759
+   2 time=2.8 error=0.0844102844 violation=0.85329
+   3 time=5.4 error=0.0862770964 violation=0.39792
+   4 time=8.1 error=0.0860729473 violation=1.2092
+   5 time=10.5 error=0.0817465717 violation=0.18073
+   6 time=12.9 error=0.0796756063 violation=0.081865
+   7 time=15.2 error=0.0798908609 violation=0.11686
+   8 time=18.2 error=0.0790162607 violation=0.023964
+   9 time=21.6 error=0.0790785797 violation=0.016531
+  10 time=24.6 error=0.0788013259 violation=0.0049749
+  11 time=27.6 error=0.0787046849 violation=0.000395
+Saved feasible witness
+  12 time=30.7 error=0.0786978360 violation=2.4183e-05
+  13 time=33.4 error=0.0787005073 violation=0.00013157
+  14 time=35.9 error=0.0786998657 violation=1.6152e-05
+  15 time=39.2 error=0.0787000471 violation=5.4007e-06
+  16 time=41.7 error=0.0786999926 violation=1.0558e-06
+  17 time=44.6 error=0.0786999754 violation=2.9916e-07
+  18 time=47.4 error=0.0786999709 violation=1.3489e-08
+  19 time=49.8 error=0.0786999707 violation=1.7298e-09
+  20 time=52.6 error=0.0786999707 violation=3.284e-10
+  21 time=55.2 error=0.0786999707 violation=1.7764e-11
+  22 time=57.9 error=0.0786999707 violation=4.6452e-13
+Optimization terminated successfully    (Exit mode 0)
+            Current function value: -0.7869997070263571
+            Iterations: 21
+            Function evaluations: 27
+            Gradient evaluations: 21
+  23 time=57.9 error=0.0786999707 violation=4.6452e-13
+Optimization terminated successfully
+{'core_score': 0.08858814150043298, 'worst_family_score': 0.07870500906378619, 'runtime_seconds': 0.11304642492905259, 'passed': True, 'valid': True, 'reason': 'valid robust counterexample', 'calibration_accepted': True}
+{
+  "passed": true,
+  "scenario_count": 21,
+  "nominal_error": 0.08858814150043354,
+  "worst_error": 0.0787050090637843,
+  "worst_leakage": 0.009901031657707013,
+  "worst_calibration_max": 0.004970060865300026,
+  "worst_family_rms": 0.001990392990530867,
+  "largest_simulator_discrepancy": 5.5762686135274464e-15,
+  "circuit_counts": {
+    "I": 26,
+    "X": 34,
+    "Y": 4
+  },
+  "coupling_norms": [
+    0.013032246402247875,
+    0.023676337338904393,
+    0.008307464186849309
+  ]
+}
+{
+  "version": 1,
+  "gate_parameters": [
+    [
+      1.884376332663086,
+      -0.0014098722708777876,
+      -0.006913774039891953,
+      -0.0073908639257026796,
+      -0.00808866895266307
+    ],
+    [
+      -2.127920614919364,
+      0.0016029251573970193,
+      0.003558758593928897,
+      0.005509238000470168,
+      0.022693239404053683
+    ],
+    [
+      -1.2701765633541535,
+      -0.002634898855357648,
+      0.006434070474063725,
+      0.0042571573238985375,
+      0.0015970654000939505
+    ]
+  ],
+  "circuit": "XIXIXXYYIXIXXIXIXIXIXXIXIXIXXIXIXIXXIXIXIXIXXIXIXIYXYIXIXIIXXXIX"
+}
+
+ succeeded in 67696ms:
+Saved feasible witness
+  12 time=30.7 error=0.0786978360 violation=2.4183e-05
+  13 time=33.4 error=0.0787005073 violation=0.00013157
+  14 time=35.9 error=0.0786998657 violation=1.6152e-05
+  15 time=39.2 error=0.0787000471 violation=5.4007e-06
+  16 time=41.7 error=0.0786999926 violation=1.0558e-06
+  17 time=44.6 error=0.0786999754 violation=2.9916e-07
+  18 time=47.4 error=0.0786999709 violation=1.3489e-08
+  19 time=49.8 error=0.0786999707 violation=1.7298e-09
+  20 time=52.6 error=0.0786999707 violation=3.284e-10
+  21 time=55.2 error=0.0786999707 violation=1.7764e-11
+  22 time=57.9 error=0.0786999707 violation=4.6452e-13
+Optimization terminated successfully    (Exit mode 0)
+            Current function value: -0.7869997070263571
+            Iterations: 21
+            Function evaluations: 27
+            Gradient evaluations: 21
+  23 time=57.9 error=0.0786999707 violation=4.6452e-13
+Optimization terminated successfully
+{'core_score': 0.08858814150043298, 'worst_family_score': 0.07870500906378619, 'runtime_seconds': 0.11304642492905259, 'passed': True, 'valid': True, 'reason': 'valid robust counterexample', 'calibration_accepted': True}
+{
+  "passed": true,
+  "scenario_count": 21,
+  "nominal_error": 0.08858814150043354,
+  "worst_error": 0.0787050090637843,
+  "worst_leakage": 0.009901031657707013,
+  "worst_calibration_max": 0.004970060865300026,
+  "worst_family_rms": 0.001990392990530867,
+  "largest_simulator_discrepancy": 5.5762686135274464e-15,
+  "circuit_counts": {
+    "I": 26,
+    "X": 34,
+    "Y": 4
+  },
+  "coupling_norms": [
+    0.013032246402247875,
+    0.023676337338904393,
+    0.008307464186849309
+  ]
+}
+
+Found a passing witness and reproduced every scenario independently using matrix exponentials and density matrices.
+  ✓ Inspect simulator and baseline failures
+  ✓ Optimize robust parameters and circuit
+  → Validate and submit static witness
+codex
+All 21 scenarios pass, including the independent density-matrix check.
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 python /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/participant/workspace/screen.py --witness witness.json > final_screen.json && python - <<'PY'
+import json
+from pathlib import Path
+result = json.loads(Path('final_screen.json').read_text())
+assert result['passed'] and result['valid']
+assert len(result['scenarios']) == 21
+print('passed:', result['passed'])
+print('nominal error:', result['core_score'])
+print('worst-scenario error:', result['worst_family_score'])
+print('maximum leakage:', max(row['final_leakage'] for row in result['scenarios']))
+print('submission bytes:', Path('witness.json').stat().st_size)
+PY
+rm -- baseline_measurement.json optimize.py optimize.log optimize_numpy.py optimize_numpy.log optimize_smooth.log validate_independent.py latest.json measurement.json independent_validation.json final_screen.json
+ls -l witness.json
+sha256sum witness.json" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/probing_quantum_processor_performance_with_pygsti__2002_12476/concept_2/attempts/v_2
+ succeeded in 25847ms:
+passed: True
+nominal error: 0.08858814150043298
+worst-scenario error: 0.07870500906378619
+maximum leakage: 0.009901031657706887
+submission bytes: 586
+-rw-rw-r-- 1 xuandong xuandong 586 Aug 28 10:58 witness.json
+58ceee109eb86f7e1faaab687f7c6a03582c4509f6ac8af925041d109d362e68  witness.json
+
+The final 586-byte witness passes the supplied screen and an independent density-matrix implementation in all 21 scenarios. Removed temporary work files.
+  ✓ Inspect simulator and baseline failures
+  ✓ Optimize robust parameters and circuit
+  ✓ Validate and submit static witness
+codex
+Created `../attempts/v_2/witness.json`.
+
+Validated all 21 scenarios using both simulators:
+- **Passed:** true
+- **Worst-scenario prediction error:** 0.0787050
+- **Maximum final leakage:** 0.00990103
+
+All calibration bounds pass.
+tokens used
+60,362
+Created `../attempts/v_2/witness.json`.
+
+Validated all 21 scenarios using both simulators:
+- **Passed:** true
+- **Worst-scenario prediction error:** 0.0787050
+- **Maximum final leakage:** 0.00990103
+
+All calibration bounds pass.

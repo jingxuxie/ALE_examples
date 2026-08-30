@@ -1,0 +1,36 @@
+--- 9625e083fce46db66609c63bca91b7177bd6165ac79e2efbfb02c8cc5aa43da3
++++ 06f4693741de6587283d2cf78d91895e5a74c1230c9960b5457f8cc536cf0394
+@@ -17,6 +17,7 @@
+ # The child inherits model and effort from CODEX_HOME unless --model and/or
+ # --effort are supplied. Provider and authentication always come from CODEX_HOME.
+ # Approval escalation is disabled so it cannot request broader filesystem access.
++# Commands launched by the child inherit a four-thread OpenMP/BLAS ceiling.
+ set -euo pipefail
+ 
+ usage() {
+@@ -150,10 +151,24 @@
+ permissions_override="permissions.benchmark.filesystem={\":minimal\"=\"read\",\"$task_toml\"=\"$task_access\",\"$output_toml\"=\"write\",\"$packages_toml\"=\"read\",\"$helpers_toml\"=\"read\",\"$binary_toml\"=\"read\"}"
+ 
+ # Remove permission restrictions inherited from the parent session, then apply
+-# the narrower benchmark profile to this child process.
++# the narrower benchmark profile to this child process. OMP_THREAD_LIMIT is the
++# hard OpenMP ceiling; OMP_NUM_THREADS supplies the normal team-size default.
++# The other variables cap common numerical libraries that do not use OpenMP.
+ exec env \
+   -u CODEX_PERMISSION_PROFILE \
+   -u CODEX_SANDBOX_NETWORK_DISABLED \
++  OMP_NUM_THREADS=4 \
++  OMP_THREAD_LIMIT=4 \
++  OMP_MAX_ACTIVE_LEVELS=1 \
++  OMP_NESTED=FALSE \
++  OMP_DYNAMIC=FALSE \
++  OPENBLAS_NUM_THREADS=4 \
++  GOTO_NUM_THREADS=4 \
++  MKL_NUM_THREADS=4 \
++  MKL_DYNAMIC=FALSE \
++  BLIS_NUM_THREADS=4 \
++  NUMEXPR_NUM_THREADS=4 \
++  VECLIB_MAXIMUM_THREADS=4 \
+   CODEX_HOME="$codex_home_dir" \
+   "$codex_bin" \
+   --strict-config \
