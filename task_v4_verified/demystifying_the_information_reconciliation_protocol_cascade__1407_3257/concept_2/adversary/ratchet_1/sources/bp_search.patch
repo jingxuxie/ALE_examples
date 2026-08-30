@@ -1,0 +1,113 @@
+--- archived/bp_search.cpp
++++ adapted/bp_search.cpp
+@@ -9,11 +9,11 @@
+ #include <random>
+ #include <vector>
+ 
+-constexpr int length = 2048;
+-constexpr int checks = 384;
+-using Syndrome = std::array<uint64_t, 6>;
++#include "geometry.hpp"
++using Syndrome = std::array<uint64_t, syndrome_words>;
+ std::array<std::array<int, 6>, length> incidence;
+-std::array<std::array<int, 32>, checks> members;
++std::array<std::array<int, max_block_size>, checks> members;
++std::array<int, checks> check_sizes{};
+ std::array<std::array<int, 6>, length> edges;
+ std::array<Syndrome, length> columns;
+ std::mt19937 generator(345778);
+@@ -24,7 +24,7 @@
+ }
+ 
+ void add(Syndrome& destination, const Syndrome& source) {
+-    for (int word = 0; word < 6; ++word) destination[word] ^= source[word];
++    for (int word = 0; word < syndrome_words; ++word) destination[word] ^= source[word];
+ }
+ 
+ bool save(const std::vector<int>& support) {
+@@ -81,7 +81,7 @@
+             }
+         }
+         if (!independent && int(nonpivots.size()) < order_depth) nonpivots.push_back({position, representation});
+-        if (selected.size() >= 379 && int(nonpivots.size()) >= order_depth) break;
++        if (selected.size() >= matrix_rank && int(nonpivots.size()) >= order_depth) break;
+     }
+     Syndrome representation{};
+     for (int row = 0; row < checks; ++row) if (bit(target, row)) {
+@@ -115,8 +115,8 @@
+ }
+ 
+ bool decode(const std::vector<int>& forced, int iteration_limit, float normalization, float noise) {
+-    std::array<float, length * 6> variable_messages;
+-    std::array<float, length * 6> check_messages{};
++    std::array<float, checks * max_block_size> variable_messages;
++    std::array<float, checks * max_block_size> check_messages{};
+     std::array<float, length> prior;
+     std::array<float, length> posterior;
+     std::array<float, length> accumulated{};
+@@ -128,8 +128,8 @@
+         for (int check = 0; check < checks; ++check) {
+             float minimum = 1e8f, second_minimum = 1e8f;
+             int minimum_index = -1, sign = 1;
+-            for (int index = 0; index < 32; ++index) {
+-                float value = variable_messages[check * 32 + index];
++            for (int index = 0; index < check_sizes[check]; ++index) {
++                float value = variable_messages[check * max_block_size + index];
+                 sign *= value < 0 ? -1 : 1;
+                 float magnitude = std::abs(value);
+                 if (magnitude < minimum) {
+@@ -138,8 +138,8 @@
+                     minimum_index = index;
+                 } else if (magnitude < second_minimum) second_minimum = magnitude;
+             }
+-            for (int index = 0; index < 32; ++index) {
+-                int edge = check * 32 + index;
++            for (int index = 0; index < check_sizes[check]; ++index) {
++                int edge = check * max_block_size + index;
+                 float value = (index == minimum_index ? second_minimum : minimum) * normalization;
+                 check_messages[edge] = value * sign * (variable_messages[edge] < 0 ? -1 : 1);
+             }
+@@ -164,17 +164,19 @@
+ 
+ int main(int argc, char** argv) {
+     int seconds = argc > 1 ? std::stoi(argv[1]) : 1800;
++    if (argc > 2) generator.seed(std::stoul(argv[2]));
+     std::ifstream input("blocks.txt");
+     std::array<int, checks> counts{};
+     for (int position = 0; position < length; ++position) for (int pass = 0; pass < 6; ++pass) {
+         int group;
+         input >> group;
+-        int check = pass * 64 + group;
++        int check = check_offsets[pass] + group;
+         incidence[position][pass] = check;
+         members[check][counts[check]] = position;
+-        edges[position][pass] = check * 32 + counts[check]++;
++        edges[position][pass] = check * max_block_size + counts[check]++;
+         columns[position][check / 64] |= 1ULL << (check % 64);
+     }
++    check_sizes = counts;
+     std::vector<std::pair<int, std::vector<int>>> impulses;
+     for (int first = 0; first < length; ++first) {
+         impulses.push_back({0, {first}});
+@@ -185,6 +187,7 @@
+         }
+     }
+     std::sort(impulses.begin(), impulses.end(), [](const auto& left, const auto& right) {return left.first > right.first;});
++    std::cout << "CONFIG n " << length << " checks " << checks << " rank " << matrix_rank << " impulses " << impulses.size() << std::endl;
+     auto start = std::chrono::steady_clock::now();
+     int trial = 0;
+     for (int round = 0; ; ++round) {
+@@ -192,8 +195,11 @@
+             float normalization = round % 3 == 0 ? 0.8f : (round % 3 == 1 ? 1.0f : 0.6f);
+             if (decode(impulse.second, 100, normalization, round == 0 ? 0.1f : 0.8f)) return 0;
+             double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+-            if (++trial % 100 == 0) std::cout << "PROGRESS " << trial << ' ' << elapsed << ' ' << impulse.first << std::endl;
+-            if (elapsed > seconds) return 0;
++            if (++trial % 10 == 0) std::cout << "PROGRESS " << trial << ' ' << elapsed << ' ' << impulse.first << std::endl;
++            if (elapsed > seconds) {
++                std::cout << "END trials " << trial << " elapsed " << elapsed << std::endl;
++                return 0;
++            }
+         }
+         std::shuffle(impulses.begin(), impulses.end(), generator);
+     }
