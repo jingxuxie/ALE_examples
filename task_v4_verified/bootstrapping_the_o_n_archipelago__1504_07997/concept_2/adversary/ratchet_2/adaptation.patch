@@ -1,0 +1,78 @@
+--- champions/generation_1/solve.py
++++ participant/baseline/champion_core.py
+@@ -11,7 +11,7 @@
+ from scipy.optimize import least_squares, nnls
+ 
+ ROOT = Path(__file__).resolve().parent
+-INPUT = ROOT.parent.parent / 'participant' / 'input' / 'instances.json'
++INPUT = None
+ 
+ 
+ def products(vectors):
+--- champions/generation_1/search.py
++++ participant/baseline/search.py
+@@ -5,7 +5,7 @@
+ 
+ import numpy as np
+ 
+-from solve import INPUT, ROOT, Solver
++from champion_core import INPUT, ROOT, Solver
+ 
+ 
+ def search(instance):
+--- champions/generation_1/refine.py
++++ participant/baseline/refine.py
+@@ -4,7 +4,7 @@
+ import numpy as np
+ from scipy.optimize import least_squares
+ 
+-from solve import INPUT, ROOT, Solver, products
++from champion_core import INPUT, ROOT, Solver, products
+ 
+ 
+ def refine(instance):
+--- champions/generation_1/enumerate_supports.py
++++ participant/baseline/enumerate_supports.py
+@@ -2,26 +2,33 @@
+ import itertools
+ import json
+ import sys
++import time
+ 
+ import numpy as np
+ 
+-from solve import INPUT, ROOT, Solver
++from champion_core import INPUT, ROOT, Solver
+ 
+ 
+-def enumerate_case(instance):
++def enumeration_pool(instance, saved):
++    fixed = [0] + sorted(atom['index'] for atom in saved['atoms']
++                         if atom['index'] != 0 and instance['candidates'][atom['index']]['spin'] != 0)
++    candidates = [index for index, candidate in enumerate(instance['candidates'])
++                  if index not in fixed and candidate['spin'] == 0]
++    candidates.sort(key=lambda index: (instance['candidates'][index]['dimension'], index))
++    return fixed, candidates
++
++
++def enumerate_case(instance, seconds=150):
+     solver = Solver(instance)
+     saved = json.loads((ROOT / (instance['id'] + '.json')).read_text())
+     solver.evaluate([atom['index'] for atom in saved['atoms']], np.array([atom['ope'] for atom in saved['atoms']]))
+-    fixed = [0]
+-    if instance['family'] == 'weak_residues':
+-        fixed += [atom['index'] for atom in saved['atoms'] if instance['candidates'][atom['index']]['spin'] != 0]
+-        candidates = [index for index, candidate in enumerate(instance['candidates']) if index not in fixed and candidate['spin'] == 0]
+-    else:
+-        candidates = list(range(1, 24))
++    fixed, candidates = enumeration_pool(instance, saved)
++    print('METADATA_POOL', len(candidates), candidates, 'FIXED', fixed, flush=True)
++    deadline = time.monotonic() + max(0, seconds * 0.45)
+     combinations = itertools.combinations(candidates, instance['max_atoms'] - len(fixed))
+     best = []
+     count = 0
+-    while True:
++    while time.monotonic() < deadline:
+         batch = list(itertools.islice(combinations, 1024))
+         if not batch:
+             break
