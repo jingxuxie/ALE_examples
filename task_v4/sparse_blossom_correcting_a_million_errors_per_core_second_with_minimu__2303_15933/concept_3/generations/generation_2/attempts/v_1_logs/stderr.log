@@ -1,0 +1,1033 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/concept_3/generations/generation_2/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a049b3-aa52-73a0-8321-48e0bec536d6
+--------
+user
+Read TASK.md and the provided participant assets, then solve the task independently. Write your complete runnable submission into /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/concept_3/generations/generation_2/attempts/v_1. You have up to 3600 seconds. The participant tree is read-only; use the output directory for all code, experiments, temporary files and final artifacts. Only the participant assets and your own output are available. Follow the executable interface and resource constraints in the task. Do not stop at a proposal: produce the best working submission you can and test it using the provided assets.
+codex
+I’ll inspect the task and assets, then implement and test the submission.
+
+exec
+/bin/bash -lc 'pwd; ls -la; find .. -name AGENTS.md -print; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/concept_3/generations/generation_2/participant
+exec
+/bin/bash -c 'pwd; ls -la; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/concept_3/generations/generation_2/participant
+exec
+/bin/bash -c '/bin/echo hello' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/concept_3/generations/generation_2/attempts/v_1
+**Evaluating time overhead**
+
+I'm considering the current time overhead, which is about 2 minutes. I’m wondering if I could wait for another 30 minutes or if that's too much. Maybe I should balance efficiency with how much time I actually need to give the task. It’s interesting to think about whether waiting longer would yield better results or just delay everything. I’ll need to deliberate on the best approach going forward!
+exec
+/usr/bin/sh -c 'echo HELLO; ls /' in /
+  → Inspect task, interface, and assets
+  • Implement a competitive runnable solution
+  • Test and refine using provided assets
+  • Finalize submission and usage instructions
+**Evaluating call timing**
+
+I see I have an hour, but it looks like calls are taking around 4 minutes each and not producing results. That’s frustrating! So, I should probably account for that timing and allow about 30 seconds for any actual processing after each call. It's all about managing expectations and making effective use of time. I'll need to think carefully about how to handle this moving forward.
+exec
+/bin/bash -c 'echo hello' in /
+ succeeded in 64119ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/concept_3/generations/generation_2/participant
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 11:32 .
+drwx------ 4 xuandong xuandong   80 Aug 28 11:52 ..
+-rw-rw-r-- 1 xuandong xuandong 3079 Aug 28 11:38 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 11:36 baseline
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 11:32 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 11:32 workspace
+# Efficient active detector calibration
+
+Build a standalone Python program that chooses calibration experiments and
+estimates positive fault-channel rates from detector syndromes. This is an
+explicitly **synthetic** inverse problem inspired by decoder calibration, not a
+claim about physical hardware or a requirement to implement a matching decoder.
+
+You receive a complete observation law, a connected detector graph, known local
+channel footprints, allowed interventions, and resource budgets. Rates are
+unknown. Channels overlap, some primary footprints alias, rare channels span
+different useful exposure scales, and an unobserved shot-level mode creates
+correlations. All detectors are active. The three regimes contain 14–20
+detectors and 43–77 channels.
+
+Your program must infer rates efficiently **and allocate experiments**. Uniform
+shots and low-order moment fitting are useful controls, not assumed solutions.
+You may use any latent-blind algorithm, including adaptive or nonadaptive
+policies; adaptivity is judged through recovery, not through a syntactic rule.
+
+## Success
+
+- Per episode: at most **40,000 shots**, **64 queries**, **4,000 shots/query**,
+  **60 CPU seconds**, and **3 GiB address space**.
+- The wall watchdog is 900 seconds after initialization, with a separate
+  300-second startup allowance. CPU, not host scheduling delay, is scored.
+- There are 12 hidden episodes: four per regime, with four channel families.
+  Compute RMS natural-log rate error in each regime/family cell, weighting its
+  episodes equally; then mean and maximum over the 12 cells.
+- Pass requires **mean ≤ 0.075**, **worst cell ≤ 0.125**, and every episode valid.
+  These targets were fixed before generation-two policy trials and fresh runs.
+
+Submit `solution.py` in your writable attempt directory. It runs as
+`/usr/bin/python3 /submission/solution.py` and communicates only through
+stdin/stdout JSON lines. Print diagnostics to stderr. Hidden rates and sampling
+seeds remain in a separate trusted process; your program never receives them.
+
+Read `input/API.md` for the exact law and protocol. Public training episodes
+include rates for development; they are independent of the private fixtures.
+`baseline/solution.py` is a runnable, deliberately limited pairwise-moment
+baseline. `baseline/previous_champion.py` is the unchanged preceding-generation
+champion, supplied as an additional reference.
+
+For public local testing, run from the read-only participant directory. Set
+`ATTEMPT_DIR` to the actual writable output directory provided by your launcher;
+the quoted path below is a placeholder, not a predefined mount:
+
+```
+ATTEMPT_DIR="/absolute/writable/path/from/launcher"
+/usr/bin/python3 input/local.py --episode 0 --workdir "$ATTEMPT_DIR" --output "$ATTEMPT_DIR/training_report.json" -- /usr/bin/python3 "$ATTEMPT_DIR/solution.py"
+```
+
+The public tester uses ordinary subprocesses and does not certify hidden
+resource limits. NumPy and SciPy are available with `/usr/bin/python3`.
+You have one hour of fresh coding time. Do not access evaluator/private data.
+
+exec
+/bin/bash -c 'cat input/API.md; ls -lh input baseline workspace; find . -name AGENTS.md -print' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/concept_3/generations/generation_2/participant
+ succeeded in 97956ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/concept_3/generations/generation_2/participant
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 11:32 .
+drwx------ 4 xuandong xuandong   80 Aug 28 11:53 ..
+-rw-rw-r-- 1 xuandong xuandong 3079 Aug 28 11:38 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 11:36 baseline
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 11:32 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 11:32 workspace
+# Efficient active detector calibration
+
+Build a standalone Python program that chooses calibration experiments and
+estimates positive fault-channel rates from detector syndromes. This is an
+explicitly **synthetic** inverse problem inspired by decoder calibration, not a
+claim about physical hardware or a requirement to implement a matching decoder.
+
+You receive a complete observation law, a connected detector graph, known local
+channel footprints, allowed interventions, and resource budgets. Rates are
+unknown. Channels overlap, some primary footprints alias, rare channels span
+different useful exposure scales, and an unobserved shot-level mode creates
+correlations. All detectors are active. The three regimes contain 14–20
+detectors and 43–77 channels.
+
+Your program must infer rates efficiently **and allocate experiments**. Uniform
+shots and low-order moment fitting are useful controls, not assumed solutions.
+You may use any latent-blind algorithm, including adaptive or nonadaptive
+policies; adaptivity is judged through recovery, not through a syntactic rule.
+
+## Success
+
+- Per episode: at most **40,000 shots**, **64 queries**, **4,000 shots/query**,
+  **60 CPU seconds**, and **3 GiB address space**.
+- The wall watchdog is 900 seconds after initialization, with a separate
+  300-second startup allowance. CPU, not host scheduling delay, is scored.
+- There are 12 hidden episodes: four per regime, with four channel families.
+  Compute RMS natural-log rate error in each regime/family cell, weighting its
+  episodes equally; then mean and maximum over the 12 cells.
+- Pass requires **mean ≤ 0.075**, **worst cell ≤ 0.125**, and every episode valid.
+  These targets were fixed before generation-two policy trials and fresh runs.
+
+Submit `solution.py` in your writable attempt directory. It runs as
+`/usr/bin/python3 /submission/solution.py` and communicates only through
+stdin/stdout JSON lines. Print diagnostics to stderr. Hidden rates and sampling
+seeds remain in a separate trusted process; your program never receives them.
+
+Read `input/API.md` for the exact law and protocol. Public training episodes
+include rates for development; they are independent of the private fixtures.
+`baseline/solution.py` is a runnable, deliberately limited pairwise-moment
+baseline. `baseline/previous_champion.py` is the unchanged preceding-generation
+champion, supplied as an additional reference.
+
+For public local testing, run from the read-only participant directory. Set
+`ATTEMPT_DIR` to the actual writable output directory provided by your launcher;
+the quoted path below is a placeholder, not a predefined mount:
+
+```
+ATTEMPT_DIR="/absolute/writable/path/from/launcher"
+/usr/bin/python3 input/local.py --episode 0 --workdir "$ATTEMPT_DIR" --output "$ATTEMPT_DIR/training_report.json" -- /usr/bin/python3 "$ATTEMPT_DIR/solution.py"
+```
+
+The public tester uses ordinary subprocesses and does not certify hidden
+resource limits. NumPy and SciPy are available with `/usr/bin/python3`.
+You have one hour of fresh coding time. Do not access evaluator/private data.
+
+**Checking startup commands**
+
+I'm looking into why the commands are taking a while to start up. Maybe it has to do with how the system jobs and runner serialization are set up. I wonder if optimizing that process could lead to a quicker response. It feels like there might be some sort of bottleneck occurring, and it’s worth exploring to speed things up. I'll have to investigate further into how these processes work together!
+ succeeded in 76663ms:
+hello
+
+exec
+/bin/bash -c 'cat baseline/previous_champion.py; cat baseline/solution.py; cat input/local.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/concept_3/generations/generation_2/participant
+ succeeded in 80044ms:
+HELLO
+bin
+dev
+etc
+lib
+lib64
+proc
+sbin
+srv
+usr
+
+ succeeded in 50418ms:
+# Observation law and JSON-lines API
+
+## Public specification
+
+The first line is `{"type":"hello","spec":{...}}`. The specification contains:
+
+- `protocol`: `efficient-detector-calibration-v2`;
+- `detector_count`: D, between 14 and 20;
+- `detector_edges`: connected undirected locality graph, zero-based endpoints;
+- `regime`: `chain_hooks`, `patch_crosstalk`, or `burst_aliases`;
+- `topology`: ladder, patch, or triangular, respectively;
+- `channels`: ordered K objects with `id`, `family`, `masks`, `rate_bounds`, and
+  `sector`. Families are boundary, bulk, hook, rare. `sector` is a public
+  intervention grouping, not an unobserved label;
+- `actions`: ordered action objects with `id`, `name`, `mode_weights` (length 2),
+  `exposures` (2 by K), and `alternate_probability` (length K);
+- budget fields `shot_budget`, `max_queries`, `max_shots_per_query`,
+  `cpu_seconds`, `wall_seconds`, and `observation_encoding`.
+
+Masks are integer bitmasks. Bit d is detector d. Each channel has two known
+possible XOR footprints, `masks[0]` (primary) and `masks[1]` (alternate), which
+may coincide. Their union is local, of graph diameter at most two and at most
+four detectors. Boundary footprints are singletons; bulk channels are graphlike;
+hook and rare channels include higher-order footprints and overlapping aliases.
+All detectors participate. K scales with actual graph structure, not padding.
+
+The target is one positive intensity rate lambda[k] for each channel in this
+order, constrained by its published `rate_bounds`. It is NOT an action-specific
+firing probability. No rates are tied or known. Public controls include broad,
+sector-selective, correlation-selective, and rare-channel gain-ladder exposures.
+Their numerical arrays are authoritative; do not infer behavior just from names.
+
+## Exact per-shot stochastic law
+
+For a requested action a, independently for each shot:
+
+1. Draw one shared mode m with probabilities `actions[a].mode_weights`.
+2. Conditional on that mode, each channel k fires independently with
+   `q[a,m,k] = (1 - exp(-2 * exposures[a,m,k] * lambda[k])) / 2`.
+3. Independently choose that channel's alternate footprint with probability
+   `alternate_probability[a,k]`, otherwise its primary footprint.
+4. The observed syndrome is the bitwise XOR of the chosen footprints of all
+   firing channels. Non-firing channels contribute zero.
+
+There is only one shared mode per shot, not one mode per channel. Footprint
+choices are independent of the mode and of other choices given the action.
+Modes are not observed. Marginalizing the mode generally makes disjoint
+channel firings dependent. Shots are independent conditional on the fixed
+episode's rates and requested actions; no temporal drift occurs.
+
+For an arbitrary parity mask t define
+
+```
+o[a,k,t] = (1-alt[a,k]) * parity(mask[k,0] & t)
+           + alt[a,k] * parity(mask[k,1] & t)
+phi[a,t] = sum_m weight[a,m]
+           * product_k (1 - (1-exp(-2*exposure[a,m,k]*lambda[k])) * o[a,k,t])
+```
+
+Here `phi[a,t] = E[(-1)^popcount(syndrome & t)]`. This gives exact projected
+moments, not a pairwise-covariance shortcut. For two such observed characters,
+their same-shot covariance is `phi[a,t XOR u] - phi[a,t]*phi[a,u]`.
+Treating overlapping marginals or shared-mode blocks as independent is an approximation,
+not a property of the law. `moments.py` supplies an exact selected-parity helper;
+it does not supply a full efficient estimator or an experiment-design policy.
+
+## Queries and observations
+
+Send exactly these keys, with integer action index and shot count:
+
+```
+{"type":"query","action":3,"shots":1000}
+```
+
+The parent returns one sparse histogram:
+
+```
+{"type":"observation","action":3,"shots":1000,"encoding":"sparse_histogram_v1","syndromes":[0,1,3],"multiplicities":[950,30,20],"shots_remaining":39000,"queries_remaining":63}
+```
+
+The sample numbers illustrate encoding, not a promised distribution. Syndrome
+codes are sorted, unique integers in `[0, 2**D)`. Multiplicities are positive
+integers summing to `shots`. Absent codes have count zero. This is lossless
+compression of the full shot sample for this independent-shot experiment;
+there is no truncation, censoring, marginal-only response, or extra free sample.
+At most one outstanding request is permitted. Flush stdout after each line.
+Actions may be repeated. All shots cost one unit, regardless of exposure.
+
+## Final answer and errors
+
+Send exactly `{"type":"final","rates":[...]}` with K finite positive numbers
+in channel order, then exit successfully without further output. Bounds are
+useful modeling information; positivity and finiteness are mandatory. You may
+finish before exhausting the budget. No accuracy or reward feedback is sent
+to the worker, during or after an episode. A new process starts each episode.
+
+Wrong keys/types, nonfinite or nonpositive estimates, malformed JSON, invalid
+indices, overspending, oversized output lines (>1 MiB), extra output after the
+final answer, nonzero exit, or exceeding CPU/wall limits invalidates the run.
+No networking or package installation is available. Writable submission files
+may persist; neither private sibling directories nor rates/seeds are mounted.
+
+CPU includes Python imports, numerical computation, and waited-for descendant
+processes. The trusted supervisor enforces CPU/address-space limits and signs
+its usage report. Runtime score is `max(0, 1-max_episode_cpu/60)`; recovery
+thresholds and resource validity, not a separate minimum runtime score, decide
+pass. Core/worst scores are exp(-mean log RMSE) and exp(-worst cell log RMSE).
+
+## Development and reference compatibility
+
+`training.json` has six public episodes, including rates and sampling seeds.
+`simulator.py` implements the explicit event law. `local.py` uses ordinary
+subprocesses so it works inside a participant-only allowlist without nested
+bwrap. Supply an existing writable `--workdir`; any `--output` must be inside
+it. It sets `DETECTOR_INPUT_DIR` for a copied baseline, so public files can stay
+read-only. It reports training accuracy, not hidden-suite pass or resource
+qualification. Run from the participant directory and set `ATTEMPT_DIR` to the
+launcher-provided writable path, as shown in `TASK.md`. The hidden evaluator's
+`/participant` and `/submission` names are not assumed in public development.
+Only the hidden evaluator requires escalated bwrap.
+
+To test the supplied historical policy without changing its source, run from
+the participant directory with `ATTEMPT_DIR` set as described above:
+
+```
+/usr/bin/python3 input/local.py --episode 0 --workdir "$ATTEMPT_DIR" --output "$ATTEMPT_DIR/reference_report.json" -- /usr/bin/python3 "$PWD/input/legacy_bridge.py" /usr/bin/python3 "$PWD/baseline/previous_champion.py"
+```
+
+The bridge expands sparse observations inside the worker and restores its old
+protocol identifier. It does not reveal latent values or change the law.
+Both reference programs are optional starting points; neither is a promised
+passing solution for this task.
+
+## Scientific scope
+
+Sparse Blossom (arXiv:2303.15933) motivates decoding with known weighted graph
+models; arXiv:2504.20212 motivates syndrome-only graph/hypergraph calibration
+and higher-order information. This benchmark introduces synthetic intervention
+and shared-mode mechanisms. It does not reproduce either paper's physical
+experiments, claim hardware fidelity, or measure logical decoding performance.
+The scored objective is solely rate recovery under constrained experimentation.
+baseline:
+total 20K
+-rw-rw-r-- 1 xuandong xuandong  14K Aug 28 11:36 previous_champion.py
+-rw-rw-r-- 1 xuandong xuandong 2.5K Aug 28 11:29 solution.py
+
+input:
+total 1012K
+-rw-rw-r-- 1 xuandong xuandong 7.4K Aug 28 11:38 API.md
+-rw-rw-r-- 1 xuandong xuandong 1.4K Aug 28 11:27 legacy_bridge.py
+-rw-rw-r-- 1 xuandong xuandong 5.3K Aug 28 11:38 local.py
+-rw-rw-r-- 1 xuandong xuandong 1.7K Aug 28 11:29 moments.py
+-rw-rw-r-- 1 xuandong xuandong  745 Aug 28 11:27 simulator.py
+-rw-rw-r-- 1 xuandong xuandong  810 Aug 28 11:46 targets.json
+-rw-rw-r-- 1 xuandong xuandong 979K Aug 28 11:27 training.json
+
+workspace:
+total 4.0K
+-rw-rw-r-- 1 xuandong xuandong 392 Aug 28 11:32 README.md
+
+**Designing MLE marginals**
+
+I'm thinking about how to design efficient exact Maximum Likelihood Estimation (MLE) for marginal subsets with 8-12 bits and action allocation. It seems important to focus on the champion and identify the likely exact marginal expectations through the Expectation-Maximization (EM) algorithm. There’s quite a bit here to unravel, but I’m curious about how to best visualize and implement these ideas effectively!
+exec
+/bin/bash -c "cat input/moments.py input/simulator.py input/targets.json workspace/README.md; /usr/bin/python3 - <<'PY'
+import json
+x=json.load(open('input/training.json')); print(type(x)); print(str(x)[:300] if not isinstance(x,dict) else x.keys())
+if isinstance(x,dict): x=x['episodes']
+for i,e in enumerate(x):
+ print(i,e.keys()); s=e.get('spec',e); print(s.get('regime'), s.keys()); print('channels',s.get('channels')); print('actions',[(a['id'],a['name'],a['mode_weights']) for a in s.get('actions',[])])
+ if i==0: print('rates',e.get('rates'))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/concept_3/generations/generation_2/participant
+ succeeded in 74049ms:
+hello
+
+**Considering command efficiency**
+
+I’m thinking that if I want all startup commands to run within around 200 seconds, I need to mitigate issues with a persistent bash interactive shell. Once a command exits, I have to wait for startup again. I could launch a long shell command with tty or use a persistent Python daemon to handle stdin. It seems like my command might finish soon, so launching bash tty while waiting could be a smart way to avoid that startup penalty!
+exec
+/bin/bash -c '/bin/bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/concept_3/generations/generation_2/attempts/v_1
+**Figuring out output issues**
+
+I’m noticing that the output is getting strangely truncated, and it mentions a token count warning that suggests something isn’t quite right. It seems like even though the maximum token count could be 26k, it’s not functioning as it should. I have to consider that there could be issues with the remaining characters after certain outputs. Maybe I need to check the subsections to ensure everything stays persistent. I’ll look into this further!
+ succeeded in 71046ms:
+import os
+
+for variable in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'NUMEXPR_NUM_THREADS'):
+    os.environ[variable] = '1'
+
+import json
+import sys
+import time
+
+import numpy as np
+from scipy.linalg import cho_factor, cho_solve
+from scipy.optimize import minimize
+from scipy.special import logsumexp, ndtr, ndtri
+from scipy.stats import qmc
+
+
+def walsh(values):
+    output = np.array(values, dtype=float, copy=True)
+    width = 1
+    while width < output.shape[-1]:
+        blocks = output.reshape(output.shape[:-1] + (-1, 2 * width))
+        left = blocks[..., :width].copy()
+        right = blocks[..., width:].copy()
+        blocks[..., :width] = left + right
+        blocks[..., width:] = left - right
+        width *= 2
+    return output
+
+
+class Model:
+    def __init__(self, spec):
+        self.bounds = np.log([channel['rate_bounds'] for channel in spec['channels']])
+        self.exposures = np.array([action['exposures'] for action in spec['actions']])
+        self.weights = np.array([action['mode_weights'] for action in spec['actions']])
+        masks = np.array([channel['masks'] for channel in spec['channels']])
+        self.state_count = 1 << spec['detector_count']
+        parity = np.array([index.bit_count() % 2 for index in range(self.state_count)])
+        first = parity[masks[:, 0, None] & np.arange(self.state_count)]
+        second = parity[masks[:, 1, None] & np.arange(self.state_count)]
+        self.both = np.asarray(first * second, dtype=float)
+        self.first_only = np.asarray(first * (1 - second), dtype=float)
+        self.second_only = np.asarray((1 - first) * second, dtype=float)
+        alternate = np.array([action['alternate_probability'] for action in spec['actions']])
+        with np.errstate(divide='ignore'):
+            self.log_alternate = np.log(alternate)[:, None, :]
+            self.log_primary = np.log1p(-alternate)[:, None, :]
+        self.groups = np.array([[channel['family'] == family for channel in spec['channels']]
+                                for family in ('boundary', 'bulk', 'hook', 'rare')], dtype=float)
+        self.groups /= self.groups.sum(axis=1, keepdims=True)
+
+    def distribution(self, log_rates, gradient=False):
+        scaled = 2 * self.exposures * np.exp(log_rates)[None, None, :]
+        first_factor = np.logaddexp(self.log_alternate, self.log_primary - scaled)
+        second_factor = np.logaddexp(self.log_primary, self.log_alternate - scaled)
+        log_products = (-scaled @ self.both + first_factor @ self.first_only
+                        + second_factor @ self.second_only)
+        products = np.exp(log_products)
+        spectrum = np.sum(self.weights[:, :, None] * products, axis=1)
+        probability = np.maximum(walsh(spectrum) / self.state_count, 1e-15)
+        if not gradient:
+            return probability
+        first_derivative = -scaled * np.exp(self.log_primary - scaled - first_factor)
+        second_derivative = -scaled * np.exp(self.log_alternate - scaled - second_factor)
+        logarithmic_derivative = (-scaled[..., None] * self.both
+                                  + first_derivative[..., None] * self.first_only
+                                  + second_derivative[..., None] * self.second_only)
+        derivative = np.sum(self.weights[:, :, None, None] * products[:, :, None, :]
+                            * logarithmic_derivative, axis=1)
+        return probability, walsh(derivative) / self.state_count
+
+    def log_likelihood_batch(self, counts, points):
+        values = np.empty(len(points))
+        channel_count = len(self.bounds)
+        for start in range(0, len(points), 64):
+            batch = points[start:start + 64]
+            scaled = 2 * self.exposures[None] * np.exp(batch)[:, None, None, :]
+            first_factor = np.logaddexp(self.log_alternate[None], self.log_primary[None] - scaled)
+            second_factor = np.logaddexp(self.log_primary[None], self.log_alternate[None] - scaled)
+            log_products = (-scaled.reshape(-1, channel_count) @ self.both
+                            + first_factor.reshape(-1, channel_count) @ self.first_only
+                            + second_factor.reshape(-1, channel_count) @ self.second_only)
+            products = np.exp(log_products.reshape(len(batch), len(self.weights), 2, self.state_count))
+            spectrum = np.sum(self.weights[None, :, :, None] * products, axis=2)
+            probability = np.maximum(walsh(spectrum) / self.state_count, 1e-15)
+            values[start:start + len(batch)] = np.sum(counts[None] * np.log(probability), axis=(1, 2))
+        return values
+
+    def fit(self, counts, initial=None):
+        start = self.bounds.mean(axis=1) if initial is None else np.asarray(initial)
+        total = max(float(counts.sum()), 1)
+
+        def objective(log_rates):
+            probability, derivative = self.distribution(log_rates, True)
+            value = -np.sum(counts * np.log(probability)) / total
+            gradient = -np.einsum('as,aks->k', counts / probability, derivative) / total
+            return value, gradient
+
+        result = minimize(objective, start, method='L-BFGS-B', jac=True,
+                          bounds=self.bounds.tolist(),
+                          options={'maxiter': 150, 'ftol': 2e-13, 'gtol': 1e-9, 'maxls': 25})
+        return result.x
+
+    def fisher(self, log_rates):
+        probability, derivative = self.distribution(log_rates, True)
+        normalized = derivative / np.sqrt(probability[:, None])
+        return normalized @ normalized.transpose(0, 2, 1)
+
+
+def design(model, fitted, spent, budget, prior_information=None):
+    fisher = model.fisher(fitted)
+    action_count, channel_count = fisher.shape[:2]
+    identity = np.eye(channel_count)
+    if prior_information is None:
+        base = np.einsum('a,akl->kl', spent / budget, fisher)
+    else:
+        base = prior_information / budget
+    base = base + 1e-10 * identity
+    fraction = 1 - spent.sum() / budget
+
+    def objective(allocation):
+        information = base + np.einsum('a,akl->kl', allocation * fraction, fisher)
+        inverse = cho_solve(cho_factor(information, lower=True, check_finite=False),
+                            identity, check_finite=False)
+        variances = model.groups @ np.diag(inverse)
+        value = np.power(variances, 0.8).sum()
+        channel_weights = (0.8 * np.power(variances, -0.2)) @ model.groups
+        sensitivity = (inverse * channel_weights[None, :]) @ inverse
+        gradient = -fraction * np.einsum('akl,kl->a', fisher, sensitivity)
+        return value, gradient
+
+    start = np.full(action_count, 1 / action_count)
+    scale = objective(start)[0]
+
+    def normalized_objective(allocation):
+        value, gradient = objective(allocation)
+        return value / scale, gradient / scale
+
+    result = minimize(normalized_objective, start, jac=True, method='SLSQP',
+                      bounds=[(0, 1)] * action_count,
+                      constraints=[{'type': 'eq', 'fun': lambda allocation: allocation.sum() - 1,
+                                    'jac': lambda allocation: np.ones(action_count)}],
+                      options={'maxiter': 120, 'ftol': 1e-9})
+    allocation = np.maximum(result.x, 0)
+    if not np.all(np.isfinite(allocation)) or allocation.sum() <= 0:
+        allocation = start
+    return allocation / allocation.sum()
+
+
+def posterior(model, counts, fitted, power=12, moments=False):
+    probability, derivative = model.distribution(fitted, True)
+    score = np.einsum('as,aks->k', counts / probability, derivative)
+    dimension = len(fitted)
+    information = np.empty((dimension, dimension))
+    for channel in range(dimension):
+        direction = np.zeros(dimension)
+        direction[channel] = 0.0001
+        plus_probability, plus_derivative = model.distribution(fitted + direction, True)
+        minus_probability, minus_derivative = model.distribution(fitted - direction, True)
+        plus_score = np.einsum('as,aks->k', counts / plus_probability, plus_derivative)
+        minus_score = np.einsum('as,aks->k', counts / minus_probability, minus_derivative)
+        information[:, channel] = (minus_score - plus_score) / 0.0002
+    information = (information + information.T) * 0.5
+    if np.linalg.eigvalsh(information)[0] <= 0:
+        information = np.einsum('a,akl->kl', counts.sum(axis=1), model.fisher(fitted))
+    covariance = np.linalg.inv(information)
+    center = fitted + covariance @ score
+    distances = np.minimum(fitted - model.bounds[:, 0], model.bounds[:, 1] - fitted)
+    order = np.argsort(distances / np.sqrt(np.diag(covariance)))
+    factor = np.linalg.cholesky(covariance[order][:, order])
+    ordered_center = center[order]
+    bounds = model.bounds[order]
+    uniform = qmc.Sobol(dimension, scramble=True, seed=729183).random_base2(power)
+    sample_count = len(uniform)
+    latent = np.zeros((sample_count, dimension))
+    log_weights = np.zeros(sample_count)
+    for channel in range(dimension):
+        conditional_center = ordered_center[channel] + latent[:, :channel] @ factor[channel, :channel]
+        lower = (bounds[channel, 0] - conditional_center) / factor[channel, channel]
+        upper = (bounds[channel, 1] - conditional_center) / factor[channel, channel]
+        positive = lower > 0
+        first = ndtr(np.where(positive, -upper, lower))
+        second = ndtr(np.where(positive, -lower, upper))
+        mass = np.maximum(second - first, 1e-300)
+        quantile = np.clip(first + uniform[:, channel] * mass,
+                           np.finfo(float).tiny, 1 - np.finfo(float).eps)
+        latent[:, channel] = np.where(positive, -ndtri(quantile), ndtri(quantile))
+        log_weights += np.log(mass)
+    ordered_points = ordered_center[None, :] + latent @ factor.T
+    points = ordered_points[:, np.argsort(order)]
+    log_weights += 0.5 * np.sum(latent ** 2, axis=1)
+    log_weights += model.log_likelihood_batch(counts, points)
+    weights = np.exp(log_weights - logsumexp(log_weights))
+    effective_samples = 1 / (weights @ weights)
+    if effective_samples < 0.1 * sample_count and power < (12 if moments else 14):
+        if time.process_time() < 35:
+            return posterior(model, counts, fitted, power=power + 2, moments=moments)
+    mean = weights @ points
+    if moments:
+        centered = points - mean
+        return mean, (centered.T * weights) @ centered
+    return np.clip(mean, model.bounds[:, 0], model.bounds[:, 1])
+
+
+def integer_allocation(fractions, total):
+    exact = fractions * total
+    allocation = np.floor(exact).astype(int)
+    residual = total - allocation.sum()
+    if residual:
+        allocation[np.argsort(exact - allocation)[-residual:]] += 1
+    return allocation
+
+
+def calibrate(spec, query):
+    model = Model(spec)
+    action_count = len(spec['actions'])
+    counts = np.zeros((action_count, model.state_count), dtype=np.int64)
+    spent = np.zeros(action_count, dtype=int)
+    queries = 0
+    budget = spec['shot_budget']
+    maximum_shots = spec['max_shots_per_query']
+
+    def collect(allocation):
+        nonlocal queries
+        for action_id in np.flatnonzero(allocation):
+            remaining = int(allocation[action_id])
+            while remaining:
+                shots = min(remaining, maximum_shots)
+                counts[action_id] += query(int(action_id), shots)
+                spent[action_id] += shots
+                remaining -= shots
+                queries += 1
+
+    exposure = model.exposures[:, 0, :]
+    amplified = exposure >= 2
+    nonrare = model.groups[3] == 0
+    general = (amplified[:, nonrare].any(axis=1) | (amplified.sum(axis=1) > 1))
+    general &= exposure.min(axis=1) < 1
+    pilot = np.where(general, 100, 0)
+    for channel in np.flatnonzero(~nonrare):
+        candidates = np.flatnonzero((amplified.sum(axis=1) == 1) & amplified[:, channel])
+        for gain in (120, 720):
+            chosen = candidates[np.argmin(np.abs(np.log(exposure[candidates, channel] / gain)))]
+            pilot[chosen] = 100
+    collect(pilot)
+    fitted = model.fit(counts)
+    for target in (6000, 14000, 26000, budget):
+        if spent.sum() >= 6000:
+            center, covariance = posterior(model, counts, fitted, power=10, moments=True)
+            fractions = design(model, center, spent, budget, np.linalg.inv(covariance))
+        else:
+            fractions = design(model, fitted, spent, budget)
+        total = target - int(spent.sum())
+        fractions[fractions * total < 80] = 0
+        fractions /= fractions.sum()
+        allocation = integer_allocation(fractions, total)
+        future_queries = int(np.ceil((budget - target) / maximum_shots))
+        available_queries = spec['max_queries'] - queries - future_queries
+        while np.sum((allocation + maximum_shots - 1) // maximum_shots) > available_queries:
+            active = np.flatnonzero(allocation)
+            smallest = active[np.argmin(allocation[active])]
+            fractions[smallest] = 0
+            fractions /= fractions.sum()
+            allocation = integer_allocation(fractions, total)
+        collect(allocation)
+        fitted = model.fit(counts, fitted)
+    return np.exp(posterior(model, counts, fitted))
+
+
+def send(message):
+    print(json.dumps(message, allow_nan=False), flush=True)
+
+
+def main():
+    spec = json.loads(sys.stdin.readline())['spec']
+
+    def query(action, shots):
+        send({'type': 'query', 'action': action, 'shots': shots})
+        response = json.loads(sys.stdin.readline())
+        if response.get('type') != 'observation':
+            raise RuntimeError('Expected an observation')
+        return np.asarray(response['counts'], dtype=np.int64)
+
+    send({'type': 'final', 'rates': calibrate(spec, query).tolist()})
+
+
+if __name__ == '__main__':
+    main()
+import os
+import sys
+from pathlib import Path
+
+for variable in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ[variable] = "1"
+
+import json
+import numpy as np
+from scipy.optimize import minimize
+
+input_directory = os.environ.get("DETECTOR_INPUT_DIR", "/participant/input")
+if not Path(input_directory).is_dir():
+    input_directory = str(Path(__file__).resolve().parents[1] / "input")
+sys.path.insert(0, input_directory)
+from moments import MomentModel, parity
+
+
+def main():
+    spec = json.loads(sys.stdin.readline())["spec"]
+    detector_count = spec["detector_count"]
+    masks = [1 << detector for detector in range(detector_count)]
+    masks += [(1 << first) | (1 << second) for first, second in spec["detector_edges"]]
+    masks = np.array(sorted(set(masks)), dtype=np.int64)
+    model = MomentModel(spec, masks)
+    totals = np.zeros(len(spec["actions"]))
+    sums = np.zeros((len(totals), len(masks)))
+    remaining = spec["shot_budget"]
+    for action in range(len(totals)):
+        allocation = remaining // (len(totals) - action)
+        while allocation:
+            shots = min(allocation, spec["max_shots_per_query"])
+            print(json.dumps({"type": "query", "action": action, "shots": shots}), flush=True)
+            observation = json.loads(sys.stdin.readline())
+            syndromes = np.array(observation["syndromes"], dtype=np.int64)
+            multiplicities = np.array(observation["multiplicities"])
+            sums[action] += (1.0 - 2.0 * parity(syndromes[:, None] & masks[None, :])).T @ multiplicities
+            totals[action] += shots
+            allocation -= shots
+            remaining -= shots
+    observed = sums / totals[:, None]
+    weights = totals[:, None] / np.maximum(1.0 - observed**2, 0.002)
+    prior = model.bounds.mean(axis=1)
+
+    def objective(point):
+        expected, derivative = model.predict(point, gradient=True)
+        residual = expected - observed
+        value = np.sum(weights * residual**2) + np.sum((point - prior)**2)
+        gradient = 2.0 * np.einsum("af,akf->k", weights * residual, derivative) + 2.0 * (point - prior)
+        return value / spec["shot_budget"], gradient / spec["shot_budget"]
+
+    fitted = minimize(objective, prior, jac=True, method="L-BFGS-B", bounds=model.bounds.tolist(),
+                      options={"maxiter": 120, "ftol": 1e-10})
+    print(json.dumps({"type": "final", "rates": np.exp(fitted.x).tolist()}), flush=True)
+
+
+if __name__ == "__main__":
+    main()
+import argparse
+import json
+import os
+from pathlib import Path
+import selectors
+import subprocess
+import time
+
+import numpy as np
+
+from simulator import sample_events
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--episode", type=int, default=0)
+    parser.add_argument("--workdir", required=True)
+    parser.add_argument("--output")
+    parser.add_argument("worker", nargs=argparse.REMAINDER)
+    arguments = parser.parse_args()
+    input_directory = Path(__file__).resolve().parent
+    episodes = json.loads((input_directory / "training.json").read_text())["episodes"]
+    episode = episodes[arguments.episode]
+    spec = episode["spec"]
+    rates = np.asarray(episode["rates"])
+    rng = np.random.default_rng(episode["sample_seed"])
+    worker = arguments.worker[1:] if arguments.worker[:1] == ["--"] else arguments.worker
+    if not worker:
+        parser.error("Provide a worker command after --")
+    workdir = Path(arguments.workdir).resolve(strict=True)
+    if arguments.output:
+        output = Path(arguments.output).resolve()
+        if not output.is_relative_to(workdir):
+            parser.error("--output must be within --workdir")
+    environment = dict(os.environ, DETECTOR_INPUT_DIR=str(input_directory), PYTHONDONTWRITEBYTECODE="1",
+                       OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
+    process = subprocess.Popen(worker, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+                               cwd=workdir, env=environment)
+    selector = selectors.DefaultSelector()
+    selector.register(process.stdout, selectors.EVENT_READ)
+    deadline = time.monotonic() + 1200
+
+    def send(message):
+        process.stdin.write(json.dumps(message, separators=(",", ":")) + "\n")
+        process.stdin.flush()
+
+    shots_used = 0
+    queries = 0
+    try:
+        send({"type": "hello", "spec": spec})
+        while True:
+            if not selector.select(max(0.0, deadline - time.monotonic())):
+                raise RuntimeError("development_wall_watchdog")
+            line = process.stdout.readline(1048577)
+            if not line or len(line) > 1048576:
+                raise RuntimeError("worker_closed_pipe_or_oversized_line")
+            message = json.loads(line)
+            if message.get("type") == "final":
+                if set(message) != {"type", "rates"} or not isinstance(message["rates"], list):
+                    raise ValueError("final_keys")
+                if any(type(value) not in (int, float) for value in message["rates"]):
+                    raise ValueError("invalid_rates")
+                estimates = np.asarray(message["rates"], dtype=float)
+                if estimates.shape != rates.shape or not np.all(np.isfinite(estimates)) or np.any(estimates <= 0):
+                    raise ValueError("invalid_rates")
+                errors = (np.log(estimates) - np.log(rates))**2
+                families = np.array([channel["family"] for channel in spec["channels"]])
+                family_scores = {family: float(np.sqrt(np.mean(errors[families == family]))) for family in sorted(set(families))}
+                process.stdin.close()
+                process.stdin = None
+                extra, unused_stderr = process.communicate(timeout=max(1.0, deadline - time.monotonic()))
+                if extra.strip():
+                    raise RuntimeError("output_after_final")
+                if process.returncode != 0:
+                    raise RuntimeError("worker_nonzero_exit")
+                report = {"episode": episode["id"], "valid": True, "development_only": True,
+                          "family_log_rmse": family_scores, "mean_family_log_rmse": float(np.mean(list(family_scores.values()))),
+                          "worst_family_log_rmse": max(family_scores.values()), "shots_used": shots_used, "queries": queries,
+                          "resource_qualification": False}
+                text = json.dumps(report, indent=2) + "\n"
+                print(text, end="")
+                if arguments.output:
+                    output.write_text(text)
+                break
+            if set(message) != {"type", "action", "shots"} or message["type"] != "query":
+                raise ValueError("invalid_query")
+            action, shots = message["action"], message["shots"]
+            if type(action) is not int or not 0 <= action < len(spec["actions"]):
+                raise ValueError("invalid_action")
+            if type(shots) is not int or not 1 <= shots <= spec["max_shots_per_query"]:
+                raise ValueError("invalid_shots")
+            if shots_used + shots > spec["shot_budget"] or queries >= spec["max_queries"]:
+                raise ValueError("query_budget")
+            syndromes, multiplicities = sample_events(spec, rates, action, shots, rng)
+            shots_used += shots
+            queries += 1
+            send({"type": "observation", "action": action, "shots": shots, "encoding": "sparse_histogram_v1",
+                  "syndromes": syndromes.tolist(), "multiplicities": multiplicities.tolist(),
+                  "shots_remaining": spec["shot_budget"] - shots_used, "queries_remaining": spec["max_queries"] - queries})
+    finally:
+        selector.close()
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+
+
+if __name__ == "__main__":
+    main()
+
+**Preparing commands**
+
+I'm all set up with the shell at 11:55. I think I started around 11:53, so I haven't lost much time, which is good! Now, I need to focus on writing the right commands. It feels like every bit of preparation adds to my confidence, so let's make sure I get this just right. I'm thinking about the commands I need to enter next to keep things moving smoothly.
+ succeeded in 73241ms:
+import numpy as np
+
+
+def parity(values):
+    values = np.asarray(values, dtype=np.uint64).copy()
+    for shift in (32, 16, 8, 4, 2, 1):
+        values ^= values >> np.uint64(shift)
+    return (values & np.uint64(1)).astype(float)
+
+
+class MomentModel:
+    def __init__(self, spec, masks):
+        self.bounds = np.log([channel["rate_bounds"] for channel in spec["channels"]])
+        self.masks = np.asarray(masks, dtype=np.int64)
+        footprints = np.array([channel["masks"] for channel in spec["channels"]])
+        alternate = np.array([action["alternate_probability"] for action in spec["actions"]])
+        first = parity(footprints[:, 0, None] & self.masks[None, :])
+        second = parity(footprints[:, 1, None] & self.masks[None, :])
+        self.odd = (1.0 - alternate[..., None]) * first + alternate[..., None] * second
+        self.exposures = np.array([action["exposures"] for action in spec["actions"]])
+        self.weights = np.array([action["mode_weights"] for action in spec["actions"]])
+
+    def predict(self, log_rates, gradient=False):
+        intensity = self.exposures * np.exp(log_rates)[None, None, :]
+        attenuation = np.exp(-2.0 * intensity)
+        factors = np.maximum(1.0 - (1.0 - attenuation[..., None]) * self.odd[:, None, :, :], 1e-100)
+        products = np.prod(factors, axis=2)
+        mean = np.sum(self.weights[..., None] * products, axis=1)
+        if not gradient:
+            return mean
+        derivative = np.sum(self.weights[:, :, None, None] * products[:, :, None, :]
+                            * (-2.0 * intensity * attenuation)[..., None]
+                            * self.odd[:, None, :, :] / factors, axis=1)
+        return mean, derivative
+import numpy as np
+
+
+def sample_events(spec, rates, action_id, shots, rng):
+    action = spec["actions"][action_id]
+    modes = rng.choice(len(action["mode_weights"]), shots, p=action["mode_weights"])
+    exposures = np.asarray(action["exposures"])
+    syndromes = np.zeros(shots, dtype=np.int64)
+    for index, channel in enumerate(spec["channels"]):
+        intensity = exposures[modes, index] * rates[index]
+        fired = rng.random(shots) < -0.5 * np.expm1(-2.0 * intensity)
+        alternate = rng.random(shots) < action["alternate_probability"][index]
+        footprint = np.where(alternate, channel["masks"][1], channel["masks"][0])
+        syndromes ^= np.where(fired, footprint, 0)
+    return np.unique(syndromes, return_counts=True)
+{
+  "mean_family_log_rmse_max": 0.075,
+  "worst_regime_family_log_rmse_max": 0.125,
+  "shot_budget": 40000,
+  "max_queries": 64,
+  "max_shots_per_query": 4000,
+  "cpu_seconds_per_episode": 60,
+  "wall_seconds_per_episode": 900,
+  "initialization_allowance_seconds": 300,
+  "address_space_bytes": 3221225472,
+  "version": "efficient-active-calibration-generation-2",
+  "generation": 2,
+  "date": "2026-08-28",
+  "regimes": [
+    "chain_hooks",
+    "patch_crosstalk",
+    "burst_aliases"
+  ],
+  "episodes_per_regime": 4,
+  "frozen_before_portfolio_and_fresh": true,
+  "precommit_sha256": "3d852e17b2d90676e09cfcaeb939dd684b289b521171304f5375738bd2f81ab4",
+  "metric": "Equal-weight RMS log error within each episode/family, RMS over four episodes in each regime/family, then mean and maximum of the 12 cells."
+}
+# Submission workspace
+
+Develop `solution.py` in the writable attempt directory supplied by the runner.
+Copy `../baseline/solution.py` there for a starting point; public participant
+files may be read-only. The worker command is `/usr/bin/python3 /submission/solution.py`.
+See `../TASK.md` and `../input/API.md`. Training output belongs in the attempt
+directory, not in this participant tree.
+<class 'dict'>
+dict_keys(['episodes'])
+0 dict_keys(['id', 'spec', 'rates', 'sample_seed'])
+chain_hooks dict_keys(['protocol', 'observation_encoding', 'regime', 'topology', 'detector_count', 'detector_edges', 'channels', 'actions', 'shot_budget', 'max_queries', 'max_shots_per_query', 'cpu_seconds', 'wall_seconds'])
+channels [{'family': 'boundary', 'masks': [128, 128], 'id': 'channel_000', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [32, 32], 'id': 'channel_001', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [8, 8], 'id': 'channel_002', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [2048, 2048], 'id': 'channel_003', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [512, 512], 'id': 'channel_004', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [4096, 4096], 'id': 'channel_005', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [1024, 1024], 'id': 'channel_006', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [2, 2], 'id': 'channel_007', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [256, 256], 'id': 'channel_008', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [64, 64], 'id': 'channel_009', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [16, 16], 'id': 'channel_010', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [4, 4], 'id': 'channel_011', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [1, 1], 'id': 'channel_012', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [8192, 8192], 'id': 'channel_013', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'bulk', 'masks': [160, 130], 'id': 'channel_014', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [130, 160], 'id': 'channel_015', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [40, 288], 'id': 'channel_016', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [288, 40], 'id': 'channel_017', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2056, 40], 'id': 'channel_018', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [72, 40], 'id': 'channel_019', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2560, 2056], 'id': 'channel_020', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2064, 2056], 'id': 'channel_021', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4608, 516], 'id': 'channel_022', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [516, 4608], 'id': 'channel_023', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [5120, 4097], 'id': 'channel_024', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4097, 4608], 'id': 'channel_025', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [9216, 5120], 'id': 'channel_026', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [258, 130], 'id': 'channel_027', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [320, 258], 'id': 'channel_028', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [80, 72], 'id': 'channel_029', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [20, 80], 'id': 'channel_030', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [5, 516], 'id': 'channel_031', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8193, 5], 'id': 'channel_032', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'hook', 'masks': [418, 290], 'id': 'channel_033', 'sector': 1, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [296, 328], 'id': 'channel_034', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [2136, 2128], 'id': 'channel_035', 'sector': 2, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [2576, 532], 'id': 'channel_036', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [4613, 4101], 'id': 'channel_037', 'sector': 3, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [5121, 9217], 'id': 'channel_038', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'rare', 'masks': [418, 416], 'id': 'channel_039', 'sector': 1, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [296, 104], 'id': 'channel_040', 'sector': 0, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [2576, 2564], 'id': 'channel_041', 'sector': 2, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [5121, 13312], 'id': 'channel_042', 'sector': 2, 'rate_bounds': [5e-05, 0.015]}]
+actions [(0, 'reference', [1.0, 0.0]), (1, 'configuration_01', [0.78, 0.22]), (2, 'configuration_02', [0.5800000000000001, 0.42]), (3, 'configuration_03', [0.92, 0.08]), (4, 'configuration_04', [0.78, 0.22]), (5, 'configuration_05', [0.5800000000000001, 0.42]), (6, 'configuration_06', [0.92, 0.08]), (7, 'configuration_07', [0.78, 0.22]), (8, 'configuration_08', [0.5800000000000001, 0.42]), (9, 'configuration_09', [0.92, 0.08]), (10, 'configuration_10', [0.78, 0.22]), (11, 'configuration_11', [0.5800000000000001, 0.42]), (12, 'configuration_12', [0.35, 0.65]), (13, 'rare_39_gain_20', [0.8, 0.2]), (14, 'rare_39_gain_120', [0.8, 0.2]), (15, 'rare_39_gain_720', [0.8, 0.2]), (16, 'rare_39_gain_4320', [0.8, 0.2]), (17, 'rare_40_gain_20', [0.8, 0.2]), (18, 'rare_40_gain_120', [0.8, 0.2]), (19, 'rare_40_gain_720', [0.8, 0.2]), (20, 'rare_40_gain_4320', [0.8, 0.2]), (21, 'rare_41_gain_20', [0.8, 0.2]), (22, 'rare_41_gain_120', [0.8, 0.2]), (23, 'rare_41_gain_720', [0.8, 0.2]), (24, 'rare_41_gain_4320', [0.8, 0.2]), (25, 'rare_42_gain_20', [0.8, 0.2]), (26, 'rare_42_gain_120', [0.8, 0.2]), (27, 'rare_42_gain_720', [0.8, 0.2]), (28, 'rare_42_gain_4320', [0.8, 0.2])]
+rates [0.02504205846740466, 0.004122257719223383, 0.005209382980851746, 0.034109169919671875, 0.0063468083033691594, 0.010263586261697938, 0.0037450210015131397, 0.00831237650813531, 0.008788954430621517, 0.007428149754166368, 0.003530059932097091, 0.019172293334356983, 0.04957390479768768, 0.026701081187095556, 0.006423434759920528, 0.0055784784418842015, 0.015078775612787147, 0.003463238562128602, 0.006263479756552555, 0.030536156534273728, 0.014942052489907123, 0.017446971219205888, 0.014795234040697356, 0.018992652396411402, 0.0020043146543854084, 0.02177049707874983, 0.0540083566416273, 0.026596980430833122, 0.017510303415414912, 0.03928894479563563, 0.008020386978672318, 0.008497302971924922, 0.010920296080341261, 0.01773695802081162, 0.010592108678702054, 0.0030887928572961255, 0.0021566575104218005, 0.001544042134817331, 0.007085929265147185, 0.0018748603105566584, 7.847346775483669e-05, 0.0003442662062042282, 0.0037399653491944043]
+1 dict_keys(['id', 'spec', 'rates', 'sample_seed'])
+patch_crosstalk dict_keys(['protocol', 'observation_encoding', 'regime', 'topology', 'detector_count', 'detector_edges', 'channels', 'actions', 'shot_budget', 'max_queries', 'max_shots_per_query', 'cpu_seconds', 'wall_seconds'])
+channels [{'family': 'boundary', 'masks': [256, 256], 'id': 'channel_000', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [1, 1], 'id': 'channel_001', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [128, 128], 'id': 'channel_002', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [512, 512], 'id': 'channel_003', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [32, 32], 'id': 'channel_004', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [8192, 8192], 'id': 'channel_005', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [4, 4], 'id': 'channel_006', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [4096, 4096], 'id': 'channel_007', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [1024, 1024], 'id': 'channel_008', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [64, 64], 'id': 'channel_009', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [2048, 2048], 'id': 'channel_010', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [2, 2], 'id': 'channel_011', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [16, 16], 'id': 'channel_012', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [8, 8], 'id': 'channel_013', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'bulk', 'masks': [257, 288], 'id': 'channel_014', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [288, 257], 'id': 'channel_015', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [129, 257], 'id': 'channel_016', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8193, 129], 'id': 'channel_017', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [640, 132], 'id': 'channel_018', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [132, 640], 'id': 'channel_019', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4608, 640], 'id': 'channel_020', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8224, 288], 'id': 'channel_021', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1056, 288], 'id': 'channel_022', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8196, 8256], 'id': 'channel_023', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8256, 8224], 'id': 'channel_024', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4100, 2052], 'id': 'channel_025', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2052, 132], 'id': 'channel_026', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4098, 4608], 'id': 'channel_027', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1088, 1040], 'id': 'channel_028', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1040, 1056], 'id': 'channel_029', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2112, 1088], 'id': 'channel_030', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [72, 1088], 'id': 'channel_031', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2050, 2052], 'id': 'channel_032', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [24, 1040], 'id': 'channel_033', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'hook', 'masks': [8481, 8225], 'id': 'channel_034', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [8321, 8324], 'id': 'channel_035', 'sector': 3, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [4740, 4612], 'id': 'channel_036', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [9248, 9280], 'id': 'channel_037', 'sector': 3, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [10308, 2116], 'id': 'channel_038', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [6148, 6146], 'id': 'channel_039', 'sector': 2, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [1112, 88], 'id': 'channel_040', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'rare', 'masks': [8481, 8449], 'id': 'channel_041', 'sector': 0, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [4740, 4736], 'id': 'channel_042', 'sector': 1, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [10308, 10244], 'id': 'channel_043', 'sector': 0, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [1112, 1096], 'id': 'channel_044', 'sector': 3, 'rate_bounds': [5e-05, 0.015]}]
+actions [(0, 'reference', [1.0, 0.0]), (1, 'configuration_01', [0.5800000000000001, 0.42]), (2, 'configuration_02', [0.92, 0.08]), (3, 'configuration_03', [0.78, 0.22]), (4, 'configuration_04', [0.5800000000000001, 0.42]), (5, 'configuration_05', [0.92, 0.08]), (6, 'configuration_06', [0.78, 0.22]), (7, 'configuration_07', [0.5800000000000001, 0.42]), (8, 'configuration_08', [0.92, 0.08]), (9, 'configuration_09', [0.78, 0.22]), (10, 'configuration_10', [0.5800000000000001, 0.42]), (11, 'configuration_11', [0.92, 0.08]), (12, 'configuration_12', [0.35, 0.65]), (13, 'rare_41_gain_20', [0.8, 0.2]), (14, 'rare_41_gain_120', [0.8, 0.2]), (15, 'rare_41_gain_720', [0.8, 0.2]), (16, 'rare_41_gain_4320', [0.8, 0.2]), (17, 'rare_42_gain_20', [0.8, 0.2]), (18, 'rare_42_gain_120', [0.8, 0.2]), (19, 'rare_42_gain_720', [0.8, 0.2]), (20, 'rare_42_gain_4320', [0.8, 0.2]), (21, 'rare_43_gain_20', [0.8, 0.2]), (22, 'rare_43_gain_120', [0.8, 0.2]), (23, 'rare_43_gain_720', [0.8, 0.2]), (24, 'rare_43_gain_4320', [0.8, 0.2]), (25, 'rare_44_gain_20', [0.8, 0.2]), (26, 'rare_44_gain_120', [0.8, 0.2]), (27, 'rare_44_gain_720', [0.8, 0.2]), (28, 'rare_44_gain_4320', [0.8, 0.2])]
+2 dict_keys(['id', 'spec', 'rates', 'sample_seed'])
+burst_aliases dict_keys(['protocol', 'observation_encoding', 'regime', 'topology', 'detector_count', 'detector_edges', 'channels', 'actions', 'shot_budget', 'max_queries', 'max_shots_per_query', 'cpu_seconds', 'wall_seconds'])
+channels [{'family': 'boundary', 'masks': [512, 512], 'id': 'channel_000', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [4, 4], 'id': 'channel_001', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [64, 64], 'id': 'channel_002', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [2, 2], 'id': 'channel_003', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [1024, 1024], 'id': 'channel_004', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [4096, 4096], 'id': 'channel_005', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [256, 256], 'id': 'channel_006', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [16, 16], 'id': 'channel_007', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [32, 32], 'id': 'channel_008', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [1, 1], 'id': 'channel_009', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [8, 8], 'id': 'channel_010', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [128, 128], 'id': 'channel_011', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [2048, 2048], 'id': 'channel_012', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [8192, 8192], 'id': 'channel_013', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'bulk', 'masks': [516, 514], 'id': 'channel_014', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [514, 516], 'id': 'channel_015', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1536, 514], 'id': 'channel_016', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [68, 1028], 'id': 'channel_017', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1028, 4100], 'id': 'channel_018', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4100, 68], 'id': 'channel_019', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4160, 68], 'id': 'channel_020', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1026, 514], 'id': 'channel_021', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [258, 514], 'id': 'channel_022', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [18, 258], 'id': 'channel_023', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [5120, 1028], 'id': 'channel_024', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1040, 1056], 'id': 'channel_025', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1056, 1536], 'id': 'channel_026', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4128, 5120], 'id': 'channel_027', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [272, 258], 'id': 'channel_028', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [257, 264], 'id': 'channel_029', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [264, 257], 'id': 'channel_030', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [48, 272], 'id': 'channel_031', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [24, 1040], 'id': 'channel_032', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [144, 48], 'id': 'channel_033', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [160, 48], 'id': 'channel_034', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [9, 2049], 'id': 'channel_035', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2049, 9], 'id': 'channel_036', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8193, 257], 'id': 'channel_037', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [136, 264], 'id': 'channel_038', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8200, 9], 'id': 'channel_039', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [10240, 2049], 'id': 'channel_040', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'hook', 'masks': [1542, 1030], 'id': 'channel_041', 'sector': 1, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [1092, 5184], 'id': 'channel_042', 'sector': 2, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [1298, 1296], 'id': 'channel_043', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [5136, 4144], 'id': 'channel_044', 'sector': 1, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [281, 25], 'id': 'channel_045', 'sector': 3, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [56, 168], 'id': 'channel_046', 'sector': 1, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [10249, 10248], 'id': 'channel_047', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'rare', 'masks': [1542, 1540], 'id': 'channel_048', 'sector': 2, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [1298, 1042], 'id': 'channel_049', 'sector': 3, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [281, 280], 'id': 'channel_050', 'sector': 0, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [10249, 8201], 'id': 'channel_051', 'sector': 3, 'rate_bounds': [5e-05, 0.015]}]
+actions [(0, 'reference', [1.0, 0.0]), (1, 'configuration_01', [0.92, 0.08]), (2, 'configuration_02', [0.78, 0.22]), (3, 'configuration_03', [0.5800000000000001, 0.42]), (4, 'configuration_04', [0.92, 0.08]), (5, 'configuration_05', [0.78, 0.22]), (6, 'configuration_06', [0.5800000000000001, 0.42]), (7, 'configuration_07', [0.92, 0.08]), (8, 'configuration_08', [0.78, 0.22]), (9, 'configuration_09', [0.5800000000000001, 0.42]), (10, 'configuration_10', [0.92, 0.08]), (11, 'configuration_11', [0.78, 0.22]), (12, 'configuration_12', [0.35, 0.65]), (13, 'rare_48_gain_20', [0.8, 0.2]), (14, 'rare_48_gain_120', [0.8, 0.2]), (15, 'rare_48_gain_720', [0.8, 0.2]), (16, 'rare_48_gain_4320', [0.8, 0.2]), (17, 'rare_49_gain_20', [0.8, 0.2]), (18, 'rare_49_gain_120', [0.8, 0.2]), (19, 'rare_49_gain_720', [0.8, 0.2]), (20, 'rare_49_gain_4320', [0.8, 0.2]), (21, 'rare_50_gain_20', [0.8, 0.2]), (22, 'rare_50_gain_120', [0.8, 0.2]), (23, 'rare_50_gain_720', [0.8, 0.2]), (24, 'rare_50_gain_4320', [0.8, 0.2]), (25, 'rare_51_gain_20', [0.8, 0.2]), (26, 'rare_51_gain_120', [0.8, 0.2]), (27, 'rare_51_gain_720', [0.8, 0.2]), (28, 'rare_51_gain_4320', [0.8, 0.2])]
+3 dict_keys(['id', 'spec', 'rates', 'sample_seed'])
+chain_hooks dict_keys(['protocol', 'observation_encoding', 'regime', 'topology', 'detector_count', 'detector_edges', 'channels', 'actions', 'shot_budget', 'max_queries', 'max_shots_per_query', 'cpu_seconds', 'wall_seconds'])
+channels [{'family': 'boundary', 'masks': [32768, 32768], 'id': 'channel_000', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [128, 128], 'id': 'channel_001', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [16, 16], 'id': 'channel_002', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [4096, 4096], 'id': 'channel_003', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [1, 1], 'id': 'channel_004', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [2048, 2048], 'id': 'channel_005', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [8, 8], 'id': 'channel_006', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [64, 64], 'id': 'channel_007', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [512, 512], 'id': 'channel_008', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [16384, 16384], 'id': 'channel_009', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [8192, 8192], 'id': 'channel_010', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [256, 256], 'id': 'channel_011', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [32, 32], 'id': 'channel_012', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [131072, 131072], 'id': 'channel_013', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [4, 4], 'id': 'channel_014', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [2, 2], 'id': 'channel_015', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [1024, 1024], 'id': 'channel_016', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [65536, 65536], 'id': 'channel_017', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'bulk', 'masks': [32896, 49152], 'id': 'channel_018', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [49152, 32896], 'id': 'channel_019', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [144, 8320], 'id': 'channel_020', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8320, 32896], 'id': 'channel_021', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4112, 144], 'id': 'channel_022', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [272, 4112], 'id': 'channel_023', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4097, 4128], 'id': 'channel_024', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4128, 4112], 'id': 'channel_025', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2049, 4097], 'id': 'channel_026', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [131073, 4097], 'id': 'channel_027', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2056, 2049], 'id': 'channel_028', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2052, 2049], 'id': 'channel_029', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [72, 10], 'id': 'channel_030', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [10, 2056], 'id': 'channel_031', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [576, 1088], 'id': 'channel_032', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1088, 72], 'id': 'channel_033', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [66048, 576], 'id': 'channel_034', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [24576, 49152], 'id': 'channel_035', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8448, 8320], 'id': 'channel_036', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [288, 8448], 'id': 'channel_037', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [131104, 288], 'id': 'channel_038', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [131076, 131073], 'id': 'channel_039', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [6, 131076], 'id': 'channel_040', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1026, 6], 'id': 'channel_041', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [66560, 1026], 'id': 'channel_042', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'hook', 'masks': [57472, 24704], 'id': 'channel_043', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [8336, 8464], 'id': 'channel_044', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [4400, 4384], 'id': 'channel_045', 'sector': 3, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [4129, 131105], 'id': 'channel_046', 'sector': 1, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [133125, 133124], 'id': 'channel_047', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [2060, 14], 'id': 'channel_048', 'sector': 1, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [1098, 1090], 'id': 'channel_049', 'sector': 1, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [1600, 67072], 'id': 'channel_050', 'sector': 2, 'rate_bounds': [0.0015, 0.028]}, {'family': 'rare', 'masks': [57472, 41088], 'id': 'channel_051', 'sector': 2, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [4400, 4144], 'id': 'channel_052', 'sector': 0, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [133125, 2053], 'id': 'channel_053', 'sector': 0, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [1600, 66112], 'id': 'channel_054', 'sector': 1, 'rate_bounds': [5e-05, 0.015]}]
+actions [(0, 'reference', [1.0, 0.0]), (1, 'configuration_01', [0.78, 0.22]), (2, 'configuration_02', [0.5800000000000001, 0.42]), (3, 'configuration_03', [0.92, 0.08]), (4, 'configuration_04', [0.78, 0.22]), (5, 'configuration_05', [0.5800000000000001, 0.42]), (6, 'configuration_06', [0.92, 0.08]), (7, 'configuration_07', [0.78, 0.22]), (8, 'configuration_08', [0.5800000000000001, 0.42]), (9, 'configuration_09', [0.92, 0.08]), (10, 'configuration_10', [0.78, 0.22]), (11, 'configuration_11', [0.5800000000000001, 0.42]), (12, 'configuration_12', [0.35, 0.65]), (13, 'rare_51_gain_20', [0.8, 0.2]), (14, 'rare_51_gain_120', [0.8, 0.2]), (15, 'rare_51_gain_720', [0.8, 0.2]), (16, 'rare_51_gain_4320', [0.8, 0.2]), (17, 'rare_52_gain_20', [0.8, 0.2]), (18, 'rare_52_gain_120', [0.8, 0.2]), (19, 'rare_52_gain_720', [0.8, 0.2]), (20, 'rare_52_gain_4320', [0.8, 0.2]), (21, 'rare_53_gain_20', [0.8, 0.2]), (22, 'rare_53_gain_120', [0.8, 0.2]), (23, 'rare_53_gain_720', [0.8, 0.2]), (24, 'rare_53_gain_4320', [0.8, 0.2]), (25, 'rare_54_gain_20', [0.8, 0.2]), (26, 'rare_54_gain_120', [0.8, 0.2]), (27, 'rare_54_gain_720', [0.8, 0.2]), (28, 'rare_54_gain_4320', [0.8, 0.2])]
+4 dict_keys(['id', 'spec', 'rates', 'sample_seed'])
+patch_crosstalk dict_keys(['protocol', 'observation_encoding', 'regime', 'topology', 'detector_count', 'detector_edges', 'channels', 'actions', 'shot_budget', 'max_queries', 'max_shots_per_query', 'cpu_seconds', 'wall_seconds'])
+channels [{'family': 'boundary', 'masks': [4096, 4096], 'id': 'channel_000', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [32, 32], 'id': 'channel_001', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [1, 1], 'id': 'channel_002', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [512, 512], 'id': 'channel_003', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [256, 256], 'id': 'channel_004', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [2, 2], 'id': 'channel_005', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [2048, 2048], 'id': 'channel_006', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [8192, 8192], 'id': 'channel_007', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [32768, 32768], 'id': 'channel_008', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [64, 64], 'id': 'channel_009', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [1024, 1024], 'id': 'channel_010', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [4, 4], 'id': 'channel_011', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [8, 8], 'id': 'channel_012', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [16, 16], 'id': 'channel_013', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [65536, 65536], 'id': 'channel_014', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [131072, 131072], 'id': 'channel_015', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [128, 128], 'id': 'channel_016', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [16384, 16384], 'id': 'channel_017', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'bulk', 'masks': [4128, 4352], 'id': 'channel_018', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4352, 4128], 'id': 'channel_019', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [33, 4128], 'id': 'channel_020', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [34, 4128], 'id': 'channel_021', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [513, 33], 'id': 'channel_022', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2049, 513], 'id': 'channel_023', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8704, 513], 'id': 'channel_024', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [258, 4352], 'id': 'channel_025', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [33024, 4352], 'id': 'channel_026', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2050, 66], 'id': 'channel_027', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [66, 2050], 'id': 'channel_028', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [10240, 2049], 'id': 'channel_029', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [3072, 2050], 'id': 'channel_030', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8196, 10240], 'id': 'channel_031', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [32832, 32776], 'id': 'channel_032', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [32776, 32832], 'id': 'channel_033', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1088, 66], 'id': 'channel_034', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [80, 66], 'id': 'channel_035', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1028, 1088], 'id': 'channel_036', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [66560, 1028], 'id': 'channel_037', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [131076, 8196], 'id': 'channel_038', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [24, 32776], 'id': 'channel_039', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [136, 32776], 'id': 'channel_040', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [65552, 16400], 'id': 'channel_041', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [16400, 65552], 'id': 'channel_042', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [196608, 66560], 'id': 'channel_043', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [16512, 136], 'id': 'channel_044', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'hook', 'masks': [4386, 290], 'id': 'channel_045', 'sector': 3, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [35, 2051], 'id': 'channel_046', 'sector': 2, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [10753, 10752], 'id': 'channel_047', 'sector': 2, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [33026, 32834], 'id': 'channel_048', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [3138, 3136], 'id': 'channel_049', 'sector': 2, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [11264, 9220], 'id': 'channel_050', 'sector': 3, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [32856, 88], 'id': 'channel_051', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [1104, 66576], 'id': 'channel_052', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [197636, 196612], 'id': 'channel_053', 'sector': 3, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [152, 16528], 'id': 'channel_054', 'sector': 3, 'rate_bounds': [0.0015, 0.028]}, {'family': 'rare', 'masks': [4386, 4130], 'id': 'channel_055', 'sector': 0, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [33026, 322], 'id': 'channel_056', 'sector': 0, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [32856, 32848], 'id': 'channel_057', 'sector': 1, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [152, 16408], 'id': 'channel_058', 'sector': 1, 'rate_bounds': [5e-05, 0.015]}]
+actions [(0, 'reference', [1.0, 0.0]), (1, 'configuration_01', [0.5800000000000001, 0.42]), (2, 'configuration_02', [0.92, 0.08]), (3, 'configuration_03', [0.78, 0.22]), (4, 'configuration_04', [0.5800000000000001, 0.42]), (5, 'configuration_05', [0.92, 0.08]), (6, 'configuration_06', [0.78, 0.22]), (7, 'configuration_07', [0.5800000000000001, 0.42]), (8, 'configuration_08', [0.92, 0.08]), (9, 'configuration_09', [0.78, 0.22]), (10, 'configuration_10', [0.5800000000000001, 0.42]), (11, 'configuration_11', [0.92, 0.08]), (12, 'configuration_12', [0.35, 0.65]), (13, 'rare_55_gain_20', [0.8, 0.2]), (14, 'rare_55_gain_120', [0.8, 0.2]), (15, 'rare_55_gain_720', [0.8, 0.2]), (16, 'rare_55_gain_4320', [0.8, 0.2]), (17, 'rare_56_gain_20', [0.8, 0.2]), (18, 'rare_56_gain_120', [0.8, 0.2]), (19, 'rare_56_gain_720', [0.8, 0.2]), (20, 'rare_56_gain_4320', [0.8, 0.2]), (21, 'rare_57_gain_20', [0.8, 0.2]), (22, 'rare_57_gain_120', [0.8, 0.2]), (23, 'rare_57_gain_720', [0.8, 0.2]), (24, 'rare_57_gain_4320', [0.8, 0.2]), (25, 'rare_58_gain_20', [0.8, 0.2]), (26, 'rare_58_gain_120', [0.8, 0.2]), (27, 'rare_58_gain_720', [0.8, 0.2]), (28, 'rare_58_gain_4320', [0.8, 0.2])]
+5 dict_keys(['id', 'spec', 'rates', 'sample_seed'])
+burst_aliases dict_keys(['protocol', 'observation_encoding', 'regime', 'topology', 'detector_count', 'detector_edges', 'channels', 'actions', 'shot_budget', 'max_queries', 'max_shots_per_query', 'cpu_seconds', 'wall_seconds'])
+channels [{'family': 'boundary', 'masks': [1, 1], 'id': 'channel_000', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [1024, 1024], 'id': 'channel_001', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [8, 8], 'id': 'channel_002', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [16384, 16384], 'id': 'channel_003', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [131072, 131072], 'id': 'channel_004', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [32, 32], 'id': 'channel_005', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [4, 4], 'id': 'channel_006', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [2, 2], 'id': 'channel_007', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [64, 64], 'id': 'channel_008', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [16, 16], 'id': 'channel_009', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [32768, 32768], 'id': 'channel_010', 'sector': 0, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [4096, 4096], 'id': 'channel_011', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [128, 128], 'id': 'channel_012', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [65536, 65536], 'id': 'channel_013', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [256, 256], 'id': 'channel_014', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [2048, 2048], 'id': 'channel_015', 'sector': 2, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [512, 512], 'id': 'channel_016', 'sector': 3, 'rate_bounds': [0.003, 0.05]}, {'family': 'boundary', 'masks': [8192, 8192], 'id': 'channel_017', 'sector': 1, 'rate_bounds': [0.003, 0.05]}, {'family': 'bulk', 'masks': [1025, 16385], 'id': 'channel_018', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [16385, 131073], 'id': 'channel_019', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [131073, 16385], 'id': 'channel_020', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1032, 132096], 'id': 'channel_021', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [132096, 1025], 'id': 'channel_022', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [1056, 1025], 'id': 'channel_023', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [40, 1032], 'id': 'channel_024', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [147456, 16388], 'id': 'channel_025', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [16388, 16385], 'id': 'channel_026', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [16386, 16388], 'id': 'channel_027', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [131104, 131074], 'id': 'channel_028', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [131074, 132096], 'id': 'channel_029', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [131136, 147456], 'id': 'channel_030', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [96, 40], 'id': 'channel_031', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [6, 20], 'id': 'channel_032', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [20, 32772], 'id': 'channel_033', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [32772, 6], 'id': 'channel_034', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [66, 32770], 'id': 'channel_035', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [32770, 131074], 'id': 'channel_036', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4098, 16386], 'id': 'channel_037', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4160, 66], 'id': 'channel_038', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [32784, 20], 'id': 'channel_039', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [144, 65552], 'id': 'channel_040', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [65552, 32784], 'id': 'channel_041', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [36864, 33024], 'id': 'channel_042', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [98304, 32772], 'id': 'channel_043', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [33024, 98304], 'id': 'channel_044', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [4352, 36864], 'id': 'channel_045', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [65664, 144], 'id': 'channel_046', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2176, 640], 'id': 'channel_047', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [640, 144], 'id': 'channel_048', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [65792, 73728], 'id': 'channel_049', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [66048, 65552], 'id': 'channel_050', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [73728, 66048], 'id': 'channel_051', 'sector': 3, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8448, 65792], 'id': 'channel_052', 'sector': 2, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [2560, 2176], 'id': 'channel_053', 'sector': 1, 'rate_bounds': [0.002, 0.06]}, {'family': 'bulk', 'masks': [8704, 66048], 'id': 'channel_054', 'sector': 0, 'rate_bounds': [0.002, 0.06]}, {'family': 'hook', 'masks': [148481, 148480], 'id': 'channel_055', 'sector': 2, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [132104, 131112], 'id': 'channel_056', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [147462, 131078], 'id': 'channel_057', 'sector': 1, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [131106, 98], 'id': 'channel_058', 'sector': 2, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [32790, 32786], 'id': 'channel_059', 'sector': 2, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [32834, 36928], 'id': 'channel_060', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [98448, 98432], 'id': 'channel_061', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [102400, 69888], 'id': 'channel_062', 'sector': 0, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [68224, 68096], 'id': 'channel_063', 'sector': 3, 'rate_bounds': [0.0015, 0.028]}, {'family': 'hook', 'masks': [66304, 8960], 'id': 'channel_064', 'sector': 3, 'rate_bounds': [0.0015, 0.028]}, {'family': 'rare', 'masks': [148481, 132097], 'id': 'channel_065', 'sector': 1, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [131106, 131168], 'id': 'channel_066', 'sector': 2, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [98448, 98320], 'id': 'channel_067', 'sector': 3, 'rate_bounds': [5e-05, 0.015]}, {'family': 'rare', 'masks': [66304, 73984], 'id': 'channel_068', 'sector': 1, 'rate_bounds': [5e-05, 0.015]}]
+actions [(0, 'reference', [1.0, 0.0]), (1, 'configuration_01', [0.92, 0.08]), (2, 'configuration_02', [0.78, 0.22]), (3, 'configuration_03', [0.5800000000000001, 0.42]), (4, 'configuration_04', [0.92, 0.08]), (5, 'configuration_05', [0.78, 0.22]), (6, 'configuration_06', [0.5800000000000001, 0.42]), (7, 'configuration_07', [0.92, 0.08]), (8, 'configuration_08', [0.78, 0.22]), (9, 'configuration_09', [0.5800000000000001, 0.42]), (10, 'configuration_10', [0.92, 0.08]), (11, 'configuration_11', [0.78, 0.22]), (12, 'configuration_12', [0.35, 0.65]), (13, 'rare_65_gain_20', [0.8, 0.2]), (14, 'rare_65_gain_120', [0.8, 0.2]), (15, 'rare_65_gain_720', [0.8, 0.2]), (16, 'rare_65_gain_4320', [0.8, 0.2]), (17, 'rare_66_gain_20', [0.8, 0.2]), (18, 'rare_66_gain_120', [0.8, 0.2]), (19, 'rare_66_gain_720', [0.8, 0.2]), (20, 'rare_66_gain_4320', [0.8, 0.2]), (21, 'rare_67_gain_20', [0.8, 0.2]), (22, 'rare_67_gain_120', [0.8, 0.2]), (23, 'rare_67_gain_720', [0.8, 0.2]), (24, 'rare_67_gain_4320', [0.8, 0.2]), (25, 'rare_68_gain_20', [0.8, 0.2]), (26, 'rare_68_gain_120', [0.8, 0.2]), (27, 'rare_68_gain_720', [0.8, 0.2]), (28, 'rare_68_gain_4320', [0.8, 0.2])]
+
+**Reducing output prints**
+
+I realize I need to reduce the number of prints. It seems like keeping things concise will be better for clarity. I wonder if I can summarize or present information more efficiently. That way, everything stays organized without overwhelming the user with too much information. So, I'll aim for simplicity and precision in what I share moving forward. That should hopefully lead to a better experience for everyone!
+**Considering coding solutions**
+
+I realize I have about 57 minutes to find a robust solution. Can I code a C++ shared library that can be compiled at runtime? It seems like standalone Python can include C++ source files for compiling. I’m thinking I could ship a .so file built on my current machine, compatible with Python on x86. The goal is to make it runnable with both "solution.py" and the .so file. I need to optimize using C++ for speed and manage logarithmic spectrum calculations efficiently!
+**Evaluating functions and projections**
+
+I’m considering how a function can be expressed in terms of constants and masks. The log spectrum relates to the FWHT of sparse coefficients, contributing three per channel. I can evaluate the full joint distribution, which is quite intensive but optimized in C++ that might run around 0.5 seconds. The gradient adjoint reverse WHT gives coefficients at masks for log rate gradients. I think I’ll focus on projections to a limited number of forms to maintain distinguishability while optimizing the processing of sparse observations.
+**Optimizing linear projections**
+
+I’m considering using action-specific linear projections that are optimized for the active channel footprint and sparse combinations. The random hash with 12 bits from the original D20 yields low noise actions, though I expect 2-4 errors in sector action which might create several syndromes. Using a 14-bit random projection could lead to losing some valuable observations, but MLE should remain nearly efficient. To enhance the full state exact MLE, I'll focus on optimizing action-specific groupings with structural split factors.
+**Evaluating sector exposures**
+
+I’m considering how the sector exposures are working with the quarter channels. The idea of a 6-bit plus a suppressed background could work out to about 10 bits, but I might need R14. At R12, I’m aware there could be some efficiency lost. However, it seems like the model should still perform well enough, and using full R20 at the end could help recover some of that efficiency. It’s definitely an interesting balance to manage!
+codex
+The law supports exact likelihoods. I’ll build a fast estimator and adaptive experiment design.
+
+Inspected the protocol, action structure, public simulator, and reference methods. The implementation will use exact XOR likelihoods with fast Walsh transforms and information-based allocation.
+  ✓ Inspect task, interface, and assets
+  → Implement a competitive runnable solution
+  • Test and refine using provided assets
+  • Finalize submission and usage instructions
+**Analyzing code performance and limits**
+
+I need to be aware that there's a time limit for full evaluations, approximately over six seconds after 54 calls, which could cause overflow. For a D20 size with one million actions, evaluations should take around 0.5 seconds. I've got to consider memory counts and ensure the random mapping generation is efficient, particularly through contiguous indexing. Testing the code with finite differences and checking for any potential collisions is critical, especially when handling dropout cases in design.
+**Addressing collision projections**
+
+I’ve noticed that some collision footprints at R11 are artificially aliased due to random relations. I need to find a way to avoid projection collisions between unique original masks at R11. The chance of this happening is relatively low, approximately e^-5, which is around 0.007—maybe manageable with 128 tries. Alternatively, taking R12 with a collision rate of about 0.1 could lead to some minor design adjustments. I should also consider whether to create sorted unique masks for later use.
+**Evaluating D20 performance**
+
+I'm thinking about D20 performance, which can increase bits from 18 to 20. Leaving empty detectors might mean a singular probability, but it effectively maps dimensions without effects. However, it's also really expensive, which could negate any advantages. I need to check out the full D18 CPU, estimating it might take around 5 seconds in C++, which I find quite efficient. It's all about making sure every detail aligns to achieve the best performance!
+codex
+All six public episodes pass locally. I’m checking robustness and allocation efficiency.
+
+  ✓ Inspect task, interface, and assets
+  ✓ Implement a competitive runnable solution
+  → Test and refine using provided assets
+  • Finalize submission and usage instructions
+codex
+Randomized trials look strong; the first 20-detector stress test also stays within limits.
+
+**Assessing collision and estimator issues**
+
+I need to figure out if there's a collision unrelated to high-rate masks at R14 since it might merge channels artificially. If the estimator fit is for initial 14, it can't separate if action exposures are from different sectors, which usually don't alias. I'm considering that information might still be available, but rates could be unstable. The pilot clamps seem important for the final correction. The Fisher 14 pseudorank prior identity is something I need to handle carefully.
+**Evaluating design and fallback options**
+
+I’m considering how to finalize the design with about 31 minutes left, ensuring it’s robust despite potential errors. It’s essential to include a fallback path for a damaged binary, perhaps using pure Python with NumPy for speed if the `.so` file is unavailable. I'll also need to clarify that all dependencies must be properly managed, considering the task requirements to submit a complete runnable solution. Lastly, I should think about making `solution.py` self-contained while keeping file size reasonable.
+**Exploring file handling for submission**
+
+I'm thinking about whether I could bundle everything into Python as a compressed base85 fallback. I wonder if I can decode the file and write it to `/submission/kernel...so` in a writable submission directory. It seems like there might be some limitations with a potentially readonly mount, but it does state that writable submission files may persist. Since the quota is 3GB, writing the binary should be fine as long as I manage the size appropriately. I’ll keep an eye on this!
+**Analyzing resource management**
+
+I’m considering whether I need the new library for CPU resources. It seems we might not get a response until later, but we can queue the full test now using the previous method for offline comparison. The current results are similar, showing slight numeric variations within expectations. 
+
+However, there are a few concerns regarding information underestimation. I need to keep an eye on memory reuse as well. If I optimize, the computations can save time. Let’s refine everything for clarity!
+codex
+The optimized refinement matches the estimator and roughly halves stress-test CPU time.
+
+**Creating report validation**
+
+I'm thinking about how to prepare the validation files. I need to create an aggregation script for generating a `validation.json` file using Python commands. It seems like I have to collect reports and write the output in JSON format, without direct file editing. I want to ensure I can reproduce the metrics summary later on, using `development/summarize.py`. This script isn't essential for the final grading algorithm, but it helps the user check their results. I need to map out some processes within this script, like validating submissions and managing random selections.
+codex
+All public and stress checks pass. I’m packaging the submission and validation report.
+
+The native likelihood and gradient checks pass. All six public protocol episodes and six 20-detector stress cases pass with explicit CPU/address-space limits; the final randomized batch is finishing.
+  ✓ Inspect task, interface, and assets
+  ✓ Implement a competitive runnable solution
+  ✓ Test and refine using provided assets
+  → Finalize submission and usage instructions
+**Cleaning up project files**
+
+I’m focusing on optimizing the cleanup of old files without altering the accuracy of final reports. I'll move any submissions that match a specific pattern, ensuring everything else stays intact. For .json, .log, .txt, and .npz files, I need to delete the old versions while preserving the essential README files. I'll also check binary files to keep performance consistent and ensure the final report reflects this accurately, summarizing all process paths correctly.
+**Analyzing report metrics**
+
+I'm considering how to handle the report metrics, looking at max RMS across four rare episodes. While the channels have the same number, variations in bulk counts exist. The mean family MSE will match by episode based on the report formula. I'm deciding against including exp(-score) since it's not required for the final outcome. I need to be careful about validation since there are six public and twelve hidden, with four per regime, resulting in a known mean of two per cell.
+codex
+Final checks pass: public mean error 0.0494, worst cell 0.0721.
+
+Packaged the runnable worker, portable and AVX2 native kernels, source, reproducibility tools, and validation report. Final validation covers six public protocol episodes, 24 randomized episodes, six 20-detector stress cases, and exact probability/gradient checks; observed CPU stays below 19.4 seconds.
+  ✓ Inspect task, interface, and assets
+  ✓ Implement a competitive runnable solution
+  ✓ Test and refine using provided assets
+  ✓ Finalize submission and usage instructions
+codex
+Implemented the runnable submission at `../attempts/v_1/solution.py:1`, with native kernels and source included.
+
+Local validation:
+- All 6 public episodes valid.
+- Mean cell log-RMSE: **0.0494**; worst: **0.0721**.
+- Additional 24 randomized and 6 synthetic 20-detector tests pass.
+- Maximum observed CPU: **19.4 seconds**, under enforced resource limits.
+
+Detailed results: `../attempts/v_1/validation.json:1`. Hidden evaluation was not run.
+tokens used
+158,912

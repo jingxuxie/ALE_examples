@@ -1,0 +1,326 @@
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <numeric>
+#include <unordered_map>
+#include <vector>
+#include <cstdlib>
+
+using std::vector;
+using Word = uint64_t;
+
+struct Decoder {
+    float* statistics = nullptr;
+    int detectors, variables, words;
+    vector<vector<int>> checks;
+    vector<int> edge_var, logical;
+    vector<float> prior;
+    vector<vector<Word>> original;
+    vector<float> table;
+    int pairs, groups;
+    vector<std::array<float, 4>> energy;
+    int groupof(int var) const {return var < 2 * pairs ? var / 2 : var - pairs;}
+    int maskof(int var) const {return var < 2 * pairs ? 1 << (var % 2) : 1;}
+    float softplus(float value) const {
+        return std::max(value, 0.0f) + std::log1p(std::exp(-std::abs(value)));
+    }
+    float joint_channel(const std::array<float, 4>& costs, int mask, float other) const {
+        int opposite = 3 ^ mask;
+        return costs[mask] + softplus(-costs[opposite] - other) - softplus(costs[mask] - costs[3] - other);
+    }
+    Decoder(int nd, int nv, const uint8_t* matrix, const uint8_t* obs, const double* probabilities, int npairs, const float* costs)
+        : detectors(nd), variables(nv), words((nv + 63) / 64), checks(nd), logical(nv), prior(nv), original(nd, vector<Word>(words)), table(32769) {
+        pairs = npairs;
+        groups = nv - pairs;
+        energy.resize(groups);
+        for (int group = 0; group < pairs; group++) for (int state = 0; state < 4; state++) energy[group][state] = costs[group * 4 + state];
+        for (int index = 0; index <= 32768; index++) {
+            double value = std::max(0.00001, index / 2048.0);
+            table[index] = -std::log(std::tanh(value / 2));
+        }
+        for (int var = 0; var < nv; var++) {
+            prior[var] = std::log((1 - probabilities[var]) / probabilities[var]);
+            if (var >= pairs * 2) energy[groupof(var)] = {0, prior[var], 0, 0};
+            for (int bit = 0; bit < 4; bit++) logical[var] |= int(obs[bit * nv + var]) << bit;
+            for (int check = 0; check < nd; check++) if (matrix[check * nv + var]) {
+                int edge = edge_var.size();
+                edge_var.push_back(var);
+                checks[check].push_back(edge);
+                original[check][var / 64] |= Word(1) << (var % 64);
+            }
+        }
+    }
+    float phi(float value) const {
+        if (value >= 16) return 0.0000002f;
+        float position = std::max(value * 2048, 0.02f);
+        int index = int(position);
+        return table[index] + (position - index) * (table[index + 1] - table[index]);
+    }
+    bool belief(const uint8_t* syndrome, vector<float>& posterior, vector<uint8_t>& hard, int iterations, int trial) {
+        vector<float> messages(edge_var.size(), 0), incoming(edge_var.size()), transformed(edge_var.size());
+        posterior = prior;
+        vector<float> channel = prior;
+        auto potentials = energy;
+        if (trial) {
+            uint64_t seed = 1234567 + trial * 8191;
+            for (int check = 0; check < detectors; check++) seed = (seed ^ syndrome[check]) * 1099511628211ULL;
+            for (int var = 0; var < variables; var++) {
+                seed ^= seed << 13; seed ^= seed >> 7; seed ^= seed << 17;
+                channel[var] *= 0.7f + 0.6f * float(seed & 65535) / 65535;
+            }
+            for (int group = 0; group < pairs; group++) {
+                float scale = channel[2 * group] / prior[2 * group];
+                for (int state = 1; state < 4; state++) potentials[group][state] *= scale;
+            }
+        }
+        for (int group = 0; group < pairs; group++) {
+            channel[2 * group] = joint_channel(potentials[group], 1, 0);
+            channel[2 * group + 1] = joint_channel(potentials[group], 2, 0);
+        }
+        posterior = channel;
+        vector<float> average(variables, 0);
+        for (int iteration = 0; iteration < iterations; iteration++) {
+            for (int check = 0; check < detectors; check++) {
+                float total = 0;
+                int sign = syndrome[check];
+                for (int edge : checks[check]) {
+                    float value = std::clamp(posterior[edge_var[edge]] - messages[edge], -30.0f, 30.0f);
+                    incoming[edge] = value;
+                    transformed[edge] = phi(std::abs(value));
+                    total += transformed[edge];
+                    sign ^= value < 0;
+                }
+                for (int edge : checks[check]) {
+                    float value = std::min(30.0f, phi(std::max(0.0f, total - transformed[edge])));
+                    if (sign ^ (incoming[edge] < 0)) value = -value;
+                    float updated = value * 0.7f + messages[edge] * 0.3f;
+                    posterior[edge_var[edge]] += updated - messages[edge];
+                    messages[edge] = updated;
+                }
+            }
+            for (int group = 0; group < pairs; group++) {
+                int first = 2 * group, second = first + 1;
+                float first_sum = posterior[first] - channel[first];
+                float second_sum = posterior[second] - channel[second];
+                channel[first] = 0.7f * joint_channel(potentials[group], 1, second_sum) + 0.3f * channel[first];
+                channel[second] = 0.7f * joint_channel(potentials[group], 2, first_sum) + 0.3f * channel[second];
+                posterior[first] = first_sum + channel[first];
+                posterior[second] = second_sum + channel[second];
+            }
+            for (int var = 0; var < variables; var++) {
+                hard[var] = posterior[var] < 0;
+                average[var] = 0.8f * average[var] + 0.2f * posterior[var];
+            }
+            bool valid = true;
+            for (int check = 0; check < detectors; check++) {
+                int parity = syndrome[check];
+                for (int edge : checks[check]) parity ^= hard[edge_var[edge]];
+                if (parity) { valid = false; break; }
+            }
+            if (valid) return true;
+        }
+        posterior = average;
+        for (int var = 0; var < variables; var++) hard[var] = posterior[var] < 0;
+        return false;
+    }
+    void osd(const uint8_t* syndrome, const vector<float>& posterior, const vector<uint8_t>& hard, int order,
+             std::unordered_map<uint64_t, std::pair<int, float>>& candidates) {
+        vector<int> sorted(variables);
+        std::iota(sorted.begin(), sorted.end(), 0);
+        std::stable_sort(sorted.begin(), sorted.end(), [&](int left, int right) {return std::abs(posterior[left]) < std::abs(posterior[right]);});
+        auto rows = original;
+        vector<uint8_t> rhs(syndrome, syndrome + detectors);
+        for (int check = 0; check < detectors; check++) for (int edge : checks[check]) rhs[check] ^= hard[edge_var[edge]];
+        vector<int> pivots, freevars;
+        int rank = 0;
+        for (int var : sorted) {
+            int pivot = rank;
+            Word mask = Word(1) << (var % 64);
+            int block = var / 64;
+            while (pivot < detectors && !(rows[pivot][block] & mask)) pivot++;
+            if (pivot == detectors) {freevars.push_back(var); continue;}
+            std::swap(rows[rank], rows[pivot]);
+            std::swap(rhs[rank], rhs[pivot]);
+            for (int check = 0; check < detectors; check++) if (check != rank && (rows[check][block] & mask)) {
+                for (int word = 0; word < words; word++) rows[check][word] ^= rows[rank][word];
+                rhs[check] ^= rhs[rank];
+            }
+            pivots.push_back(var);
+            rank++;
+        }
+        vector<uint8_t> base = hard;
+        for (int index = 0; index < rank; index++) base[pivots[index]] ^= rhs[index];
+        vector<vector<int>> flips;
+        vector<float> costs;
+        float base_score = 0;
+        int base_logical = 0;
+        uint64_t base_hash = 0;
+        vector<int> states(groups, 0);
+        vector<uint64_t> hashes(variables);
+        for (int var = 0; var < variables; var++) {
+            uint64_t hash = var + 0x9e3779b97f4a7c15ULL;
+            hash = (hash ^ (hash >> 30)) * 0xbf58476d1ce4e5b9ULL;
+            hash = (hash ^ (hash >> 27)) * 0x94d049bb133111ebULL;
+            hashes[var] = hash ^ (hash >> 31);
+            if (base[var]) {states[groupof(var)] ^= maskof(var); base_logical ^= logical[var]; base_hash ^= hashes[var];}
+        }
+        for (int group = 0; group < groups; group++) base_score += energy[group][states[group]];
+        auto insert = [&](uint64_t hash, int label, float score) {
+            candidates.emplace(hash, std::make_pair(label, score));
+        };
+        insert(base_hash, base_logical, base_score);
+        vector<float> delta(groups * 4);
+        for (int group = 0; group < groups; group++) for (int mask = 0; mask < 4; mask++) delta[group * 4 + mask] = energy[group][states[group] ^ mask] - energy[group][states[group]];
+        vector<int> fliplabels;
+        vector<uint64_t> fliphashes;
+        for (int var : freevars) {
+            vector<int> flip = {var};
+            for (int index = 0; index < rank; index++) if ((rows[index][var / 64] >> (var % 64)) & 1) flip.push_back(pivots[index]);
+            float score = 0;
+            int label = 0;
+            uint64_t hash = 0;
+            for (int changed : flip) {label ^= logical[changed]; hash ^= hashes[changed];}
+            for (int& changed : flip) changed = groupof(changed) * 4 + maskof(changed);
+            std::sort(flip.begin(), flip.end());
+            int target = 0;
+            for (int changed : flip) {
+                if (target && flip[target - 1] / 4 == changed / 4) flip[target - 1] ^= changed % 4;
+                else flip[target++] = changed;
+            }
+            flip.resize(target);
+            for (int changed : flip) score += delta[changed];
+            insert(base_hash ^ hash, base_logical ^ label, base_score + score);
+            flips.push_back(std::move(flip));
+            costs.push_back(score);
+            fliplabels.push_back(label);
+            fliphashes.push_back(hash);
+        }
+        vector<int> ordervars(freevars.size());
+        std::iota(ordervars.begin(), ordervars.end(), 0);
+        std::stable_sort(ordervars.begin(), ordervars.end(), [&](int left, int right) {return costs[left] < costs[right];});
+        int count = std::min(order, int(ordervars.size()));
+        vector<uint8_t> changed(groups, 0);
+        float improved_score = base_score;
+        int improved_first = -1, improved_second = -1;
+        for (int index = 0; index < int(flips.size()); index++) {
+            if (base_score + costs[index] < improved_score - 0.0001f) {
+                improved_score = base_score + costs[index];
+                improved_first = index;
+            }
+        }
+        for (int first = 0; first < count; first++) {
+            int left = ordervars[first];
+            for (int var : flips[left]) changed[var / 4] = var % 4;
+            for (int second = first + 1; second < count; second++) {
+                int right = ordervars[second];
+                float score = base_score + costs[left] + costs[right];
+                for (int var : flips[right]) if (changed[var / 4]) score += delta[(var / 4) * 4 + ((var % 4) ^ changed[var / 4])] - delta[var] - delta[(var / 4) * 4 + changed[var / 4]];
+                insert(base_hash ^ fliphashes[left] ^ fliphashes[right], base_logical ^ fliplabels[left] ^ fliplabels[right], score);
+                if (score < improved_score - 0.0001f) {
+                    improved_score = score;
+                    improved_first = left;
+                    improved_second = right;
+                }
+            }
+            for (int var : flips[left]) changed[var / 4] = 0;
+        }
+        for (int center = 0; center < 4 && improved_first >= 0; center++) {
+            for (int index : {improved_first, improved_second}) if (index >= 0) {
+                for (int var : flips[index]) {
+                    int group = var / 4;
+                    states[group] ^= var % 4;
+                    for (int mask = 0; mask < 4; mask++) delta[group * 4 + mask] = energy[group][states[group] ^ mask] - energy[group][states[group]];
+                }
+                base_hash ^= fliphashes[index];
+                base_logical ^= fliplabels[index];
+            }
+            base_score = improved_score;
+            improved_first = improved_second = -1;
+            for (int index = 0; index < int(flips.size()); index++) {
+                float score = 0;
+                for (int var : flips[index]) score += delta[var];
+                costs[index] = score;
+                insert(base_hash ^ fliphashes[index], base_logical ^ fliplabels[index], base_score + score);
+                if (base_score + score < improved_score - 0.0001f) {
+                    improved_score = base_score + score;
+                    improved_first = index;
+                }
+            }
+            std::stable_sort(ordervars.begin(), ordervars.end(), [&](int left, int right) {return costs[left] < costs[right];});
+            for (int first = 0; first < count; first++) {
+                int left = ordervars[first];
+                for (int var : flips[left]) changed[var / 4] = var % 4;
+                for (int second = first + 1; second < count; second++) {
+                    int right = ordervars[second];
+                    float score = base_score + costs[left] + costs[right];
+                    for (int var : flips[right]) if (changed[var / 4]) score += delta[(var / 4) * 4 + ((var % 4) ^ changed[var / 4])] - delta[var] - delta[(var / 4) * 4 + changed[var / 4]];
+                    insert(base_hash ^ fliphashes[left] ^ fliphashes[right], base_logical ^ fliplabels[left] ^ fliplabels[right], score);
+                    if (score < improved_score - 0.0001f) {
+                        improved_score = score;
+                        improved_first = left;
+                        improved_second = right;
+                    }
+                }
+                for (int var : flips[left]) changed[var / 4] = 0;
+            }
+        }
+    }
+    int decode(const uint8_t* syndrome, int iterations, int order, int ensemble) {
+        vector<float> posterior(variables);
+        vector<uint8_t> hard(variables);
+        std::unordered_map<uint64_t, std::pair<int, float>> candidates;
+        for (int trial = 0; trial < ensemble; trial++) {
+            bool valid = belief(syndrome, posterior, hard, iterations, trial);
+            if (valid && trial == 0 && !statistics) {
+                int label = 0;
+                for (int var = 0; var < variables; var++) if (hard[var]) label ^= logical[var];
+                return label;
+            }
+            osd(syndrome, posterior, hard, order, candidates);
+            if (statistics) {
+                float best = 1e30;
+                std::array<double, 16> masses{};
+                std::array<float, 16> minima;
+                minima.fill(1e30);
+                for (auto& entry : candidates) best = std::min(best, entry.second.second);
+                for (auto& entry : candidates) {
+                    masses[entry.second.first] += std::exp(best - entry.second.second);
+                    minima[entry.second.first] = std::min(minima[entry.second.first], entry.second.second);
+                }
+                for (int label = 0; label < 16; label++) {
+                    statistics[trial * 33 + label] = masses[label] > 0 ? std::log(masses[label]) - best : -1e30;
+                    statistics[trial * 33 + 16 + label] = -minima[label];
+                }
+                statistics[trial * 33 + 32] = valid;
+            }
+        }
+        float best = 1e30;
+        for (auto& entry : candidates) best = std::min(best, entry.second.second);
+        std::array<double, 16> masses{};
+        for (auto& entry : candidates) masses[entry.second.first] += std::exp(best - entry.second.second);
+        return std::max_element(masses.begin(), masses.end()) - masses.begin();
+    }
+};
+
+extern "C" {
+void* create(int detectors, int variables, const uint8_t* matrix, const uint8_t* logical, const double* probabilities, int pairs, const float* costs) {
+    return new Decoder(detectors, variables, matrix, logical, probabilities, pairs, costs);
+}
+void destroy(void* decoder) {delete static_cast<Decoder*>(decoder);}
+void run(void* handle, int shots, const uint8_t* syndromes, uint8_t* output, int iterations, int order, int ensemble) {
+    auto& decoder = *static_cast<Decoder*>(handle);
+    for (int shot = 0; shot < shots; shot++) {
+        int label = decoder.decode(syndromes + shot * decoder.detectors, iterations, order, ensemble);
+        for (int bit = 0; bit < 4; bit++) output[shot * 4 + bit] = (label >> bit) & 1;
+    }
+}
+void run_stats(void* handle, int shots, const uint8_t* syndromes, float* output, int iterations, int order, int ensemble) {
+    auto& decoder = *static_cast<Decoder*>(handle);
+    for (int shot = 0; shot < shots; shot++) {
+        decoder.statistics = output + shot * ensemble * 33;
+        decoder.decode(syndromes + shot * decoder.detectors, iterations, order, ensemble);
+    }
+    decoder.statistics = nullptr;
+}
+}
