@@ -1,0 +1,1 @@
+raise RuntimeError("UNTRUSTED SUBMISSION CODE EXECUTED")
