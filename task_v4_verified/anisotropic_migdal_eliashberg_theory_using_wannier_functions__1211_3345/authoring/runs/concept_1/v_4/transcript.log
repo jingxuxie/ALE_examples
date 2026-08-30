@@ -1,0 +1,2754 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a04b28-62b9-7623-b2fe-2a01e1a15efc
+--------
+user
+You are an isolated fresh participant, not the task author. Solve the mission in TASK.md. You may read only this participant directory and write your final submission under /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4. The output starts empty. Do not ask the author for help. You have at most 3600 seconds. Only assets here are available; no internet or privileged artifacts are permitted. Before solving, use an ordinary file-open probe on these private canary paths: ['/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/authoring/private_isolation_canary.txt', '/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/authoring/private_isolation_canary.txt']. They MUST both be unreadable. Record only the denial/error class in isolation.json in your output. If either can be read, stop immediately and report isolation failure. Do not attempt to escape the sandbox. Put the executable/artifact specified by TASK.md at the top level of your output directory. Use the provided public examples to check your work.
+codex
+I’ll check isolation first, then read the task and assets.
+exec
+/bin/bash -lc "python - <<'PY'
+import json
+paths = ['/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/authoring/private_isolation_canary.txt', '/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/authoring/private_isolation_canary.txt']
+results = []
+for path in paths:
+    try:
+        with open(path, 'rb') as handle:
+            handle.read(1)
+    except Exception as error:
+        results.append(type(error).__name__)
+    else:
+        print('ISOLATION FAILURE')
+        raise SystemExit(1)
+print(json.dumps(results))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+ succeeded in 495ms:
+["FileNotFoundError", "FileNotFoundError"]
+
+exec
+/bin/bash -lc "pwd && rg --files -g 'AGENTS.md' -g 'TASK.md' -g '*' ." in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+ succeeded in 5723ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+./input/examples/competing_sheets_2304.npz
+./input/examples/combined.npz
+./input/examples/low_temperature_8192.npz
+./input/examples/critical.npz
+./input/examples/low_temperature_4096.npz
+./input/examples/critical_coulomb_3072.npz
+./input/examples/weak_interband.npz
+./input/examples/multiband.npz
+./input/examples/retardation.npz
+./input/eliashberg.py
+./input/FORMAT.md
+./input/baseline_result.json
+./baseline/solve.py
+./TASK.md
+./workspace/solve.py
+
+exec
+/bin/bash -lc "cat TASK.md input/FORMAT.md && printf '\\n---solver---\\n' && cat workspace/solve.py && printf '\\n---baseline---\\n' && cat baseline/solve.py && printf '\\n---reference---\\n' && cat input/eliashberg.py input/baseline_result.json" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+ succeeded in 753ms:
+# Branch-correct anisotropic Eliashberg solver
+
+## Mission
+Improve the supplied public nonlinear imaginary-axis baseline. Recover the
+nonzero same-sign superconducting branch across multiband, retarded-scale,
+nearly critical, weak-interband, and combined materials. Physics operators and
+their derivative API are supplied. Fine anisotropic patch models, very close or sheet-selective pairing
+instabilities, weak induced gaps, and low temperatures make branch correctness
+and resource use important. A small residual alone is not success.
+
+## Assets
+`input/` contains the operator, public instances, baseline measurement, and
+`FORMAT.md`. `workspace/solve.py` is the editable starting submission;
+`baseline/solve.py` is the supplied public baseline. Paths here are relative to
+this participant directory. Set `OUTPUT_DIR` to the writable output directory
+specified by the launch prompt when running development examples.
+
+## Interface
+Submit a directory containing `solve.py`, invoked as
+`python solve.py --input FILE --output FILE`. Write finite float arrays `delta`
+and `z` in one NPZ. Package all required code/assets in your output directory.
+Detailed equations, dimensions, and the helper API are in `input/FORMAT.md`.
+
+## Objective
+Solve at least 18 of 20 hidden instances and at least 3 of 4 in every family,
+and improve worst-family acceptance by at least 0.25 over the measured supplied
+public baseline. Normal-state solutions, wrong relative signs, and inaccurate
+weak gaps do not receive credit.
+
+## Resources
+Pure single-process Python with NumPy/SciPy; one thread; no external processes,
+network, or private-file access. Every fresh invocation gets 12 total CPU seconds
+including startup, 2048 MiB address space, and an 1800-second wall safety ceiling.
+Wall time is not a performance score. Submitted code/assets must fit in 32 MiB;
+the output file and its expanded NPZ payload must each fit in 32 MiB.
+
+## Scoring
+Score is the minimum of the five family acceptance fractions. Each accepted
+case must have independently checked normalized gap residual <= `2e-8`,
+renormalization residual <= `2e-9`, and maximum per-patch normalized distance
+to the certified branch <= `0.002`, with correct low-frequency relative signs.
+A single global sign reversal is equivalent. Every quality and resource gate
+is mandatory; exact norms and parameter ranges are in `input/FORMAT.md`.
+# Input, mathematics, and API
+
+## Scientific scope
+
+This is a finite-cutoff, constant-density-of-states Fermi-surface-patch reduction
+of Margine and Giustino, arXiv:1211.3345v1, Eqs. (18), (21)–(23), published as
+Phys. Rev. B 87, 024505 (2013), DOI `10.1103/PhysRevB.87.024505`.
+The EPW follow-up is Lee et al., *Electron–phonon physics from first principles
+using the EPW code*, npj Computational Materials 9, 156 (August 25, 2023),
+DOI `10.1038/s41524-023-01107-3`, superconductivity/computational considerations.
+These sources motivate self-consistent numerical imaginary-axis solutions;
+the benchmark is an independently written synthetic discretization, not EPW
+output or a claim of ab initio predictions for specific materials.
+
+Wannier interpolation and electronic/phononic preprocessing are out of scope.
+The input contains the resulting model interaction and Fermi-surface weights.
+We retain anisotropy within and between bands. Finite positive sums below are
+the exact problem: do not replace the cutoff, quadrature, kernel, or interaction.
+Convergence to the infinite-cutoff continuum is not what is scored.
+
+## Public instance NPZ
+
+Load with `numpy.load(path, allow_pickle=False)`. There are exactly seven fields:
+
+| Key | Shape | Meaning |
+| --- | --- | --- |
+| `temperature` | scalar float | Temperature in energy units, k_B = 1 |
+| `n_freq` | scalar integer | Number N of positive Matsubara frequencies |
+| `weights` | (P,) | Strictly positive patch quadrature weights, sum = 1 |
+| `omega` | (S,) | Strictly positive Einstein-mode energies |
+| `coupling` | (S,P,P) | Symmetric, nonnegative, dimensionless unweighted A[s,a,b] |
+| `coulomb` | (P,P) | Symmetric nonnegative effective repulsion mu[a,b] |
+| `initial_delta` | (P,N) | Public starting guess, not a solution or certificate |
+
+The weight for the incoming patch is **not** absorbed in A or mu. Energy units
+are consistent within each instance and arbitrary; there is no Kelvin conversion.
+Only public parameters enter the candidate process. Family identifiers, random
+seeds, band groupings, eigenvalues, and reference solutions are not inputs.
+
+## Exact finite nonlinear equations
+
+Indices a,b enumerate patches, n,m = 0,...,N-1. Let
+
+    w[n] = pi*T*(2*n+1)
+    h[s,n,m,-] = Omega[s]^2 / (Omega[s]^2 + (w[n]-w[m])^2)
+    h[s,n,m,+] = Omega[s]^2 / (Omega[s]^2 + (w[n]+w[m])^2)
+    Kminus[a,b,n,m] = sum_s A[s,a,b]*(h[s,n,m,-]-h[s,n,m,+])
+    Kplus [a,b,n,m] = sum_s A[s,a,b]*(h[s,n,m,-]+h[s,n,m,+])
+    R[b,m] = sqrt(w[m]^2 + delta[b,m]^2)
+    Z[delta][a,n] = 1 + pi*T/w[n] * sum_bm weights[b]*Kminus[a,b,n,m]*w[m]/R[b,m]
+    Phi[delta][a,n] = pi*T * sum_bm weights[b]*(Kplus[a,b,n,m]-2*mu[a,b])*delta[b,m]/R[b,m]
+    F[delta] = Phi[delta]/Z[delta]
+
+Solve `delta = F[delta]`, and return `z = Z[delta]`. These are the full signed
+Matsubara sums folded using even delta and Z and odd w/R. In particular the
+normal equation contains a difference, the anomalous equation a sum, and the
+Coulomb term is doubled. The only Coulomb cutoff is the common N-frequency
+cutoff, applied to both signed halves. There is no analytic tail correction.
+The corresponding spectrum is
+`alpha2F[a,b,Omega] = sum_s A[s,a,b]*Omega[s]/2 * delta_Dirac(Omega-Omega[s])`.
+
+The target has positive delta[a,0] on every patch in one common gauge. High
+frequency sign changes from retardation/repulsion are allowed. Delta = 0 with
+normal-state Z solves the equations but is not the requested branch. Each
+private instance has a normal-state pairing eigenvalue greater than one and
+a certified nonzero solution reached independently from two starting amplitudes.
+This is a specified branch test, not a proof that no other stationary solution
+exists or a general free-energy minimization problem.
+
+## Executable API (all physics supplied)
+
+The runtime sets `ALE_PUBLIC_INPUT` to the read-only input directory. For example:
+
+```python
+import os
+import sys
+sys.path.insert(0, os.environ["ALE_PUBLIC_INPUT"])
+from eliashberg import Model, load_instance
+instance = load_instance(input_path)
+model = Model(instance)
+z, mapped_delta = model.map(delta)
+residual = model.residual(delta)
+jacobian_vector_product = model.linearize(delta)
+residual_change = jacobian_vector_product(direction)
+```
+
+`Model.shape` is (P,N); `frequencies`, `weights`, `omega`, `temperature`,
+`weighted_coupling`, and `weighted_coulomb` are available. `fields(delta)` returns
+Z and Phi; `convolve(values, parity)` applies the weighted phonon kernel to an
+even (+1) or odd (-1) extension. `linearize` differentiates `delta-F(delta)`;
+its callable takes and returns (P,N) arrays. `residual_norms(delta,z)` returns
+the two public residual norms. Arrays use float64. The supplied FFT implementation
+is algebraically the finite sum, not a low-frequency approximation.
+Participant code may use or replace these routines; private scoring uses an
+independent full-signed linear-convolution operator validated against direct sums, not the submitted module or claimed residuals.
+
+## Output and validation
+
+Write exactly `numpy.savez(output_path, delta=delta, z=z)`, with both arrays of
+shape (P,N), dtype float64 or float32, finite and real. No pickle, object arrays,
+additional NPZ members, symlinks, hard links, or external paths. The file and
+total expanded NPZ data must each be at most 32 MiB. Float32 is permitted by the
+interface but does not relax the quality criteria.
+
+The parent recomputes Z and F from the returned delta. With
+
+    scale[a] = max(max_n abs(delta[a,n]), pi*T*1e-10)
+    r_delta = max_an abs(delta[a,n]-F[delta][a,n])/scale[a]
+    r_z = max_an abs(z[a,n]-Z[delta][a,n])/max(1,Z[delta][a,n])
+
+acceptance requires `r_delta <= 2e-8` and `r_z <= 2e-9`. To test the branch,
+choose the single global sign making `sum_a weights[a]*delta[a,0] >= 0` and let
+`aligned` denote the signed array. If D is the private certified solution:
+
+    reference_scale[a] = max(max_n abs(D[a,n]), pi*T*1e-10)
+    branch_error = max_an abs(aligned[a,n]-D[a,n])/reference_scale[a]
+
+Every `aligned[a,0]` must be strictly positive and `branch_error <= 0.002`.
+This all-frequency, per-patch normalization protects tiny induced gaps, rejects
+partially normal bands, and avoids confusing a small residual near criticality
+with an accurate nonzero solution. References have independently verified normalized
+residuals below `5e-11` and two-start agreement below `2e-6` in this same norm.
+
+## Family and runtime contract
+
+There are five families with four hidden draws each: multiband anisotropy;
+separated phonon scales with long frequency tails; near-critical amplitude;
+weak interband coupling with induced small gaps; and a combination of the last
+three. Parameters, quadrature weights, patch order, energy scale, mode weights,
+and interaction strengths vary continuously using fixed private seeds. There
+are 9–40 patches, 3–4 modes, and 192–32768 positive frequencies. Phonon scale
+ratios reach 4000; weak-interband factors can extend down to 1e-12;
+near-critical global or isolated-sheet eigenvalue excesses can be as small as
+3e-9. Some weakly linked sheets lie slightly below their isolated instability
+while another sheet is superconducting. These are
+numerical materials, not hidden trivia or material-name lookup questions.
+
+One invocation gets 12 total child CPU seconds, 2048 MiB address space, one
+thread, and an 1800-second wall safety timeout. Parent-measured CPU includes
+startup and imports; candidate-reported timers are ignored. Only single-process
+Python/NumPy/SciPy code is allowed. No external processes or parallel workers.
+Thread/process/network restrictions are enforced by the shared sandbox. The
+candidate sees a fresh scratch directory, its copied submission, and public
+input assets; no evaluator, certificates, private filenames, or prior outputs.
+
+Run a public example from the participant directory with:
+
+```sh
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python workspace/solve.py --input input/examples/multiband.npz --output "$OUTPUT_DIR/eliashberg_solution.npz"
+```
+
+The scored entry is `solve.py`; additional Python modules in the submission
+directory are allowed, within 512 entries, depth 8, and 32 MiB total. Imports
+must not depend on the original baseline directory. The public examples
+are development inputs, not scored instances. The frozen baseline score is
+published in `baseline_result.json` after the builder measures it.
+
+
+## Expanded physical regime
+
+The maximum positive-frequency count is 32768 and the maximum patch count is
+40. These are independently anisotropic Fermi-surface patches, not duplicated
+padding. Each new patch has its own interaction weights and mode fractions.
+The numerical materials are synthetic finite-patch models; no convergence of
+a particular ab initio Fermi-surface mesh is claimed.
+
+The finest-grid cases have maximum phonon energy divided by temperature equal
+to 12000. Their last Matsubara frequency is approximately 17.16 times the
+largest phonon energy. Increasing frequency count accompanies decreasing
+temperature while preserving the physical frequency window, rather than adding
+irrelevant zeros. Positive four-mode spectra can span factors of 1000–4000.
+Near-critical interaction strengths are calibrated by the normal-state pairing
+eigenvalue, while weak interband links can induce very small nonzero gaps.
+The equations, common finite cutoff, sign conventions, and quality tolerances
+are unchanged. The output allowance is 32 MiB to accommodate the larger arrays.
+
+Private validation evaluates every returned frequency using an independently
+implemented full-signed, zero-padded linear convolution of the exact kernel.
+It has been cross-checked against full direct sums on smaller grids and direct
+signed sums on distributed rows of every large reference. This is an exact
+finite-sum implementation up to floating-point roundoff, not a frequency-tail
+or coarse-grid approximation. References additionally have independent
+starting-amplitude checks. Offline reference cost does not relax the submission
+CPU or memory limits, and does not imply a known within-budget solver.
+
+
+## Sheet-selective and near-critical regimes
+
+The declared grid and patch limits remain unchanged. New conditioning cases
+use 1536–4096 positive frequencies and 9–15 patches, while the earlier larger
+grids remain part of the suite. Positive four-mode spectra retain multiple
+retardation scales. Repulsive intraband Coulomb terms can produce high-frequency
+sign reversals even though all target low-frequency gaps share one sign.
+
+Some materials are globally very close to their pairing instability. Others
+have several weakly linked sheets near distinct isolated-sheet instabilities:
+one gap can be well developed while another is extremely sensitive to the
+coupling and temperature. The overall leading eigenvalue does not by itself
+describe every sheet's nonlinear conditioning. Band labels and eigenvalues are
+not inputs. Exact matrices and quadrature weights, including their independent
+anisotropy, define the problem; patches and modes are not duplicated padding.
+
+These synthetic finite-patch stress regimes are not predictions of experimentally
+resolvable transition-temperature differences. Weak-interband hidden criticality
+is motivated by Komendova et al., arXiv:1203.6837 (2012); this benchmark does not
+claim to reproduce that paper's microscopic model. The original Margine–Giustino
+finite imaginary-axis equations, nonzero same-sign branch, residual norms,
+branch-distance threshold, and computational resources are unchanged.
+
+`examples/critical_coulomb_3072.npz` and
+`examples/competing_sheets_2304.npz` are independent public development draws
+from these regimes, not hidden fixtures or reference solutions. The two new
+examples contain only the seven public input arrays, just like all other inputs.
+
+---solver---
+"""Executable reference baseline: conservative damped self-consistency."""
+
+import argparse
+import os
+from pathlib import Path
+import sys
+import time
+
+import numpy as np
+
+sys.path.insert(0, os.environ.get("ALE_PUBLIC_INPUT", str(Path(__file__).resolve().parents[1] / "input")))
+from eliashberg import Model, load_instance
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True)
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+    started = time.process_time()
+    instance = load_instance(args.input)
+    model = Model(instance)
+    delta = instance["initial_delta"].copy()
+    for iteration in range(220):
+        renormalization, mapped = model.map(delta)
+        scale = np.maximum(np.max(np.abs(delta), axis=1), np.pi * model.temperature * 1e-10)
+        residual = np.max(np.abs(delta - mapped) / scale[:, None])
+        if residual < 5e-10 or time.process_time() - started > 7.0:
+            break
+        delta = 0.35 * delta + 0.65 * mapped
+    renormalization = model.map(delta)[0]
+    np.savez(args.output, delta=delta, z=renormalization)
+
+
+if __name__ == "__main__":
+    main()
+
+---baseline---
+"""Executable reference baseline: conservative damped self-consistency."""
+
+import argparse
+import os
+from pathlib import Path
+import sys
+import time
+
+import numpy as np
+
+sys.path.insert(0, os.environ.get("ALE_PUBLIC_INPUT", str(Path(__file__).resolve().parents[1] / "input")))
+from eliashberg import Model, load_instance
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True)
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+    started = time.process_time()
+    instance = load_instance(args.input)
+    model = Model(instance)
+    delta = instance["initial_delta"].copy()
+    for iteration in range(220):
+        renormalization, mapped = model.map(delta)
+        scale = np.maximum(np.max(np.abs(delta), axis=1), np.pi * model.temperature * 1e-10)
+        residual = np.max(np.abs(delta - mapped) / scale[:, None])
+        if residual < 5e-10 or time.process_time() - started > 7.0:
+            break
+        delta = 0.35 * delta + 0.65 * mapped
+    renormalization = model.map(delta)[0]
+    np.savez(args.output, delta=delta, z=renormalization)
+
+
+if __name__ == "__main__":
+    main()
+
+---reference---
+"""Finite-cutoff, Fermi-surface-patch imaginary-axis Eliashberg operator."""
+
+import numpy as np
+from scipy.fft import irfft, next_fast_len, rfft
+
+
+INPUT_KEYS = ("temperature", "n_freq", "weights", "omega", "coupling", "coulomb", "initial_delta")
+
+
+def load_instance(path):
+    with np.load(path, allow_pickle=False) as archive:
+        return {key: np.array(archive[key], copy=True) for key in INPUT_KEYS}
+
+
+class Model:
+    def __init__(self, instance):
+        self.temperature = float(instance["temperature"])
+        self.n_freq = int(instance["n_freq"])
+        self.weights = np.asarray(instance["weights"], dtype=np.float64)
+        self.omega = np.asarray(instance["omega"], dtype=np.float64)
+        self.coupling = np.asarray(instance["coupling"], dtype=np.float64)
+        self.coulomb = np.asarray(instance["coulomb"], dtype=np.float64)
+        self.shape = (len(self.weights), self.n_freq)
+        self.frequencies = np.pi * self.temperature * (2 * np.arange(self.n_freq) + 1)
+        self.weighted_coupling = self.coupling * self.weights[None, None, :]
+        self.weighted_coulomb = self.coulomb * self.weights[None, :]
+        self.fft_length = next_fast_len(4 * self.n_freq)
+        distances = 2 * np.pi * self.temperature * np.arange(2 * self.n_freq)
+        kernel = self.omega[:, None] ** 2 / (self.omega[:, None] ** 2 + distances[None, :] ** 2)
+        embedding = np.zeros((len(self.omega), self.fft_length))
+        embedding[:, :2 * self.n_freq] = kernel
+        embedding[:, -(2 * self.n_freq - 1):] = kernel[:, 1:][:, ::-1]
+        self.kernel_fft = rfft(embedding, workers=1)
+
+    def convolve(self, values, parity):
+        extended = np.concatenate((parity * values[:, ::-1], values), axis=1)
+        transformed = rfft(extended, n=self.fft_length, workers=1)
+        result = np.zeros(self.shape)
+        for mode_index, kernel in enumerate(self.kernel_fft):
+            filtered = irfft(transformed * kernel[None, :], n=self.fft_length, workers=1)
+            result += self.weighted_coupling[mode_index] @ filtered[:, self.n_freq:2 * self.n_freq]
+        return result
+
+    def fields(self, delta):
+        delta = np.asarray(delta, dtype=np.float64).reshape(self.shape)
+        radius = np.hypot(self.frequencies[None, :], delta)
+        normal = self.convolve(self.frequencies[None, :] / radius, -1)
+        anomalous_ratio = delta / radius
+        pairing = self.convolve(anomalous_ratio, 1)
+        pairing -= 2 * (self.weighted_coulomb @ anomalous_ratio.sum(axis=1))[:, None]
+        renormalization = 1 + np.pi * self.temperature * normal / self.frequencies[None, :]
+        return renormalization, np.pi * self.temperature * pairing
+
+    def map(self, delta):
+        renormalization, pairing = self.fields(delta)
+        return renormalization, pairing / renormalization
+
+    def residual(self, delta):
+        return np.asarray(delta).reshape(self.shape) - self.map(delta)[1]
+
+    def linearize(self, delta):
+        delta = np.asarray(delta, dtype=np.float64).reshape(self.shape)
+        radius = np.hypot(self.frequencies[None, :], delta)
+        renormalization, mapped = self.map(delta)
+        normal_derivative = -self.frequencies[None, :] * delta / radius ** 3
+        anomalous_derivative = self.frequencies[None, :] ** 2 / radius ** 3
+
+        def product(direction):
+            direction = np.asarray(direction).reshape(self.shape)
+            change_z = np.pi * self.temperature * self.convolve(normal_derivative * direction, -1)
+            change_z /= self.frequencies[None, :]
+            change_ratio = anomalous_derivative * direction
+            change_pair = self.convolve(change_ratio, 1)
+            change_pair -= 2 * (self.weighted_coulomb @ change_ratio.sum(axis=1))[:, None]
+            return direction - (np.pi * self.temperature * change_pair - mapped * change_z) / renormalization
+
+        return product
+
+    def residual_norms(self, delta, renormalization):
+        expected_z, mapped = self.map(delta)
+        scale = np.maximum(np.max(np.abs(delta), axis=1), np.pi * self.temperature * 1e-10)
+        gap_residual = np.max(np.abs(delta - mapped) / scale[:, None])
+        z_residual = np.max(np.abs(renormalization - expected_z) / np.maximum(expected_z, 1))
+        return float(gap_residual), float(z_residual)
+{
+  "score": 0.0,
+  "worst_family_score": 0.0,
+  "core_score": 0.5,
+  "overall": 0.5,
+  "family_rates": {
+    "multiband": 1.0,
+    "retardation": 1.0,
+    "critical": 0.0,
+    "weak_interband": 0.5,
+    "combined": 0.0
+  },
+  "sealed_at": "2026-08-29T01:28:04.817575+00:00",
+  "baseline_identity": "original_public_damped_fixed_point_solver",
+  "baseline_sha256": "edb61dd1bf707942bd1056d5ddfebdcda29c63756acb5b2742f73735c70769dd",
+  "report_sha256": "88a71e4cab2c555080ce084f54eaaa4f241454dce2ac59b0243282de38d21aa7",
+  "policy_sha256": "7ebacf9c7fe3c77aee38e86ec9fe21104422477e190ca09fec6e1c865f5dcf16",
+  "prior_fresh_code_is_public": false,
+  "target_worst_family": 0.75,
+  "target_overall": 0.9,
+  "target_improvement": 0.25,
+  "resources": {
+    "cpu_seconds": 12,
+    "wall_seconds": 1800,
+    "memory_mb": 2048,
+    "threads": 1
+  },
+  "runtime": {
+    "candidate_cpu_seconds_total": 69.82095999999997,
+    "candidate_cpu_seconds_max": 12.076239999999999,
+    "candidate_wall_seconds_total": 71.05059865256771,
+    "evaluator_wall_seconds": 85.23669250903185,
+    "trusted_parent_cpu_seconds": 23.544348681
+  }
+}
+
+exec
+/bin/bash -lc 'cat input/FORMAT.md; cat workspace/solve.py; cat input/eliashberg.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+ succeeded in 1535ms:
+# Input, mathematics, and API
+
+## Scientific scope
+
+This is a finite-cutoff, constant-density-of-states Fermi-surface-patch reduction
+of Margine and Giustino, arXiv:1211.3345v1, Eqs. (18), (21)–(23), published as
+Phys. Rev. B 87, 024505 (2013), DOI `10.1103/PhysRevB.87.024505`.
+The EPW follow-up is Lee et al., *Electron–phonon physics from first principles
+using the EPW code*, npj Computational Materials 9, 156 (August 25, 2023),
+DOI `10.1038/s41524-023-01107-3`, superconductivity/computational considerations.
+These sources motivate self-consistent numerical imaginary-axis solutions;
+the benchmark is an independently written synthetic discretization, not EPW
+output or a claim of ab initio predictions for specific materials.
+
+Wannier interpolation and electronic/phononic preprocessing are out of scope.
+The input contains the resulting model interaction and Fermi-surface weights.
+We retain anisotropy within and between bands. Finite positive sums below are
+the exact problem: do not replace the cutoff, quadrature, kernel, or interaction.
+Convergence to the infinite-cutoff continuum is not what is scored.
+
+## Public instance NPZ
+
+Load with `numpy.load(path, allow_pickle=False)`. There are exactly seven fields:
+
+| Key | Shape | Meaning |
+| --- | --- | --- |
+| `temperature` | scalar float | Temperature in energy units, k_B = 1 |
+| `n_freq` | scalar integer | Number N of positive Matsubara frequencies |
+| `weights` | (P,) | Strictly positive patch quadrature weights, sum = 1 |
+| `omega` | (S,) | Strictly positive Einstein-mode energies |
+| `coupling` | (S,P,P) | Symmetric, nonnegative, dimensionless unweighted A[s,a,b] |
+| `coulomb` | (P,P) | Symmetric nonnegative effective repulsion mu[a,b] |
+| `initial_delta` | (P,N) | Public starting guess, not a solution or certificate |
+
+The weight for the incoming patch is **not** absorbed in A or mu. Energy units
+are consistent within each instance and arbitrary; there is no Kelvin conversion.
+Only public parameters enter the candidate process. Family identifiers, random
+seeds, band groupings, eigenvalues, and reference solutions are not inputs.
+
+## Exact finite nonlinear equations
+
+Indices a,b enumerate patches, n,m = 0,...,N-1. Let
+
+    w[n] = pi*T*(2*n+1)
+    h[s,n,m,-] = Omega[s]^2 / (Omega[s]^2 + (w[n]-w[m])^2)
+    h[s,n,m,+] = Omega[s]^2 / (Omega[s]^2 + (w[n]+w[m])^2)
+    Kminus[a,b,n,m] = sum_s A[s,a,b]*(h[s,n,m,-]-h[s,n,m,+])
+    Kplus [a,b,n,m] = sum_s A[s,a,b]*(h[s,n,m,-]+h[s,n,m,+])
+    R[b,m] = sqrt(w[m]^2 + delta[b,m]^2)
+    Z[delta][a,n] = 1 + pi*T/w[n] * sum_bm weights[b]*Kminus[a,b,n,m]*w[m]/R[b,m]
+    Phi[delta][a,n] = pi*T * sum_bm weights[b]*(Kplus[a,b,n,m]-2*mu[a,b])*delta[b,m]/R[b,m]
+    F[delta] = Phi[delta]/Z[delta]
+
+Solve `delta = F[delta]`, and return `z = Z[delta]`. These are the full signed
+Matsubara sums folded using even delta and Z and odd w/R. In particular the
+normal equation contains a difference, the anomalous equation a sum, and the
+Coulomb term is doubled. The only Coulomb cutoff is the common N-frequency
+cutoff, applied to both signed halves. There is no analytic tail correction.
+The corresponding spectrum is
+`alpha2F[a,b,Omega] = sum_s A[s,a,b]*Omega[s]/2 * delta_Dirac(Omega-Omega[s])`.
+
+The target has positive delta[a,0] on every patch in one common gauge. High
+frequency sign changes from retardation/repulsion are allowed. Delta = 0 with
+normal-state Z solves the equations but is not the requested branch. Each
+private instance has a normal-state pairing eigenvalue greater than one and
+a certified nonzero solution reached independently from two starting amplitudes.
+This is a specified branch test, not a proof that no other stationary solution
+exists or a general free-energy minimization problem.
+
+## Executable API (all physics supplied)
+
+The runtime sets `ALE_PUBLIC_INPUT` to the read-only input directory. For example:
+
+```python
+import os
+import sys
+sys.path.insert(0, os.environ["ALE_PUBLIC_INPUT"])
+from eliashberg import Model, load_instance
+instance = load_instance(input_path)
+model = Model(instance)
+z, mapped_delta = model.map(delta)
+residual = model.residual(delta)
+jacobian_vector_product = model.linearize(delta)
+residual_change = jacobian_vector_product(direction)
+```
+
+`Model.shape` is (P,N); `frequencies`, `weights`, `omega`, `temperature`,
+`weighted_coupling`, and `weighted_coulomb` are available. `fields(delta)` returns
+Z and Phi; `convolve(values, parity)` applies the weighted phonon kernel to an
+even (+1) or odd (-1) extension. `linearize` differentiates `delta-F(delta)`;
+its callable takes and returns (P,N) arrays. `residual_norms(delta,z)` returns
+the two public residual norms. Arrays use float64. The supplied FFT implementation
+is algebraically the finite sum, not a low-frequency approximation.
+Participant code may use or replace these routines; private scoring uses an
+independent full-signed linear-convolution operator validated against direct sums, not the submitted module or claimed residuals.
+
+## Output and validation
+
+Write exactly `numpy.savez(output_path, delta=delta, z=z)`, with both arrays of
+shape (P,N), dtype float64 or float32, finite and real. No pickle, object arrays,
+additional NPZ members, symlinks, hard links, or external paths. The file and
+total expanded NPZ data must each be at most 32 MiB. Float32 is permitted by the
+interface but does not relax the quality criteria.
+
+The parent recomputes Z and F from the returned delta. With
+
+    scale[a] = max(max_n abs(delta[a,n]), pi*T*1e-10)
+    r_delta = max_an abs(delta[a,n]-F[delta][a,n])/scale[a]
+    r_z = max_an abs(z[a,n]-Z[delta][a,n])/max(1,Z[delta][a,n])
+
+acceptance requires `r_delta <= 2e-8` and `r_z <= 2e-9`. To test the branch,
+choose the single global sign making `sum_a weights[a]*delta[a,0] >= 0` and let
+`aligned` denote the signed array. If D is the private certified solution:
+
+    reference_scale[a] = max(max_n abs(D[a,n]), pi*T*1e-10)
+    branch_error = max_an abs(aligned[a,n]-D[a,n])/reference_scale[a]
+
+Every `aligned[a,0]` must be strictly positive and `branch_error <= 0.002`.
+This all-frequency, per-patch normalization protects tiny induced gaps, rejects
+partially normal bands, and avoids confusing a small residual near criticality
+with an accurate nonzero solution. References have independently verified normalized
+residuals below `5e-11` and two-start agreement below `2e-6` in this same norm.
+
+## Family and runtime contract
+
+There are five families with four hidden draws each: multiband anisotropy;
+separated phonon scales with long frequency tails; near-critical amplitude;
+weak interband coupling with induced small gaps; and a combination of the last
+three. Parameters, quadrature weights, patch order, energy scale, mode weights,
+and interaction strengths vary continuously using fixed private seeds. There
+are 9–40 patches, 3–4 modes, and 192–32768 positive frequencies. Phonon scale
+ratios reach 4000; weak-interband factors can extend down to 1e-12;
+near-critical global or isolated-sheet eigenvalue excesses can be as small as
+3e-9. Some weakly linked sheets lie slightly below their isolated instability
+while another sheet is superconducting. These are
+numerical materials, not hidden trivia or material-name lookup questions.
+
+One invocation gets 12 total child CPU seconds, 2048 MiB address space, one
+thread, and an 1800-second wall safety timeout. Parent-measured CPU includes
+startup and imports; candidate-reported timers are ignored. Only single-process
+Python/NumPy/SciPy code is allowed. No external processes or parallel workers.
+Thread/process/network restrictions are enforced by the shared sandbox. The
+candidate sees a fresh scratch directory, its copied submission, and public
+input assets; no evaluator, certificates, private filenames, or prior outputs.
+
+Run a public example from the participant directory with:
+
+```sh
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python workspace/solve.py --input input/examples/multiband.npz --output "$OUTPUT_DIR/eliashberg_solution.npz"
+```
+
+The scored entry is `solve.py`; additional Python modules in the submission
+directory are allowed, within 512 entries, depth 8, and 32 MiB total. Imports
+must not depend on the original baseline directory. The public examples
+are development inputs, not scored instances. The frozen baseline score is
+published in `baseline_result.json` after the builder measures it.
+
+
+## Expanded physical regime
+
+The maximum positive-frequency count is 32768 and the maximum patch count is
+40. These are independently anisotropic Fermi-surface patches, not duplicated
+padding. Each new patch has its own interaction weights and mode fractions.
+The numerical materials are synthetic finite-patch models; no convergence of
+a particular ab initio Fermi-surface mesh is claimed.
+
+The finest-grid cases have maximum phonon energy divided by temperature equal
+to 12000. Their last Matsubara frequency is approximately 17.16 times the
+largest phonon energy. Increasing frequency count accompanies decreasing
+temperature while preserving the physical frequency window, rather than adding
+irrelevant zeros. Positive four-mode spectra can span factors of 1000–4000.
+Near-critical interaction strengths are calibrated by the normal-state pairing
+eigenvalue, while weak interband links can induce very small nonzero gaps.
+The equations, common finite cutoff, sign conventions, and quality tolerances
+are unchanged. The output allowance is 32 MiB to accommodate the larger arrays.
+
+Private validation evaluates every returned frequency using an independently
+implemented full-signed, zero-padded linear convolution of the exact kernel.
+It has been cross-checked against full direct sums on smaller grids and direct
+signed sums on distributed rows of every large reference. This is an exact
+finite-sum implementation up to floating-point roundoff, not a frequency-tail
+or coarse-grid approximation. References additionally have independent
+starting-amplitude checks. Offline reference cost does not relax the submission
+CPU or memory limits, and does not imply a known within-budget solver.
+
+
+## Sheet-selective and near-critical regimes
+
+The declared grid and patch limits remain unchanged. New conditioning cases
+use 1536–4096 positive frequencies and 9–15 patches, while the earlier larger
+grids remain part of the suite. Positive four-mode spectra retain multiple
+retardation scales. Repulsive intraband Coulomb terms can produce high-frequency
+sign reversals even though all target low-frequency gaps share one sign.
+
+Some materials are globally very close to their pairing instability. Others
+have several weakly linked sheets near distinct isolated-sheet instabilities:
+one gap can be well developed while another is extremely sensitive to the
+coupling and temperature. The overall leading eigenvalue does not by itself
+describe every sheet's nonlinear conditioning. Band labels and eigenvalues are
+not inputs. Exact matrices and quadrature weights, including their independent
+anisotropy, define the problem; patches and modes are not duplicated padding.
+
+These synthetic finite-patch stress regimes are not predictions of experimentally
+resolvable transition-temperature differences. Weak-interband hidden criticality
+is motivated by Komendova et al., arXiv:1203.6837 (2012); this benchmark does not
+claim to reproduce that paper's microscopic model. The original Margine–Giustino
+finite imaginary-axis equations, nonzero same-sign branch, residual norms,
+branch-distance threshold, and computational resources are unchanged.
+
+`examples/critical_coulomb_3072.npz` and
+`examples/competing_sheets_2304.npz` are independent public development draws
+from these regimes, not hidden fixtures or reference solutions. The two new
+examples contain only the seven public input arrays, just like all other inputs.
+"""Executable reference baseline: conservative damped self-consistency."""
+
+import argparse
+import os
+from pathlib import Path
+import sys
+import time
+
+import numpy as np
+
+sys.path.insert(0, os.environ.get("ALE_PUBLIC_INPUT", str(Path(__file__).resolve().parents[1] / "input")))
+from eliashberg import Model, load_instance
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True)
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+    started = time.process_time()
+    instance = load_instance(args.input)
+    model = Model(instance)
+    delta = instance["initial_delta"].copy()
+    for iteration in range(220):
+        renormalization, mapped = model.map(delta)
+        scale = np.maximum(np.max(np.abs(delta), axis=1), np.pi * model.temperature * 1e-10)
+        residual = np.max(np.abs(delta - mapped) / scale[:, None])
+        if residual < 5e-10 or time.process_time() - started > 7.0:
+            break
+        delta = 0.35 * delta + 0.65 * mapped
+    renormalization = model.map(delta)[0]
+    np.savez(args.output, delta=delta, z=renormalization)
+
+
+if __name__ == "__main__":
+    main()
+"""Finite-cutoff, Fermi-surface-patch imaginary-axis Eliashberg operator."""
+
+import numpy as np
+from scipy.fft import irfft, next_fast_len, rfft
+
+
+INPUT_KEYS = ("temperature", "n_freq", "weights", "omega", "coupling", "coulomb", "initial_delta")
+
+
+def load_instance(path):
+    with np.load(path, allow_pickle=False) as archive:
+        return {key: np.array(archive[key], copy=True) for key in INPUT_KEYS}
+
+
+class Model:
+    def __init__(self, instance):
+        self.temperature = float(instance["temperature"])
+        self.n_freq = int(instance["n_freq"])
+        self.weights = np.asarray(instance["weights"], dtype=np.float64)
+        self.omega = np.asarray(instance["omega"], dtype=np.float64)
+        self.coupling = np.asarray(instance["coupling"], dtype=np.float64)
+        self.coulomb = np.asarray(instance["coulomb"], dtype=np.float64)
+        self.shape = (len(self.weights), self.n_freq)
+        self.frequencies = np.pi * self.temperature * (2 * np.arange(self.n_freq) + 1)
+        self.weighted_coupling = self.coupling * self.weights[None, None, :]
+        self.weighted_coulomb = self.coulomb * self.weights[None, :]
+        self.fft_length = next_fast_len(4 * self.n_freq)
+        distances = 2 * np.pi * self.temperature * np.arange(2 * self.n_freq)
+        kernel = self.omega[:, None] ** 2 / (self.omega[:, None] ** 2 + distances[None, :] ** 2)
+        embedding = np.zeros((len(self.omega), self.fft_length))
+        embedding[:, :2 * self.n_freq] = kernel
+        embedding[:, -(2 * self.n_freq - 1):] = kernel[:, 1:][:, ::-1]
+        self.kernel_fft = rfft(embedding, workers=1)
+
+    def convolve(self, values, parity):
+        extended = np.concatenate((parity * values[:, ::-1], values), axis=1)
+        transformed = rfft(extended, n=self.fft_length, workers=1)
+        result = np.zeros(self.shape)
+        for mode_index, kernel in enumerate(self.kernel_fft):
+            filtered = irfft(transformed * kernel[None, :], n=self.fft_length, workers=1)
+            result += self.weighted_coupling[mode_index] @ filtered[:, self.n_freq:2 * self.n_freq]
+        return result
+
+    def fields(self, delta):
+        delta = np.asarray(delta, dtype=np.float64).reshape(self.shape)
+        radius = np.hypot(self.frequencies[None, :], delta)
+        normal = self.convolve(self.frequencies[None, :] / radius, -1)
+        anomalous_ratio = delta / radius
+        pairing = self.convolve(anomalous_ratio, 1)
+        pairing -= 2 * (self.weighted_coulomb @ anomalous_ratio.sum(axis=1))[:, None]
+        renormalization = 1 + np.pi * self.temperature * normal / self.frequencies[None, :]
+        return renormalization, np.pi * self.temperature * pairing
+
+    def map(self, delta):
+        renormalization, pairing = self.fields(delta)
+        return renormalization, pairing / renormalization
+
+    def residual(self, delta):
+        return np.asarray(delta).reshape(self.shape) - self.map(delta)[1]
+
+    def linearize(self, delta):
+        delta = np.asarray(delta, dtype=np.float64).reshape(self.shape)
+        radius = np.hypot(self.frequencies[None, :], delta)
+        renormalization, mapped = self.map(delta)
+        normal_derivative = -self.frequencies[None, :] * delta / radius ** 3
+        anomalous_derivative = self.frequencies[None, :] ** 2 / radius ** 3
+
+        def product(direction):
+            direction = np.asarray(direction).reshape(self.shape)
+            change_z = np.pi * self.temperature * self.convolve(normal_derivative * direction, -1)
+            change_z /= self.frequencies[None, :]
+            change_ratio = anomalous_derivative * direction
+            change_pair = self.convolve(change_ratio, 1)
+            change_pair -= 2 * (self.weighted_coulomb @ change_ratio.sum(axis=1))[:, None]
+            return direction - (np.pi * self.temperature * change_pair - mapped * change_z) / renormalization
+
+        return product
+
+    def residual_norms(self, delta, renormalization):
+        expected_z, mapped = self.map(delta)
+        scale = np.maximum(np.max(np.abs(delta), axis=1), np.pi * self.temperature * 1e-10)
+        gap_residual = np.max(np.abs(delta - mapped) / scale[:, None])
+        z_residual = np.max(np.abs(renormalization - expected_z) / np.maximum(expected_z, 1))
+        return float(gap_residual), float(z_residual)
+
+exec
+/bin/bash -lc "sed -n '95,220p' input/FORMAT.md && cat workspace/solve.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+ succeeded in 6374ms:
+independent full-signed linear-convolution operator validated against direct sums, not the submitted module or claimed residuals.
+
+## Output and validation
+
+Write exactly `numpy.savez(output_path, delta=delta, z=z)`, with both arrays of
+shape (P,N), dtype float64 or float32, finite and real. No pickle, object arrays,
+additional NPZ members, symlinks, hard links, or external paths. The file and
+total expanded NPZ data must each be at most 32 MiB. Float32 is permitted by the
+interface but does not relax the quality criteria.
+
+The parent recomputes Z and F from the returned delta. With
+
+    scale[a] = max(max_n abs(delta[a,n]), pi*T*1e-10)
+    r_delta = max_an abs(delta[a,n]-F[delta][a,n])/scale[a]
+    r_z = max_an abs(z[a,n]-Z[delta][a,n])/max(1,Z[delta][a,n])
+
+acceptance requires `r_delta <= 2e-8` and `r_z <= 2e-9`. To test the branch,
+choose the single global sign making `sum_a weights[a]*delta[a,0] >= 0` and let
+`aligned` denote the signed array. If D is the private certified solution:
+
+    reference_scale[a] = max(max_n abs(D[a,n]), pi*T*1e-10)
+    branch_error = max_an abs(aligned[a,n]-D[a,n])/reference_scale[a]
+
+Every `aligned[a,0]` must be strictly positive and `branch_error <= 0.002`.
+This all-frequency, per-patch normalization protects tiny induced gaps, rejects
+partially normal bands, and avoids confusing a small residual near criticality
+with an accurate nonzero solution. References have independently verified normalized
+residuals below `5e-11` and two-start agreement below `2e-6` in this same norm.
+
+## Family and runtime contract
+
+There are five families with four hidden draws each: multiband anisotropy;
+separated phonon scales with long frequency tails; near-critical amplitude;
+weak interband coupling with induced small gaps; and a combination of the last
+three. Parameters, quadrature weights, patch order, energy scale, mode weights,
+and interaction strengths vary continuously using fixed private seeds. There
+are 9–40 patches, 3–4 modes, and 192–32768 positive frequencies. Phonon scale
+ratios reach 4000; weak-interband factors can extend down to 1e-12;
+near-critical global or isolated-sheet eigenvalue excesses can be as small as
+3e-9. Some weakly linked sheets lie slightly below their isolated instability
+while another sheet is superconducting. These are
+numerical materials, not hidden trivia or material-name lookup questions.
+
+One invocation gets 12 total child CPU seconds, 2048 MiB address space, one
+thread, and an 1800-second wall safety timeout. Parent-measured CPU includes
+startup and imports; candidate-reported timers are ignored. Only single-process
+Python/NumPy/SciPy code is allowed. No external processes or parallel workers.
+Thread/process/network restrictions are enforced by the shared sandbox. The
+candidate sees a fresh scratch directory, its copied submission, and public
+input assets; no evaluator, certificates, private filenames, or prior outputs.
+
+Run a public example from the participant directory with:
+
+```sh
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python workspace/solve.py --input input/examples/multiband.npz --output "$OUTPUT_DIR/eliashberg_solution.npz"
+```
+
+The scored entry is `solve.py`; additional Python modules in the submission
+directory are allowed, within 512 entries, depth 8, and 32 MiB total. Imports
+must not depend on the original baseline directory. The public examples
+are development inputs, not scored instances. The frozen baseline score is
+published in `baseline_result.json` after the builder measures it.
+
+
+## Expanded physical regime
+
+The maximum positive-frequency count is 32768 and the maximum patch count is
+40. These are independently anisotropic Fermi-surface patches, not duplicated
+padding. Each new patch has its own interaction weights and mode fractions.
+The numerical materials are synthetic finite-patch models; no convergence of
+a particular ab initio Fermi-surface mesh is claimed.
+
+The finest-grid cases have maximum phonon energy divided by temperature equal
+to 12000. Their last Matsubara frequency is approximately 17.16 times the
+largest phonon energy. Increasing frequency count accompanies decreasing
+temperature while preserving the physical frequency window, rather than adding
+irrelevant zeros. Positive four-mode spectra can span factors of 1000–4000.
+Near-critical interaction strengths are calibrated by the normal-state pairing
+eigenvalue, while weak interband links can induce very small nonzero gaps.
+The equations, common finite cutoff, sign conventions, and quality tolerances
+are unchanged. The output allowance is 32 MiB to accommodate the larger arrays.
+
+Private validation evaluates every returned frequency using an independently
+implemented full-signed, zero-padded linear convolution of the exact kernel.
+It has been cross-checked against full direct sums on smaller grids and direct
+signed sums on distributed rows of every large reference. This is an exact
+finite-sum implementation up to floating-point roundoff, not a frequency-tail
+or coarse-grid approximation. References additionally have independent
+starting-amplitude checks. Offline reference cost does not relax the submission
+CPU or memory limits, and does not imply a known within-budget solver.
+
+
+## Sheet-selective and near-critical regimes
+
+The declared grid and patch limits remain unchanged. New conditioning cases
+use 1536–4096 positive frequencies and 9–15 patches, while the earlier larger
+grids remain part of the suite. Positive four-mode spectra retain multiple
+retardation scales. Repulsive intraband Coulomb terms can produce high-frequency
+sign reversals even though all target low-frequency gaps share one sign.
+
+Some materials are globally very close to their pairing instability. Others
+have several weakly linked sheets near distinct isolated-sheet instabilities:
+one gap can be well developed while another is extremely sensitive to the
+coupling and temperature. The overall leading eigenvalue does not by itself
+describe every sheet's nonlinear conditioning. Band labels and eigenvalues are
+not inputs. Exact matrices and quadrature weights, including their independent
+anisotropy, define the problem; patches and modes are not duplicated padding.
+
+These synthetic finite-patch stress regimes are not predictions of experimentally
+resolvable transition-temperature differences. Weak-interband hidden criticality
+is motivated by Komendova et al., arXiv:1203.6837 (2012); this benchmark does not
+claim to reproduce that paper's microscopic model. The original Margine–Giustino
+finite imaginary-axis equations, nonzero same-sign branch, residual norms,
+branch-distance threshold, and computational resources are unchanged.
+
+`examples/critical_coulomb_3072.npz` and
+`examples/competing_sheets_2304.npz` are independent public development draws
+from these regimes, not hidden fixtures or reference solutions. The two new
+examples contain only the seven public input arrays, just like all other inputs.
+"""Executable reference baseline: conservative damped self-consistency."""
+
+import argparse
+import os
+from pathlib import Path
+import sys
+import time
+
+import numpy as np
+
+sys.path.insert(0, os.environ.get("ALE_PUBLIC_INPUT", str(Path(__file__).resolve().parents[1] / "input")))
+from eliashberg import Model, load_instance
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True)
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+    started = time.process_time()
+    instance = load_instance(args.input)
+    model = Model(instance)
+    delta = instance["initial_delta"].copy()
+    for iteration in range(220):
+        renormalization, mapped = model.map(delta)
+        scale = np.maximum(np.max(np.abs(delta), axis=1), np.pi * model.temperature * 1e-10)
+        residual = np.max(np.abs(delta - mapped) / scale[:, None])
+        if residual < 5e-10 or time.process_time() - started > 7.0:
+            break
+        delta = 0.35 * delta + 0.65 * mapped
+    renormalization = model.map(delta)[0]
+    np.savez(args.output, delta=delta, z=renormalization)
+
+
+if __name__ == "__main__":
+    main()
+
+**Assessing token usage and plans**
+
+I’m looking at our timing and token budget: we’ve got around 55 minutes left and around 32,000 tokens remaining. The initial budget was 56,000 tokens, and it seems we're getting close to that limit. I need to create a record for the apply_patch executable via shell and refine our approach for handling large arrays efficiently. Timing is tight, with a plan to complete full FFT model iterations quickly and possibly needing to inspect examples and statistics for clarity.
+codex
+Isolation checks passed. I’ll build and test a branch-preserving solver.
+  → Inspect public instance conditioning and costs
+  • Implement efficient branch-preserving nonlinear solver
+  • Validate accuracy and runtime on examples
+  • Package final executable and isolation record
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/isolation.json
++[\"FileNotFoundError\", \"FileNotFoundError\"]
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python - <<'PY'
+import sys, time
+import numpy as np
+from pathlib import Path
+sys.path.insert(0,'input')
+from eliashberg import Model,load_instance
+for path in sorted(Path('input/examples').glob('*.npz')):
+    instance=load_instance(path)
+    model=Model(instance)
+    delta=instance['initial_delta']
+    started=time.process_time()
+    z,mapped=model.map(delta)
+    elapsed=time.process_time()-started
+    print(path.name,model.shape,'modes', len(model.omega),'T',model.temperature,'omega',model.omega, 'mu', np.min(model.coulomb),np.max(model.coulomb))
+    print('   d0',delta[:,0].min(),delta[:,0].max(),'z0',z[:,0].min(),z[:,0].max(),'maxcoupling',model.coupling.max(),'map_cost',elapsed,'res',np.max(abs(delta-mapped)/np.max(abs(delta),axis=1)[:,None]))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+ succeeded in 588ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/isolation.json
+combined.npz (12, 768) modes 4 T 0.1795776794886456 omega [ 0.65385228  3.99576391 19.97881954 36.32512643] mu 0.0 0.0
+   d0 14.526546664210434 14.526546664210434 z0 1.085601284849818 1.2441666295678533 maxcoupling 1.6889680699111977 map_cost 0.0044667499999999916 res 0.8960404186602374
+competing_sheets_2304.npz (12, 2304) modes 4 T 0.0012347357545222169 omega [0.00444505 0.06000816 0.66675731 2.22252436] mu 0.0 0.4093598020858694
+   d0 0.889007035185704 0.889007035185704 z0 1.105698501133773 1.2810341769206135 maxcoupling 1.6203137909906984 map_cost 0.012393120000000007 res 0.9928665373544633
+critical.npz (12, 256) modes 3 T 0.7675910194481788 omega [11.36474267 26.99126385 47.35309447] mu 0.008894503472130137 0.268996529141479
+   d0 18.892243400620277 18.892243400620277 z0 1.2735463418674244 1.5781940620542874 maxcoupling 1.3169209036530223 map_cost 0.0009422500000000056 res 0.7582271314902589
+critical_coulomb_3072.npz (9, 3072) modes 4 T 0.009982538645885693 omega [ 0.02874971  0.6708266   6.46868504 23.95809275] mu 0.08978225373562247 0.1552723220639379
+   d0 9.583220679460508 9.583220679460508 z0 1.1271346377231086 1.2389031155508474 maxcoupling 0.3561000667100315 map_cost 0.012178140000000004 res 1.04703595442565
+low_temperature_4096.npz (16, 4096) modes 4 T 0.019072183396668673 omega [ 0.05721655  1.144331    8.58248253 28.6082751 ] mu 0.003824773214140057 0.1343458957414286
+   d0 11.44325984224667 11.44325984224667 z0 1.3263074980962466 1.7008333924554049 maxcoupling 6.042145056819926 map_cost 0.038051168999999996 res 0.6903227178849914
+low_temperature_8192.npz (16, 8192) modes 4 T 0.009536091698334337 omega [ 0.05721655  1.144331    8.58248253 28.6082751 ] mu 0.003824773214140057 0.1343458957414286
+   d0 11.443297489021285 11.443297489021285 z0 1.325873898598033 1.7000319704555549 maxcoupling 6.042145056819926 map_cost 0.06807782000000001 res 0.6905489345620229
+multiband.npz (9, 256) modes 3 T 0.3560758839900011 omega [ 2.88494217  6.85173765 12.02059237] mu 0.0059229898193137575 0.11538284849729405
+   d0 4.766953681545368 4.766953681545368 z0 1.6583668866965149 2.7295498662974462 maxcoupling 3.207666404592252 map_cost 0.001459290000000002 res 0.47997533232383194
+retardation.npz (20, 768) modes 4 T 0.03402832896865507 omega [0.15502916 0.9474004  4.73700202 8.61273095] mu 0.0022475030899467546 0.13595298205840697
+   d0 3.444561699124416 3.444561699124416 z0 1.360713020636473 1.9126860179241927 maxcoupling 8.464075998417572 map_cost 0.007098040000000028 res 0.6572363232985647
+weak_interband.npz (15, 256) modes 3 T 0.09873087546346557 omega [0.85223744 2.02406392 3.55098934] mu 0.0 0.0
+   d0 1.4096406124780436 1.4096406124780436 z0 1.2586368299101234 2.3160558985055566 maxcoupling 2.197377685077724 map_cost 0.0010063099999999547 res 0.7185767687283922
+
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import numpy as np
+from pathlib import Path
+for path in sorted(Path('input/examples').glob('*.npz')):
+    instance=np.load(path)
+    weights=instance['weights']
+    print(path.name)
+    for coupling in instance['coupling']:
+        vals=np.linalg.eigvalsh(np.sqrt(weights[:,None]*weights[None,:])*coupling)
+        print(' eigen',np.round(vals,8))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+ succeeded in 656ms:
+combined.npz
+ eigen [-0.02991115 -0.01575546 -0.00867871 -0.00370398 -0.00344187  0.0043426
+  0.00575516  0.01331253  0.01999799  0.17230416  0.29295706  0.36007736]
+ eigen [-0.01409323 -0.00545461 -0.00493833 -0.00240063 -0.00149048 -0.0007841
+  0.00168374  0.00479902  0.00671927  0.03619446  0.0571727   0.07893174]
+ eigen [-0.01789574 -0.01138594 -0.00633917 -0.00544499 -0.00021358  0.00017657
+  0.00731617  0.0091223   0.00918683  0.04704036  0.0824116   0.11859114]
+ eigen [-0.01406058 -0.01166074 -0.00571062 -0.00168249  0.00162095  0.00169834
+  0.00446464  0.0059245   0.007893    0.04738362  0.08265424  0.10106621]
+competing_sheets_2304.npz
+ eigen [-0.03634602 -0.02998228 -0.02900707 -0.00688577 -0.0065934  -0.00389547
+  0.0111303   0.02152614  0.04230834  0.07024577  0.10019163  0.12927778]
+ eigen [-0.02583608 -0.0131472  -0.01211421 -0.01054153 -0.00242014  0.01269395
+  0.02461804  0.02934994  0.03041428  0.06360702  0.10047074  0.117417  ]
+ eigen [-0.03656894 -0.01443536 -0.00474879 -0.00189644  0.00247922  0.01086246
+  0.03276213  0.03732548  0.04622956  0.11008964  0.12691911  0.13679983]
+ eigen [-0.07033447 -0.03785487 -0.02386979 -0.02004581 -0.00086706  0.00258492
+  0.00593204  0.01294255  0.03876899  0.07753518  0.12387423  0.13515319]
+critical.npz
+ eigen [-0.03716444 -0.02116762 -0.02016214 -0.00952739 -0.00196624  0.00502117
+  0.00690294  0.01881129  0.02889631  0.10962648  0.11891201  0.18340607]
+ eigen [-0.03825493 -0.00880593 -0.00632596 -0.0029431   0.00471485  0.00727037
+  0.00969651  0.012933    0.01720837  0.12004295  0.15091252  0.19742252]
+ eigen [-0.02757322 -0.01812734 -0.01193591 -0.01115606 -0.00076032  0.0005913
+  0.00502202  0.02164653  0.02383047  0.11081072  0.14902479  0.19414405]
+critical_coulomb_3072.npz
+ eigen [-0.02779463 -0.01261035 -0.01001832 -0.00317437  0.00399087  0.01595328
+  0.02338649  0.05407939  0.12222238]
+ eigen [-0.05550244 -0.01548495 -0.0124777  -0.00358756 -0.00071523  0.01128968
+  0.01671889  0.02294391  0.11721477]
+ eigen [-0.04031081 -0.0196353  -0.00808063 -0.00339092  0.00440323  0.00734756
+  0.01560533  0.02423375  0.1362836 ]
+ eigen [-0.02155423 -0.00656549 -0.00512213  0.00208391  0.00329103  0.01429752
+  0.02551563  0.03374313  0.12692241]
+low_temperature_4096.npz
+ eigen [-0.09097995 -0.07305438 -0.05409156 -0.02869188 -0.01418857 -0.00782101
+ -0.00430866  0.01910539  0.01986515  0.02550875  0.04021811  0.07939632
+  0.4819577   0.68675943  0.77997898  1.04280766]
+ eigen [-0.06678816 -0.0528297  -0.02081263 -0.01713472 -0.01442725 -0.0091606
+ -0.00286265  0.00745876  0.0076877   0.01043044  0.01713917  0.01910198
+  0.23810411  0.28083229  0.31822696  0.38760231]
+ eigen [-0.0378386  -0.0325305  -0.02602634 -0.01233088 -0.00450811 -0.00404437
+ -0.00105133  0.00868357  0.00996192  0.01468247  0.02573945  0.02994254
+  0.11626081  0.27469193  0.31262031  0.37991494]
+ eigen [-0.03778133 -0.02707499 -0.02281777 -0.01666947 -0.00954379 -0.00186586
+  0.00155852  0.00458882  0.00530045  0.01089369  0.0159027   0.03782844
+  0.15626239  0.17502983  0.23599406  0.33112098]
+low_temperature_8192.npz
+ eigen [-0.09097995 -0.07305438 -0.05409156 -0.02869188 -0.01418857 -0.00782101
+ -0.00430866  0.01910539  0.01986515  0.02550875  0.04021811  0.07939632
+  0.4819577   0.68675943  0.77997898  1.04280766]
+ eigen [-0.06678816 -0.0528297  -0.02081263 -0.01713472 -0.01442725 -0.0091606
+ -0.00286265  0.00745876  0.0076877   0.01043044  0.01713917  0.01910198
+  0.23810411  0.28083229  0.31822696  0.38760231]
+ eigen [-0.0378386  -0.0325305  -0.02602634 -0.01233088 -0.00450811 -0.00404437
+ -0.00105133  0.00868357  0.00996192  0.01468247  0.02573945  0.02994254
+  0.11626081  0.27469193  0.31262031  0.37991494]
+ eigen [-0.03778133 -0.02707499 -0.02281777 -0.01666947 -0.00954379 -0.00186586
+  0.00155852  0.00458882  0.00530045  0.01089369  0.0159027   0.03782844
+  0.15626239  0.17502983  0.23599406  0.33112098]
+multiband.npz
+ eigen [-0.07227668 -0.0128489  -0.00724615  0.04280739  0.04936135  0.17820927
+  0.24267516  0.51320082  0.64102232]
+ eigen [-0.145931   -0.08028359 -0.02693378 -0.01021301  0.04907316  0.0701956
+  0.2550516   0.50296427  0.70703849]
+ eigen [-0.06043716 -0.02589703 -0.01329635  0.00253245  0.01527863  0.03012083
+  0.25474716  0.39552686  0.58939558]
+retardation.npz
+ eigen [-1.82233830e-01 -1.38555950e-01 -1.01826860e-01 -4.59497800e-02
+ -2.73470000e-02 -1.92570900e-02 -1.37035000e-02 -1.02112000e-03
+  2.41118000e-03  4.01516000e-03  1.31988500e-02  2.24000500e-02
+  5.20997500e-02  6.92801100e-02  1.49804430e-01  1.69351620e-01
+  4.77381960e-01  6.85824750e-01  7.60263690e-01  1.03438449e+00]
+ eigen [-0.08828161 -0.06448036 -0.03542978 -0.02994689 -0.02306643 -0.01756549
+ -0.01062302 -0.0059186  -0.00239197  0.00248544  0.00525233  0.01306472
+  0.01783104  0.02306893  0.03406275  0.03790883  0.14092879  0.19772636
+  0.25912819  0.32695178]
+ eigen [-0.055301   -0.05373124 -0.02945317 -0.02309074 -0.01138315 -0.0077109
+ -0.00617566 -0.00168621  0.00065329  0.00630419  0.01527619  0.02099703
+  0.04049253  0.05021662  0.05411791  0.09435645  0.13289654  0.2317725
+  0.24990079  0.3349154 ]
+ eigen [-0.09107513 -0.04013335 -0.03270644 -0.02843261 -0.0197254  -0.00206073
+  0.00245857  0.00315533  0.01417278  0.0171336   0.01984457  0.02158931
+  0.0343817   0.05101569  0.0535616   0.06370201  0.13858879  0.22326968
+  0.22751179  0.31043861]
+weak_interband.npz
+ eigen [-0.07103434 -0.02168572 -0.01718536 -0.009547   -0.00702538 -0.00207277
+  0.00448493  0.0046848   0.01409799  0.01824712  0.03647592  0.0589059
+  0.1552241   0.29196722  0.55061785]
+ eigen [-5.7487710e-02 -2.1676170e-02 -9.0716800e-03 -4.9446700e-03
+ -4.4571800e-03  4.3626000e-04  1.8698400e-03  1.8742730e-02
+  2.7750580e-02  3.2221430e-02  6.9432320e-02  7.7616670e-02
+  1.6533916e-01  3.7825927e-01  5.3693804e-01]
+ eigen [-0.10445069 -0.03616821 -0.02887474 -0.01947785 -0.00520923 -0.00196601
+ -0.00108868  0.00513092  0.0145354   0.02127031  0.02800986  0.03556792
+  0.15381637  0.36072033  0.51107756]
+
+codex
+The main risks are critical amplitudes and weak induced gaps. I’ll use Newton steps with positivity safeguards and faster exact convolutions.
+  ✓ Inspect public instance conditioning and costs
+  → Implement efficient branch-preserving nonlinear solver
+  • Validate accuracy and runtime on examples
+  • Package final executable and isolation record
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++import os
++
++os.environ['OPENBLAS_NUM_THREADS'] = '1'
++os.environ['OMP_NUM_THREADS'] = '1'
++os.environ['MKL_NUM_THREADS'] = '1'
++
++import argparse
++import time
++
++import numpy as np
++from scipy.fft import dct, dst, idct, idst, next_fast_len, rfft
++from scipy.sparse.linalg import LinearOperator, gmres
++
++
++class Model:
++    def __init__(self, instance):
++        self.temperature = float(instance['temperature'])
++        self.n_freq = int(instance['n_freq'])
++        self.weights = instance['weights']
++        self.omega = instance['omega']
++        self.shape = (len(self.weights), self.n_freq)
++        self.frequencies = np.pi * self.temperature * (2 * np.arange(self.n_freq) + 1)
++        self.coupling = instance['coupling'] * self.weights[None, None, :]
++        self.coulomb = instance['coulomb'] * self.weights[None, :]
++        self.length = next_fast_len(2 * self.n_freq)
++        distances = 2 * np.pi * self.temperature * np.arange(self.length + 1)
++        kernel = self.omega[:, None] ** 2 / (self.omega[:, None] ** 2 + distances[None, :] ** 2)
++        embedding = np.concatenate((kernel[:, :-1], np.zeros((len(self.omega), 1)), kernel[:, 1:-1][:, ::-1]), axis=1)
++        self.kernel_fft = rfft(embedding, workers=1).real
++        indices = np.arange(self.n_freq)
++        increments = 2 * kernel[:, indices] - kernel[:, self.n_freq - indices] - kernel[:, self.n_freq + indices]
++        increments[:, 0] = kernel[:, 0] - kernel[:, self.n_freq]
++        normal = self.coupling.sum(axis=2).T @ np.cumsum(increments, axis=1)
++        self.z_normal = 1 + np.pi * self.temperature * normal / self.frequencies
++        self.calls = 0
++
++    def convolve(self, values, parity):
++        self.calls += 1
++        if parity == 1:
++            transformed = dct(values, type=2, n=self.length, workers=1)
++            kernels = self.kernel_fft[:, :self.length]
++        else:
++            transformed = dst(values, type=2, n=self.length, workers=1)
++            kernels = self.kernel_fft[:, 1:self.length + 1]
++        mixed = np.zeros_like(transformed)
++        for coupling, kernel in zip(self.coupling, kernels):
++            mixed += (coupling @ transformed) * kernel
++        if parity == 1:
++            result = idct(mixed, type=2, workers=1)
++        else:
++            result = idst(mixed, type=2, workers=1)
++        return result[:, :self.n_freq]
++
++    def map(self, delta):
++        radius = np.hypot(self.frequencies, delta)
++        normal_ratio = -delta * delta / (radius * (radius + self.frequencies))
++        normal = self.convolve(normal_ratio, -1)
++        ratio = delta / radius
++        pairing = self.convolve(ratio, 1)
++        pairing -= 2 * (self.coulomb @ ratio.sum(axis=1))[:, None]
++        renormalization = self.z_normal + np.pi * self.temperature * normal / self.frequencies
++        return renormalization, np.pi * self.temperature * pairing / renormalization
++
++    def derivative(self, delta, z, mapped):
++        radius = np.hypot(self.frequencies, delta)
++        normal_derivative = -self.frequencies * delta / radius ** 3
++        anomalous_derivative = self.frequencies ** 2 / radius ** 3
++
++        def product(direction):
++            change_z = np.pi * self.temperature * self.convolve(normal_derivative * direction, -1) / self.frequencies
++            ratio = anomalous_derivative * direction
++            pairing = self.convolve(ratio, 1)
++            pairing -= 2 * (self.coulomb @ ratio.sum(axis=1))[:, None]
++            return direction - (np.pi * self.temperature * pairing - mapped * change_z) / z
++
++        return product
++
++
++def solve(instance, verbose=False):
++    started = time.process_time()
++    model = Model(instance)
++    delta = instance['initial_delta'].copy()
++    for iteration in range(80):
++        z, mapped = model.map(delta)
++        scales = np.max(np.abs(delta), axis=1)[:, None]
++        residual = (delta - mapped) / scales
++        residual_norm = np.max(np.abs(residual))
++        derivative = model.derivative(delta, z, mapped)
++
++        def product(direction):
++            return (derivative(direction.reshape(model.shape) * scales) / scales).ravel()
++
++        operator = LinearOperator((delta.size, delta.size), matvec=product)
++        step, status = gmres(operator, residual.ravel(), rtol=1e-5, atol=1e-15, restart=30, maxiter=3)
++        step = step.reshape(model.shape) * scales
++        step_norm = np.max(np.abs(step) / scales)
++        if verbose:
++            print(iteration, 'res', residual_norm, 'step', step_norm, 'd0', delta[:, 0].min(), delta[:, 0].max(), 'calls', model.calls, 'cpu', time.process_time() - started, flush=True)
++        if residual_norm < 2e-12 and step_norm < 2e-5:
++            break
++        factor = 1.0
++        positive_steps = step[:, 0] > 0
++        if np.any(positive_steps):
++            factor = min(factor, np.min(0.8 * delta[positive_steps, 0] / step[positive_steps, 0]))
++        delta -= factor * step
++    z = model.map(delta)[0]
++    return delta, z
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--input', required=True)
++    parser.add_argument('--output', required=True)
++    parser.add_argument('--verbose', action='store_true')
++    args = parser.parse_args()
++    with np.load(args.input, allow_pickle=False) as archive:
++        instance = {key: np.array(archive[key], copy=True) for key in archive.files}
++    delta, z = solve(instance, args.verbose)
++    np.savez(args.output, delta=delta, z=z)
++
++
++if __name__ == '__main__':
++    main()
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python - <<'PY'
+import sys,time
+from pathlib import Path
+import numpy as np
+sys.path.insert(0,'/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4')
+from solve import Model as FastModel
+sys.path.insert(0,'input')
+from eliashberg import Model, load_instance
+for path in sorted(Path('input/examples').glob('*.npz')):
+    instance=load_instance(path)
+    original=Model(instance)
+    fast=FastModel(instance)
+    delta=instance['initial_delta']
+    z,d=original.map(delta)
+    start=time.process_time()
+    zfast,dfast=fast.map(delta)
+    cost=time.process_time()-start
+    print(path.name, 'zerror',abs(z-zfast).max(), 'derror',abs(d-dfast).max(), 'cost',cost)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+ succeeded in 854ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+combined.npz zerror 8.881784197001252e-16 derror 3.9968028886505635e-15 cost 0.005465170000000019
+competing_sheets_2304.npz zerror 2.886579864025407e-15 derror 4.163336342344337e-16 cost 0.01630121000000001
+critical.npz zerror 6.661338147750939e-16 derror 3.552713678800501e-15 cost 0.0017527499999999974
+critical_coulomb_3072.npz zerror 9.547918011776346e-15 derror 7.327471962526033e-15 cost 0.006045990000000001
+low_temperature_4096.npz zerror 2.4646951146678475e-14 derror 8.615330671091215e-14 cost 0.03517743000000001
+low_temperature_8192.npz zerror 4.907185768843192e-14 derror 1.723066134218243e-13 cost 0.06939192999999999
+multiband.npz zerror 1.3322676295501878e-15 derror 2.6645352591003757e-15 cost 0.00042986999999999886
+retardation.npz zerror 3.774758283725532e-15 derror 4.440892098500626e-15 cost 0.010157290000000097
+weak_interband.npz zerror 8.881784197001252e-16 derror 5.551115123125783e-16 cost 0.0012372900000000575
+
+**Analyzing computational tests**
+
+I'm analyzing the costs under a threaded environment. It seems that using machine CPU milliseconds provides stable subsequent test results. For DCT with Type II length powers, I’m using a real FFT fast implementation and considering whether it should handle half the FFT transform. I'm also thinking about potential inefficiencies with matrix multiplications and the layout of data types, which could impact the benchmarking loop. This all feels quite technical!
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python - <<'PY'
+import sys,time
+from pathlib import Path
+import numpy as np
+sys.path.insert(0,'/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4')
+from solve import Model as FastModel
+sys.path.insert(0,'input')
+from eliashberg import Model, load_instance
+for name in ['critical_coulomb_3072','low_temperature_8192']:
+    instance=load_instance('input/examples/'+name+'.npz')
+    for kind in [Model,FastModel]:
+        model=kind(instance)
+        started=time.process_time()
+        for repeat in range(20):
+            model.map(instance['initial_delta'])
+        print(name,kind,(time.process_time()-started)/20)
+PY
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py --input input/examples/critical_coulomb_3072.npz --output /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/test_critical.npz --verbose" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+ exited 1 in 4129ms:
+critical_coulomb_3072 <class 'eliashberg.Model'> 0.012797271500000002
+critical_coulomb_3072 <class 'solve.Model'> 0.005760480999999998
+low_temperature_8192 <class 'eliashberg.Model'> 0.07740687395
+low_temperature_8192 <class 'solve.Model'> 0.07109603800000001
+Traceback (most recent call last):
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py", line 123, in <module>
+    main()
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py", line 118, in main
+    delta, z = solve(instance, args.verbose)
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py", line 94, in solve
+    step, status = gmres(operator, residual.ravel(), rtol=1e-5, atol=1e-15, restart=30, maxiter=3)
+TypeError: gmres() got an unexpected keyword argument 'rtol'
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@
+-        step, status = gmres(operator, residual.ravel(), rtol=1e-5, atol=1e-15, restart=30, maxiter=3)
++        step, status = gmres(operator, residual.ravel(), tol=1e-5, atol=1e-15, restart=30, maxiter=3)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py --input input/examples/critical_coulomb_3072.npz --output /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/test_critical.npz --verbose" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+ succeeded in 2083ms:
+Success. Updated the following files:
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+0 res 1.0470359544256498 step 0.9738624463867263 d0 9.583220679460508 9.583220679460508 calls 14 cpu 0.06768263
+1 res 0.9270240933730508 step 0.9207141312993677 d0 1.916644135892101 2.4996985095855964 calls 28 cpu 0.10199902
+2 res 0.6884768432278161 step 0.8444512560058024 d0 0.3870363047225476 0.6538184454739937 calls 44 cpu 0.13839768000000002
+3 res 0.38971458652786584 step 0.695876295516837 d0 0.0774072609445095 0.16274886356928608 calls 60 cpu 0.18049358999999998
+4 res 0.19518366270480195 step 0.5157432506382967 d0 0.02468305154319033 0.05240812763599409 calls 76 cpu 0.21662015
+5 res 0.07952469040557633 step 0.40596282185072785 d0 0.012266504096635778 0.02567597536382014 calls 94 cpu 0.257763
+6 res 0.03398766400685853 step 0.36343392353978987 d0 0.007306201690916844 0.015329895636699406 calls 112 cpu 0.29943177
+7 res 0.014843412048239591 step 0.34614803884827666 d0 0.0046547626641571535 0.009773640944684026 calls 132 cpu 0.34686339000000005
+8 res 0.006544451473006206 step 0.33891687994673575 d0 0.003044055751719687 0.006392473758994159 calls 152 cpu 0.39065424
+9 res 0.002898230674617415 step 0.33579075639835687 d0 0.0020124421782572524 0.004226205636187705 calls 174 cpu 0.44154008000000006
+10 res 0.001285992183213389 step 0.33441808959123154 d0 0.0013366917129965115 0.0028071174626237176 calls 196 cpu 0.49349740000000003
+11 res 0.0005711382389581662 step 0.33380773983660084 d0 0.0008896789864801354 0.0018683707868205487 calls 218 cpu 0.54692936
+12 res 0.00025375011979738454 step 0.3335286115156904 d0 0.0005926974075022992 0.0012446947057795968 calls 240 cpu 0.6023243
+13 res 0.0001127528027373471 step 0.3333849173102028 d0 0.0003950158842163872 0.0008295534809118609 calls 264 cpu 0.6575710699999999
+14 res 5.010626613605376e-05 step 0.33327735126780095 d0 0.00026332354667929947 0.000552992865368732 calls 288 cpu 0.7124591499999999
+15 res 2.2263110533782306e-05 step 0.3331309338767806 d0 0.00017556377286337475 0.0003686928691765599 calls 312 cpu 0.7671748700000001
+16 res 9.888869802621834e-06 step 0.33284407413166883 d0 0.00011707804930033063 0.00024586986951851265 calls 336 cpu 0.82242123
+17 res 4.38930862042366e-06 step 0.33221657637024316 d0 7.810931438594411e-05 0.0001640335404635232 calls 362 cpu 0.8871745799999999
+18 res 1.9450298721732788e-06 step 0.33081710595664005 d0 5.216010543526698e-05 0.00010953887931202985 calls 388 cpu 0.9513835390000001
+19 res 8.58737799269519e-07 step 0.3276850832221939 d0 3.4904650308881794e-05 7.33015442686605e-05 calls 414 cpu 1.014101209
+20 res 3.7598862687947506e-07 step 0.3207064607032216 d0 2.3466917067583902e-05 4.92817216347095e-05 calls 440 cpu 1.080761919
+21 res 1.6153784181816824e-07 step 0.3053503414262119 d0 1.5940925151223045e-05 3.347675511188251e-05 calls 466 cpu 1.145097579
+22 res 6.64583628943804e-08 step 0.27261571983389205 d0 1.1073358213647715e-05 2.32546165086275e-05 calls 494 cpu 1.209756799
+23 res 2.470754764567239e-08 step 0.20845108315402594 d0 8.054586693262362e-06 1.6915042489666906e-05 calls 522 cpu 1.274732399
+24 res 7.1887960692455094e-09 step 0.10896477404341753 d0 6.3755993726939074e-06 1.3389083561101277e-05 calls 550 cpu 1.339296549
+25 res 1.1323729352199186e-09 step 0.023686722990052592 d0 5.680883627657091e-06 1.1930145096219554e-05 calls 578 cpu 1.404272609
+26 res 3.993126715960511e-11 step 0.0008964672721146748 d0 5.546322110830148e-06 1.164755905409572e-05 calls 606 cpu 1.471074209
+27 res 5.482358994919452e-14 step 1.2112772661696356e-06 d0 5.541350014577205e-06 1.1637117398604043e-05 calls 632 cpu 1.531479769
+
+**Analyzing performance parameters**
+
+I’m checking the cost for Actuallyfast, which is at .0045 — that seems like a good reference point! Now, I'm looking into competing sheets and checking several examples with different starting points. Should I set a limit of 20? I need to run a sequential script to gather performance data and store values without exceeding 32MB. I'll focus on only outputting the necessary test solution files as I clean up this process.
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python - <<'PY'
+import sys,time
+from pathlib import Path
+import numpy as np
+out=Path('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4')
+sys.path.insert(0,str(out))
+from solve import solve
+sys.path.insert(0,'input')
+from eliashberg import Model, load_instance
+for path in sorted(Path('input/examples').glob('*.npz')):
+    instance=load_instance(path)
+    started=time.process_time()
+    delta,z=solve(instance,verbose=path.stem=='competing_sheets_2304')
+    cost=time.process_time()-started
+    print('RESULT',path.name,cost,Model(instance).residual_norms(delta,z),'d0', delta[:,0],flush=True)
+    np.savez(out/('result_'+path.name),delta=delta,z=z)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+**Considering computational limits**
+
+It looks like I'm running into a problem with being stuck at a maximum of 8192. Maybe it's due to the termination or a very tiny value giving me cancellation issues. I should inspect the live output without making it verbose. There's also the possibility that the CPU is taking too long, maybe because of GMRES restarting after a certain number of iterations due to rounding issues. I need to keep an eye on the time and note how long this is taking.
+exec
+/bin/bash -lc 'OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py --input input/examples/low_temperature_8192.npz --output /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/test_low.npz --verbose' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+ succeeded in 6109ms:
+0 res 0.6905489345620178 step 0.7855012212626289 d0 11.443297489021285 11.443297489021285 calls 16 cpu 0.84238316
+1 res 0.2827595953433352 step 0.4944426825915728 d0 2.4545733361234916 4.085136558397378 calls 34 cpu 1.6609047000000001
+2 res 0.0715995924880281 step 0.17187686330509705 d0 1.293339291488939 2.4289911921963805 calls 54 cpu 2.580177509
+3 res 0.0052726213348948375 step 0.014190110926306761 d0 1.0757383623551042 2.0919399474649722 calls 74 cpu 3.386597229
+4 res 3.0178513734493214e-05 step 8.261012997456408e-05 d0 1.0605755868935298 2.0673123572405325 calls 94 cpu 4.239867608999999
+5 res 1.1302946847916854e-09 step 3.0584541198824486e-09 d0 1.060488257373629 2.0671660200962787 calls 114 cpu 5.025143937999999
+6 res 1.7890488092625296e-14 step 3.2101953572519846e-14 d0 1.0604882545892858 2.0671660149540223 calls 130 cpu 5.599400997999999
+
+ succeeded in 66398ms:
+RESULT combined.npz 0.54314247 (1.306215383217845e-14, 1.1138345741577846e-15) d0 [9.23157230e-10 1.21561005e-02 8.96607931e-10 2.57317624e-09
+ 2.31441210e-09 2.05811157e-09 9.19845459e-03 1.19966139e-02
+ 1.13283286e-02 7.06682370e-10 2.08488251e-09 7.48762387e-10]
+0 res 0.9928665373544633 step 0.9613206006724643 d0 0.889007035185704 0.889007035185704 calls 16 cpu 0.06293344000000001
+1 res 0.8615294112837474 step 0.9143985284798956 d0 0.17780140703714076 0.2527718647465783 calls 34 cpu 0.12413759999999996
+2 res 0.6635805873887524 step 0.8397938090473109 d0 0.035560281407428146 0.07428592712478133 calls 52 cpu 0.18684769
+3 res 0.35851865073287653 step 0.6794194140967511 d0 0.0071120562814856285 0.019942415879134028 calls 72 cpu 0.25603224999999996
+4 res 0.1673549857675498 step 0.5068814141964276 d0 0.002324940855976361 0.006638330424363972 calls 96 cpu 0.34313735999999995
+5 res 0.07575597265764887 step 0.40475815876683385 d0 0.001154216986426696 0.0033036764606592037 calls 118 cpu 0.4174509999999999
+6 res 0.03220463631794645 step 0.36294985562013515 d0 0.0006870382441832229 0.0020407814638808783 calls 146 cpu 0.517180329
+7 res 0.013934607659634078 step 0.3460762315843265 d0 0.0004376888053319415 0.0013666915977206076 calls 176 cpu 0.634380029
+8 res 0.006116847830073308 step 0.33897426259347824 d0 0.0002862183648508213 0.0009844943299440402 calls 208 cpu 0.751632049
+9 res 0.002704100123497662 step 0.3359706195045755 d0 0.00018919818503978234 0.0007838500182805831 calls 242 cpu 0.8739292989999999
+10 res 0.0011994073589520749 step 0.33483720047545473 d0 0.0001256332265691371 0.0007068165816977231 calls 278 cpu 0.994315239
+11 res 0.0005330514326911343 step 0.3347559590236993 d0 8.356655740268058e-05 0.0006939672871263434 calls 314 cpu 1.129990969
+12 res 0.0002373771056105803 step 0.33566699504325503 d0 5.559215561904756e-05 0.0006936145835076015 calls 350 cpu 1.2538247189999998
+13 res 0.00010605828312584035 step 0.3382078066801404 d0 3.693170402739002e-05 0.0006936143533900767 calls 388 cpu 1.3846660490000002
+14 res 4.772489993429056e-05 step 0.34418625222480737 d0 2.444111342494636e-05 0.0006936143517683989 calls 426 cpu 1.516612329
+15 res 2.180772019299476e-05 step 0.3579528111961813 d0 1.6028818204778808e-05 0.0006936143537141528 calls 466 cpu 1.6542069590000001
+16 res 1.031226355321824e-05 step 0.3900253749674028 d0 1.0291257678567191e-05 0.0006936143514539629 calls 506 cpu 1.800640629
+17 res 5.248540679082124e-06 step 0.46651733816938 d0 6.277406043597859e-06 0.0006936143512796639 calls 548 cpu 1.944678939
+18 res 3.1009024908521496e-06 step 0.6445787459440518 d0 3.348887287036999e-06 0.0006936143513415036 calls 590 cpu 2.088825599
+19 res 2.3510635292229666e-06 step 0.9139050808332996 d0 1.1902657202547503e-06 0.0006936143513183874 calls 632 cpu 2.250431979
+20 res 2.2241196771787046e-06 step 0.9834613479339238 d0 2.380531451556607e-07 0.0006936143511288755 calls 676 cpu 2.404723309
+21 res 2.105003454456677e-06 step 0.935997237951083 d0 4.761063007064834e-08 0.0006936143512673975 calls 720 cpu 2.559889589
+22 res 1.5305761080300935e-06 step 0.6810941847881877 d0 9.522127052044677e-09 0.0006936143513583661 calls 764 cpu 2.728326579
+23 res 3.880751458920295e-08 step 0.24604467846515296 d0 3.0366627197542983e-09 0.0006936143512559462 calls 810 cpu 2.890417179
+24 res 1.2430894101377884e-08 step 0.14632371357270382 d0 3.033723021078321e-09 0.000693614351276479 calls 852 cpu 3.039566649
+25 res 2.2872137526703205e-09 step 0.038796955543793095 d0 3.0324289445914148e-09 0.0006936143512728583 calls 896 cpu 3.195010478
+26 res 1.0798448968033893e-10 step 0.0020135891994875546 d0 3.032136077443897e-09 0.0006936143512753565 calls 942 cpu 3.360191888
+27 res 2.6178913915480364e-13 step 4.9115728574082765e-06 d0 3.0321215098263822e-09 0.0006936143512753335 calls 986 cpu 3.513235718
+RESULT competing_sheets_2304.npz 3.520554348 (2.6050033108511847e-13, 3.658593129189542e-15) d0 [3.03212151e-09 1.15643528e-06 8.61187223e-09 5.23193764e-04
+ 8.60238854e-07 7.28280239e-09 6.93614351e-04 1.42755407e-06
+ 4.02155688e-09 4.42507936e-04 1.31444389e-06 3.76897907e-04]
+RESULT critical.npz 0.15010506000000046 (8.980453423628964e-13, 4.703293553989882e-16) d0 [0.05213753 0.0368875  0.04175489 0.03265322 0.04171661 0.04956823
+ 0.02569199 0.02620534 0.04765948 0.05291456 0.03145439 0.0219675 ]
+RESULT critical_coulomb_3072.npz 1.4933488400000003 (5.118733143215611e-14, 6.8643742448342674e-15) d0 [1.16371174e-05 8.44371534e-06 1.13052141e-05 7.74774105e-06
+ 1.06828933e-05 5.54135001e-06 7.94407132e-06 6.05646065e-06
+ 8.92303305e-06]
+RESULT low_temperature_4096.npz 7.622399087000001 (2.3019023963104665e-14, 1.1473762642672498e-14) d0 [1.06107481 1.37937131 1.80924524 1.40626214 1.48297573 1.89780237
+ 1.13112005 1.68290799 1.71526462 1.13881895 1.39681737 1.39102473
+ 1.88346777 1.19559005 2.06627668 1.92302078]
+RESULT low_temperature_8192.npz 51.604671061000005 (2.984511848612877e-14, 2.3004068341041214e-14) d0 [1.06048825 1.37902508 1.80937456 1.40559556 1.48301466 1.89860166
+ 1.13058257 1.68385355 1.71503729 1.13830423 1.39655079 1.39040021
+ 1.88390521 1.19522408 2.06716601 1.92375488]
+RESULT multiband.npz 0.021071160000005307 (8.359852081585376e-16, 4.2186517419489716e-16) d0 [1.74257257 3.10419188 2.12486635 1.9077105  3.23400678 2.62672949
+ 3.09231556 2.50198425 2.70251389]
+RESULT retardation.npz 0.6091900990000028 (1.7937395564911612e-15, 1.9945504356362388e-15) d0 [0.60613546 0.57132    0.78518334 0.78519212 0.83738162 0.80462625
+ 0.44155079 0.44741613 0.74029379 0.78348013 0.51739291 0.77592159
+ 0.82012477 0.42108634 0.61461555 0.81130923 0.79383602 0.70584324
+ 0.86579845 0.85153225]
+RESULT weak_interband.npz 0.1198611800000009 (3.2108209962663477e-13, 4.484923582250037e-16) d0 [7.07361594e-01 4.11587996e-01 4.99387557e-06 4.08017222e-01
+ 4.42495707e-06 4.97841671e-01 4.85794341e-01 7.34509659e-01
+ 4.33168994e-06 6.04804880e-06 8.29022306e-01 4.85376354e-01
+ 8.26820737e-01 6.97883082e-01 6.01677521e-06]
+
+2026-08-29T01:40:36.589785Z ERROR codex_core::tools::router: error=exec_command failed for `/bin/bash -lc 'rm -f /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/test_low.npz'`: CreateProcess { message: "Rejected(\"`/bin/bash -lc 'rm -f /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/test_low.npz'` rejected: rm -f style commands are not permitted. Use a safer approach\")" }
+exec
+/bin/bash -lc 'rm -- /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/test_low.npz' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/participant
+ exited 1 in 614ms:
+rm: cannot remove '/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/test_low.npz': No such file or directory
+
+codex
+The Newton solver converges on the difficult public cases. Large grids need a faster path; I’ll add compressed frequency solves with exact-grid checks.
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: solve.py
+@@
+ from scipy.sparse.linalg import LinearOperator, gmres
++from scipy.sparse import csr_matrix
+@@
+         self.calls = 0
++        self.quadrature = np.ones(self.n_freq)
+@@
+-        pairing -= 2 * (self.coulomb @ ratio.sum(axis=1))[:, None]
++        pairing -= 2 * (self.coulomb @ (ratio @ self.quadrature))[:, None]
+@@
+-            pairing -= 2 * (self.coulomb @ ratio.sum(axis=1))[:, None]
++            pairing -= 2 * (self.coulomb @ (ratio @ self.quadrature))[:, None]
+@@
+-def solve(instance, verbose=False):
+-    started = time.process_time()
+-    model = Model(instance)
+-    delta = instance['initial_delta'].copy()
++class CoarseModel(Model):
++    def __init__(self, full, spacing=0.065, degree=11):
++        self.temperature = full.temperature
++        self.weights = full.weights
++        self.omega = full.omega
++        self.coupling = full.coupling
++        self.coulomb = full.coulomb
++        self.calls = 0
++        indices = list(range(min(24, full.n_freq)))
++        while indices[-1] < full.n_freq - 1:
++            indices.append(max(indices[-1] + 1, int((indices[-1] + 0.5) * np.exp(spacing) - 0.5)))
++        if len(indices) > 24 and indices[-2] > full.n_freq * np.exp(-0.4 * spacing):
++            indices.pop()
++        indices[-1] = full.n_freq - 1
++        boundary = list(range(min(12, full.n_freq)))
++        while boundary[-1] < full.n_freq // 3:
++            boundary.append(max(boundary[-1] + 1, int((boundary[-1] + 0.5) * np.exp(0.13) - 0.5)))
++        self.indices = np.unique(indices + [full.n_freq - 1 - offset for offset in boundary])
++        self.n_freq = len(self.indices)
++        self.shape = (full.shape[0], self.n_freq)
++        self.frequencies = full.frequencies[self.indices]
++        self.z_normal = full.z_normal[:, self.indices]
++        locations = np.log(np.arange(full.n_freq) + 0.5)
++        nodes = locations[self.indices]
++        starts = np.clip(np.searchsorted(nodes, locations) - (degree + 1) // 2, 0, self.n_freq - degree - 1)
++        columns = starts[:, None] + np.arange(degree + 1)
++        coordinates = nodes[columns]
++        coefficients = np.ones_like(coordinates)
++        for offset in range(degree + 1):
++            differences = coordinates - coordinates[:, offset, None]
++            differences[:, offset] = 1
++            factors = (locations[:, None] - coordinates[:, offset, None]) / differences
++            factors[:, offset] = 1
++            coefficients *= factors
++        rows = np.broadcast_to(np.arange(full.n_freq)[:, None], columns.shape)
++        self.interpolation = csr_matrix((coefficients.ravel(), (rows.ravel(), columns.ravel())), shape=(full.n_freq, self.n_freq))
++        self.quadrature = np.asarray(self.interpolation.sum(axis=0)).ravel()
++        differences = self.frequencies[:, None] - full.frequencies
++        sums = self.frequencies[:, None] + full.frequencies
++        self.plus = []
++        self.minus = []
++        for omega in full.omega:
++            kernel_minus = omega ** 2 / (omega ** 2 + differences ** 2)
++            kernel_plus = omega ** 2 / (omega ** 2 + sums ** 2)
++            self.plus.append(np.asarray(self.interpolation.T @ (kernel_minus + kernel_plus).T).T.copy())
++            self.minus.append(np.asarray(self.interpolation.T @ (kernel_minus - kernel_plus).T).T.copy())
++
++    def convolve(self, values, parity):
++        self.calls += 1
++        result = np.zeros(self.shape)
++        for coupling, kernel in zip(self.coupling, self.plus if parity == 1 else self.minus):
++            result += coupling @ values @ kernel.T
++        return result
++
++    def expand(self, delta):
++        return (self.interpolation @ delta.T).T.copy()
++
++
++def newton(model, delta, verbose=False):
++    started = time.process_time()
+@@
+     z = model.map(delta)[0]
+     return delta, z
++
++
++def solve(instance, verbose=False):
++    started = time.process_time()
++    model = Model(instance)
++    if model.n_freq > 512:
++        coarse = CoarseModel(model)
++        if verbose:
++            print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
++        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose)
++        delta = coarse.expand(delta)
++        z, mapped = model.map(delta)
++        residual_norm = np.max(np.abs(delta - mapped) / np.max(np.abs(delta), axis=1)[:, None])
++        if verbose:
++            print('fine residual', residual_norm, 'cpu', time.process_time() - started, flush=True)
++        if residual_norm > 2e-10:
++            delta, z = newton(model, delta, verbose)
++        return delta, z
++    return newton(model, instance['initial_delta'].copy(), verbose)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python solve.py --input ../../../../participant/input/examples/low_temperature_8192.npz --output test_low.npz --verbose" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+ exited 1 in 305ms:
+Success. Updated the following files:
+M solve.py
+Traceback (most recent call last):
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py", line 200, in <module>
+    main()
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py", line 193, in main
+    with np.load(args.input, allow_pickle=False) as archive:
+  File "/usr/lib/python3/dist-packages/numpy/lib/npyio.py", line 417, in load
+    fid = stack.enter_context(open(os_fspath(file), "rb"))
+FileNotFoundError: [Errno 2] No such file or directory: '../../../../participant/input/examples/low_temperature_8192.npz'
+
+exec
+/bin/bash -lc 'OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python solve.py --input ../../participant/input/examples/low_temperature_8192.npz --output test_low.npz --verbose' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+ succeeded in 983ms:
+coarse (16, 178) build 0.5754907389999999
+0 res 0.6905489345620167 step 0.7855009765781262 d0 11.443297489021285 11.443297489021285 calls 16 cpu 0.005474549999999967
+1 res 0.2827538561819666 step 0.4944429503534832 d0 2.4545761361210463 4.085132424105442 calls 34 cpu 0.011011230000000038
+2 res 0.07159952466700271 step 0.17187671751387112 d0 1.2933393987913973 2.4289905736169546 calls 54 cpu 0.01695968999999997
+3 res 0.005272739595685224 step 0.01419022857938663 d0 1.0757386027116416 2.0919399011423843 calls 74 cpu 0.02275547
+4 res 3.019157853950189e-05 step 8.262594058067368e-05 d0 1.0605756056932805 2.0673123755670995 calls 94 cpu 0.028578400000000004
+5 res 1.1647309384536287e-09 step 3.093941030072442e-09 d0 1.0604882574340826 2.0671660202463356 calls 114 cpu 0.03477772000000001
+6 res 1.246563041292588e-14 step 2.1418794336783597e-14 d0 1.0604882545892784 2.0671660149540365 calls 128 cpu 0.039214740000000026
+fine residual 1.0919573573669198e-12 cpu 0.688781329
+
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python - <<'PY'
+import sys,time
+from pathlib import Path
+import numpy as np
+from solve import solve
+sys.path.insert(0,'../../participant/input')
+from eliashberg import Model,load_instance
+for path in sorted(Path('../../participant/input/examples').glob('*.npz')):
+    instance=load_instance(path)
+    started=time.process_time()
+    delta,z=solve(instance,verbose=path.stem in ['critical_coulomb_3072','competing_sheets_2304'])
+    cost=time.process_time()-started
+    with np.load('result_'+path.name) as archive:
+        reference=archive['delta']
+    error=np.max(abs(delta-reference)/np.max(abs(reference),axis=1)[:,None])
+    print('RESULT',path.name,'CPU',cost,'res',Model(instance).residual_norms(delta,z),'difference',error,flush=True)
+    np.savez('coarse_'+path.name,delta=delta,z=z)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+ succeeded in 1910ms:
+RESULT combined.npz CPU 0.08584963000000001 res (1.1655460342413846e-14, 1.1138345741577846e-15) difference 1.2484279922431396e-11
+coarse (12, 148) build 0.04724238
+0 res 0.9928665373544632 step 0.9613208202422454 d0 0.889007035185704 0.889007035185704 calls 16 cpu 0.003276849999999998
+1 res 0.8615294283064351 step 0.914398588226303 d0 0.17780140703714076 0.2527717877314033 calls 34 cpu 0.006543430000000017
+2 res 0.6635805971267175 step 0.839794367209816 d0 0.035560281407428146 0.07428591406682089 calls 52 cpu 0.009775319999999976
+3 res 0.35851766929964657 step 0.6794189976355715 d0 0.0071120562814856285 0.019942467638077013 calls 72 cpu 0.013315699999999986
+4 res 0.16735603243369082 step 0.5068812264027093 d0 0.002324944134684405 0.00663833220684977 calls 96 cpu 0.017531479999999988
+5 res 0.07575625235194298 step 0.4047576373321854 d0 0.00115421802784557 0.0033036892119106824 calls 118 cpu 0.02146467000000002
+6 res 0.0322052170559839 step 0.3629501645838836 d0 0.0006870394659285826 0.0020407848780992317 calls 146 cpu 0.026348260000000012
+7 res 0.013934651829855977 step 0.34607537541485084 d0 0.0004376895476393564 0.0013666954993249163 calls 176 cpu 0.031526869999999985
+8 res 0.0061169539461398735 step 0.338974031226272 d0 0.0002862192124024024 0.0009844982404417638 calls 208 cpu 0.03704890999999999
+9 res 0.002704105518744039 step 0.3359713555983325 d0 0.0001891988257977485 0.00078385198275324 calls 242 cpu 0.04307063999999999
+10 res 0.0011994071991685475 step 0.3348375512431169 d0 0.00012563351382401168 0.0007068169204332218 calls 278 cpu 0.04931742
+11 res 0.0005330593990986823 step 0.3347559835837155 d0 8.356670317154126e-05 0.0006939672870887509 calls 314 cpu 0.05552913999999998
+12 res 0.0002373813176134706 step 0.3356664347612702 d0 5.559225064960944e-05 0.0006936146074209758 calls 350 cpu 0.06246733999999998
+13 res 0.00010606278841349053 step 0.3382076148395016 d0 3.693179832227408e-05 0.0006936143525618934 calls 388 cpu 0.0695463
+14 res 4.772549336507494e-05 step 0.3441853132037852 d0 2.4441182899964256e-05 0.0006936143517985207 calls 426 cpu 0.07662743
+15 res 2.1808653307191743e-05 step 0.35795253205149863 d0 1.602888671422235e-05 0.0006936143522164302 calls 466 cpu 0.08391715
+16 res 1.0312278350077783e-05 step 0.3900244364070269 d0 1.0291306135557046e-05 0.0006936143514549795 calls 506 cpu 0.09118380999999998
+17 res 5.248425916960194e-06 step 0.4665158581669872 d0 6.277445260144232e-06 0.0006936143511978254 calls 548 cpu 0.09873693
+18 res 3.1009288302852574e-06 step 0.6445747680250399 d0 3.34891749871725e-06 0.0006936143513425329 calls 590 cpu 0.10599682999999999
+19 res 2.3511127844538792e-06 step 0.9138978077554001 d0 1.1902897798625495e-06 0.0006936143513127371 calls 632 cpu 0.11322425000000003
+20 res 2.2243113156911595e-06 step 0.9834633777060248 d0 2.3805795707569484e-07 0.0006936143512470652 calls 676 cpu 0.12076945
+21 res 2.105134526647874e-06 step 0.9360006578373515 d0 4.7611592456067915e-08 0.0006936143512800886 calls 720 cpu 0.12828865
+22 res 1.5306328525964626e-06 step 0.6811037121463961 d0 9.522319529570746e-09 0.0006936143512919997 calls 764 cpu 0.13590327000000002
+23 res 3.8810241545826405e-08 step 0.2460500076473136 d0 3.0366333793585614e-09 0.0006936143512727816 calls 810 cpu 0.14395153
+24 res 1.2432061774459834e-08 step 0.14633190538257396 d0 3.0337231518483197e-09 0.0006936143512765361 calls 852 cpu 0.15134717000000003
+25 res 2.2875503942259486e-09 step 0.03880248839561813 d0 3.0324290912224616e-09 0.0006936143512751806 calls 896 cpu 0.15910596
+26 res 1.0801932395775917e-10 step 0.0020140169890493446 d0 3.0321361427425963e-09 0.0006936143512754341 calls 942 cpu 0.16769598000000002
+27 res 2.6178911989791175e-13 step 4.909871864771718e-06 d0 3.032121513159154e-09 0.0006936143512753876 calls 986 cpu 0.1760236
+fine residual 2.062223171104472e-12 cpu 0.23141016
+RESULT competing_sheets_2304.npz CPU 0.23305823 res (2.0625924142864066e-12, 3.5061517488066452e-15) difference 7.355879710036449e-08
+RESULT critical.npz CPU 0.11712028000000002 res (8.983777055541916e-13, 4.703293553989882e-16) difference 2.1334048760880642e-13
+coarse (9, 155) build 0.06833365000000002
+0 res 1.0470359544256496 step 0.9738623586882826 d0 9.583220679460508 9.583220679460508 calls 14 cpu 0.0025129499999999583
+1 res 0.9270241210779286 step 0.9207152740588083 d0 1.916644135892101 2.4996979813362685 calls 28 cpu 0.004920599999999942
+2 res 0.6884773545382414 step 0.8444511803782265 d0 0.3870363517289457 0.6538191293900952 calls 44 cpu 0.007375209999999965
+3 res 0.3897143308365537 step 0.6958771512159861 d0 0.07740727034578909 0.16274880356307647 calls 60 cpu 0.009762599999999955
+4 res 0.19518489088905344 step 0.5157424659313619 d0 0.02468290172160619 0.05240797940293147 calls 76 cpu 0.012141610000000025
+5 res 0.07952574547882031 step 0.4059613332735684 d0 0.012266548683364811 0.025676026428673178 calls 94 cpu 0.01480579999999998
+6 res 0.03398884695657645 step 0.3634299674253777 d0 0.007306234273184353 0.01532995336684069 calls 114 cpu 0.017693049999999988
+7 res 0.014844658737074948 step 0.34614916432401216 d0 0.004654816588412012 0.00977374000630581 calls 134 cpu 0.020605439999999975
+8 res 0.006544573596269426 step 0.33891612187019476 d0 0.003044084157699103 0.006392533538827801 calls 154 cpu 0.02346022000000003
+9 res 0.0028983392058807966 step 0.33579077859762574 d0 0.0020124632342185733 0.004226249745764045 calls 176 cpu 0.02657153999999995
+10 res 0.001286017677219551 step 0.3344179317248354 d0 0.001336705704978237 0.002807146847837818 calls 198 cpu 0.029704339999999996
+11 res 0.0005711492124985805 step 0.3338073179540409 d0 0.0008896885104134205 0.0018683907884347517 calls 220 cpu 0.03286097999999993
+12 res 0.00025375468076086735 step 0.3335284303412108 d0 0.0005927041276320592 0.0012447088189318197 calls 244 cpu 0.03636081000000002
+13 res 0.00011276140410824631 step 0.3333850242274892 d0 0.000395020465613554 0.0008295630997613615 calls 268 cpu 0.03980492999999996
+14 res 5.010721203562775e-05 step 0.3332775730647621 d0 0.00026332656075704234 0.0005529991951308735 calls 292 cpu 0.043398489999999956
+15 res 2.226340408471653e-05 step 0.3331314299520505 d0 0.00017556572401239206 0.00036869696671920724 calls 316 cpu 0.046867309999999995
+16 res 9.88887373567549e-06 step 0.3328451845168886 d0 0.00011707926336745787 0.0002458724191415114 calls 340 cpu 0.05033869999999996
+17 res 4.3891840952081125e-06 step 0.3322166300330059 d0 7.810999435495794e-05 0.00016403496844651723 calls 366 cpu 0.05407086999999999
+18 res 1.9450624476127344e-06 step 0.3308172255940598 d0 5.216055531065363e-05 0.00010953982407407541 calls 392 cpu 0.05803254000000002
+19 res 8.587513168912525e-07 step 0.32768534820368234 d0 3.4904945117445626e-05 7.330216338220539e-05 calls 418 cpu 0.06185965999999998
+20 res 3.759936941735618e-07 step 0.32070703621361085 d0 2.3467106022619375e-05 4.928211845026943e-05 calls 444 cpu 0.06561622
+21 res 1.6153918366074907e-07 step 0.3053538572758859 d0 1.594104000159707e-05 3.3476996303755414e-05 calls 472 cpu 0.06957891999999999
+22 res 6.646023495028328e-08 step 0.27261584336469663 d0 1.107338194820756e-05 2.3254666352393123e-05 calls 500 cpu 0.07398260999999995
+23 res 2.4707687469645003e-08 step 0.20845140572685655 d0 8.054602589497548e-06 1.6915075872571887e-05 calls 528 cpu 0.07842821
+24 res 7.188855678278566e-09 step 0.10896543199568565 d0 6.375609357145605e-06 1.3389104528959212e-05 calls 556 cpu 0.08270524999999995
+25 res 1.1323951895821464e-09 step 0.02368731434693082 d0 5.680888329308499e-06 1.193015496992732e-05 calls 584 cpu 0.08693536000000002
+26 res 3.993335425831198e-11 step 0.0008965833839284274 d0 5.546323341682358e-06 1.1647561638948103e-05 calls 612 cpu 0.09110916000000002
+27 res 5.496344023602685e-14 step 1.2150327490737676e-06 d0 5.541350600332312e-06 1.1637118628719561e-05 calls 638 cpu 0.09492880999999997
+fine residual 1.2413440850841388e-12 cpu 0.16875160999999994
+RESULT critical_coulomb_3072.npz CPU 0.16878630000000006 res (1.2414233737967783e-12, 7.013599771895886e-15) difference 1.0570620974316889e-07
+RESULT low_temperature_4096.npz CPU 0.18412030999999995 res (1.1358473004920064e-12, 1.1898716814623333e-14) difference 1.13622663093939e-12
+RESULT low_temperature_8192.npz CPU 0.42129291 res (1.0919673385131271e-12, 2.364307023940347e-14) difference 1.090001052710299e-12
+RESULT multiband.npz CPU 0.02358349000000004 res (8.359852081585376e-16, 4.2186517419489716e-16) difference 3.1061591061474925e-16
+RESULT retardation.npz CPU 0.05271254000000014 res (6.923800434595454e-13, 1.9945504356362388e-15) difference 6.944742632972383e-13
+RESULT weak_interband.npz CPU 0.11242920999999995 res (3.2108209962663477e-13, 4.484923582250037e-16) difference 0.0
+
+**Analyzing robustness**
+
+I'm thinking about the robustness of this potential Newton issue. If I start above a certain branch, the coupling seems strong enough to make the current positive, but there's a negative aspect regarding parts of the sheet. There’s a public gap of 0.4 max Omega that might be less than a strong gap for a large λ, while the typical gap is around 0.2 max Omega. It seems the public max delta is 0.4 Omega, but outputs show around 0.12 Omega.
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python - <<'PY'
+import numpy as np,time
+from solve import Model,CoarseModel,solve
+from pathlib import Path
+with np.load('../../participant/input/examples/low_temperature_8192.npz') as archive:
+    instance={key:archive[key].copy() for key in archive.files}
+random=np.random.default_rng(408)
+selection=random.choice(16,40)
+original_weights=instance['weights'][selection]
+instance['weights']=original_weights/original_weights.sum()
+variation=np.exp(random.normal(0,.04,(4,40)))
+instance['coupling']=instance['coupling'][:,selection,:][:,:,selection]*variation[:,:,None]*variation[:,None,:]
+instance['coulomb']=instance['coulomb'][selection,:][:,selection]
+instance['n_freq']=np.array(32768)
+instance['temperature']=instance['temperature']/4
+freq=np.pi*instance['temperature']*(2*np.arange(32768)+1)
+instance['initial_delta']=np.broadcast_to(.4*instance['omega'].max()/(1+(freq/instance['omega'].max())**2),(40,32768)).copy()
+np.savez('stress_large_input.npz',**instance)
+started=time.process_time()
+full=Model(instance)
+coarse=CoarseModel(full)
+print('build',time.process_time()-started,'shape',coarse.shape,'maxinterpolation',np.max(abs(coarse.interpolation.data)), 'lebesgue',np.max(abs(coarse.interpolation).sum(axis=1)))
+PY
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python solve.py --input stress_large_input.npz --output stress_large_result.npz --verbose" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+ succeeded in 2997ms:
+build 0.9966780300000001 shape (40, 210) maxinterpolation 5.042007584159851 lebesgue 11.68313203444925
+coarse (40, 210) build 0.93338766
+0 res 0.6981853802539415 step 0.7893595573057476 d0 11.443309253689153 11.443309253689153 calls 16 cpu 0.010384539999999998
+1 res 0.2726026281761932 step 0.4601620986796025 d0 2.410423727084318 5.503885565290732 calls 34 cpu 0.021580899999999792
+2 res 0.054041953517586214 step 0.11799551519167147 d0 1.35239903839855 3.9405479543616773 calls 52 cpu 0.03492133899999983
+3 res 0.002113436752503975 step 0.0049243665426445165 d0 1.2010288600697512 3.6688705211227326 calls 72 cpu 0.050578228999999864
+4 res 3.2151549719043703e-06 step 7.576951373194512e-06 d0 1.1953994213959238 3.6581842140066825 calls 92 cpu 0.06586563899999986
+5 res 1.2107485149458308e-11 step 2.4265693630408574e-11 d0 1.1953907980196083 3.6581672865426027 calls 112 cpu 0.08087599899999987
+6 res 1.762315834642698e-15 step 1.8687948712212147e-15 d0 1.1953907979990086 3.6581672865063695 calls 124 cpu 0.09029811899999984
+fine residual 2.404472598080752e-12 cpu 1.286497249
+
+**Evaluating initial conditions**
+
+I'm reflecting on the importance of improving the initial Newton step's quality and time, especially when the critical big lambda ratio is around 4000 and N is low. I have to think about the discrete grid modes and the small kernel's impact. It seems that using a local renormalization could help in canceling the delta phonon effect. I wonder if focusing on the instantaneous diagonal is the best approach here. There’s definitely a lot to unpack!
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: solve.py
+@@
+-def newton(model, delta, verbose=False):
++def newton_step(model, delta, z, mapped, residual):
++    scales = np.maximum(np.max(np.abs(delta), axis=1)[:, None], np.pi * model.temperature * 1e-20)
++    derivative = model.derivative(delta, z, mapped)
++
++    def product(direction):
++        return (derivative(direction.reshape(model.shape) * scales) / scales).ravel()
++
++    operator = LinearOperator((delta.size, delta.size), matvec=product, dtype=np.float64)
++    step, status = gmres(operator, (residual / scales).ravel(), tol=1e-5, atol=1e-18, restart=30, maxiter=3)
++    return step.reshape(model.shape) * scales
++
++
++def safeguarded_update(delta, step):
++    factor = 1.0
++    decreasing = step[:, 0] > 0
++    if np.any(decreasing):
++        factor = min(factor, np.min(0.8 * delta[decreasing, 0] / step[decreasing, 0]))
++    increasing = step[:, 0] < 0
++    if np.any(increasing):
++        factor = min(factor, np.min(-2 * delta[increasing, 0] / step[increasing, 0]))
++    return delta - factor * step
++
++
++def newton(model, delta, verbose=False, deadline=np.inf):
+@@
+-        scales = np.max(np.abs(delta), axis=1)[:, None]
+-        residual = (delta - mapped) / scales
+-        residual_norm = np.max(np.abs(residual))
+-        derivative = model.derivative(delta, z, mapped)
+-
+-        def product(direction):
+-            return (derivative(direction.reshape(model.shape) * scales) / scales).ravel()
+-
+-        operator = LinearOperator((delta.size, delta.size), matvec=product)
+-        step, status = gmres(operator, residual.ravel(), tol=1e-5, atol=1e-15, restart=30, maxiter=3)
+-        step = step.reshape(model.shape) * scales
++        scales = np.maximum(np.max(np.abs(delta), axis=1)[:, None], np.pi * model.temperature * 1e-20)
++        residual = delta - mapped
++        residual_norm = np.max(np.abs(residual) / scales)
++        if time.process_time() > deadline:
++            break
++        step = newton_step(model, delta, z, mapped, residual)
+@@
+         if residual_norm < 2e-12 and step_norm < 2e-5:
++            delta -= step
+             break
+-        factor = 1.0
+-        positive_steps = step[:, 0] > 0
+-        if np.any(positive_steps):
+-            factor = min(factor, np.min(0.8 * delta[positive_steps, 0] / step[positive_steps, 0]))
+-        delta -= factor * step
++        delta = safeguarded_update(delta, step)
+@@
+-def solve(instance, verbose=False):
++def solve(instance, verbose=False, deadline=np.inf):
+@@
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose)
++        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+-        z, mapped = model.map(delta)
+-        residual_norm = np.max(np.abs(delta - mapped) / np.max(np.abs(delta), axis=1)[:, None])
+-        if verbose:
+-            print('fine residual', residual_norm, 'cpu', time.process_time() - started, flush=True)
+-        if residual_norm > 2e-10:
+-            delta, z = newton(model, delta, verbose)
++        for iteration in range(8):
++            z, mapped = model.map(delta)
++            scales = np.maximum(np.max(np.abs(delta), axis=1)[:, None], np.pi * model.temperature * 1e-20)
++            residual = delta - mapped
++            residual_norm = np.max(np.abs(residual) / scales)
++            restricted = residual[:, coarse.indices]
++            coarse_step = newton_step(coarse, delta[:, coarse.indices], z[:, coarse.indices], mapped[:, coarse.indices], restricted)
++            step = residual + coarse.expand(coarse_step - restricted)
++            step_norm = np.max(np.abs(step) / scales)
++            if verbose:
++                print('fine', iteration, 'res', residual_norm, 'step', step_norm, 'cpu', time.process_time() - started, flush=True)
++            if (residual_norm < 2e-10 and step_norm < 2e-6) or time.process_time() > deadline:
++                break
++            delta = safeguarded_update(delta, step)
++        else:
++            z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose)
++    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
+@@
+-    delta, z = solve(instance, args.verbose)
++    delta, z = solve(instance, args.verbose, deadline=10.5)
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python solve.py --input stress_large_input.npz --output stress_large_result.npz --verbose" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+ succeeded in 1503ms:
+Success. Updated the following files:
+M solve.py
+coarse (40, 210) build 0.8571731300000001
+0 res 0.6981853802539415 step 0.7893595573057476 d0 11.443309253689153 11.443309253689153 calls 14 cpu 0.008189980000000041
+1 res 0.2726026281761932 step 0.4601620986796025 d0 2.410423727084318 5.503885565290732 calls 30 cpu 0.01671389000000012
+2 res 0.054041953517586214 step 0.11799551519167147 d0 1.35239903839855 3.9405479543616773 calls 46 cpu 0.025119380000000024
+3 res 0.002113436752503975 step 0.0049243665426445165 d0 1.2010288600697512 3.6688705211227326 calls 64 cpu 0.03459227000000009
+4 res 3.2151549719043703e-06 step 7.576951373194512e-06 d0 1.1953994213959238 3.6581842140066825 calls 82 cpu 0.04457932999999992
+5 res 1.2107485149458308e-11 step 2.4265693630408574e-11 d0 1.1953907980196083 3.6581672865426027 calls 100 cpu 0.05402814
+6 res 1.762315834642698e-15 step 1.8718403168868823e-15 d0 1.1953907979990086 3.6581672865063695 calls 116 cpu 0.06240006000000009
+fine 0 res 2.404502551398117e-12 step 2.40473066180564e-12 cpu 1.1647286700000001
+
+codex
+All public residual checks pass. The 40×32768 stress solve takes about 1.5 CPU seconds; I’ll now check critical branch accuracy and resource limits.
+  ✓ Inspect public instance conditioning and costs
+  ✓ Implement efficient branch-preserving nonlinear solver
+  → Validate accuracy and runtime on examples
+  • Package final executable and isolation record
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python - <<'PY'
+import numpy as np,time
+from scipy.sparse.linalg import LinearOperator,eigs
+from scipy.optimize import brentq
+from solve import Model,CoarseModel
+with np.load('stress_large_input.npz') as archive:
+    instance={key:archive[key].copy() for key in archive.files}
+full=Model(instance)
+coarse=CoarseModel(full)
+original_coupling=coarse.coupling.copy()
+normal=coarse.z_normal-1
+zero=np.zeros(coarse.shape)
+seed=np.ones(zero.size)
+started=time.process_time()
+def eigenvalue(factor):
+    coarse.coupling=original_coupling*factor
+    coarse.z_normal=1+factor*normal
+    def action(direction):
+        return coarse.map(direction.reshape(coarse.shape)*1e-30)[1].ravel()*1e30
+    operator=LinearOperator((zero.size,zero.size),matvec=action,dtype=np.float64)
+    value=eigs(operator,k=1,which='LR',v0=seed,tol=1e-12,return_eigenvectors=False)[0].real
+    print('lambda',factor,value,flush=True)
+    return value
+factor=brentq(lambda factor:eigenvalue(factor)-1-3e-9,.01,1,xtol=1e-14)
+instance['coupling']*=factor
+np.savez('stress_critical_input.npz',**instance)
+print('calibration',factor,'cpu',time.process_time()-started)
+PY
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python solve.py --input stress_critical_input.npz --output stress_critical_result.npz --verbose" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+ succeeded in 3227ms:
+lambda 0.01 0.06483218812265894
+lambda 1.0 3.991194165260364
+lambda 0.2457949017740545 2.028092126408882
+lambda 0.12231717143056786 1.1726433810728336
+lambda 0.10481345237198011 1.0165852936598831
+lambda 0.10298563672815515 0.9996720617308463
+lambda 0.10302107739286843 1.0000011341295632
+lambda 0.10302095557170157 1.0000000030767235
+lambda 0.10302095556343799 1.0000000029999998
+lambda 0.10302095556344304 1.0000000030000482
+calibration 0.10302095556343799 cpu 0.23278252999999993
+coarse (40, 210) build 0.908105739
+0 res 0.983288623656896 step 0.9836334742516587 d0 11.443309253689153 11.443309253689153 calls 12 cpu 0.007001480000000004
+1 res 0.9423966592926333 step 0.9666425074533008 d0 2.28866185073783 2.7022141505269044 calls 24 cpu 0.013436980000000043
+2 res 0.876164839026843 step 0.9506475245395201 d0 0.45773237014756596 0.7096032131162631 calls 38 cpu 0.02087393000000004
+3 res 0.7710955235002758 step 0.9174926378751358 d0 0.09154647402951316 0.19950492976283007 calls 52 cpu 0.028280810000000045
+4 res 0.5953602860302458 step 0.8309796999136849 d0 0.018309294805902626 0.05826079631705541 calls 68 cpu 0.03665081999999997
+5 res 0.3720284167929712 step 0.7282508797404492 d0 0.0036618589611805245 0.0177413852586793 calls 86 cpu 0.045895979999999836
+6 res 0.18137314153297923 step 0.5754045187337177 d0 0.001023577325829751 0.007546281348371752 calls 104 cpu 0.05522967999999984
+7 res 0.05284946216049174 step 0.38388681877609093 d0 0.0004924684707015934 0.004258097706672079 calls 122 cpu 0.06463183999999988
+8 res 0.023229478319076582 step 0.35099525995084935 d0 0.00030618817629399653 0.0026634288489167726 calls 140 cpu 0.07392878999999986
+9 res 0.010245449777781189 step 0.34092257046246377 d0 0.00019876132052809342 0.0017292970018677658 calls 160 cpu 0.08424624999999986
+10 res 0.004537873109315934 step 0.3366641609212091 d0 0.0001310023741288347 0.00113979770323104 calls 180 cpu 0.09448933999999998
+11 res 0.0020136929265213324 step 0.3348060172611399 d0 8.689894971529303e-05 0.0007560752287581293 calls 200 cpu 0.10475583999999993
+12 res 0.0008943523270842036 step 0.33398701301818695 d0 5.7804705970253316e-05 0.0005029375110267599 calls 220 cpu 0.11504381999999991
+13 res 0.0003973652048486205 step 0.33362118883202796 d0 3.849869102825203e-05 0.0003349630192382812 calls 242 cpu 0.1262158499999999
+14 res 0.00017658100226333845 step 0.33345765362986907 d0 2.5654712726071285e-05 0.00022321227305072887 calls 264 cpu 0.13749613999999988
+15 res 7.847476061213843e-05 step 0.33338056250493886 d0 1.7099952520742362e-05 0.00014878043401575915 calls 286 cpu 0.14881003999999987
+16 res 3.4875830073430903e-05 step 0.3333362518303719 d0 1.1399160745056187e-05 9.917992947126736e-05 calls 308 cpu 0.16024868000000003
+17 res 1.5499294774021454e-05 step 0.33329383225901227 d0 7.599407230778485e-06 6.611966355672279e-05 calls 332 cpu 0.17254230999999987
+18 res 6.887536666340884e-06 step 0.333224155496305 d0 5.066571676813986e-06 4.408238750768122e-05 calls 356 cpu 0.18492786999999988
+19 res 3.060159720602033e-06 step 0.3330772273664278 d0 3.3782676085693672e-06 2.939307115875533e-05 calls 382 cpu 0.1990056
+20 res 1.3591686725631131e-06 step 0.3327532278209697 d0 2.2530436007090174e-06 1.9602908515894182e-05 calls 408 cpu 0.21245355999999993
+21 res 6.031524824801988e-07 step 0.33202715935784555 d0 1.5033360701527129e-06 1.3079977432559804e-05 calls 434 cpu 0.22586061999999996
+22 res 2.671472004221315e-07 step 0.330397986950233 d0 1.004187665219817e-06 8.737069681163845e-06 calls 460 cpu 0.23914866999999984
+23 res 1.1781542761090891e-07 step 0.326747689783853 d0 6.724060821109763e-07 5.850359446664099e-06 calls 488 cpu 0.25359502999999983
+24 res 5.145449133096259e-08 step 0.3186287492546222 d0 4.526989481890921e-07 3.938768013107909e-06 calls 516 cpu 0.26801889
+25 res 2.1980423717939298e-08 step 0.30083340783429274 d0 3.08456048538721e-07 2.683763287487253e-06 calls 544 cpu 0.28242268000000004
+26 res 8.924089638422916e-09 step 0.26327763785439495 d0 2.1566216428972002e-07 1.8763976318919277e-06 calls 572 cpu 0.2966871899999999
+27 res 3.215019886351493e-09 step 0.19172599310954153 d0 1.588831391009591e-07 1.382384095691886e-06 calls 602 cpu 0.31191068999999993
+28 res 8.655086478201377e-10 step 0.0890418232250528 d0 1.2842111146847914e-07 1.1173451320866944e-06 calls 632 cpu 0.32714697000000004
+29 res 1.1216757439851196e-10 step 0.015035547166992352 d0 1.1698626156273815e-07 1.01785468435406e-06 calls 662 cpu 0.34237249000000003
+30 res 2.5179115811462143e-12 step 0.0003529433803766372 d0 1.1522730910912167e-07 1.002550682238312e-06 calls 692 cpu 0.35810226999999983
+31 res 2.746664687517504e-15 step 2.076069743857104e-07 d0 1.1518664039313311e-07 1.0021968386115257e-06 calls 722 cpu 0.37337485000000004
+fine 0 res 1.4075272355823736e-12 step 7.445742663823799e-08 cpu 1.531768729
+
+**Considering performance data logging**
+
+I'm thinking about capturing the stderr resource in the report logfile, specifically for performance data. This involves formatting time output in Python, which will aid in logging. I need to create a validation script to run all public processes sequentially, ensuring accuracy in timings. It's essential to validate these fresh runs while being mindful of critical limits in stress and other external factors. Overall, it's about ensuring data integrity while avoiding external processes that could skew results.
+exec
+/bin/bash -lc "ulimit -t 12
+ulimit -v 2097152
+export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
+TIMEFORMAT='%U user + %S system seconds'
+for input in ../../participant/input/examples/*.npz; do
+    name="'${input##*/}
+    printf '"'%s: ' \""'$name"
+    time python solve.py --input "$input" --output "validated_$name"
+done
+printf '"'stress_large: '
+time python solve.py --input stress_large_input.npz --output stress_large_result.npz
+printf 'stress_critical: '
+time python solve.py --input stress_critical_input.npz --output stress_critical_result.npz" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+ succeeded in 7640ms:
+combined.npz: 0.220 user + 0.057 system seconds
+competing_sheets_2304.npz: 0.395 user + 0.065 system seconds
+critical.npz: 0.268 user + 0.037 system seconds
+critical_coulomb_3072.npz: 0.274 user + 0.056 system seconds
+low_temperature_4096.npz: 0.482 user + 0.080 system seconds
+low_temperature_8192.npz: 0.676 user + 0.064 system seconds
+multiband.npz: 0.143 user + 0.044 system seconds
+retardation.npz: 0.183 user + 0.037 system seconds
+weak_interband.npz: 0.249 user + 0.036 system seconds
+stress_large: 1.234 user + 0.362 system seconds
+stress_critical: 2.159 user + 0.423 system seconds
+
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python - <<'PY'
+import json,sys,time
+from pathlib import Path
+import numpy as np
+from solve import solve,Model as FastModel
+sys.path.insert(0,'../../participant/input')
+from eliashberg import Model,load_instance
+results=[]
+for path in sorted(Path('../../participant/input/examples').glob('*.npz')):
+    instance=load_instance(path)
+    with np.load('validated_'+path.name) as archive:
+        delta,z=archive['delta'],archive['z']
+    independent=Model(instance)
+    residuals=independent.residual_norms(delta,z)
+    with np.load('result_'+path.name) as archive:
+        reference=archive['delta']
+    reference_error=np.max(abs(delta-reference)/np.max(abs(reference),axis=1)[:,None])
+    instance['initial_delta']*=1.75
+    second,zsecond=solve(instance)
+    difference=np.max(abs(delta-second)/np.max(abs(delta),axis=1)[:,None])
+    row={'example':path.name,'gap_residual':residuals[0],'z_residual':residuals[1],'two_start_difference':float(difference),'full_grid_newton_difference':float(reference_error),'positive_low_frequency_gaps':bool(np.all(delta[:,0]>0))}
+    assert residuals[0]<2e-8 and residuals[1]<2e-9 and difference<2e-6 and reference_error<.002 and row['positive_low_frequency_gaps']
+    results.append(row)
+for name in ['stress_large','stress_critical']:
+    instance=load_instance(name+'_input.npz')
+    with np.load(name+'_result.npz') as archive:
+        delta,z=archive['delta'],archive['z']
+    residuals=Model(instance).residual_norms(delta,z)
+    instance['initial_delta']*=1.75
+    second,zsecond=solve(instance)
+    difference=np.max(abs(delta-second)/np.max(abs(delta),axis=1)[:,None])
+    row={'example':name,'gap_residual':residuals[0],'z_residual':residuals[1],'two_start_difference':float(difference),'positive_low_frequency_gaps':bool(np.all(delta[:,0]>0))}
+    assert residuals[0]<2e-8 and residuals[1]<2e-9 and difference<2e-6 and row['positive_low_frequency_gaps']
+    results.append(row)
+print(json.dumps(results,indent=2))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+ succeeded in 6731ms:
+[
+  {
+    "example": "combined.npz",
+    "gap_residual": 6.967951160499172e-15,
+    "z_residual": 1.1138345741577846e-15,
+    "two_start_difference": 1.2466078255983634e-12,
+    "full_grid_newton_difference": 1.0244885936164111e-11,
+    "positive_low_frequency_gaps": true
+  },
+  {
+    "example": "competing_sheets_2304.npz",
+    "gap_residual": 2.2505482439187682e-12,
+    "z_residual": 3.506151748806585e-15,
+    "two_start_difference": 2.2672922710149414e-09,
+    "full_grid_newton_difference": 4.836368628642156e-06,
+    "positive_low_frequency_gaps": true
+  },
+  {
+    "example": "critical.npz",
+    "gap_residual": 6.65336303118113e-16,
+    "z_residual": 4.858125833891009e-16,
+    "two_start_difference": 2.338657105460167e-13,
+    "full_grid_newton_difference": 3.484315039958869e-09,
+    "positive_low_frequency_gaps": true
+  },
+  {
+    "example": "critical_coulomb_3072.npz",
+    "gap_residual": 1.2197790373606531e-12,
+    "z_residual": 7.013599771895841e-15,
+    "two_start_difference": 2.932092755736714e-09,
+    "full_grid_newton_difference": 1.1093619107609365e-06,
+    "positive_low_frequency_gaps": true
+  },
+  {
+    "example": "low_temperature_4096.npz",
+    "gap_residual": 1.1353690142757357e-12,
+    "z_residual": 1.1686239728647915e-14,
+    "two_start_difference": 1.6504792478256977e-15,
+    "full_grid_newton_difference": 1.1355834184416525e-12,
+    "positive_low_frequency_gaps": true
+  },
+  {
+    "example": "low_temperature_8192.npz",
+    "gap_residual": 1.090839468991694e-12,
+    "z_residual": 2.3217068973828632e-14,
+    "two_start_difference": 1.294692579875105e-15,
+    "full_grid_newton_difference": 1.0881844841005774e-12,
+    "positive_low_frequency_gaps": true
+  },
+  {
+    "example": "multiband.npz",
+    "gap_residual": 8.359852081585376e-16,
+    "z_residual": 4.2186517419489716e-16,
+    "two_start_difference": 5.071963578954661e-16,
+    "full_grid_newton_difference": 3.8227034450737454e-16,
+    "positive_low_frequency_gaps": true
+  },
+  {
+    "example": "retardation.npz",
+    "gap_residual": 6.923718947442235e-13,
+    "z_residual": 1.8468936402045316e-15,
+    "two_start_difference": 9.126561160374385e-16,
+    "full_grid_newton_difference": 6.944498171512731e-13,
+    "positive_low_frequency_gaps": true
+  },
+  {
+    "example": "weak_interband.npz",
+    "gap_residual": 5.631142381167519e-16,
+    "z_residual": 4.484923582249983e-16,
+    "two_start_difference": 7.557579472715718e-16,
+    "full_grid_newton_difference": 7.573937192840877e-13,
+    "positive_low_frequency_gaps": true
+  },
+  {
+    "example": "stress_large",
+    "gap_residual": 2.4045424891546023e-12,
+    "z_residual": 1.14129562483137e-13,
+    "two_start_difference": 1.3786740461318088e-15,
+    "positive_low_frequency_gaps": true
+  },
+  {
+    "example": "stress_critical",
+    "gap_residual": 1.4074528445865182e-12,
+    "z_residual": 2.7731339402514896e-14,
+    "two_start_difference": 2.2311937502179875e-08,
+    "positive_low_frequency_gaps": true
+  }
+]
+
+apply patch
+patch: completed
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+index c768e01b343e2876a9041f6967410ef33ba47be5..12329a472d45aa2f03c03eceb97e92ae250441cb
+--- a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@ -183,11 +183,14 @@
+ def solve(instance, verbose=False, deadline=np.inf):
+     started = time.process_time()
+     model = Model(instance)
++    maximum_omega = np.max(model.omega)
++    profile = 0.4 * maximum_omega / (1 + (model.frequencies / maximum_omega) ** 2)
++    initial = np.maximum(np.abs(instance['initial_delta']), profile)
+     if model.n_freq > 512:
+         coarse = CoarseModel(model)
+         if verbose:
+             print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
++        delta, unused = newton(coarse, initial[:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+         for iteration in range(8):
+             z, mapped = model.map(delta)
+@@ -206,7 +209,7 @@
+         else:
+             z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
++    return newton(model, initial, verbose, deadline)
+ 
+ 
+ def main():
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+index c768e01b343e2876a9041f6967410ef33ba47be5..12329a472d45aa2f03c03eceb97e92ae250441cb
+--- a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@ -183,11 +183,14 @@
+ def solve(instance, verbose=False, deadline=np.inf):
+     started = time.process_time()
+     model = Model(instance)
++    maximum_omega = np.max(model.omega)
++    profile = 0.4 * maximum_omega / (1 + (model.frequencies / maximum_omega) ** 2)
++    initial = np.maximum(np.abs(instance['initial_delta']), profile)
+     if model.n_freq > 512:
+         coarse = CoarseModel(model)
+         if verbose:
+             print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
++        delta, unused = newton(coarse, initial[:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+         for iteration in range(8):
+             z, mapped = model.map(delta)
+@@ -206,7 +209,7 @@
+         else:
+             z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
++    return newton(model, initial, verbose, deadline)
+ 
+ 
+ def main():
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+index c768e01b343e2876a9041f6967410ef33ba47be5..12329a472d45aa2f03c03eceb97e92ae250441cb
+--- a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@ -183,11 +183,14 @@
+ def solve(instance, verbose=False, deadline=np.inf):
+     started = time.process_time()
+     model = Model(instance)
++    maximum_omega = np.max(model.omega)
++    profile = 0.4 * maximum_omega / (1 + (model.frequencies / maximum_omega) ** 2)
++    initial = np.maximum(np.abs(instance['initial_delta']), profile)
+     if model.n_freq > 512:
+         coarse = CoarseModel(model)
+         if verbose:
+             print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
++        delta, unused = newton(coarse, initial[:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+         for iteration in range(8):
+             z, mapped = model.map(delta)
+@@ -206,7 +209,7 @@
+         else:
+             z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
++    return newton(model, initial, verbose, deadline)
+ 
+ 
+ def main():
+
+codex
+Accuracy and resource checks pass, including the near-critical stress case. I’ll remove test artifacts and package the solver with validation notes.
+exec
+/bin/bash -lc "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python - <<'PY'
+import sys,time
+import numpy as np
+from solve import solve
+sys.path.insert(0,'../../participant/input')
+from eliashberg import Model,load_instance
+for name in ['combined','critical_coulomb_3072','competing_sheets_2304','low_temperature_8192']:
+    instance=load_instance('../../participant/input/examples/'+name+'.npz')
+    delta,z=solve(instance)
+    residuals=Model(instance).residual_norms(delta,z)
+    with np.load('validated_'+name+'.npz') as archive:
+        reference=archive['delta']
+    error=np.max(abs(delta-reference)/np.max(abs(reference),axis=1)[:,None])
+    print(name,residuals,'previous_difference',error,flush=True)
+    assert residuals[0]<2e-8 and residuals[1]<2e-9 and error<2e-6
+instance=load_instance('../../participant/input/examples/critical_coulomb_3072.npz')
+with np.load('validated_critical_coulomb_3072.npz') as archive:
+    reference=archive['delta']
+for factor in [1e-6,1e6]:
+    scaled={key:value.copy() for key,value in instance.items()}
+    scaled['temperature']*=factor
+    scaled['omega']*=factor
+    scaled['initial_delta'][:]=0
+    delta,z=solve(scaled)
+    error=np.max(abs(delta/factor-reference)/np.max(abs(reference),axis=1)[:,None])
+    print('scale and zero-start',factor,error,flush=True)
+    assert error<2e-6
+PY
+(
+    ulimit -t 12
+    ulimit -v 2097152
+    OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python - <<'PY'
+import resource,runpy,sys,time
+sys.argv=['solve.py','--input','stress_critical_input.npz','--output','stress_critical_result.npz']
+runpy.run_path('solve.py',run_name='__main__')
+print('critical stress cpu',time.process_time(),'peak MiB',resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024)
+PY
+)" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+index c768e01b343e2876a9041f6967410ef33ba47be5..12329a472d45aa2f03c03eceb97e92ae250441cb
+--- a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@ -183,11 +183,14 @@
+ def solve(instance, verbose=False, deadline=np.inf):
+     started = time.process_time()
+     model = Model(instance)
++    maximum_omega = np.max(model.omega)
++    profile = 0.4 * maximum_omega / (1 + (model.frequencies / maximum_omega) ** 2)
++    initial = np.maximum(np.abs(instance['initial_delta']), profile)
+     if model.n_freq > 512:
+         coarse = CoarseModel(model)
+         if verbose:
+             print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
++        delta, unused = newton(coarse, initial[:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+         for iteration in range(8):
+             z, mapped = model.map(delta)
+@@ -206,7 +209,7 @@
+         else:
+             z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
++    return newton(model, initial, verbose, deadline)
+ 
+ 
+ def main():
+
+ succeeded in 3408ms:
+combined (6.967951160499172e-15, 1.1138345741577846e-15) previous_difference 0.0
+critical_coulomb_3072 (1.2197790373606531e-12, 7.013599771895841e-15) previous_difference 0.0
+competing_sheets_2304 (2.2505482439187682e-12, 3.506151748806585e-15) previous_difference 0.0
+low_temperature_8192 (1.090839468991694e-12, 2.3217068973828632e-14) previous_difference 0.0
+scale and zero-start 1e-06 1.1264195039137112e-09
+scale and zero-start 1000000.0 2.800700722527806e-09
+critical stress cpu 1.754791809 peak MiB 426.59765625
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+index c768e01b343e2876a9041f6967410ef33ba47be5..12329a472d45aa2f03c03eceb97e92ae250441cb
+--- a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@ -183,11 +183,14 @@
+ def solve(instance, verbose=False, deadline=np.inf):
+     started = time.process_time()
+     model = Model(instance)
++    maximum_omega = np.max(model.omega)
++    profile = 0.4 * maximum_omega / (1 + (model.frequencies / maximum_omega) ** 2)
++    initial = np.maximum(np.abs(instance['initial_delta']), profile)
+     if model.n_freq > 512:
+         coarse = CoarseModel(model)
+         if verbose:
+             print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
++        delta, unused = newton(coarse, initial[:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+         for iteration in range(8):
+             z, mapped = model.map(delta)
+@@ -206,7 +209,7 @@
+         else:
+             z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
++    return newton(model, initial, verbose, deadline)
+ 
+ 
+ def main():
+
+  ✓ Inspect public instance conditioning and costs
+  ✓ Implement efficient branch-preserving nonlinear solver
+  ✓ Validate accuracy and runtime on examples
+  → Package final executable and isolation record
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+index c768e01b343e2876a9041f6967410ef33ba47be5..12329a472d45aa2f03c03eceb97e92ae250441cb
+--- a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@ -183,11 +183,14 @@
+ def solve(instance, verbose=False, deadline=np.inf):
+     started = time.process_time()
+     model = Model(instance)
++    maximum_omega = np.max(model.omega)
++    profile = 0.4 * maximum_omega / (1 + (model.frequencies / maximum_omega) ** 2)
++    initial = np.maximum(np.abs(instance['initial_delta']), profile)
+     if model.n_freq > 512:
+         coarse = CoarseModel(model)
+         if verbose:
+             print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
++        delta, unused = newton(coarse, initial[:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+         for iteration in range(8):
+             z, mapped = model.map(delta)
+@@ -206,7 +209,7 @@
+         else:
+             z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
++    return newton(model, initial, verbose, deadline)
+ 
+ 
+ def main():
+
+exec
+/bin/bash -lc "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: README.md
++# Branch-correct finite-cutoff Eliashberg solver
++
++Run with the provided NumPy/SciPy environment:
++
++"'```sh
++python solve.py --input instance.npz --output solution.npz
++```
++
++The output contains only finite float64 `delta` and `z` arrays. The solver is
++self-contained; it does not import the public helper or load auxiliary assets.
++
++## Numerical method
++
++- Positive starting amplitudes and safeguarded Newton steps select the nonzero,
++  same-low-frequency-sign branch. High-frequency gaps remain signed.
++- Per-patch scaling protects weak induced gaps. Convergence requires a small
++  Newton correction as well as a small residual, including near criticality.
++- Large problems use degree-11 local interpolation on a logarithmic frequency
++  grid with extra nodes near the finite-cutoff boundary. Reduced interaction
++  matrices sum the original discrete kernels against the interpolation basis.
++- Full-grid cosine/sine transforms evaluate the exact finite convolution.
++  Full-grid residuals and reduced-Jacobian defect corrections check and refine
++  the interpolated solution before output. No continuum or analytic tail
++  replacement is used.
++- The normal-state renormalization uses a telescoping discrete sum; nonlinear
++  corrections use a cancellation-resistant expression for `w/R - 1`.
++- The executable requests one numerical-library thread and includes a CPU-time
++  safeguard below the 12-second invocation limit.
++
++## Validation
++
++All nine public examples satisfy the supplied independent operator'"'s residual
++criteria, have strictly positive low-frequency gaps, and agree between two
++starting amplitudes. Comparisons with separate uncompressed full-grid Newton
++solutions have maximum normalized difference below "'`4.84e-6`.
++
++Fresh invocations also pass with 12-second CPU and 2048-MiB address-space
++limits. Public examples take 0.19–0.74 CPU seconds in these measurements.
++Public-parameter-derived 40-patch, 32768-frequency stress tests include a
++normal-state pairing eigenvalue approximately `1 + 3e-9`; measured CPU times
++are below 2.6 seconds, with peak resident memory about 427 MiB.
++
++Detailed measurements are in `validation.json`. These are development checks,
++not claims about inaccessible hidden instances or certified hidden solutions.
++`isolation.json` contains only the two initial file-open error classes.
+*** Add File: validation.json
++{
++  "scope": "Public examples and explicitly generated public-parameter stress cases; no hidden certificates accessed",
++  "limits_tested": {"cpu_seconds": 12, "address_space_mib": 2048, "threads": 1},
++  "public_examples": [
++    {"name": "combined", "gap_residual": 6.967951160499172e-15, "z_residual": 1.1138345741577846e-15, "two_start_difference": 1.2466078255983634e-12, "full_grid_newton_difference": 1.0244885936164111e-11, "cpu_seconds": 0.277},
++    {"name": "competing_sheets_2304", "gap_residual": 2.2505482439187682e-12, "z_residual": 3.506151748806585e-15, "two_start_difference": 2.2672922710149414e-09, "full_grid_newton_difference": 4.836368628642156e-06, "cpu_seconds": 0.460},
++    {"name": "critical", "gap_residual": 6.65336303118113e-16, "z_residual": 4.858125833891009e-16, "two_start_difference": 2.338657105460167e-13, "full_grid_newton_difference": 3.484315039958869e-09, "cpu_seconds": 0.305},
++    {"name": "critical_coulomb_3072", "gap_residual": 1.2197790373606531e-12, "z_residual": 7.013599771895841e-15, "two_start_difference": 2.932092755736714e-09, "full_grid_newton_difference": 1.1093619107609365e-06, "cpu_seconds": 0.330},
++    {"name": "low_temperature_4096", "gap_residual": 1.1353690142757357e-12, "z_residual": 1.1686239728647915e-14, "two_start_difference": 1.6504792478256977e-15, "full_grid_newton_difference": 1.1355834184416525e-12, "cpu_seconds": 0.562},
++    {"name": "low_temperature_8192", "gap_residual": 1.090839468991694e-12, "z_residual": 2.3217068973828632e-14, "two_start_difference": 1.294692579875105e-15, "full_grid_newton_difference": 1.0881844841005774e-12, "cpu_seconds": 0.740},
++    {"name": "multiband", "gap_residual": 8.359852081585376e-16, "z_residual": 4.2186517419489716e-16, "two_start_difference": 5.071963578954661e-16, "full_grid_newton_difference": 3.8227034450737454e-16, "cpu_seconds": 0.187},
++    {"name": "retardation", "gap_residual": 6.923718947442235e-13, "z_residual": 1.8468936402045316e-15, "two_start_difference": 9.126561160374385e-16, "full_grid_newton_difference": 6.944498171512731e-13, "cpu_seconds": 0.220},
++    {"name": "weak_interband", "gap_residual": 5.631142381167519e-16, "z_residual": 4.484923582249983e-16, "two_start_difference": 7.557579472715718e-16, "full_grid_newton_difference": 7.573937192840877e-13, "cpu_seconds": 0.285}
++  ],
++  "all_public_low_frequency_gaps_positive": true,
++  "stress_cases": [
++    {"name": "large", "patches": 40, "positive_frequencies": 32768, "gap_residual": 2.4045424891546023e-12, "z_residual": 1.14129562483137e-13, "two_start_difference": 1.3786740461318088e-15, "cpu_seconds": 1.596},
++    {"name": "critical", "patches": 40, "positive_frequencies": 32768, "approximate_pairing_eigenvalue_excess": 3e-9, "gap_residual": 1.4074528445865182e-12, "z_residual": 2.7731339402514896e-14, "two_start_difference": 2.2311937502179875e-08, "cpu_seconds": 2.582, "repeat_cpu_seconds": 1.754791809, "repeat_peak_resident_mib": 426.59765625}
++  ],
++  "zero_start_energy_rescaling_maximum_branch_difference": 2.800700722527806e-09
++}
+*** End Patch
+PATCH
+printf '"'\\nGenerated artifacts to remove:\\n'
+rg --files --hidden . -g '*.npz' -g '*.pyc'
+rm -- ./*.npz
+if [ -d __pycache__ ]; then
+    rm -- __pycache__/*.pyc
+    rmdir -- __pycache__
+fi
+printf '\\nFinal submission:\\n'
+wc -c solve.py isolation.json README.md validation.json
+python - <<'PY'
+import ast,json
+from pathlib import Path
+ast.parse(Path('solve.py').read_text())
+for name in ['isolation.json','validation.json']:
+    json.loads(Path(name).read_text())
+files=list(Path('.').iterdir())
+assert {path.name for path in files} == {'solve.py','isolation.json','README.md','validation.json'}
+assert sum(path.stat().st_size for path in files) < 32*1024*1024
+print('Syntax, JSON, package contents, and size checks passed.')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+ exited 1 in 247ms:
+Success. Updated the following files:
+A README.md
+A validation.json
+
+Generated artifacts to remove:
+./validated_retardation.npz
+./coarse_low_temperature_8192.npz
+./validated_critical.npz
+./stress_critical_input.npz
+./stress_large_input.npz
+./validated_weak_interband.npz
+./coarse_multiband.npz
+./result_multiband.npz
+./result_critical.npz
+./coarse_retardation.npz
+./validated_low_temperature_4096.npz
+./validated_competing_sheets_2304.npz
+./result_low_temperature_8192.npz
+./result_low_temperature_4096.npz
+./result_competing_sheets_2304.npz
+./coarse_critical_coulomb_3072.npz
+./validated_low_temperature_8192.npz
+./result_weak_interband.npz
+./test_critical.npz
+./coarse_combined.npz
+./coarse_weak_interband.npz
+./validated_multiband.npz
+./validated_combined.npz
+./stress_critical_result.npz
+./result_critical_coulomb_3072.npz
+./result_retardation.npz
+./stress_large_result.npz
+./coarse_critical.npz
+./test_low.npz
+./coarse_low_temperature_4096.npz
+./result_combined.npz
+./coarse_competing_sheets_2304.npz
+./validated_critical_coulomb_3072.npz
+./__pycache__/solve.cpython-310.pyc
+
+Final submission:
+10676 solve.py
+   43 isolation.json
+ 2311 README.md
+ 3044 validation.json
+16074 total
+Traceback (most recent call last):
+  File "<stdin>", line 7, in <module>
+AssertionError
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+index c768e01b343e2876a9041f6967410ef33ba47be5..12329a472d45aa2f03c03eceb97e92ae250441cb
+--- a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@ -183,11 +183,14 @@
+ def solve(instance, verbose=False, deadline=np.inf):
+     started = time.process_time()
+     model = Model(instance)
++    maximum_omega = np.max(model.omega)
++    profile = 0.4 * maximum_omega / (1 + (model.frequencies / maximum_omega) ** 2)
++    initial = np.maximum(np.abs(instance['initial_delta']), profile)
+     if model.n_freq > 512:
+         coarse = CoarseModel(model)
+         if verbose:
+             print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
++        delta, unused = newton(coarse, initial[:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+         for iteration in range(8):
+             z, mapped = model.map(delta)
+@@ -206,7 +209,7 @@
+         else:
+             z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
++    return newton(model, initial, verbose, deadline)
+ 
+ 
+ def main():
+
+exec
+/bin/bash -lc "printf 'Final directory entries:\\n'; printf '%s\\n' ./* ./.["'!.]*' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+ succeeded in 49ms:
+Final directory entries:
+./README.md
+./isolation.json
+./solve.py
+./validation.json
+./.agents
+./.codex
+./.git
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+index c768e01b343e2876a9041f6967410ef33ba47be5..12329a472d45aa2f03c03eceb97e92ae250441cb
+--- a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@ -183,11 +183,14 @@
+ def solve(instance, verbose=False, deadline=np.inf):
+     started = time.process_time()
+     model = Model(instance)
++    maximum_omega = np.max(model.omega)
++    profile = 0.4 * maximum_omega / (1 + (model.frequencies / maximum_omega) ** 2)
++    initial = np.maximum(np.abs(instance['initial_delta']), profile)
+     if model.n_freq > 512:
+         coarse = CoarseModel(model)
+         if verbose:
+             print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
++        delta, unused = newton(coarse, initial[:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+         for iteration in range(8):
+             z, mapped = model.map(delta)
+@@ -206,7 +209,7 @@
+         else:
+             z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
++    return newton(model, initial, verbose, deadline)
+ 
+ 
+ def main():
+
+exec
+/bin/bash -lc "python - <<'PY'
+from pathlib import Path
+import stat
+for name in ['.agents','.codex','.git']:
+    mode=Path(name).lstat().st_mode
+    print(name, 'symlink' if stat.S_ISLNK(mode) else 'directory' if stat.S_ISDIR(mode) else 'file')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+ succeeded in 122ms:
+.agents directory
+.codex directory
+.git directory
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+index c768e01b343e2876a9041f6967410ef33ba47be5..12329a472d45aa2f03c03eceb97e92ae250441cb
+--- a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@ -183,11 +183,14 @@
+ def solve(instance, verbose=False, deadline=np.inf):
+     started = time.process_time()
+     model = Model(instance)
++    maximum_omega = np.max(model.omega)
++    profile = 0.4 * maximum_omega / (1 + (model.frequencies / maximum_omega) ** 2)
++    initial = np.maximum(np.abs(instance['initial_delta']), profile)
+     if model.n_freq > 512:
+         coarse = CoarseModel(model)
+         if verbose:
+             print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
++        delta, unused = newton(coarse, initial[:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+         for iteration in range(8):
+             z, mapped = model.map(delta)
+@@ -206,7 +209,7 @@
+         else:
+             z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
++    return newton(model, initial, verbose, deadline)
+ 
+ 
+ def main():
+
+exec
+/bin/bash -lc "python - <<'PY'
+import ast,json
+from pathlib import Path
+ast.parse(Path('solve.py').read_text())
+for name in ['isolation.json','validation.json']:
+    json.loads(Path(name).read_text())
+files=[path for path in Path('.').iterdir() if not path.name.startswith('.')]
+assert {path.name for path in files} == {'solve.py','isolation.json','README.md','validation.json'}
+assert all(path.is_file() and not path.is_symlink() for path in files)
+size=sum(path.stat().st_size for path in files)
+assert size < 32*1024*1024
+print('Submission artifacts:',len(files),'files,',size,'bytes.')
+print('Syntax, JSON, and artifact checks passed; environment metadata left untouched.')
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4
+ succeeded in 122ms:
+Submission artifacts: 4 files, 16074 bytes.
+Syntax, JSON, and artifact checks passed; environment metadata left untouched.
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+index c768e01b343e2876a9041f6967410ef33ba47be5..12329a472d45aa2f03c03eceb97e92ae250441cb
+--- a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@ -183,11 +183,14 @@
+ def solve(instance, verbose=False, deadline=np.inf):
+     started = time.process_time()
+     model = Model(instance)
++    maximum_omega = np.max(model.omega)
++    profile = 0.4 * maximum_omega / (1 + (model.frequencies / maximum_omega) ** 2)
++    initial = np.maximum(np.abs(instance['initial_delta']), profile)
+     if model.n_freq > 512:
+         coarse = CoarseModel(model)
+         if verbose:
+             print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
++        delta, unused = newton(coarse, initial[:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+         for iteration in range(8):
+             z, mapped = model.map(delta)
+@@ -206,7 +209,7 @@
+         else:
+             z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
++    return newton(model, initial, verbose, deadline)
+ 
+ 
+ def main():
+
+  ✓ Inspect public instance conditioning and costs
+  ✓ Implement efficient branch-preserving nonlinear solver
+  ✓ Validate accuracy and runtime on examples
+  ✓ Package final executable and isolation record
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+index c768e01b343e2876a9041f6967410ef33ba47be5..12329a472d45aa2f03c03eceb97e92ae250441cb
+--- a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@ -183,11 +183,14 @@
+ def solve(instance, verbose=False, deadline=np.inf):
+     started = time.process_time()
+     model = Model(instance)
++    maximum_omega = np.max(model.omega)
++    profile = 0.4 * maximum_omega / (1 + (model.frequencies / maximum_omega) ** 2)
++    initial = np.maximum(np.abs(instance['initial_delta']), profile)
+     if model.n_freq > 512:
+         coarse = CoarseModel(model)
+         if verbose:
+             print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
++        delta, unused = newton(coarse, initial[:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+         for iteration in range(8):
+             z, mapped = model.map(delta)
+@@ -206,7 +209,7 @@
+         else:
+             z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
++    return newton(model, initial, verbose, deadline)
+ 
+ 
+ def main():
+
+codex
+Submitted `../attempts/v_4/solve.py:1`.
+
+- Both isolation probes failed; recorded in `../attempts/v_4/isolation.json:1`.
+- All 9 public examples pass residual/sign checks and two-start agreement tests.
+- The largest near-critical stress case uses under 2.6 CPU seconds and about 427 MiB.
+- Validation details and usage notes accompany the solver. Hidden acceptance remains unverified.
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+index c768e01b343e2876a9041f6967410ef33ba47be5..12329a472d45aa2f03c03eceb97e92ae250441cb
+--- a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_1/attempts/v_4/solve.py
+@@ -183,11 +183,14 @@
+ def solve(instance, verbose=False, deadline=np.inf):
+     started = time.process_time()
+     model = Model(instance)
++    maximum_omega = np.max(model.omega)
++    profile = 0.4 * maximum_omega / (1 + (model.frequencies / maximum_omega) ** 2)
++    initial = np.maximum(np.abs(instance['initial_delta']), profile)
+     if model.n_freq > 512:
+         coarse = CoarseModel(model)
+         if verbose:
+             print('coarse', coarse.shape, 'build', time.process_time() - started, flush=True)
+-        delta, unused = newton(coarse, instance['initial_delta'][:, coarse.indices].copy(), verbose, deadline - 0.8)
++        delta, unused = newton(coarse, initial[:, coarse.indices].copy(), verbose, deadline - 0.8)
+         delta = coarse.expand(delta)
+         for iteration in range(8):
+             z, mapped = model.map(delta)
+@@ -206,7 +209,7 @@
+         else:
+             z = model.map(delta)[0]
+         return delta, z
+-    return newton(model, instance['initial_delta'].copy(), verbose, deadline)
++    return newton(model, initial, verbose, deadline)
+ 
+ 
+ def main():
+
+tokens used
+113,063
+Submitted `../attempts/v_4/solve.py:1`.
+
+- Both isolation probes failed; recorded in `../attempts/v_4/isolation.json:1`.
+- All 9 public examples pass residual/sign checks and two-start agreement tests.
+- The largest near-critical stress case uses under 2.6 CPU seconds and about 427 MiB.
+- Validation details and usage notes accompany the solver. Hidden acceptance remains unverified.

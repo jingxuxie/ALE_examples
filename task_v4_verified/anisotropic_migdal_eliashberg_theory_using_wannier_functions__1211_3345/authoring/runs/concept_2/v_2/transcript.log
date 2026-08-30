@@ -1,0 +1,1674 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a04ac3-8016-76c2-bb5f-68becd84e067
+--------
+user
+You are an isolated fresh participant, not the task author. Solve the mission in TASK.md. You may read only this participant directory and write your final submission under /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2. The output starts empty. Do not ask the author for help. You have at most 3600 seconds. Only assets here are available; no internet or privileged artifacts are permitted. Before solving, use an ordinary file-open probe on these private canary paths: ['/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/authoring/private_isolation_canary.txt', '/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/authoring/private_isolation_canary.txt']. They MUST both be unreadable. Record only the denial/error class in isolation.json in your output. If either can be read, stop immediately and report isolation failure. Do not attempt to escape the sandbox. Put the executable/artifact specified by TASK.md at the top level of your output directory. Use the provided public examples to check your work.
+codex
+I’ll probe isolation first, then read the mission and assets.
+
+exec
+/bin/bash -lc "python - <<'PY'
+import json
+paths = ['/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/authoring/private_isolation_canary.txt', '/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/authoring/private_isolation_canary.txt']
+results = []
+for path in paths:
+    try:
+        with open(path, 'rb') as handle:
+            handle.read(1)
+    except Exception as error:
+        results.append(type(error).__name__)
+    else:
+        print('ISOLATION FAILURE')
+        raise SystemExit(1)
+print(json.dumps(results))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant
+exec
+/bin/bash -c 'pwd; ls -la; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant
+ succeeded in 42703ms:
+["FileNotFoundError", "FileNotFoundError"]
+
+**Assessing time management**
+
+I see we have an hour, but there are initial delays. It seems we don't need to solve anything until we know more about the probes. Command listing seems to be okay, so that's a relief. I'm just making sure I have everything organized to keep things efficient. Let’s focus on the important details first and ensure we get the information we need before moving forward!
+apply patch
+ succeeded in 35611ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 16:22 .
+drwx------ 4 xuandong xuandong   80 Aug 28 16:47 ..
+-rw-rw-r-- 1 xuandong xuandong 2250 Aug 28 16:04 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 16:24 baseline
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 16:38 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 16:17 workspace
+# Matched normal state, different superconducting transitions
+
+Find two anisotropic electron–phonon kernels whose linearized Migdal–Eliashberg critical temperatures differ despite identical complete normal-state mass renormalization and identical static pairing matrices.
+
+## Assets and interface
+
+- `input/reference.npz` is the fixed feasible constraint instance; `input/config.json` fixes bounds, tolerances, temperature families, and the target.
+- `input/FORMAT.md` supplies all equations and the artifact format.
+- `workspace/physics.py` supplies the working physics solver and artifact validation. `workspace/check.py` supplies the public check. Implement search, not another equation solver.
+- `workspace/solve.py` is a runnable starting point. `baseline/solve.py` emits the same feasible reference kernel twice.
+- Produce `witness.npz` containing only a real numeric array named `kernels`, shape `(2, 3, 8, 8)`. No candidate program is executed during evaluation.
+
+## Constraints
+
+Both kernels must independently match the supplied per-mode labeled weighted row sums, mode diagonals, and full static aggregate. Every mode matrix must be symmetric and within the fixed entry bounds. All comparisons use the published absolute tolerances. Patch and phonon labels are fixed. Do not modify the inputs.
+
+## Scoring and success
+
+The score is the worst ordered high/low critical-temperature ratio over the published spectral families and Matsubara refinements. The high/low ordering is chosen once from the nominal fine-grid temperatures. A repeated reference has score `1.0`.
+
+`admissible` means the artifact satisfies the matrix constraints. `valid` additionally requires the configured target ratio, converged transitions, and the independent signed-frequency and regular-row controls. Admissibility alone is not success. The evaluator saves an audit JSON. No absolute temperature-difference target is imposed.
+
+Run `python workspace/check.py witness.npz --output public_check.json` from this directory. The public check reports constraints and physics; the evaluator additionally runs independent audits. This is a clean, constant-DOS, Fermi-surface-restricted model with zero Coulomb pseudopotential, not a claim of synthesizable materials.
+
+patch: completed
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+exec
+/bin/bash -c "find . -name AGENTS.md -print; cat input/config.json; cat input/FORMAT.md; cat workspace/solve.py; cat baseline/solve.py; sed -n '1,260p' workspace/physics.py; cat workspace/check.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+**Planning mission optimizations**
+
+I think I need to consider using a delay command, maybe every 100 seconds, because of the sand. I should really plan now with the known mission constraints in mind to optimize physical performance. It’s important to address potential challenges and make adjustments accordingly. I guess this involves thinking through all possible factors to ensure everything runs smoothly. There’s a lot to consider, but I’m determined to get it right!
+codex
+Both probes failed as required. I’ll inspect the constraints and solver.
+
+  → Inspect constraints and supplied physics solver
+  • Optimize feasible kernels for transition separation
+  • Validate witness across all public checks
+  • Finalize artifact and isolation record
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+**Evaluating tool time**
+
+I noticed we used 5 minutes of tool time, which seems like enough to get the necessary information. Maybe there's no need to poll again so quickly. It's good to be mindful of time usage. I want to ensure I'm efficient while still providing accurate responses to the user. Perhaps I should wait a bit before checking again, so I don’t rush the process unnecessarily. So, I’ll keep this in mind moving forward.
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+ succeeded in 15869ms:
+{
+  "schema_version": 1,
+  "dataset_id": "matched_static_modes_v1",
+  "artifact_key": "kernels",
+  "artifact_shape": [2, 3, 8, 8],
+  "entry_lower": 0.005,
+  "entry_upper": 5.0,
+  "constraint_atol": 1e-8,
+  "symmetry_atol": 1e-10,
+  "target_ratio": 1.12,
+  "positive_matsubara_counts": [96, 192],
+  "nominal_audit_count": 384,
+  "families": [
+    {"name": "nominal", "energy_factors": [1.0, 1.0, 1.0]},
+    {"name": "compressed_spectrum", "energy_factors": [1.05, 1.0, 0.95]},
+    {"name": "expanded_spectrum", "energy_factors": [0.95, 1.0, 1.05]}
+  ],
+  "temperature_bracket_kelvin": [2.0, 200.0],
+  "root_xtol_kelvin": 1e-5,
+  "eigenvalue_tolerance": 1e-10,
+  "refinement_rtol": 0.002,
+  "signed_audit_atol": 2e-8,
+  "mu_star": 0.0,
+  "boltzmann_mev_per_kelvin": 0.08617333262,
+  "max_artifact_bytes": 2097152,
+  "max_uncompressed_bytes": 65536
+}
+# Input, equations, and output
+
+All energies are in meV and temperatures in kelvin. There are eight equally weighted Fermi-surface patches and three positive Einstein phonon energies. These are effective, reciprocal, nonnegative electron–phonon spectral kernels; positive-semidefiniteness of the patch matrices is not required.
+
+## Fixed input
+
+`reference.npz` contains float64 arrays:
+
+| Key | Shape | Meaning |
+|---|---|---|
+| `reference` | `(3,8,8)` | A feasible kernel, mode first |
+| `weights` | `(8,)` | Positive DOS weights, sum one |
+| `energies_mev` | `(3,)` | Nominal phonon energies |
+| `row_sums` | `(3,8)` | `reference @ weights` |
+| `diagonal` | `(3,8)` | Mode diagonals |
+| `static` | `(8,8)` | Sum of the three mode matrices |
+
+The constraint arrays, not an inferred degree histogram or sorted profile, define the instance. Each submitted kernel must match them individually. `config.json` fixes all numerical conventions. Comparisons have zero relative tolerance. Symmetrization by `(C + C.T)/2` removes only accepted roundoff; it is not a feasibility repair. Raw and symmetrized arrays must pass the invariant checks.
+
+## Spectral and normal-state equations
+
+For mode matrices `C[s,i,j]`, define
+
+    alpha2F_ij(Omega) = (1/2) sum_s Omega_s C_sij delta(Omega - Omega_s)
+    Lambda_ij(nu) = sum_s C_sij Omega_s^2 / (Omega_s^2 + nu^2)
+    r_si = sum_j weights_j C_sij
+    R_i(nu) = sum_s r_si Omega_s^2 / (Omega_s^2 + nu^2)
+    lambda_i = sum_s r_si
+
+Consequently the isotropic spectrum is `(1/2) sum_s Omega_s (sum_i weights_i r_si) delta(Omega-Omega_s)`. Matching all `r_si` gives identical normal-state `Z` at every temperature and Matsubara frequency. Matching `sum_s C_s` additionally fixes the complete static interaction, not merely its largest eigenvalue.
+
+For positive Matsubara indices `n = 0,...,M-1`, set `thermal = k_B T` and `omega_n = (2n+1) pi thermal`. The infinite normal-state Matsubara sum has the exact finite expression
+
+    Z_i(n) = 1 + [R_i(0) + 2 sum_(ell=1)^n R_i(2 pi thermal ell)] / (2n+1).
+
+In particular, `Z_i(0) = 1 + lambda_i`. Do not truncate the normal-state sum at the pairing cutoff.
+
+## Linearized transition
+
+The even-frequency, zero-Coulomb gap equation is
+
+    Z_i(n) Delta_i(n) = pi thermal sum_(j,m>=0) weights_j
+        [Lambda_ij(omega_n-omega_m) + Lambda_ij(omega_n+omega_m)]
+        Delta_j(m) / omega_m.
+
+For the finite pairing cutoff `M`, use the real symmetric matrix
+
+    H_(i,n),(j,m) = pi thermal sqrt(weights_i weights_j)
+        [Lambda_ij(omega_n-omega_m) + Lambda_ij(omega_n+omega_m)]
+        / sqrt(omega_n Z_i(n) omega_m Z_j(m)).
+
+Its largest algebraic eigenvalue crosses one at the transition. `physics.py` brackets and solves this root, with residual checks. All supplied instances use the configured temperature bracket. This numerical benchmark uses these finite operators plus explicit refinement checks; it does not claim an interval-certified infinite-cutoff transition.
+
+Each spectral family multiplies the three supplied energies by its fixed factors, identically for both kernels. The equality constraints remain unchanged. Compute both transitions at `M=96,192` for every family and at `M=384` for the nominal family. Choose the high/low kernel ordering from nominal `M=192` and retain that ordering everywhere. The score is the minimum of all these ratios. Every successive refinement must satisfy the configured relative drift limit. Equality at the target threshold succeeds; there is no score rounding grace.
+
+The evaluator additionally assembles a signed-frequency operator independently and runs a regular-row no-go control. At zero Coulomb repulsion, frequency-resolved row regularity implies an isotropic leading positive eigenvector, so rewiring regular kernels must not change their transition.
+
+## Artifact
+
+Write exactly one array:
+
+    np.savez_compressed(output_path, kernels=np.stack([kernel_a, kernel_b]))
+
+The shape is exactly `(2,3,8,8)`. Real integer or floating dtypes up to eight bytes per element are accepted; complex, object, boolean, nonfinite, malformed, oversized, and extra-key archives are rejected. Prefer float64. The file must be a regular single-link file, not a symlink or hardlink; symlink path components are also rejected. Compressed size, declared ZIP expansion, and NPY headers are checked before loading any array. Evaluation consumes only this artifact; it does not import or execute submitted code. Pass an explicit output filename to avoid accidentally writing `witness.npz.npz`.
+
+## Background
+
+The Fermi-surface-restricted equations and spectral normalization follow Margine and Giustino, arXiv:1211.3345, Eqs. (18)–(23), (39). The normal-state telescoping expression and multiband linearization are also discussed by Dolgov and Golubov, arXiv:0803.1103. The supplied benchmark equations are authoritative if notation differs. A wide-band model with electronic scales well above the phonon energies is assumed; phonon stability and a material-specific microscopic realization are not inferred from these arrays.
+import argparse
+from pathlib import Path
+
+import numpy as np
+
+from physics import load_instance
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=Path("witness.npz"))
+    arguments = parser.parse_args()
+    reference = load_instance()["reference"]
+    kernels = np.stack([reference, reference])
+    arguments.output.parent.mkdir(parents=True, exist_ok=True)
+    with arguments.output.open("wb") as stream:
+        np.savez_compressed(stream, kernels=kernels)
+
+
+if __name__ == "__main__":
+    main()
+import argparse
+from pathlib import Path
+
+import numpy as np
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=Path("witness.npz"))
+    arguments = parser.parse_args()
+    reference_path = Path(__file__).resolve().parents[1] / "input" / "reference.npz"
+    with np.load(reference_path, allow_pickle=False) as archive:
+        reference = np.array(archive["reference"], copy=True)
+    arguments.output.parent.mkdir(parents=True, exist_ok=True)
+    with arguments.output.open("wb") as stream:
+        np.savez_compressed(stream, kernels=np.stack([reference, reference]))
+
+
+if __name__ == "__main__":
+    main()
+import hashlib
+import io
+import json
+import os
+import stat
+import struct
+import zipfile
+from pathlib import Path
+
+import numpy as np
+from scipy.optimize import brentq
+from scipy.sparse.linalg import LinearOperator, eigsh
+
+
+DEFAULT_INPUT = Path(__file__).resolve().parents[1] / "input"
+
+
+def load_instance(input_dir=DEFAULT_INPUT):
+    input_dir = Path(input_dir)
+    config = json.loads((input_dir / "config.json").read_text())
+    with np.load(input_dir / "reference.npz", allow_pickle=False) as archive:
+        instance = {name: np.asarray(archive[name], dtype=np.float64) for name in archive.files}
+    instance["config"] = config
+    instance["input_sha256"] = hashlib.sha256(
+        (input_dir / "config.json").read_bytes() + (input_dir / "reference.npz").read_bytes()
+    ).hexdigest()
+    return instance
+
+
+def read_artifact(path, config, with_digest=False):
+    path = Path(path)
+    initial = os.lstat(path)
+    if not stat.S_ISREG(initial.st_mode) or initial.st_nlink != 1:
+        raise ValueError("artifact must be a regular, non-symlink, single-link file")
+    if initial.st_size > config["max_artifact_bytes"]:
+        raise ValueError("artifact exceeds compressed size limit")
+    directory = os.open("/" if path.is_absolute() else ".", os.O_RDONLY | os.O_DIRECTORY)
+    descriptor = None
+    try:
+        parts = path.parts[1:] if path.is_absolute() else path.parts
+        for component in parts[:-1]:
+            following = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+            os.close(directory)
+            directory = following
+        descriptor = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+            raise ValueError("opened artifact is not a single-link regular file")
+        if (opened.st_dev, opened.st_ino) != (initial.st_dev, initial.st_ino):
+            raise ValueError("artifact changed during open")
+        if opened.st_size > config["max_artifact_bytes"]:
+            raise ValueError("artifact exceeds compressed size limit")
+        with os.fdopen(descriptor, "rb") as stream:
+            descriptor = None
+            payload = stream.read(config["max_artifact_bytes"] + 1)
+            finished = os.fstat(stream.fileno())
+        if len(payload) > config["max_artifact_bytes"] or len(payload) != opened.st_size:
+            raise ValueError("artifact size changed during read")
+        if finished.st_nlink != 1 or (finished.st_size, finished.st_mtime_ns, finished.st_ctime_ns) != (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns):
+            raise ValueError("artifact changed during read")
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(directory)
+    with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+        members = archive.infolist()
+        if len(members) != 1 or members[0].filename != "kernels.npy":
+            raise ValueError("archive must contain only kernels.npy")
+        if sum(member.file_size for member in members) > config["max_uncompressed_bytes"]:
+            raise ValueError("artifact exceeds uncompressed size limit")
+        array_payload = archive.read(members[0])
+    header_stream = io.BytesIO(array_payload)
+    version = np.lib.format.read_magic(header_stream)
+    if version not in ((1, 0), (2, 0)):
+        raise ValueError("unsupported NPY header version")
+    length_bytes = 2 if version == (1, 0) else 4
+    header_length = struct.unpack("<H" if length_bytes == 2 else "<I", header_stream.read(length_bytes))[0]
+    if header_length > 4096:
+        raise ValueError("NPY header exceeds limit")
+    header_stream.seek(8)
+    reader = np.lib.format.read_array_header_1_0 if version == (1, 0) else np.lib.format.read_array_header_2_0
+    shape, fortran_order, dtype = reader(header_stream)
+    if shape != tuple(config["artifact_shape"]) or dtype.kind not in "fiu" or dtype.itemsize > 8:
+        raise ValueError("invalid NPY shape or dtype")
+    expected_bytes = int(np.prod(shape)) * dtype.itemsize
+    if len(array_payload) - header_stream.tell() != expected_bytes:
+        raise ValueError("NPY data length does not match its header")
+    with np.load(io.BytesIO(payload), allow_pickle=False) as archive:
+        kernels = archive["kernels"]
+        if kernels.shape != tuple(config["artifact_shape"]):
+            raise ValueError("kernels has the wrong shape")
+        if kernels.dtype.kind not in "fiu":
+            raise ValueError("kernels must have a real numeric dtype")
+        kernels = np.array(kernels, dtype=np.float64, copy=True)
+    if not np.isfinite(kernels).all():
+        raise ValueError("kernels contains nonfinite entries")
+    return (kernels, hashlib.sha256(payload).hexdigest()) if with_digest else kernels
+
+
+def constraint_report(kernels, instance):
+    config = instance["config"]
+    if kernels.shape != tuple(config["artifact_shape"]) or not np.isfinite(kernels).all():
+        return {"admissible": False, "error": "invalid shape or nonfinite arrays"}, None
+    canonical = (kernels + kernels.transpose(0, 1, 3, 2)) * 0.5
+    metrics = {
+        "symmetry_error": float(np.max(np.abs(kernels - kernels.transpose(0, 1, 3, 2)))),
+        "minimum_entry": float(kernels.min()),
+        "maximum_entry": float(kernels.max()),
+    }
+    errors = []
+    for label, values in (("raw", kernels), ("canonical", canonical)):
+        for name, actual, expected in (
+            ("row", values @ instance["weights"], instance["row_sums"]),
+            ("diagonal", np.diagonal(values, axis1=2, axis2=3), instance["diagonal"]),
+            ("static", values.sum(axis=1), instance["static"]),
+        ):
+            error = float(np.max(np.abs(actual - expected)))
+            metrics[label + "_" + name + "_error"] = error
+            if error > config["constraint_atol"]:
+                errors.append(label + " " + name + " invariant failed")
+    if metrics["symmetry_error"] > config["symmetry_atol"]:
+        errors.append("symmetry invariant failed")
+    if metrics["minimum_entry"] < config["entry_lower"] - config["constraint_atol"]:
+        errors.append("entry lower bound failed")
+    if metrics["maximum_entry"] > config["entry_upper"] + config["constraint_atol"]:
+        errors.append("entry upper bound failed")
+    metrics["admissible"] = not errors
+    metrics["errors"] = errors
+    return metrics, canonical
+
+
+class EliashbergSolver:
+    def __init__(self, weights, row_sums, energies, config):
+        self.weights = np.asarray(weights, dtype=float)
+        self.row_sums = np.asarray(row_sums, dtype=float)
+        self.energies = np.asarray(energies, dtype=float)
+        self.config = config
+        self.cache = {}
+
+    def components(self, temperature, count):
+        key = (float(temperature), int(count))
+        if key in self.cache:
+            return self.cache[key]
+        thermal = self.config["boltzmann_mev_per_kelvin"] * temperature
+        indices = np.arange(count)
+        omega = (2 * indices + 1) * np.pi * thermal
+        transfer = 2 * np.pi * thermal * indices
+        energy_squared = self.energies[:, None] ** 2
+        row_kernel = self.row_sums.T @ (energy_squared / (energy_squared + transfer[None] ** 2))
+        normal_z = 1 + (2 * np.cumsum(row_kernel, axis=1) - row_kernel[:, :1]) / (2 * indices[None] + 1)
+        differences = omega[:, None] - omega[None]
+        sums = omega[:, None] + omega[None]
+        mode_squared = self.energies[:, None, None] ** 2
+        frequency_kernel = mode_squared / (mode_squared + differences[None] ** 2)
+        frequency_kernel += mode_squared / (mode_squared + sums[None] ** 2)
+        scale = np.sqrt(self.weights[:, None] / (omega[None] * normal_z))
+        result = thermal, omega, normal_z, frequency_kernel, scale
+        if len(self.cache) >= 20:
+            self.cache.pop(next(iter(self.cache)))
+        self.cache[key] = result
+        return result
+
+    def eigenpair(self, modes, temperature, count, gradient=False):
+        thermal, omega, normal_z, frequency_kernel, scale = self.components(temperature, count)
+        patches = len(self.weights)
+
+        def multiply(vector):
+            scaled = scale * vector.reshape(patches, count)
+            transformed = np.zeros_like(scaled)
+            for mode, matrix in enumerate(modes):
+                transformed += matrix @ (scaled @ frequency_kernel[mode])
+            return (np.pi * thermal * scale * transformed).ravel()
+
+        size = patches * count
+        operator = LinearOperator((size, size), matvec=multiply, dtype=float)
+        eigenvalues, eigenvectors = eigsh(
+            operator, k=1, which="LA", tol=self.config["eigenvalue_tolerance"],
+            v0=np.ones(size), maxiter=2000,
+        )
+        eigenvalue = float(eigenvalues[0])
+        vector = eigenvectors[:, 0]
+        residual = float(np.linalg.norm(multiply(vector) - eigenvalue * vector))
+        result = {"eigenvalue": eigenvalue, "residual": residual}
+        if gradient:
+            scaled = scale * vector.reshape(patches, count)
+            result["gradient"] = np.array([
+                np.pi * thermal * scaled @ kernel @ scaled.T for kernel in frequency_kernel
+            ])
+            result["gap"] = vector.reshape(patches, count) / np.sqrt(
+                self.weights[:, None] * normal_z / omega[None]
+            )
+        return result
+
+    def critical_temperature(self, modes, count):
+        lower, upper = self.config["temperature_bracket_kelvin"]
+
+        def objective(temperature):
+            return self.eigenpair(modes, temperature, count)["eigenvalue"] - 1
+
+        lower_value = objective(lower)
+        upper_value = objective(upper)
+        if not (lower_value > 0 and upper_value < 0):
+            raise ValueError("transition does not have the required temperature bracket")
+        temperature = brentq(
+            objective, lower, upper, xtol=self.config["root_xtol_kelvin"], rtol=1e-12
+        )
+        details = self.eigenpair(modes, temperature, count)
+        if details["residual"] > 1e-7 or abs(details["eigenvalue"] - 1) > 2e-6:
+            raise ValueError("eigensolve or transition root did not converge")
+        return {"tc_kelvin": float(temperature), **details}
+
+
+def physics_report(kernels, instance):
+    config = instance["config"]
+    families = []
+    convergence = []
+    for family in config["families"]:
+        energies = instance["energies_mev"] * np.asarray(family["energy_factors"])
+        solver = EliashbergSolver(instance["weights"], instance["row_sums"], energies, config)
+        counts = list(config["positive_matsubara_counts"])
+        if family["name"] == "nominal":
+            counts.append(config["nominal_audit_count"])
+        grids = []
+        previous = None
+        for count in counts:
+            transitions = [solver.critical_temperature(modes, count) for modes in kernels]
+            grids.append({"positive_count": count, "transitions": transitions})
+            temperatures = np.array([transition["tc_kelvin"] for transition in transitions])
+            if previous is not None:
+                drift = float(np.max(np.abs(temperatures - previous) / temperatures))
+                convergence.append({"family": family["name"], "positive_count": count, "relative_drift": drift})
+            previous = temperatures
+        families.append({"name": family["name"], "energies_mev": energies.tolist(), "grids": grids})
+    nominal = next(family for family in families if family["name"] == "nominal")
+    fine = next(grid for grid in nominal["grids"] if grid["positive_count"] == max(config["positive_matsubara_counts"]))
+    high_index = int(fine["transitions"][1]["tc_kelvin"] > fine["transitions"][0]["tc_kelvin"])
+    ratios = []
+    for family in families:
+        for grid in family["grids"]:
+            transitions = grid["transitions"]
+            ratio = transitions[high_index]["tc_kelvin"] / transitions[1 - high_index]["tc_kelvin"]
+            grid["ordered_ratio"] = float(ratio)
+            ratios.append(float(ratio))
+    score = min(ratios)
+    converged = all(item["relative_drift"] <= config["refinement_rtol"] for item in convergence)
+    return {
+        "score": score, "target_met": score >= config["target_ratio"],
+        "converged": converged, "high_kernel_index": high_index,
+        "families": families, "refinement": convergence,
+    }
+
+
+def json_write(path, value):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n")
+import os
+
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+
+import argparse
+from pathlib import Path
+
+from physics import constraint_report, json_write, load_instance, physics_report, read_artifact
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("artifact", type=Path)
+    parser.add_argument("--output", type=Path, default=Path("public_check.json"))
+    parser.add_argument("--constraints-only", action="store_true")
+    arguments = parser.parse_args()
+    instance = load_instance()
+    result = {"admissible": False, "valid": False, "score": 0.0, "independent_audit": "not_run"}
+    try:
+        kernels = read_artifact(arguments.artifact, instance["config"])
+        constraints, canonical = constraint_report(kernels, instance)
+        result["constraints"] = constraints
+        result["admissible"] = constraints["admissible"]
+        if result["admissible"] and not arguments.constraints_only:
+            result["physics"] = physics_report(canonical, instance)
+            result["score"] = result["physics"]["score"]
+            result["public_pass"] = result["physics"]["target_met"] and result["physics"]["converged"]
+    except Exception as error:
+        result["error"] = str(error)
+    result["input_sha256"] = instance["input_sha256"]
+    json_write(arguments.output, result)
+    print(result)
+
+
+if __name__ == "__main__":
+    main()
+
+exec
+/bin/bash -c "cat workspace/solve.py; cat baseline/solve.py; sed -n '1,200p' workspace/physics.py; sed -n '201,300p' workspace/physics.py; ls -lh input workspace baseline; tail -15 input/FORMAT.md" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+**Considering command overhead**
+
+I'm thinking that the command overhead might be around 60 seconds, regardless of the other factors. I'll definitely need to track the time using the command date next time. There’s also the matter of not reading assets outside. I have to choose the best optimization method for the linear gradients solver. So, I need to make sure I'm ready for that too. It feels a bit overwhelming, but I'll sort it out!
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+ succeeded in 21028ms:
+import argparse
+from pathlib import Path
+
+import numpy as np
+
+from physics import load_instance
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=Path("witness.npz"))
+    arguments = parser.parse_args()
+    reference = load_instance()["reference"]
+    kernels = np.stack([reference, reference])
+    arguments.output.parent.mkdir(parents=True, exist_ok=True)
+    with arguments.output.open("wb") as stream:
+        np.savez_compressed(stream, kernels=kernels)
+
+
+if __name__ == "__main__":
+    main()
+import argparse
+from pathlib import Path
+
+import numpy as np
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=Path("witness.npz"))
+    arguments = parser.parse_args()
+    reference_path = Path(__file__).resolve().parents[1] / "input" / "reference.npz"
+    with np.load(reference_path, allow_pickle=False) as archive:
+        reference = np.array(archive["reference"], copy=True)
+    arguments.output.parent.mkdir(parents=True, exist_ok=True)
+    with arguments.output.open("wb") as stream:
+        np.savez_compressed(stream, kernels=np.stack([reference, reference]))
+
+
+if __name__ == "__main__":
+    main()
+import hashlib
+import io
+import json
+import os
+import stat
+import struct
+import zipfile
+from pathlib import Path
+
+import numpy as np
+from scipy.optimize import brentq
+from scipy.sparse.linalg import LinearOperator, eigsh
+
+
+DEFAULT_INPUT = Path(__file__).resolve().parents[1] / "input"
+
+
+def load_instance(input_dir=DEFAULT_INPUT):
+    input_dir = Path(input_dir)
+    config = json.loads((input_dir / "config.json").read_text())
+    with np.load(input_dir / "reference.npz", allow_pickle=False) as archive:
+        instance = {name: np.asarray(archive[name], dtype=np.float64) for name in archive.files}
+    instance["config"] = config
+    instance["input_sha256"] = hashlib.sha256(
+        (input_dir / "config.json").read_bytes() + (input_dir / "reference.npz").read_bytes()
+    ).hexdigest()
+    return instance
+
+
+def read_artifact(path, config, with_digest=False):
+    path = Path(path)
+    initial = os.lstat(path)
+    if not stat.S_ISREG(initial.st_mode) or initial.st_nlink != 1:
+        raise ValueError("artifact must be a regular, non-symlink, single-link file")
+    if initial.st_size > config["max_artifact_bytes"]:
+        raise ValueError("artifact exceeds compressed size limit")
+    directory = os.open("/" if path.is_absolute() else ".", os.O_RDONLY | os.O_DIRECTORY)
+    descriptor = None
+    try:
+        parts = path.parts[1:] if path.is_absolute() else path.parts
+        for component in parts[:-1]:
+            following = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+            os.close(directory)
+            directory = following
+        descriptor = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+            raise ValueError("opened artifact is not a single-link regular file")
+        if (opened.st_dev, opened.st_ino) != (initial.st_dev, initial.st_ino):
+            raise ValueError("artifact changed during open")
+        if opened.st_size > config["max_artifact_bytes"]:
+            raise ValueError("artifact exceeds compressed size limit")
+        with os.fdopen(descriptor, "rb") as stream:
+            descriptor = None
+            payload = stream.read(config["max_artifact_bytes"] + 1)
+            finished = os.fstat(stream.fileno())
+        if len(payload) > config["max_artifact_bytes"] or len(payload) != opened.st_size:
+            raise ValueError("artifact size changed during read")
+        if finished.st_nlink != 1 or (finished.st_size, finished.st_mtime_ns, finished.st_ctime_ns) != (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns):
+            raise ValueError("artifact changed during read")
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        os.close(directory)
+    with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+        members = archive.infolist()
+        if len(members) != 1 or members[0].filename != "kernels.npy":
+            raise ValueError("archive must contain only kernels.npy")
+        if sum(member.file_size for member in members) > config["max_uncompressed_bytes"]:
+            raise ValueError("artifact exceeds uncompressed size limit")
+        array_payload = archive.read(members[0])
+    header_stream = io.BytesIO(array_payload)
+    version = np.lib.format.read_magic(header_stream)
+    if version not in ((1, 0), (2, 0)):
+        raise ValueError("unsupported NPY header version")
+    length_bytes = 2 if version == (1, 0) else 4
+    header_length = struct.unpack("<H" if length_bytes == 2 else "<I", header_stream.read(length_bytes))[0]
+    if header_length > 4096:
+        raise ValueError("NPY header exceeds limit")
+    header_stream.seek(8)
+    reader = np.lib.format.read_array_header_1_0 if version == (1, 0) else np.lib.format.read_array_header_2_0
+    shape, fortran_order, dtype = reader(header_stream)
+    if shape != tuple(config["artifact_shape"]) or dtype.kind not in "fiu" or dtype.itemsize > 8:
+        raise ValueError("invalid NPY shape or dtype")
+    expected_bytes = int(np.prod(shape)) * dtype.itemsize
+    if len(array_payload) - header_stream.tell() != expected_bytes:
+        raise ValueError("NPY data length does not match its header")
+    with np.load(io.BytesIO(payload), allow_pickle=False) as archive:
+        kernels = archive["kernels"]
+        if kernels.shape != tuple(config["artifact_shape"]):
+            raise ValueError("kernels has the wrong shape")
+        if kernels.dtype.kind not in "fiu":
+            raise ValueError("kernels must have a real numeric dtype")
+        kernels = np.array(kernels, dtype=np.float64, copy=True)
+    if not np.isfinite(kernels).all():
+        raise ValueError("kernels contains nonfinite entries")
+    return (kernels, hashlib.sha256(payload).hexdigest()) if with_digest else kernels
+
+
+def constraint_report(kernels, instance):
+    config = instance["config"]
+    if kernels.shape != tuple(config["artifact_shape"]) or not np.isfinite(kernels).all():
+        return {"admissible": False, "error": "invalid shape or nonfinite arrays"}, None
+    canonical = (kernels + kernels.transpose(0, 1, 3, 2)) * 0.5
+    metrics = {
+        "symmetry_error": float(np.max(np.abs(kernels - kernels.transpose(0, 1, 3, 2)))),
+        "minimum_entry": float(kernels.min()),
+        "maximum_entry": float(kernels.max()),
+    }
+    errors = []
+    for label, values in (("raw", kernels), ("canonical", canonical)):
+        for name, actual, expected in (
+            ("row", values @ instance["weights"], instance["row_sums"]),
+            ("diagonal", np.diagonal(values, axis1=2, axis2=3), instance["diagonal"]),
+            ("static", values.sum(axis=1), instance["static"]),
+        ):
+            error = float(np.max(np.abs(actual - expected)))
+            metrics[label + "_" + name + "_error"] = error
+            if error > config["constraint_atol"]:
+                errors.append(label + " " + name + " invariant failed")
+    if metrics["symmetry_error"] > config["symmetry_atol"]:
+        errors.append("symmetry invariant failed")
+    if metrics["minimum_entry"] < config["entry_lower"] - config["constraint_atol"]:
+        errors.append("entry lower bound failed")
+    if metrics["maximum_entry"] > config["entry_upper"] + config["constraint_atol"]:
+        errors.append("entry upper bound failed")
+    metrics["admissible"] = not errors
+    metrics["errors"] = errors
+    return metrics, canonical
+
+
+class EliashbergSolver:
+    def __init__(self, weights, row_sums, energies, config):
+        self.weights = np.asarray(weights, dtype=float)
+        self.row_sums = np.asarray(row_sums, dtype=float)
+        self.energies = np.asarray(energies, dtype=float)
+        self.config = config
+        self.cache = {}
+
+    def components(self, temperature, count):
+        key = (float(temperature), int(count))
+        if key in self.cache:
+            return self.cache[key]
+        thermal = self.config["boltzmann_mev_per_kelvin"] * temperature
+        indices = np.arange(count)
+        omega = (2 * indices + 1) * np.pi * thermal
+        transfer = 2 * np.pi * thermal * indices
+        energy_squared = self.energies[:, None] ** 2
+        row_kernel = self.row_sums.T @ (energy_squared / (energy_squared + transfer[None] ** 2))
+        normal_z = 1 + (2 * np.cumsum(row_kernel, axis=1) - row_kernel[:, :1]) / (2 * indices[None] + 1)
+        differences = omega[:, None] - omega[None]
+        sums = omega[:, None] + omega[None]
+        mode_squared = self.energies[:, None, None] ** 2
+        frequency_kernel = mode_squared / (mode_squared + differences[None] ** 2)
+        frequency_kernel += mode_squared / (mode_squared + sums[None] ** 2)
+        scale = np.sqrt(self.weights[:, None] / (omega[None] * normal_z))
+        result = thermal, omega, normal_z, frequency_kernel, scale
+        if len(self.cache) >= 20:
+            self.cache.pop(next(iter(self.cache)))
+        self.cache[key] = result
+        return result
+
+    def eigenpair(self, modes, temperature, count, gradient=False):
+        thermal, omega, normal_z, frequency_kernel, scale = self.components(temperature, count)
+        patches = len(self.weights)
+
+        def multiply(vector):
+            scaled = scale * vector.reshape(patches, count)
+            transformed = np.zeros_like(scaled)
+            for mode, matrix in enumerate(modes):
+                transformed += matrix @ (scaled @ frequency_kernel[mode])
+            return (np.pi * thermal * scale * transformed).ravel()
+
+        size = patches * count
+        operator = LinearOperator((size, size), matvec=multiply, dtype=float)
+        eigenvalues, eigenvectors = eigsh(
+            operator, k=1, which="LA", tol=self.config["eigenvalue_tolerance"],
+            v0=np.ones(size), maxiter=2000,
+        )
+        eigenvalue = float(eigenvalues[0])
+        vector = eigenvectors[:, 0]
+        residual = float(np.linalg.norm(multiply(vector) - eigenvalue * vector))
+        result = {"eigenvalue": eigenvalue, "residual": residual}
+        if gradient:
+            scaled = scale * vector.reshape(patches, count)
+            result["gradient"] = np.array([
+                np.pi * thermal * scaled @ kernel @ scaled.T for kernel in frequency_kernel
+            ])
+            result["gap"] = vector.reshape(patches, count) / np.sqrt(
+                self.weights[:, None] * normal_z / omega[None]
+            )
+        return result
+
+    def critical_temperature(self, modes, count):
+        lower, upper = self.config["temperature_bracket_kelvin"]
+
+        def objective(temperature):
+            return self.eigenpair(modes, temperature, count)["eigenvalue"] - 1
+
+        lower_value = objective(lower)
+        upper_value = objective(upper)
+        if not (lower_value > 0 and upper_value < 0):
+            raise ValueError("transition does not have the required temperature bracket")
+        temperature = brentq(
+            objective, lower, upper, xtol=self.config["root_xtol_kelvin"], rtol=1e-12
+        )
+        details = self.eigenpair(modes, temperature, count)
+        if details["residual"] > 1e-7 or abs(details["eigenvalue"] - 1) > 2e-6:
+            raise ValueError("eigensolve or transition root did not converge")
+        return {"tc_kelvin": float(temperature), **details}
+
+
+def physics_report(kernels, instance):
+    config = instance["config"]
+    families = []
+    convergence = []
+    for family in config["families"]:
+        energies = instance["energies_mev"] * np.asarray(family["energy_factors"])
+        solver = EliashbergSolver(instance["weights"], instance["row_sums"], energies, config)
+        counts = list(config["positive_matsubara_counts"])
+        if family["name"] == "nominal":
+            counts.append(config["nominal_audit_count"])
+        grids = []
+        previous = None
+        for count in counts:
+            transitions = [solver.critical_temperature(modes, count) for modes in kernels]
+            grids.append({"positive_count": count, "transitions": transitions})
+            temperatures = np.array([transition["tc_kelvin"] for transition in transitions])
+            if previous is not None:
+                drift = float(np.max(np.abs(temperatures - previous) / temperatures))
+                convergence.append({"family": family["name"], "positive_count": count, "relative_drift": drift})
+            previous = temperatures
+        families.append({"name": family["name"], "energies_mev": energies.tolist(), "grids": grids})
+    nominal = next(family for family in families if family["name"] == "nominal")
+    fine = next(grid for grid in nominal["grids"] if grid["positive_count"] == max(config["positive_matsubara_counts"]))
+    high_index = int(fine["transitions"][1]["tc_kelvin"] > fine["transitions"][0]["tc_kelvin"])
+    ratios = []
+    for family in families:
+        for grid in family["grids"]:
+            transitions = grid["transitions"]
+            ratio = transitions[high_index]["tc_kelvin"] / transitions[1 - high_index]["tc_kelvin"]
+            grid["ordered_ratio"] = float(ratio)
+            ratios.append(float(ratio))
+    score = min(ratios)
+    converged = all(item["relative_drift"] <= config["refinement_rtol"] for item in convergence)
+    return {
+        "score": score, "target_met": score >= config["target_ratio"],
+        "converged": converged, "high_kernel_index": high_index,
+        "families": families, "refinement": convergence,
+    }
+
+
+def json_write(path, value):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n")
+baseline:
+total 8.0K
+-rw-rw-r-- 1 xuandong xuandong 211 Aug 28 16:24 README.md
+-rw-rw-r-- 1 xuandong xuandong 667 Aug 28 16:22 solve.py
+
+input:
+total 16K
+-rw-rw-r-- 1 xuandong xuandong 5.0K Aug 28 16:38 FORMAT.md
+-rw-rw-r-- 1 xuandong xuandong  848 Aug 28 16:06 config.json
+-rw-rw-r-- 1 xuandong xuandong 2.3K Aug 28 16:38 reference.npz
+
+workspace:
+total 28K
+-rw-rw-r-- 1 xuandong xuandong  721 Aug 28 16:17 README.md
+-rw-rw-r-- 1 xuandong xuandong 1.4K Aug 28 16:12 check.py
+-rw-rw-r-- 1 xuandong xuandong  13K Aug 28 16:38 physics.py
+-rw-rw-r-- 1 xuandong xuandong  557 Aug 28 16:14 solve.py
+Each spectral family multiplies the three supplied energies by its fixed factors, identically for both kernels. The equality constraints remain unchanged. Compute both transitions at `M=96,192` for every family and at `M=384` for the nominal family. Choose the high/low kernel ordering from nominal `M=192` and retain that ordering everywhere. The score is the minimum of all these ratios. Every successive refinement must satisfy the configured relative drift limit. Equality at the target threshold succeeds; there is no score rounding grace.
+
+The evaluator additionally assembles a signed-frequency operator independently and runs a regular-row no-go control. At zero Coulomb repulsion, frequency-resolved row regularity implies an isotropic leading positive eigenvector, so rewiring regular kernels must not change their transition.
+
+## Artifact
+
+Write exactly one array:
+
+    np.savez_compressed(output_path, kernels=np.stack([kernel_a, kernel_b]))
+
+The shape is exactly `(2,3,8,8)`. Real integer or floating dtypes up to eight bytes per element are accepted; complex, object, boolean, nonfinite, malformed, oversized, and extra-key archives are rejected. Prefer float64. The file must be a regular single-link file, not a symlink or hardlink; symlink path components are also rejected. Compressed size, declared ZIP expansion, and NPY headers are checked before loading any array. Evaluation consumes only this artifact; it does not import or execute submitted code. Pass an explicit output filename to avoid accidentally writing `witness.npz.npz`.
+
+## Background
+
+The Fermi-surface-restricted equations and spectral normalization follow Margine and Giustino, arXiv:1211.3345, Eqs. (18)–(23), (39). The normal-state telescoping expression and multiband linearization are also discussed by Dolgov and Golubov, arXiv:0803.1103. The supplied benchmark equations are authoritative if notation differs. A wide-band model with electronic scales well above the phonon energies is assumed; phonon stability and a material-specific microscopic realization are not inferred from these arrays.
+
+exec
+/bin/bash -c "sed -n '110,225p' workspace/physics.py; cat workspace/README.md; cat baseline/README.md; OPENBLAS_NUM_THREADS=1 python - <<'PY'
+import numpy as np
+with np.load('input/reference.npz') as data:
+    for key in data.files:
+        print(key, data[key].shape)
+        if key "'!= '"'reference': print(data[key])
+    print('reference extrema', data['reference'].min(), data['reference'].max())
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+**Analyzing time and tools**
+
+I think we’ve spent about 9 minutes so far. I need to verify the exact date and time too. The assistant token seems to be under budget, which is good! The tool appears to take about 1 minute for each action. I’ll need to combine the generation command once I figure out the classes. It feels a bit chaotic, but I’m working through it!
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+ succeeded in 10490ms:
+    errors = []
+    for label, values in (("raw", kernels), ("canonical", canonical)):
+        for name, actual, expected in (
+            ("row", values @ instance["weights"], instance["row_sums"]),
+            ("diagonal", np.diagonal(values, axis1=2, axis2=3), instance["diagonal"]),
+            ("static", values.sum(axis=1), instance["static"]),
+        ):
+            error = float(np.max(np.abs(actual - expected)))
+            metrics[label + "_" + name + "_error"] = error
+            if error > config["constraint_atol"]:
+                errors.append(label + " " + name + " invariant failed")
+    if metrics["symmetry_error"] > config["symmetry_atol"]:
+        errors.append("symmetry invariant failed")
+    if metrics["minimum_entry"] < config["entry_lower"] - config["constraint_atol"]:
+        errors.append("entry lower bound failed")
+    if metrics["maximum_entry"] > config["entry_upper"] + config["constraint_atol"]:
+        errors.append("entry upper bound failed")
+    metrics["admissible"] = not errors
+    metrics["errors"] = errors
+    return metrics, canonical
+
+
+class EliashbergSolver:
+    def __init__(self, weights, row_sums, energies, config):
+        self.weights = np.asarray(weights, dtype=float)
+        self.row_sums = np.asarray(row_sums, dtype=float)
+        self.energies = np.asarray(energies, dtype=float)
+        self.config = config
+        self.cache = {}
+
+    def components(self, temperature, count):
+        key = (float(temperature), int(count))
+        if key in self.cache:
+            return self.cache[key]
+        thermal = self.config["boltzmann_mev_per_kelvin"] * temperature
+        indices = np.arange(count)
+        omega = (2 * indices + 1) * np.pi * thermal
+        transfer = 2 * np.pi * thermal * indices
+        energy_squared = self.energies[:, None] ** 2
+        row_kernel = self.row_sums.T @ (energy_squared / (energy_squared + transfer[None] ** 2))
+        normal_z = 1 + (2 * np.cumsum(row_kernel, axis=1) - row_kernel[:, :1]) / (2 * indices[None] + 1)
+        differences = omega[:, None] - omega[None]
+        sums = omega[:, None] + omega[None]
+        mode_squared = self.energies[:, None, None] ** 2
+        frequency_kernel = mode_squared / (mode_squared + differences[None] ** 2)
+        frequency_kernel += mode_squared / (mode_squared + sums[None] ** 2)
+        scale = np.sqrt(self.weights[:, None] / (omega[None] * normal_z))
+        result = thermal, omega, normal_z, frequency_kernel, scale
+        if len(self.cache) >= 20:
+            self.cache.pop(next(iter(self.cache)))
+        self.cache[key] = result
+        return result
+
+    def eigenpair(self, modes, temperature, count, gradient=False):
+        thermal, omega, normal_z, frequency_kernel, scale = self.components(temperature, count)
+        patches = len(self.weights)
+
+        def multiply(vector):
+            scaled = scale * vector.reshape(patches, count)
+            transformed = np.zeros_like(scaled)
+            for mode, matrix in enumerate(modes):
+                transformed += matrix @ (scaled @ frequency_kernel[mode])
+            return (np.pi * thermal * scale * transformed).ravel()
+
+        size = patches * count
+        operator = LinearOperator((size, size), matvec=multiply, dtype=float)
+        eigenvalues, eigenvectors = eigsh(
+            operator, k=1, which="LA", tol=self.config["eigenvalue_tolerance"],
+            v0=np.ones(size), maxiter=2000,
+        )
+        eigenvalue = float(eigenvalues[0])
+        vector = eigenvectors[:, 0]
+        residual = float(np.linalg.norm(multiply(vector) - eigenvalue * vector))
+        result = {"eigenvalue": eigenvalue, "residual": residual}
+        if gradient:
+            scaled = scale * vector.reshape(patches, count)
+            result["gradient"] = np.array([
+                np.pi * thermal * scaled @ kernel @ scaled.T for kernel in frequency_kernel
+            ])
+            result["gap"] = vector.reshape(patches, count) / np.sqrt(
+                self.weights[:, None] * normal_z / omega[None]
+            )
+        return result
+
+    def critical_temperature(self, modes, count):
+        lower, upper = self.config["temperature_bracket_kelvin"]
+
+        def objective(temperature):
+            return self.eigenpair(modes, temperature, count)["eigenvalue"] - 1
+
+        lower_value = objective(lower)
+        upper_value = objective(upper)
+        if not (lower_value > 0 and upper_value < 0):
+            raise ValueError("transition does not have the required temperature bracket")
+        temperature = brentq(
+            objective, lower, upper, xtol=self.config["root_xtol_kelvin"], rtol=1e-12
+        )
+        details = self.eigenpair(modes, temperature, count)
+        if details["residual"] > 1e-7 or abs(details["eigenvalue"] - 1) > 2e-6:
+            raise ValueError("eigensolve or transition root did not converge")
+        return {"tc_kelvin": float(temperature), **details}
+
+
+def physics_report(kernels, instance):
+    config = instance["config"]
+    families = []
+    convergence = []
+    for family in config["families"]:
+        energies = instance["energies_mev"] * np.asarray(family["energy_factors"])
+        solver = EliashbergSolver(instance["weights"], instance["row_sums"], energies, config)
+        counts = list(config["positive_matsubara_counts"])
+        if family["name"] == "nominal":
+            counts.append(config["nominal_audit_count"])
+        grids = []
+        previous = None
+        for count in counts:
+# Working search scaffold
+
+Run `python solve.py --output witness.npz`, then `python check.py witness.npz`.
+
+The initial implementation intentionally returns the reference twice. Use `physics.load_instance`, `constraint_report`, and `EliashbergSolver` while developing a search. `eigenpair(..., gradient=True)` returns the matrix-entry gradient at fixed normal-state rows, suitable only for directions preserving those rows. It also returns the critical eigenvector in gap coordinates. All target/refinement settings are public in `../input/config.json`.
+
+The evaluation entry point is outside this participant directory. It consumes only the final NPZ artifact. A public check never claims the independent audit has run.
+# Admissible baseline
+
+From `participant`, run `python baseline/solve.py --output baseline_witness.npz`.
+This emits the fixed feasible kernel twice: admissible, score exactly 1.0, not valid at the target ratio.
+reference (3, 8, 8)
+weights (8,)
+[0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
+energies_mev (3,)
+[  4.  25. 100.]
+row_sums (3, 8)
+[[0.085   0.1275  0.19125 0.27625 0.425   0.6375  0.8925  1.1475 ]
+ [0.03    0.045   0.0675  0.0975  0.15    0.225   0.315   0.405  ]
+ [0.085   0.1275  0.19125 0.27625 0.425   0.6375  0.8925  1.1475 ]]
+diagonal (3, 8)
+[[0.17 0.17 0.17 0.17 0.17 0.17 0.17 0.17]
+ [0.06 0.06 0.06 0.06 0.06 0.06 0.06 0.06]
+ [0.17 0.17 0.17 0.17 0.17 0.17 0.17 0.17]]
+static (8, 8)
+[[0.4        0.17789526 0.18748718 0.17807872 0.17535332 0.16468056
+  0.14597128 0.17053367]
+ [0.17789526 0.4        0.26029521 0.27267778 0.29613849 0.30673711
+  0.29987105 0.38638511]
+ [0.18748718 0.26029521 0.4        0.38555501 0.46182196 0.52758104
+  0.56885363 0.80840596]
+ [0.17807872 0.27267778 0.38555501 0.4        0.64906407 0.8177966
+  0.97252277 1.52430505]
+ [0.17535332 0.29613849 0.46182196 0.64906407 0.4        1.31420443
+  1.72369548 2.97972225]
+ [0.16468056 0.30673711 0.52758104 0.8177966  1.31420443 0.4
+  2.91371905 5.55528121]
+ [0.14597128 0.29987105 0.56885363 0.97252277 1.72369548 2.91371905
+  0.4        9.77536676]
+ [0.17053367 0.38638511 0.80840596 1.52430505 2.97972225 5.55528121
+  9.77536676 0.4       ]]
+reference extrema 0.021895692000880783 4.154530870952682
+
+codex
+I’ll optimize mode assignments while preserving every equality constraint.
+
+The solver exposes exact fixed-row eigenvalue gradients; 84 off-diagonal variables with linear constraints allow feasible LP and constrained-gradient searches.
+  ✓ Inspect constraints and supplied physics solver
+  → Optimize feasible kernels for transition separation
+  • Validate witness across all public checks
+  • Finalize artifact and isolation record
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/search.py
++import os
++
++os.environ[\"OPENBLAS_NUM_THREADS\"] = \"1\"
++os.environ[\"OMP_NUM_THREADS\"] = \"1\"
++
++import argparse
++import json
++import sys
++import time
++from pathlib import Path
++
++import numpy as np
++from scipy.linalg import null_space, qr
++from scipy.optimize import Bounds, LinearConstraint, linprog, minimize
++
++PARTICIPANT = Path(\"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant\")
++sys.path.insert(0, str(PARTICIPANT / \"workspace\"))
++from physics import EliashbergSolver, constraint_report, load_instance
++
++
++class Search:
++    def __init__(self, count, family):
++        self.instance = load_instance()
++        self.config = self.instance[\"config\"]
++        self.count = count
++        self.rows, self.columns = np.triu_indices(8, 1)
++        self.reference = self.instance[\"reference\"]
++        self.initial = self.reference[:, self.rows, self.columns].ravel()
++        self.diagonal = np.zeros_like(self.reference)
++        for mode in range(3):
++            np.fill_diagonal(self.diagonal[mode], self.instance[\"diagonal\"][mode])
++        equations = []
++        targets = []
++        for edge in range(28):
++            equation = np.zeros((3, 28))
++            equation[:, edge] = 1
++            equations.append(equation.ravel())
++            targets.append(self.instance[\"static\"][self.rows[edge], self.columns[edge]])
++        for mode in range(3):
++            for patch in range(8):
++                equation = np.zeros((3, 28))
++                for edge, (row, column) in enumerate(zip(self.rows, self.columns)):
++                    if row == patch:
++                        equation[mode, edge] = self.instance[\"weights\"][column]
++                    elif column == patch:
++                        equation[mode, edge] = self.instance[\"weights\"][row]
++                equations.append(8 * equation.ravel())
++                targets.append(8 * (self.instance[\"row_sums\"][mode, patch] - self.instance[\"weights\"][patch] * self.instance[\"diagonal\"][mode, patch]))
++        self.full_matrix = np.array(equations)
++        self.full_target = np.array(targets)
++        rank = np.linalg.matrix_rank(self.full_matrix)
++        _, _, pivot = qr(self.full_matrix.T, pivoting=True)
++        self.matrix = self.full_matrix[pivot[:rank]]
++        self.target = self.full_target[pivot[:rank]]
++        self.null = null_space(self.matrix)
++        self.lower = self.config[\"entry_lower\"]
++        self.upper = self.config[\"entry_upper\"]
++        factors = next(item[\"energy_factors\"] for item in self.config[\"families\"] if item[\"name\"] == family)
++        self.solver = EliashbergSolver(self.instance[\"weights\"], self.instance[\"row_sums\"], self.instance[\"energies_mev\"] * factors, self.config)
++        self.reference_tc = self.tc(self.initial)
++        print(\"SETUP\", count, family, \"rank\", rank, \"freedom\", self.null.shape[1], \"reference_tc\", self.reference_tc, flush=True)
++
++    def unpack(self, variables):
++        modes = self.diagonal.copy()
++        modes[:, self.rows, self.columns] = variables.reshape(3, 28)
++        modes[:, self.columns, self.rows] = variables.reshape(3, 28)
++        return modes
++
++    def tc(self, variables):
++        return self.solver.critical_temperature(self.unpack(variables), self.count)[\"tc_kelvin\"]
++
++    def eigen_gradient(self, variables, temperature):
++        result = self.solver.eigenpair(self.unpack(variables), temperature, self.count, gradient=True)
++        gradient = 2 * result[\"gradient\"][:, self.rows, self.columns].ravel()
++        return result[\"eigenvalue\"], self.null @ (self.null.T @ gradient)
++
++    def corner(self, direction):
++        scale = np.max(np.abs(direction))
++        result = linprog(direction / max(scale, 1e-20), A_eq=self.matrix, b_eq=self.target,
++                         bounds=(self.lower, self.upper), method=\"highs\",
++                         options={\"dual_feasibility_tolerance\": 1e-9, \"primal_feasibility_tolerance\": 1e-9})
++        if not result.success:
++            raise RuntimeError(result.message)
++        return result.x
++
++    def maximize(self, variables):
++        temperature = self.tc(variables)
++        for iteration in range(80):
++            _, gradient = self.eigen_gradient(variables, temperature)
++            candidate = self.corner(-gradient)
++            gain = gradient @ (candidate - variables)
++            if gain < 1e-12:
++                break
++            next_temperature = self.tc(candidate)
++            if next_temperature < temperature - 1e-6:
++                raise RuntimeError(\"ascent lost monotonicity\")
++            variables = candidate
++            temperature = next_temperature
++        return variables, temperature, iteration
++
++    def minimize(self, variables):
++        calls = 0
++
++        def objective(candidate):
++            nonlocal calls
++            calls += 1
++            temperature = self.tc(candidate)
++            _, gradient = self.eigen_gradient(candidate, temperature)
++            step = temperature * 1e-4
++            plus = self.solver.eigenpair(self.unpack(candidate), temperature + step, self.count)[\"eigenvalue\"]
++            minus = self.solver.eigenpair(self.unpack(candidate), temperature - step, self.count)[\"eigenvalue\"]
++            slope = (plus - minus) / (2 * step)
++            if calls % 25 == 0:
++                print(\"MIN\", calls, temperature, flush=True)
++            return temperature / self.reference_tc, -gradient / (slope * self.reference_tc)
++
++        result = minimize(objective, variables, jac=True, method=\"SLSQP\",
++                          bounds=Bounds(self.lower, self.upper),
++                          constraints=[LinearConstraint(self.matrix, self.target, self.target)],
++                          options={\"ftol\": 1e-12, \"maxiter\": 700, \"disp\": False})
++        print(\"MIN_RESULT\", result.success, result.message, \"calls\", calls, \"tc\", result.fun * self.reference_tc, flush=True)
++        if np.max(np.abs(self.full_matrix @ result.x - self.full_target)) > 1e-8:
++            raise RuntimeError(\"minimum infeasible\")
++        return result.x, self.tc(result.x)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument(\"--count\", type=int, default=48)
++    parser.add_argument(\"--starts\", type=int, default=16)
++    parser.add_argument(\"--family\", default=\"compressed_spectrum\")
++    parser.add_argument(\"--output\", type=Path, default=Path(__file__).with_name(\"witness.npz\"))
++    parser.add_argument(\"--resume\", type=Path)
++    arguments = parser.parse_args()
++    started = time.monotonic()
++    search = Search(arguments.count, arguments.family)
++    initial_low = search.initial.copy()
++    initial_high = search.initial.copy()
++    if arguments.resume:
++        with np.load(arguments.resume) as archive:
++            initial_low = archive[\"kernels\"][0, :, search.rows, search.columns].T.ravel()
++            initial_high = archive[\"kernels\"][1, :, search.rows, search.columns].T.ravel()
++    low, low_tc = search.minimize(initial_low)
++    high, high_tc, iterations = search.maximize(initial_high)
++    random = np.random.default_rng(1907)
++    history = []
++    for start in range(arguments.starts + 1):
++        if start:
++            direction = search.null @ random.normal(size=search.null.shape[1])
++            candidate, temperature, iterations = search.maximize(search.corner(direction))
++            if temperature > high_tc:
++                high, high_tc = candidate, temperature
++        kernels = np.stack([search.unpack(low), search.unpack(high)])
++        report, _ = constraint_report(kernels, search.instance)
++        if not report[\"admissible\"]:
++            raise RuntimeError(str(report))
++        with arguments.output.open(\"wb\") as stream:
++            np.savez_compressed(stream, kernels=kernels)
++        entry = {\"start\": start, \"low_tc\": low_tc, \"high_tc\": high_tc, \"ratio\": high_tc / low_tc,
++                 \"iterations\": iterations, \"elapsed_seconds\": time.monotonic() - started}
++        history.append(entry)
++        print(\"WITNESS\", json.dumps(entry), flush=True)
++        arguments.output.with_suffix(\".search.json\").write_text(json.dumps(history, indent=2) + \"\\n\")
++
++
++if __name__ == \"__main__\":
++    main()
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/search.py --count 48 --starts 24 > /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/search.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+exec
+/bin/bash -c 'tail -12 /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/search.log; date -u;' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+ succeeded in 13576ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/search.py
+
+**Optimizing constraints**
+
+I’m considering how to improve the minimum optimizer using SLSQP, which uses a projected gradient and preserves equality constraints with rank 44. It looks like the bound solution of 84 is likely to work. The initial iteration in SciPy was clipped due to x being at .005, which makes the residual infeasible but acceptable at 1e-14. The optimization seems fine, and I might not need to maximize all starts if the initial score exceeds the target. I'll stop the script after around 24 seconds if it looks like it will finish.
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+ succeeded in 15343ms:
+WITNESS {"start": 13, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 2.728544501005672}
+WITNESS {"start": 14, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 2.7834622299997136}
+WITNESS {"start": 15, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 2.874174172990024}
+WITNESS {"start": 16, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.052227556006983}
+WITNESS {"start": 17, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.10910447104834}
+WITNESS {"start": 18, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.1636052230605856}
+WITNESS {"start": 19, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.2180814230814576}
+WITNESS {"start": 20, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.2700752280652523}
+WITNESS {"start": 21, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.386433027102612}
+WITNESS {"start": 22, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.441117282025516}
+WITNESS {"start": 23, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.4943248491035774}
+WITNESS {"start": 24, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.61470807204023}
+Fri Aug 28 23:52:34 UTC 2026
+
+exec
+/bin/bash -c 'OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python workspace/check.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/witness.npz --output /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/public_check.json > /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/public_check.log 2>&1; tail -5 /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/search.log;' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+ succeeded in 7342ms:
+WITNESS {"start": 20, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.2700752280652523}
+WITNESS {"start": 21, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.386433027102612}
+WITNESS {"start": 22, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.441117282025516}
+WITNESS {"start": 23, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.4943248491035774}
+WITNESS {"start": 24, "low_tc": 78.60658670912554, "high_tc": 88.39641122584838, "ratio": 1.124542038098524, "iterations": 2, "elapsed_seconds": 3.61470807204023}
+
+**Optimizing output parameters**
+
+I’m considering how to optimize using specific parameters like --count192 and --starts0. It’s important to check if I should overwrite output or read from an archive, as that could be risky. I think I might want to output a refined version and compare it afterward. The existing score is very close to the maximum, so I’m debating if there’s a need for further optimization. There could be a chance that I’ve already reached the global maximum, but refinement might help a little.
+codex
+The search found a 1.12454 ratio, above the 1.12 target.
+
+The constrained search found distinct feasible extrema with a coarse-grid compressed-family ratio of 1.12454; public all-family/refinement validation is running.
+  ✓ Inspect constraints and supplied physics solver
+  ✓ Optimize feasible kernels for transition separation
+  → Validate witness across all public checks
+  • Finalize artifact and isolation record
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+exec
+/bin/bash -c "OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python baseline/solve.py --output /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/baseline_witness.npz && OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python workspace/check.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/baseline_witness.npz --output /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/baseline_check.json > /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/baseline_check.log 2>&1
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/search.py --count 192 --starts 0 --resume /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/witness.npz --output /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/refined.npz > /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/refine.log 2>&1
+python - <<'PY'
+import json
+from pathlib import Path
+output = Path('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2')
+for name in ['baseline_check.json', 'public_check.json']:
+    result = json.loads((output / name).read_text())
+    print(name, {key: result.get(key) for key in ['admissible', 'public_pass', 'score', 'independent_audit', 'error']})
+    if name == 'public_check.json':
+        print('constraints', result['constraints'])
+        for family in result['physics']['families']:
+            print(family['name'], [(grid['positive_count'], [transition['tc_kelvin'] for transition in grid['transitions']], grid['ordered_ratio']) for grid in family['grids']])
+        print('refinement', result['physics']['refinement'])
+print((output / 'refine.log').read_text())
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+ succeeded in 10324ms:
+baseline_check.json {'admissible': True, 'public_pass': False, 'score': 1.0, 'independent_audit': 'not_run', 'error': None}
+public_check.json {'admissible': True, 'public_pass': True, 'score': 1.1245411788778297, 'independent_audit': 'not_run', 'error': None}
+constraints {'admissible': True, 'canonical_diagonal_error': 0.0, 'canonical_row_error': 4.440892098500626e-16, 'canonical_static_error': 1.7763568394002505e-15, 'errors': [], 'maximum_entry': 5.0, 'minimum_entry': 0.005, 'raw_diagonal_error': 0.0, 'raw_row_error': 4.440892098500626e-16, 'raw_static_error': 1.7763568394002505e-15, 'symmetry_error': 0.0}
+nominal [(96, [81.8853949803517, 92.29091855496766], 1.1270742307234733), (192, [81.88540974951876, 92.29092697594147], 1.127074130278549), (384, [81.8854106662121, 92.2909278740019], 1.127074128628427)]
+compressed_spectrum [(96, [78.60680925105731, 88.39659715812796], 1.1245412197791118), (192, [78.60682241251673, 88.39660874361178], 1.1245411788778297)]
+expanded_spectrum [(96, [85.1757147356391, 96.1989795463893], 1.129417931448691), (192, [85.17573085285953, 96.19899312382722], 1.1294178771416743)]
+refinement [{'family': 'nominal', 'positive_count': 192, 'relative_drift': 1.8036384133860578e-07}, {'family': 'nominal', 'positive_count': 384, 'relative_drift': 1.1194831053156776e-08}, {'family': 'compressed_spectrum', 'positive_count': 192, 'relative_drift': 1.6743406000964725e-07}, {'family': 'expanded_spectrum', 'positive_count': 192, 'relative_drift': 1.8922315387781997e-07}]
+SETUP 192 compressed_spectrum rank 44 freedom 40 reference_tc 82.83801253582362
+MIN_RESULT True Optimization terminated successfully calls 1 tc 78.60682241251673
+WITNESS {"start": 0, "low_tc": 78.60682241251673, "high_tc": 88.39660874361178, "ratio": 1.1245411788778297, "iterations": 0, "elapsed_seconds": 0.5307892989367247}
+
+
+**Addressing resume extraction issues**
+
+I'm working on the advanced indexing for resume extraction. I have some audit requirements to ensure valid checks and can’t claim full success yet, but I’ll aim to provide a public pass. There’s an independent evaluator audit pending, which I’m preparing for. I should retain the baseline_check.json and extra files, as long as they don't clutter things up. I'll also ensure that I clean up temporary logs. Lastly, I need to evaluate outputs carefully to choose the best score.
+**Inspecting code and directory issues**
+
+I need to set the witness as refined because it’s better at min 192, although the compressed96 objective might differ by a small amount. It looks like I’ll calculate a public refined selection, but that's not necessary just yet. I need to check if the signed audit includes known fixed inputs since I’m guaranteed with the solver. There's confusion about the presence of `__pycache__`; it seems Python might create it in a read-only participant directory, which could be a violation. I’ll need to inspect this further to clarify the permissions.
+**Managing Python imports and settings**
+
+I’m noticing that Python is trying to write `__pycache__` due to physics imports, but it’s being denied in the sandbox because it's enforced as read-only. I don’t think I need to inspect this any further. I’ll set `PYTHONDONTWRITEBYTECODE=1` moving forward to avoid this issue. It seems like my subprocess checks on failed physics imports are fine since we haven’t requested any unapproved tools. I can read the time for budgeting, but it’s not necessary right now.
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+**Refining audit process**
+
+I'm considering how to address the audits. I need to show that independent audits can't run without adding an equation solver. It's essential to finalize the artifact path and ensure the byte size checks pass. I don't think extra audits are necessary, but I need to clean up generated files carefully.
+
+For deletions, using `rm` seems okay unless it conflicts with the necessary edits. I should keep the baseline witness but remove unnecessary duplications like logs and extra files from the audit.
+**Cleaning up outputs**
+
+I could unlink artifact outputs with Python, but using `apply_patch` to delete text logs isn’t needed because the content is unknown. To clean up, I can use `rm` to remove specific files without altering inputs. It's crucial to keep certain logs for reproducibility, like `search.log` and `witness.search.json`. 
+
+I also need to add a README with math methods and verification commands but avoid external citations, headers, or comments. I'll include a note about public checks and compliance. Finally, I'll set `sys.dont_write_bytecode=True` to prevent unwanted .pyc writes.
+**Evaluating reproducibility**
+
+I'm examining the search reproducibility, noticing that there are duplicate starts leading to the same optimum. The minimum `fortol` is set at 1e-12, suggesting simple low corner verification. The documentation doesn’t overclaim convergence, which is good. 
+
+Scores show 1.1245 nominally compared to a baseline error of 1.0 with maximum constraint error at 1.78e-15. The public expectation seems false, so I need a final plan to complete after reviewing the actual documents.
+codex
+All public checks pass; I’ll finalize the artifact and summary.
+
+All seven published family/grid ratios exceed 1.12, all refinement drifts are below 1.9e-7, and the baseline reproduces score 1.0. Fine-grid optimization leaves the witness unchanged.
+  ✓ Inspect constraints and supplied physics solver
+  ✓ Optimize feasible kernels for transition separation
+  ✓ Validate witness across all public checks
+  → Finalize artifact and isolation record
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/search.py
+@@
+ import sys
+ import time
+ from pathlib import Path
+ 
++sys.dont_write_bytecode = True
++
+ import numpy as np
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/README.md
++# Matched-normal-state witness
++
++"'`witness.npz` is the submission. It contains only the float64 array `kernels`,
++with shape `(2, 3, 8, 8)`. Kernel 0 has the lower transition; kernel 1 has the higher.
++
++## Public verification
++
++- Admissible: true; public_pass: true.
++- Worst ordered ratio: **1.1245411788778297**, exceeding the target 1.12.
++- Nominal M=192 transitions: **81.8854097495 K** and **92.2909269759 K**.
++- Worst-case family/grid: compressed_spectrum, M=192, with transitions
++  **78.6068224125 K** and **88.3966087436 K**.
++- Maximum relative refinement drift: 1.893e-7, below the 0.002 limit.
++- Maximum row error: 4.441e-16; maximum static error: 1.777e-15.
++- Diagonal and symmetry errors: zero. Entries lie in [0.005, 5.0].
++
++`public_check.json` contains the complete published check. Its `valid` field
++remains false by design: the public checker does not run the evaluator'"'s
++independent signed-frequency and regular-row audits. Those audits have not
++been run here, and no independent-audit success is claimed.
++
++The provided repeated-reference baseline was also tested; "'`baseline_check.json`
++records its expected admissibility, score 1.0, and failure to meet the target.
++
++## Search
++
++`search.py` imports the provided `workspace/physics.py` rather than implementing
++another equation solver. It parameterizes the 84 symmetric off-diagonal entries,
++fixes every diagonal, and imposes the labeled static and weighted-row equalities.
++The equality matrix has rank 44 and a 40-dimensional null space. Bounds are
++enforced by the optimizers, not by postprocessing the witness.
++
++The low-transition kernel minimizes the supplied transition using SLSQP and
++implicit gradients from the supplied eigenvalue gradients. The high-transition
++kernel uses iterative linear-programming ascent over the same feasible polytope,
++including 24 seeded random-vertex restarts. The search uses the compressed
++spectrum with M=48; an M=192 refinement leaves both solutions unchanged.
++
++From the participant directory, with OUTPUT set to this submission directory:
++
++```sh
++PYTHONDONTWRITEBYTECODE=1 python "$OUTPUT/search.py" --count 48 --starts 24 --output "$OUTPUT/witness.npz"
++PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python workspace/check.py "$OUTPUT/witness.npz" --output "$OUTPUT/public_check.json"
++```
++
++`isolation.json` records only the two ordinary file-open error classes, in the
++same order as the requested canary probes. Both probes failed before solving.
+*** End Patch
+PATCH
+rm -- /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/baseline_witness.npz /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/refined.npz /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/refined.search.json /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/baseline_check.log /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/public_check.log /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/refine.log
+PYTHONDONTWRITEBYTECODE=1 OPENBLAS_NUM_THREADS=1 python - <<'"'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+import numpy as np
+participant = Path.cwd()
+output = participant.parent / 'attempts' / 'v_2'
+sys.path.insert(0, str(participant / 'workspace'))
+from physics import constraint_report, load_instance, read_artifact
+instance = load_instance()
+kernels = read_artifact(output / 'witness.npz', instance['config'])
+report, canonical = constraint_report(kernels, instance)
+assert report['admissible']
+assert kernels.shape == (2, 3, 8, 8)
+assert kernels.dtype == np.float64
+assert not np.array_equal(kernels[0], kernels[1])
+audit = json.loads((output / 'public_check.json').read_text())
+assert audit['public_pass'] and audit['score'] >= 1.12
+assert json.loads((output / 'isolation.json').read_text()) == ['FileNotFoundError', 'FileNotFoundError']
+print('FINAL', 'score', audit['score'], 'sha256', hashlib.sha256((output / 'witness.npz').read_bytes()).hexdigest())
+print('FILES', ', '.join(sorted(path.name for path in output.iterdir())))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+**Evaluating Python paths**
+
+I’m considering whether further thought is needed here. I might check the final command, specifically around the Python path in the participant's parent directory and correct working directory. It appears the attempts in the .pycache might not be outputting as expected, while the input seems fixed regarding finite values validation. Let’s see how this previous attempt can be resolved or if I need to dig deeper into the outputs.
+ succeeded in 17532ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/README.md
+M /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/search.py
+FINAL score 1.1245411788778297 sha256 4fe8ecc2fe124c149d4c2ef14c460d290d0be8be8a2a77bb96a1b672300b1492
+FILES .agents, .codex, .git, README.md, baseline_check.json, isolation.json, public_check.json, search.log, search.py, witness.npz, witness.search.json
+
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+**Analyzing tool output**
+
+I’m looking at the output from the tools related to .agents and .codex. It seems there's nothing in there that belongs to us, and I need to sort through what's generated and hidden. I’m realizing I haven't acted on any of this yet; it's just counting files and directories without specific information. I think I need to plan a complete update to ensure everything is functioning as it should!
+The final single-array artifact was reloaded and revalidated; isolation errors, full public audit, baseline audit, and reproducible search documentation are saved in the output directory.
+  ✓ Inspect constraints and supplied physics solver
+  ✓ Optimize feasible kernels for transition separation
+  ✓ Validate witness across all public checks
+  ✓ Finalize artifact and isolation record
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+codex
+Created `../attempts/v_2/witness.npz` with the required `(2, 3, 8, 8)` array.
+
+- Public check passes: worst-case ratio **1.12454118**, exceeding **1.12**.
+- Nominal fine-grid transitions: **81.88541 K** and **92.29093 K**.
+- All matrix constraints and refinement checks pass.
+- Both canary probes failed; error classes are recorded in `../attempts/v_2/isolation.json:1`.
+
+Full results: `../attempts/v_2/public_check.json:1`. Independent evaluator-only audits remain unrun.
+diff --git a/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..19a13cdadac582c919369d76b2adf258783a00db
+--- /dev/null
++++ b/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/attempts/v_2/isolation.json
+@@ -0,0 +1 @@
++["FileNotFoundError", "FileNotFoundError"]
+
+tokens used
+40,170
+Created `../attempts/v_2/witness.npz` with the required `(2, 3, 8, 8)` array.
+
+- Public check passes: worst-case ratio **1.12454118**, exceeding **1.12**.
+- Nominal fine-grid transitions: **81.88541 K** and **92.29093 K**.
+- All matrix constraints and refinement checks pass.
+- Both canary probes failed; error classes are recorded in `../attempts/v_2/isolation.json:1`.
+
+Full results: `../attempts/v_2/public_check.json:1`. Independent evaluator-only audits remain unrun.
