@@ -1,0 +1,69 @@
+* Add the ability to distribute stochastic simulations using MPI with the scheduling method
+
+* In adaptive integrators, the ability to set an absolute cutoff (per vector component) in addition to a relative cutoff
+  for step-error calculations.
+
+* Add a 'moment group 0' which contains simulation constants. 
+  This moment group would be zero-d and would contain various constants depending on the
+  exact simulation. Constants that should be included are: the final value of the propagation dimension,
+   any passed-in arguments, the number of paths (if appropriate), and anything else appropriate.
+  - This can be added in the HDF5 output file.
+  - Add the simulation text to the HDF5 file.  I'd like to make the xsil file redundant.
+
+* Add support for moment post-processing (before stochastic averaging). This is only necessary for multi-path simulations where a temporal fourier transform needs to be averaged.
+
+* Add support for moment post-processing (after stochastic averaging).  This is useful for calculating, for example, Wigner standard deviations.  This means you don't need to do this in MATLAB.
+
+* Determine an appropriate transform and quasi-gauss quadrature for a polar coordinate representation.  I'm imagining a generalisation from our current 'bessel' transforms to allow a (r, \theta) -> (kr, m) transform.  Determining a good numerical method would probably be a moderate numerical-math project with implementation in MATLAB.  Implementation of the resulting work in XMDS would be a very advanced project due to the changes required in the TransformMultiplexer code.
+
+* Investigate performance of XMDS-type simulations for graphics cards using CUDA / OpenCL.  This would require experience with graphics card programming as there are lots of details about how you implement these algorithms which significantly affect performance.
+
+* Optimise MPI / OpenMP performance of XMDS simulations including determination of performance scaling limitations.  For example, on a given system, with 2 CPUs are we CPU-constrained or memory-bandwidth constrained?  What about 4 CPUs? 8? Is there anything we can do to resolve these constraints?  Another example: parts of integration algorithms are actually independent and could in principle be executed concurrently (different steps that are independent, not just the same step but on different parts of the data array).  I fiddled with this briefly, but didn't see a performance improvement.  This was possibly due to being memory-bandwidth constrained, but I don't know.
+
+* Rewrite bindNamedVectors/preflight system. It's a mess. bindNamedVectors/preflight should probably be renamed to something like 'localPreflight'/'nonlocalPreflight'.
+
+
+* Make xmds/xpdeint code compile on Windows. Currently it works in Cygwin but suffers from 
+  SERIOUS performance degradation. I've been trying to compile a simple script (modified 
+  kubo.xmds) using the MS Visual Studio 2005 Express compiler. The following are compile issues:
+  - Headers <unistd.h> <sys/time.h> and <stdint.h> don't exist on Windows. Fixed with #ifdef POSIX.
+      unistd.h - not sure when we use it... perhaps for pthreads?
+      sys/time.h - we'll need to replace gettimeofday() with getsystemtime() or similar. Affects benchmark,
+      stdint.h - seems to be C99 but not in Visual studio 2005... strange... used for what exactly?
+  - M_PI/etc aren't defined by default in math.h. Defining _USE_CONSTANTS fixes that.
+  - _LOG lines reutrn syntax errors. Fixed with Grahams patch
+  - erand48 is not defined on Windows. dsfmt replacements work fine.
+  - fseeko is a POSIX thing as well and is missing on Windows. To use 64 bit offsets we 
+    could substitute with fsetpos and _filelengthi64. 
+  - fftw3 has compiled windows DLL's which they claim are well optimised. Linking with them is
+    easy but we can't do wisdom. #ifdef POSIX removes wisdom from windows.
+  Implementation notes:
+  - I don't think a Windows distribution needs MPI/OpenMP support. Otherwise, I don't see why the
+    things xmds does isn't easily portable...
+  - Now works fine with limited features, fftw without wisdom, and ASCII output. 
+  - kubo is MUCH faster compiled on MSVC++ than cygwin GCC
+  - diffusion_win works fine on windows.
+  - Next priorities: getting fftw3 working and porting the benchmark code...
+  - Investigate MinGW GCC 4.3 performance versus Visual Studio performance.
+
+* Breakpoint on signal? (e.g. USR1)
+
+Testcases needed:
+* MPI with Fourier transforms testing looping over both MPI dimensions with a vector that only has one of the two MPI dimensions.
+* Various tests using nonlocal dimension access
+* Tests of dumping fields with integer-valued dimensions using HDF5
+* Tests dumping fields where the testcase data was dumped on a big-endian machine (PPC)
+* More testcases doing stupid things with loading and dumping of various formats of data, including loading in MPI
+  simulations, writing of ascii/binary/HDF5 data and loading of binary/HDF5 data.
+
+* Trigger support (Ask Michael Hush).  Done "correctly", this would involve adding zero-crossing detection to the adaptive and/or fixed-step integrators.  This could be used for:
+   - Triggered-sampling: useful for Poincare plots or other situations where implicit sampling is desired
+   - Very fast Poisson noises that also scales well for large numbers of Poisson noises: useful for chemical reaction network modelling where each reaction has a rate constant and there are many (thousands?) of possible reactions.
+
+* Adaptive-order integrators (Richardson extrapolation method)
+
+* Make it easier to perform parameter scans (this is probably better done in an external tool, though), and more generally, graph-based processing (each node is a simulation that may have one or more inputs / outputs, etc).  This is probably insufficiently defined.
+
+* Add native support for matrix-vector multiplication and matrix-matrix multiplication (and use BLAS to make it fast). (What notation should be used for this?)
+
+* Make it possible to have matrix-valued IP operators.  This would only support integer-valued dimensions, but would be useful for Rabi coupling.
