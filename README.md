@@ -11,12 +11,14 @@ attempts where available.
 | --- | --- | --- |
 | [task_v2](task_v2/README.md) | 11 | Earlier screening archives, including localized statistics decoding; all rejected during screening. |
 | [task_v3](task_v3/README.md) | 10 | Newer review snapshots; some tournaments were still in progress during capture. |
-| [task_v4](task_v4/README.md) | 10 | Selected cross-topic examples with recorded `hard_verified_achievable` outcomes; see each report for evidence and limitations. |
+| [task_v4](task_v4/README.md) | 10 | Uniform random sample: 5 hard-open, 3 verified-achievable, 1 rejected, and 1 without a final status at draw time. |
 
 Open a collection's index to browse its task reports and screening records.
 Folder names correspond to the author's `tasks_v2`, `tasks_v3`, and `tasks_v4`
-source collections. The v4 folder is a ten-example selection, not the full
-source collection. Inclusion here is not independent acceptance as a hard benchmark.
+source collections. The v4 folder is one unfiltered random sample from all 210
+source task folders, not a verified-only selection or an outcome-quota sample.
+Its [sampling record](task_v4/SAMPLE.json) preserves the seed and full population.
+Inclusion here is not independent acceptance as a hard benchmark.
 
 ## Before reviewing or running
 
@@ -29,5 +31,5 @@ These are review-oriented exports, not complete offline runtime images. The
 exclusions and oversized frozen-snapshot omission. The
 [task_v3 publication notes](task_v3/PUBLICATION_V3.md) describe its runtime
 exclusions and restoration of losslessly packaged large scientific data.
-The [task_v4 publication notes](task_v4/PUBLICATION_V4.md) document its selection,
+The [task_v4 publication notes](task_v4/PUBLICATION_V4.md) document its random draw,
 runtime exclusions, integrity records, and large-artifact restoration.

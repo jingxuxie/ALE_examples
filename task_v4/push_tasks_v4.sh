@@ -4,7 +4,7 @@ set -euo pipefail
 script_directory=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repository=$(git -C "$script_directory" rev-parse --show-toplevel)
 cd -- "$repository"
-baseline=f58bad79478d54eff4b710fbe3a3d0ab0916421a
+baseline=7cf6509fb3c401a11eaf4603719d7f03252177a1
 expected_remote=https://github.com/jingxuxie/ALE_examples.git
 if [[ $(git remote get-url origin) != "$expected_remote" ]]; then
     printf '%s\n' 'Refusing to push: origin is not the expected ALE_examples repository.' >&2
@@ -29,7 +29,7 @@ if [[ -z $remote_head ]] || ! git cat-file -e "$remote_head^{commit}" 2>/dev/nul
     exit 1
 fi
 if git merge-base --is-ancestor "$tip" "$remote_head"; then
-    printf '%s\n' 'This task_v4 snapshot and folder layout are already published.'
+    printf '%s\n' 'This task_v4 random sample are already published.'
     exit 0
 fi
 if ! git merge-base --is-ancestor "$remote_head" "$tip"; then
@@ -65,4 +65,4 @@ if [[ $remote_head != "$tip" ]]; then
     printf '%s\n' 'Remote changed after the upload; inspect GitHub before claiming exact-tip verification.' >&2
     exit 1
 fi
-printf 'Published and verified task_v4 snapshot and folder layout: %s\n' "$tip"
+printf 'Published and verified task_v4 random sample: %s\n' "$tip"

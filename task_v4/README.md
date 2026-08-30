@@ -1,46 +1,64 @@
-# task_v4 — ten selected examples
+# task_v4 — ten randomly sampled tasks
 
-Ten review archives selected from the author's `tasks_v4` collection (210 task
-folders at selection time). Each selected task's saved final status is
-`hard_verified_achievable`: its author reports demonstrated achievability and
-nonpassing fresh-agent attempts for the retained task. These are recorded
-results, not a new independent certification or a rerun of the evaluations.
+This collection replaces the previous verified-achievable-only selection with
+**one uniform random sample without replacement from all 210 `tasks_v4`
+folders**. No outcome, topic, report-completeness, or prior-inclusion filter was
+used, and the draw was not repeated to reach a status quota.
 
-Selection favors cross-topic coverage, completed reports, and reviewable
-artifacts. It is not a random sample, a ranking, or a claim about every concept
-inside each archive. All saved concepts and generations are retained, including
-solved, rejected, and superseded work, subject to the documented runtime/cache
-exclusions.
+The seed, complete sampling population, original status hashes, and draw order
+are in [SAMPLE.json](SAMPLE.json). [verify_sample.py](verify_sample.py) replays
+the draw with the recorded Python algorithm.
 
-## Examples
+## Distribution at sampling
 
-| Topic | Author's report | Saved screening record |
-| --- | --- | --- |
-| Conformal bootstrap optimization | [Report](a_semidefinite_program_solver_for_the_conformal_bootstrap__1502_02033/REPORT.md) | [Status](a_semidefinite_program_solver_for_the_conformal_bootstrap__1502_02033/status.json) |
-| Cascade information reconciliation | [Report](demystifying_the_information_reconciliation_protocol_cascade__1407_3257/REPORT.md) | [Status](demystifying_the_information_reconciliation_protocol_cascade__1407_3257/status.json) |
-| Tensor-network convergence | [Report](efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/FINAL_REPORT.md) | [Status](efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/status.json) |
-| Coherent quantum lookup synthesis | [Report](expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/REPORT.md) | [Status](expressing_and_analyzing_quantum_algorithms_with_qualtran__2409_04643/status.json) |
-| Fermionic state synthesis | [Report](openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/FINAL_REPORT.md) | [Status](openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/status.json) |
-| Autoregressive statistical mechanics | [Report](solving_statistical_mechanics_using_variational_autoregressive_network__1809_10606/REPORT.md) | [Status](solving_statistical_mechanics_using_variational_autoregressive_network__1809_10606/status.json) |
-| Stabilizer quantum error correction | [Report](stim_a_fast_stabilizer_circuit_simulator__2103_02202/FINAL_REPORT.md) | [Status](stim_a_fast_stabilizer_circuit_simulator__2103_02202/status.json) |
-| Mesoscopic superconductivity | [Report](superconga_an_open_source_framework_for_mesoscopic_superconductivity__2205_15000/FINAL_REPORT.md) | [Status](superconga_an_open_source_framework_for_mesoscopic_superconductivity__2205_15000/status.json) |
-| Lattice-fermion schedule design | [Report](the_alf_algorithms_for_lattice_fermions_project_release_2_0_documentat__2012_11914/FINAL_REPORT.md) | [Status](the_alf_algorithms_for_lattice_fermions_project_release_2_0_documentat__2012_11914/status.json) |
-| Coherent matter-wave control | [Report](xmds2_fast_scalable_simulation_of_coupled_stochastic_partial_different__1204_4255/FINAL_REPORT.md) | [Status](xmds2_fast_scalable_simulation_of_coupled_stochastic_partial_different__1204_4255/status.json) |
+| Saved status | All 210 folders | Random sample of 10 |
+| --- | ---: | ---: |
+| `hard_open_candidate` | 156 | 5 |
+| `rejected` | 22 | 1 |
+| `hard_verified_achievable` | 21 | 3 |
+| `missing_or_unreadable_status` | 8 | 1 |
+| `complete` | 1 | 0 |
+| `selected_task` | 1 | 0 |
+| `tournament_in_progress` | 1 | 0 |
 
-Start with each report to find its selected concept, current generation,
-participant workspace, evaluator, and supporting witness or reference. Do not
-assume all concepts inside a selected archive have the same outcome.
+The actual draw is **5 hard-open, 3 verified-achievable, 1 rejected, and 1
+without a final status**. The population's verified-achievable proportion gives
+an expected count of one in a sample of ten, but a uniform random sample does
+not enforce that count. No task was substituted to make the table look closer
+to the population proportions.
+
+## Sample in draw order
+
+| Draw | Topic | Review entry | Status at draw |
+| ---: | --- | --- | --- |
+| 1 | EERAD3 event shapes and jet rates | [Report](eerad3_event_shapes_and_jet_rates_in_electron_positron_annihilation_at__1402_4140/FINAL_REPORT.md) | [`rejected`](eerad3_event_shapes_and_jet_rates_in_electron_positron_annihilation_at__1402_4140/status.json) |
+| 2 | Fault-tolerant honeycomb memory | [Report](a_fault_tolerant_honeycomb_memory__2108_10457/REPORT.md) | [`hard_open_candidate`](a_fault_tolerant_honeycomb_memory__2108_10457/status.json) |
+| 3 | Retargetable quantum compilation (tket) | [Report](t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/REPORT.md) | [`hard_verified_achievable`](t_ket_a_retargetable_compiler_for_nisq_devices__2003_10611/status.json) |
+| 4 | Sparse-blossom error correction | [Report](sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/REPORT.md) | [`hard_open_candidate`](sparse_blossom_correcting_a_million_errors_per_core_second_with_minimu__2303_15933/status.json) |
+| 5 | Mirror-circuit randomized benchmarking | [Report](scalable_randomized_benchmarking_of_quantum_computers_using_mirror_cir__2112_09853/FINAL_REPORT.md) | [`hard_open_candidate`](scalable_randomized_benchmarking_of_quantum_computers_using_mirror_cir__2112_09853/status.json) |
+| 6 | Semiconductor band structure (kdotpy) | [Snapshot note; no final report](kdotpy_k_p_theory_on_a_lattice_for_simulating_semiconductor_band_struc__2407_12651/REVIEW_SNAPSHOT.md) | No final status |
+| 7 | Quantum-processor characterization (pyGSTi) | [Report](probing_quantum_processor_performance_with_pygsti__2002_12476/REPORT.md) | [`hard_open_candidate`](probing_quantum_processor_performance_with_pygsti__2002_12476/status.json) |
+| 8 | Stabilizer quantum error correction (Stim) | [Report](stim_a_fast_stabilizer_circuit_simulator__2103_02202/FINAL_REPORT.md) | [`hard_verified_achievable`](stim_a_fast_stabilizer_circuit_simulator__2103_02202/status.json) |
+| 9 | NLO energy-energy correlations | [Report](numerical_evaluation_of_the_analytic_nlo_energy_energy_correlation__1801_03219/FINAL_REPORT.md) | [`hard_verified_achievable`](numerical_evaluation_of_the_analytic_nlo_energy_energy_correlation__1801_03219/status.json) |
+| 10 | Electron-phonon transport and superconductivity (EPW) | [Report](epw_electron_phonon_coupling_transport_and_superconducting_properties__1604_03525/FINAL_REPORT.md) | [`hard_open_candidate`](epw_electron_phonon_coupling_transport_and_superconducting_properties__1604_03525/status.json) |
+
+The kdotpy folder has no top-level final report or status file. Its existing
+concepts and authoring work are included, not replaced with a completed task.
+Reports for other folders explain their selected concepts and current
+versions; not every concept in an archive shares its folder's final status.
 
 ## Review and reproduction
 
 These are **reviewer-only archives**, including solutions, private witnesses,
-hidden cases, and attempt transcripts. A blind participant must see only its
-chosen participant material, never the whole archive.
+hidden cases, and attempt transcripts. Give a blind participant only its chosen
+participant assets, never the whole archive.
 
-See the [publication notes](PUBLICATION_V4.md) for exclusions, large-data
-restoration, and upload instructions, and the
-[manifest](PUBLICATION_MANIFEST_V4.json) for hashes and capture provenance.
-Manifest paths are relative to this `task_v4/` directory.
+See the [publication notes](PUBLICATION_V4.md) for sampling semantics, explicit
+exclusions, integrity checks, and large-data restoration. The
+[manifest](PUBLICATION_MANIFEST_V4.json) records artifact hashes and capture
+provenance; paths are relative to this folder. Saved scientific outcomes are
+not rerun or independently certified by this publication process.
 
-The earlier collections remain separate in [task_v2](../task_v2/README.md) and
-[task_v3](../task_v3/README.md). Return to the [repository index](../README.md).
+The former curated collection remains in Git history at `7cf6509`. The earlier
+[task_v2](../task_v2/README.md) and [task_v3](../task_v3/README.md) collections are
+unchanged. Return to the [repository index](../README.md).
