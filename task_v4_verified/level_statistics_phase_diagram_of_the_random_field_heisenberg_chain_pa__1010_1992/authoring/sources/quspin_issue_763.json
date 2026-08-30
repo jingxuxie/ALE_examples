@@ -1,0 +1,82 @@
+{
+  "url": "https://api.github.com/repos/QuSpin/QuSpin/issues/763",
+  "repository_url": "https://api.github.com/repos/QuSpin/QuSpin",
+  "labels_url": "https://api.github.com/repos/QuSpin/QuSpin/issues/763/labels{/name}",
+  "comments_url": "https://api.github.com/repos/QuSpin/QuSpin/issues/763/comments",
+  "events_url": "https://api.github.com/repos/QuSpin/QuSpin/issues/763/events",
+  "html_url": "https://github.com/QuSpin/QuSpin/issues/763",
+  "id": 3618147651,
+  "node_id": "I_kwDOAmFQIs7XqI1D",
+  "number": 763,
+  "title": "Using a list of Nup with other symmetries can cause projectors to silently give wrong results",
+  "user": {
+    "login": "jaredjeya",
+    "id": 2556991,
+    "node_id": "MDQ6VXNlcjI1NTY5OTE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2556991?v=4",
+    "gravatar_id": "",
+    "url": "https://api.github.com/users/jaredjeya",
+    "html_url": "https://github.com/jaredjeya",
+    "followers_url": "https://api.github.com/users/jaredjeya/followers",
+    "following_url": "https://api.github.com/users/jaredjeya/following{/other_user}",
+    "gists_url": "https://api.github.com/users/jaredjeya/gists{/gist_id}",
+    "starred_url": "https://api.github.com/users/jaredjeya/starred{/owner}{/repo}",
+    "subscriptions_url": "https://api.github.com/users/jaredjeya/subscriptions",
+    "organizations_url": "https://api.github.com/users/jaredjeya/orgs",
+    "repos_url": "https://api.github.com/users/jaredjeya/repos",
+    "events_url": "https://api.github.com/users/jaredjeya/events{/privacy}",
+    "received_events_url": "https://api.github.com/users/jaredjeya/received_events",
+    "type": "User",
+    "user_view_type": "public",
+    "site_admin": false
+  },
+  "labels": [
+
+  ],
+  "state": "open",
+  "locked": false,
+  "assignees": [
+
+  ],
+  "milestone": null,
+  "comments": 0,
+  "created_at": "2025-11-12T20:39:30Z",
+  "updated_at": "2025-11-12T20:39:55Z",
+  "closed_at": null,
+  "assignee": null,
+  "author_association": "CONTRIBUTOR",
+  "issue_field_values": [
+
+  ],
+  "type": null,
+  "active_lock_reason": null,
+  "sub_issues_summary": {
+    "total": 0,
+    "completed": 0,
+    "percent_completed": 0
+  },
+  "issue_dependencies_summary": {
+    "blocked_by": 0,
+    "total_blocked_by": 0,
+    "blocking": 0,
+    "total_blocking": 0
+  },
+  "body": "If you try to make a projector using `basis.get_proj(pcon=True)`, for a basis constructed using a list of `Nup` *combined with other symmetries*, you'll silently get wrong results - the projector will instead be from the full basis, rather than the particle conserving basis.\n\n(Here, I've only done a single particle number sector, but I was using a list in order to have multiple particle numbers present in my basis).\n\n<details>\n<summary>Minimal working example</summary>\n\n```python\nfrom quspin.basis import spinless_fermion_basis_general\nimport numpy as np\n\n\ndef make_basis(Nx: int, Ny: int, pcon=None, Pxy=None):\n\tN = Nx * Ny\n\ts = np.arange(N)\n\tx = s % Nx  # x positions for sites\n\ty = s // Nx  # y positions for sites\n\n\tsyms_dict = {}\n\tif Pxy is not None:\n\t\tif not Pxy in [-1, 1]:\n\t\t\traise ValueError(\"Only eigenvalues +1 and -1 supported for Pxy symmetry\")\n\t\tif not Nx == Ny:\n\t\t\traise ValueError(\"Diagonal symmetries only implemented for Nx == Ny\")\n\t\t# P_{xy} : (x, y) -> (y, x)\n\t\tPxy_perm = y + Nx * x\n\t\tsyms_dict[\"Pxy_block\"] = (Pxy_perm, (1 - Pxy) // 2)  # (+1, -1) -> (0, 1)\n\n\treturn spinless_fermion_basis_general(N, Nf=pcon, **syms_dict)\n\n\nNx = Ny = 3\nN = Nx * Ny\n\nbasis_full = make_basis(Nx, Ny, pcon=None, Pxy=+1)\nbasis_half = make_basis(Nx, Ny, pcon=N//2, Pxy=+1)\nbasis_half_list = make_basis(Nx, Ny, pcon=[N//2], Pxy=+1)\n\nproj_full = basis_full.get_proj(dtype=np.complex128, pcon=False)\nproj_full_pcon = basis_full.get_proj(dtype=np.complex128, pcon=True)\nprint(f\"{proj_full.shape=}, {proj_full_pcon.shape=}\")\n# (512, 256), (512, 256)\n\nproj_half = basis_half.get_proj(dtype=np.complex128, pcon=False)\nproj_half_pcon = basis_half.get_proj(dtype=np.complex128, pcon=True)\nprint(f\"{proj_half.shape=}, {proj_half_pcon.shape=}\")\n# (512, 60), (126, 60)\n\nproj_half_list = basis_half_list.get_proj(dtype=np.complex128, pcon=False)\nproj_half_list_pcon = basis_half_list.get_proj(dtype=np.complex128, pcon=True)\nprint(f\"{proj_half_list.shape=}, {proj_half_list_pcon.shape=}\")\n# (512, 60), (512, 60)\n# Should be (512, 60), (126, 60)\n```\n\n</details>\n\nA simple workaround seems to be to create the projector from the particle-conserving basis without symmetry to the full basis, and combine this with the projector from the full basis to the one with both particle conservation and symmetry, like this:\n\n```python\nbasis_pcon = make_basis(Nx, Ny, pcon=[N//2], Pxy=None)\nproj_pcon = basis_pcon.get_proj(dtype=np.complex128, pcon=False)\nproj_correct= proj_pcon.conj().T @ proj_half_list_pcon\nassert np.allclose(proj_correct.toarray(), proj_half_pcon.toarray())\n```\n\nHowever this is frustrating as it requires building the full basis and projectors onto this full basis.\n\nThis could be related to #420?\n\n",
+  "closed_by": null,
+  "reactions": {
+    "url": "https://api.github.com/repos/QuSpin/QuSpin/issues/763/reactions",
+    "total_count": 0,
+    "+1": 0,
+    "-1": 0,
+    "laugh": 0,
+    "hooray": 0,
+    "confused": 0,
+    "heart": 0,
+    "rocket": 0,
+    "eyes": 0
+  },
+  "timeline_url": "https://api.github.com/repos/QuSpin/QuSpin/issues/763/timeline",
+  "performed_via_github_app": null,
+  "state_reason": null,
+  "pinned_comment": null
+}

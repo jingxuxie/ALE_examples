@@ -1,0 +1,1794 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/generations/generation_2/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a049c8-b77e-7560-9b00-de058d228416
+--------
+user
+You have at most one hour. Read TASK.md in the current participant directory and solve the task. All provided assets are here and are read-only. Investigate independently; implement and test your submission. Write the final artifact and any implementation assets only to /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3. That output directory is initially empty. Do not stop at a proposal. No internet access is available.
+codex
+I’ll read the task, inspect the assets, then implement and test the submission in the output directory.
+
+exec
+/bin/bash -lc 'pwd; ls -la; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/generations/generation_2/participant
+ succeeded in 14717ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/generations/generation_2/participant
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 12:01 .
+drwx------ 3 xuandong xuandong   60 Aug 28 12:13 ..
+-rw-rw-r-- 1 xuandong xuandong 2101 Aug 28 12:01 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 12:01 baseline
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 12:01 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 12:01 workspace
+# C3 generation 2: independent-replication counterexample
+
+## Mission
+
+Find a robust finite-size counterexample to an author-defined spectral-center
+sampling claim inspired by Pal–Huse, arXiv:1010.1992. **The proxy claim is not
+the paper's claim.** Submit one generic, bounded twelve-site field profile,
+not an estimator, executable solution, or modified Hamiltonian.
+
+## Objective
+
+Compare the exact middle-rank-third adjacent-gap ratio against an average
+of three 128-level windows targeting energy densities 0.49, 0.50, and 0.51.
+The signed mismatch must replicate across four perturbation families, with
+32 members each. Acceptance requires core ≥0.060, worst-family mean ≥0.050,
+base discrepancy ≥0.055, and at least 24/32 members in every family with
+discrepancy ≥0.025. Every field and spectrum constraint remains mandatory.
+
+The public calibration bank and private grading bank are **different**
+independent draws from the same fully disclosed generator law. A public
+calibration pass is not a grading pass. Private cases are fixed before
+evaluation and bound to a published SHA-256 commitment.
+
+## Assets
+
+- `input/PROTOCOL.md`: authoritative physics, claim, constraints, replication
+  law, indexing, acceptance criteria, and interface.
+- `input/protocol.json`: 128 public offsets and their reproducible seed.
+- `input/commitment.json`: commitment to the separate private bank.
+- `workspace/exact.py`: exact public-calibration scoring helper.
+- `baseline/solve.py`: original unstructured search, producing `witness.json`.
+
+## Interface And Resources
+
+Submit static JSON containing only `schema_version`, twelve `fields`, and one
+`orientation`. The evaluator accepts a positional witness-file path, executes
+no submission code, verifies its commitment, and reports scores, validity,
+pass/fail, reasons, and resources without revealing private offsets.
+
+Search allowance: 3,600 seconds, at most eight workers, one BLAS thread each.
+Evaluation: 129 full 924-level spectra, one worker, 180 seconds, and a 2-GiB
+address-space ceiling. Only participant assets are supplied to the solver.
+
+exec
+/bin/bash -c 'find . -name AGENTS.md -print; cat input/PROTOCOL.md; cat workspace/exact.py; cat baseline/solve.py; cat input/commitment.json; ls -la input workspace baseline' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/generations/generation_2/participant
+ succeeded in 16957ms:
+# C3-G2-v1 exact protocol: independent replication
+
+This is generation 2 (ratchet 1) of concept_3, Mode B COUNTEREXAMPLE/FALSIFICATION.
+Paths refer to `participant/` unless stated otherwise. All numeric physics,
+field admissibility, proxy definitions, and discrepancy thresholds are fixed.
+
+## Seed and claim
+
+Pal and Huse, *The many-body localization phase transition*, arXiv:1010.1992v1,
+Sections II–III, supplies the periodic random-field Heisenberg model, complete
+zero-magnetization sector, adjacent-gap ratio, and middle rank-third reference.
+The following uniform proxy-accuracy claim is task-authored, not attributed to
+that paper. Structured adversarial fields are allowed. This is a finite-size
+counterexample problem, not an IID-disorder average or thermodynamic claim.
+
+**Claim C3-G2-v1:** for every admissible base field profile and every family
+in the fixed, committed private replication bank,
+
+`abs(mean_(h' in family) [P(h') - R(h')]) <= 0.050`.
+
+Find a single field profile violating this claim with the stronger robustness
+certificate below. The public bank is calibration data only; it does not enter
+the grading score. Public and private banks are generated independently by
+the same disclosed law. They are not adaptively chosen after submission.
+
+## Hamiltonian and exact reference
+
+Use twelve spin-1/2 sites, periodic boundaries, exchange `J=1`, and
+
+`H = sum_j [Sx_j Sx_(j+1) + Sy_j Sy_(j+1) + Sz_j Sz_(j+1) + h_j Sz_j]`.
+
+Use only the complete `sum_j Sz_j=0` sector, dimension `C(12,6)=924`. Up and
+down bits have `Sz=+1/2` and `-1/2`; allowed neighboring spin exchange has
+matrix element `1/2`. Do not mix sectors. Sort all 924 eigenvalues increasingly.
+
+For consecutive energies, form adjacent gaps and average
+`min(gap[k],gap[k+1])/max(gap[k],gap[k+1])`. Only triplets entirely within the
+selected energy list count. With zero-based, stop-exclusive indexing,
+`R(h)=r(E[308:616])`: 308 energies, 307 gaps, and exactly 306 ratios.
+No unfolding, eigenvectors, missing levels, clipping, or approximate eigensolver
+is involved. Every adjacent gap in every full spectrum must exceed `1e-10`.
+
+## Exact proxy
+
+For each target `t` in `(0.49,0.50,0.51)`, set
+`e_t=E[0]+t*(E[923]-E[0])`. Choose rank `j_t` minimizing `abs(E[j]-e_t)`, with
+ties resolved to the smaller rank. Let `a_t=max(0,min(796,j_t-64))`. Compute
+`r_t=r(E[a_t:a_t+128])`, using exactly 126 ratios. Set
+`P(h)=(r_0.49+r_0.50+r_0.51)/3`.
+
+The windows may overlap; each receives equal weight even when triplets recur.
+They are not three independent statistical samples. Targets, widths, rank
+masks, signs, and weights cannot be supplied or modified by a witness.
+
+## Field constraints
+
+The twelve base fields are in site order. Require absolute mean ≤`1e-9`,
+maximum absolute field ≤`8.0`, RMS ≥`0.65`, and minimum pairwise separation
+≥`0.001`. Mean zero fixes the physically irrelevant uniform-field gauge.
+
+Let `D(h)` be the smallest RMS distance between `h` and `s*g(h)`, over every
+cyclic shift and reflected cyclic shift `g`, with `s in {-1,+1}`, excluding
+only the identity with positive sign. Require `D(h) >= 0.12`. The negative
+sign checks combined field/spin inversion and spatial symmetries as well.
+This excludes zero fields and exact or nearly restored spatial symmetries.
+
+Each private derived profile must have absolute mean ≤`1e-9`, maximum absolute
+field ≤`8.5`, RMS ≥`0.55`, minimum pairwise separation ≥`1e-7`, and `D(h') >= 0.05`.
+A violation in even one derived profile invalidates the witness. Public
+calibration uses the same checks on its own profiles. Numerical degeneracy is
+invalid, not a counterexample. There are no epsilon denominators.
+
+## Public/private replication law
+
+Each bank has exactly **four families, 32 members per family**, totaling 128
+perturbations. For every member, `h'=scale*h+offset`.
+
+| Family | Scale | Amplitude before centering |
+|---|---:|---:|
+| `jitter_004` | 1.00 | 0.04 |
+| `jitter_012` | 1.00 | 0.12 |
+| `scale_096` | 0.96 | 0.08 |
+| `scale_104` | 1.04 | 0.08 |
+
+Draw a uniform 256-bit seed for each bank independently, and represent it as
+64 lowercase hexadecimal characters. For family `FAMILY`, member `MEMBER`
+in `0..31`, and site `SITE` in `0..11`, hash the ASCII string
+
+`SEED_HEX|FAMILY|MEMBER|SITE`
+
+with SHA-256. Interpret the first eight digest bytes as an unsigned big-endian
+integer `n`, and compute `u=2.0*n/(2^64-1)-1.0` in float64. For that member,
+`offset_j=amplitude*(u_j-mean(u))`. Centering can produce component magnitudes
+up to twice the pre-centering amplitude. Family/member/site labels provide
+separate pseudorandom draws; there is no witness-dependent randomness.
+
+The literal public offsets and public seed are in `input/protocol.json`.
+The private seed and offsets are not supplied to participants. They use the
+same family counts, scales, amplitudes, conversion, and centering law, with
+a different independent seed. `input/commitment.json` publishes the SHA-256
+of the exact UTF-8 bytes of the private protocol JSON, including its trailing
+newline. The evaluator compares those bytes with a trusted copy of this
+commitment before any diagonalization. A mismatch is an evaluator error,
+never a participant failure or a reason to resample. Neither bank is changed
+after its commitment, and neither bank is the earlier generation's probes.
+
+## Fixed objective and pass conditions
+
+The witness chooses one integer orientation `s in {-1,+1}`. Define
+`d(h')=s*(P(h')-R(h'))`. For each private family, `B_F` is the mean over all
+32 members. All comparisons are inclusive and all conditions are mandatory:
+
+- `core=mean_F B_F >= 0.060`.
+- `worst_family=min_F B_F >= 0.050`.
+- Unperturbed base `d(h) >= 0.055`.
+- In every private family, at least 24/32 members have `d(h') >= 0.025`:
+  coverage fraction at least 75%.
+- Every schema, field, spectrum, and resource constraint passes.
+
+The base is not included in the family mean. Do not take absolute values or
+switch orientation per member. There is no selection of a favorable family
+or subset of members. The core threshold forces at least one family to
+contradict the 0.05 claim; the remaining criteria enforce replication.
+No confidence interval or thermodynamic conclusion is claimed for this
+deterministic finite certificate. Public scores are search diagnostics, not
+an alternative acceptance route or an additional required grading gate.
+
+## Static interface and resources
+
+The witness must be a regular UTF-8 JSON file, at most 16,384 bytes, with
+exactly `schema_version` (integer 1), `fields` (twelve finite JSON numbers),
+and `orientation` (integer -1 or +1). Booleans and numeric strings do not
+count as numbers. Extra or duplicate keys, nonfinite constants, malformed
+JSON, symbolic links, pipes, directories, and code payloads are rejected.
+No supplied code, paths, eigenvalues, or claimed scores are executed or trusted.
+
+The public helper offers `spectrum`, `proxy_statistics`, `validate_witness`,
+`family_fields`, `validate_protocol`, and `assess(witness, protocol)` using
+the public protocol. It supports all 32 members in each family. The trusted
+evaluator has its own physics copy and exclusively uses the committed private
+protocol. Modifying public files cannot modify grading or reveal its probes.
+
+From the participant directory:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python baseline/solve.py --output witness.json
+```
+
+The baseline is the original public unstructured-search algorithm, not a
+previous champion or a witness-seeded solver. It screens 128 profiles and
+checks eight finalists on the public bank. Its search report is explicitly
+public-calibration feedback; success there does not establish a private pass.
+
+The main runner invokes, from the generation_2 package root:
+
+```bash
+python -I -B evaluator/evaluate.py SUBMISSION_DIR/witness.json --output report.json
+```
+
+This is a positional witness-file CLI, not a directory or `--submission` CLI.
+The interpreter, dependencies, and evaluator files are trusted; only
+participant assets are exposed to solvers. Isolated mode ignores participant
+`PYTHONPATH` and working-directory modules. The evaluator reports aggregate
+private scores, not offsets, seeds, per-probe spectra, or per-probe diagnostics.
+
+Reports include `core`, `worst_family`, `pass`, `valid`, `reason`, `resource`,
+plus aliases `core_score`, `worst_family_score`, `passed`, and `runtime_seconds`.
+`evaluator_valid` is true for a grading decision, including invalid input,
+and false for an internal/commitment error. Uncomputed scientific scores are
+null. `resource_score` is 1.0 for a valid witness evaluated within limits and
+0.0 otherwise. All aliases are present on error reports too.
+
+Search allowance is 3,600 seconds, maximum eight generator workers and one
+BLAS thread each. Grading uses 129 full float64 SciPy `evr` diagonalizations
+(base plus 128 private perturbations), one worker, one BLAS thread, a
+180-second wall limit, and a 2-GiB address-space ceiling. Invalid inputs can
+be rejected before any diagonalization. No target is adjusted at runtime.
+import functools
+import itertools
+import os
+
+for variable in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "BLIS_NUM_THREADS"):
+    os.environ[variable] = "1"
+
+import numpy as np
+from scipy.linalg import eigh
+
+
+@functools.lru_cache(maxsize=2)
+def sector(length=12):
+    states = np.array(sorted(sum(1 << site for site in occupied)
+                             for occupied in itertools.combinations(range(length), length // 2)), dtype=np.int64)
+    spins = ((states[:, None] >> np.arange(length)) & 1).astype(float) - 0.5
+    lookup = {int(state): index for index, state in enumerate(states)}
+    exchange = np.diag(np.sum(spins * np.roll(spins, -1, axis=1), axis=1))
+    for column, state in enumerate(states):
+        for site in range(length):
+            neighbour = (site + 1) % length
+            if ((state >> site) & 1) != ((state >> neighbour) & 1):
+                row = lookup[int(state ^ (1 << site) ^ (1 << neighbour))]
+                exchange[row, column] += 0.5
+    return states, spins, exchange
+
+
+def hamiltonian(fields):
+    fields = np.asarray(fields, dtype=float)
+    if fields.shape != (12,) or not np.isfinite(fields).all():
+        raise ValueError("fields must be twelve finite real numbers")
+    states, spins, exchange = sector(len(fields))
+    matrix = exchange.copy(order="F")
+    matrix.flat[::len(states) + 1] += spins @ fields
+    return matrix
+
+
+def spectrum(fields, driver="evr"):
+    return eigh(hamiltonian(fields), eigvals_only=True, driver=driver,
+                overwrite_a=True, check_finite=False)
+
+
+def ratios(energies):
+    energies = np.asarray(energies, dtype=float)
+    gaps = np.diff(energies)
+    if len(gaps) < 2 or not np.isfinite(gaps).all() or np.any(gaps <= 1e-10):
+        raise ValueError("insufficient or numerically degenerate spectrum")
+    return np.minimum(gaps[:-1], gaps[1:]) / np.maximum(gaps[:-1], gaps[1:])
+
+
+def symmetry_distance(fields):
+    fields = np.asarray(fields, dtype=float)
+    distances = []
+    for reflected in (False, True):
+        source = fields[::-1] if reflected else fields
+        for shift in range(len(fields)):
+            for sign in (-1, 1):
+                if not reflected and shift == 0 and sign == 1:
+                    continue
+                distances.append(float(np.sqrt(np.mean((fields - sign * np.roll(source, shift)) ** 2))))
+    return min(distances)
+
+
+def validate_fields(fields, derived=False):
+    fields = np.asarray(fields, dtype=float)
+    if fields.shape != (12,) or not np.isfinite(fields).all():
+        raise ValueError("fields must be twelve finite real numbers")
+    if abs(float(np.mean(fields))) > 1e-9:
+        raise ValueError("fields must have zero mean within 1e-9")
+    bound = 8.5 if derived else 8.0
+    minimum_rms = 0.55 if derived else 0.65
+    minimum_distance = 0.05 if derived else 0.12
+    minimum_separation = 1e-7 if derived else 0.001
+    if float(np.max(np.abs(fields))) > bound:
+        raise ValueError(f"absolute field exceeds {bound}")
+    if float(np.sqrt(np.mean(fields ** 2))) < minimum_rms:
+        raise ValueError(f"field rms is below {minimum_rms}")
+    if float(np.min(np.diff(np.sort(fields)))) < minimum_separation:
+        raise ValueError(f"field pair separation is below {minimum_separation}")
+    distance = symmetry_distance(fields)
+    if distance < minimum_distance:
+        raise ValueError(f"signed dihedral symmetry distance is below {minimum_distance}")
+    return {"maximum_absolute_field": float(np.max(np.abs(fields))),
+            "rms_field": float(np.sqrt(np.mean(fields ** 2))),
+            "pair_separation": float(np.min(np.diff(np.sort(fields)))),
+            "symmetry_distance": distance}
+
+
+def validate_witness(witness):
+    if not isinstance(witness, dict) or set(witness) != {"schema_version", "fields", "orientation"}:
+        raise ValueError("exactly schema_version, fields, orientation are required")
+    if type(witness["schema_version"]) is not int or witness["schema_version"] != 1:
+        raise ValueError("schema_version must be integer 1")
+    if type(witness["orientation"]) is not int or witness["orientation"] not in (-1, 1):
+        raise ValueError("orientation must be integer -1 or +1")
+    fields = witness["fields"]
+    if not isinstance(fields, list) or len(fields) != 12:
+        raise ValueError("fields must be a JSON list of length twelve")
+    if any(type(value) not in (int, float) for value in fields):
+        raise ValueError("field entries must be numbers, not booleans or strings")
+    return validate_fields(fields)
+
+
+def proxy_statistics(energies):
+    energies = np.asarray(energies, dtype=float)
+    if energies.shape != (924,) or not np.isfinite(energies).all():
+        raise ValueError("expected the full 924-level spectrum")
+    ratios(energies)
+    rank_r = float(np.mean(ratios(energies[308:616])))
+    bandwidth = float(energies[-1] - energies[0])
+    windows = []
+    for target in (0.49, 0.50, 0.51):
+        target_energy = energies[0] + target * bandwidth
+        center = int(np.argmin(np.abs(energies - target_energy)))
+        start = max(0, min(796, center - 64))
+        windows.append({"target_density": target, "nearest_rank": center,
+                        "start": start, "stop": start + 128, "ratio_count": 126,
+                        "r": float(np.mean(ratios(energies[start:start + 128])))})
+    proxy_r = float(np.mean([window["r"] for window in windows]))
+    return {"rank_r": rank_r, "proxy_r": proxy_r, "difference": proxy_r - rank_r,
+            "rank_ratio_count": 306, "windows": windows,
+            "minimum_gap": float(np.min(np.diff(energies))),
+            "bandwidth": bandwidth}
+
+
+def family_fields(fields, protocol):
+    fields = np.asarray(fields, dtype=float)
+    for family in protocol["families"]:
+        for member, offset in enumerate(family["offsets"]):
+            yield family["name"], member, family["scale"] * fields + np.asarray(offset)
+
+
+def assess(witness, protocol, driver="evr", counter=None):
+    validate_protocol(protocol)
+    constraints = validate_witness(witness)
+    fields = np.asarray(witness["fields"], dtype=float)
+    orientation = witness["orientation"]
+    profiles = [(family, member, perturbed, validate_fields(perturbed, derived=True))
+                for family, member, perturbed in family_fields(fields, protocol)]
+    def measure(profile):
+        if counter is not None:
+            counter["diagonalizations"] += 1
+        return proxy_statistics(spectrum(profile, driver=driver))
+    base = measure(fields)
+    base["signed_difference"] = orientation * base["difference"]
+    rows = []
+    for family, member, perturbed, member_constraints in profiles:
+        result = measure(perturbed)
+        rows.append({"family": family, "member": member, **result,
+                     "signed_difference": orientation * result["difference"],
+                     "constraints": member_constraints})
+    targets = protocol["targets"]
+    summaries = []
+    for family in protocol["families"]:
+        members = [row for row in rows if row["family"] == family["name"]]
+        differences = [row["signed_difference"] for row in members]
+        summaries.append({"family": family["name"], "members": len(members),
+                          "mean": float(np.mean(differences)), "minimum": min(differences),
+                          "above_member_floor": sum(value >= targets["member_floor"] for value in differences)})
+    core = float(np.mean([family["mean"] for family in summaries]))
+    worst = min(summaries, key=lambda family: family["mean"])
+    checks = {"core": core >= targets["core"],
+              "worst_family": worst["mean"] >= targets["worst_family"],
+              "base": base["signed_difference"] >= targets["base"],
+              "member_coverage": all(family["above_member_floor"] >= targets["members_required"] for family in summaries)}
+    return {"valid": True, "pass": all(checks.values()), "core": core, "case_set": protocol["case_set"],
+            "worst_family": worst["mean"], "worst_family_name": worst["family"],
+            "reason": "counterexample_verified" if all(checks.values()) else "below_target:" + ",".join(name for name, passed in checks.items() if not passed),
+            "checks": checks, "base": base, "families": summaries, "members": rows,
+            "constraints": constraints, "targets": targets, "diagonalizations": len(rows) + 1}
+
+
+def validate_protocol(protocol):
+    expected_targets = {"core": 0.060, "worst_family": 0.050, "base": 0.055,
+                        "member_floor": 0.025, "members_required": 24, "coverage_fraction": 0.75}
+    expected_families = (("jitter_004", 1.0, 0.04), ("jitter_012", 1.0, 0.12),
+                         ("scale_096", 0.96, 0.08), ("scale_104", 1.04, 0.08))
+    if protocol.get("task_id") != "pal_huse_spectral_center_falsification_g2_v1":
+        raise ValueError("wrong generation-two protocol identifier")
+    if protocol.get("targets") != expected_targets or len(protocol.get("families", [])) != 4:
+        raise ValueError("wrong generation-two targets or family count")
+    if protocol.get("case_set") not in ("public_calibration", "private_replication"):
+        raise ValueError("unknown calibration/replication case set")
+    for family, expected in zip(protocol["families"], expected_families):
+        if (family["name"], family["scale"], family["amplitude_before_centering"]) != expected:
+            raise ValueError("wrong perturbation family law")
+        offsets = np.asarray(family["offsets"], dtype=float)
+        if offsets.shape != (32, 12) or not np.isfinite(offsets).all():
+            raise ValueError("each family requires 32 finite twelve-component offsets")
+        if np.max(np.abs(offsets.mean(axis=1))) > 1e-15 or np.max(np.abs(offsets)) > 2 * expected[2]:
+            raise ValueError("offset centering or support constraint failed")
+import argparse
+import concurrent.futures
+import json
+import os
+from pathlib import Path
+import sys
+import time
+
+for variable in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "BLIS_NUM_THREADS"):
+    os.environ[variable] = "1"
+
+PARTICIPANT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PARTICIPANT / "workspace"))
+
+import numpy as np
+from exact import assess, family_fields, proxy_statistics, spectrum, validate_fields
+
+
+def screen(fields):
+    statistics = proxy_statistics(spectrum(fields))
+    return {"schema_version": 1, "fields": fields,
+            "orientation": 1 if statistics["difference"] >= 0 else -1}, abs(statistics["difference"])
+
+
+def check(candidate):
+    witness, protocol = candidate
+    return witness, assess(witness, protocol)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=Path("witness.json"))
+    parser.add_argument("--seed", type=int, default=21992)
+    parser.add_argument("--candidates", type=int, default=128)
+    parser.add_argument("--finalists", type=int, default=8)
+    parser.add_argument("--workers", type=int, choices=range(1, 9), default=8)
+    arguments = parser.parse_args()
+    if not 1 <= arguments.finalists <= arguments.candidates <= 100000:
+        parser.error("require 1 <= finalists <= candidates <= 100000")
+    protocol = json.loads((PARTICIPANT / "input" / "protocol.json").read_text())
+    random = np.random.default_rng(arguments.seed)
+    started = time.monotonic()
+    candidates = []
+    while len(candidates) < arguments.candidates:
+        width = random.uniform(1.0, 5.0)
+        fields = random.uniform(-width, width, 12)
+        fields -= fields.mean()
+        try:
+            validate_fields(fields)
+            for family, member, profile in family_fields(fields, protocol):
+                validate_fields(profile, derived=True)
+        except ValueError:
+            continue
+        candidates.append(fields.tolist())
+    with concurrent.futures.ProcessPoolExecutor(max_workers=arguments.workers) as executor:
+        screened = sorted(executor.map(screen, candidates), key=lambda item: item[1], reverse=True)
+        finalists = [(witness, protocol) for witness, discrepancy in screened[:arguments.finalists]]
+        results = list(executor.map(check, finalists))
+    witness, report = max(results, key=lambda item: (item[1]["pass"], item[1]["core"], item[1]["worst_family"]))
+    arguments.output.write_text(json.dumps(witness, indent=2, allow_nan=False) + "\n")
+    summary = {"seed": arguments.seed, "candidates": arguments.candidates, "finalists": arguments.finalists,
+               "workers": arguments.workers, "blas_threads": 1, "seconds": time.monotonic() - started,
+               "diagonalizations": arguments.candidates + 129 * arguments.finalists,
+               "case_set": "public_calibration",
+               "core": report["core"], "worst_family": report["worst_family"],
+               "valid": report["valid"], "pass": report["pass"], "reason": report["reason"]}
+    arguments.output.with_suffix(".search.json").write_text(json.dumps(summary, indent=2) + "\n")
+    print(json.dumps(summary, indent=2))
+
+
+if __name__ == "__main__":
+    main()
+{
+  "schema_version": 1,
+  "task_id": "pal_huse_spectral_center_falsification_g2_v1",
+  "algorithm": "sha256",
+  "encoding": "exact UTF-8 protocol.json bytes including trailing newline",
+  "committed_at_utc": "2026-08-28T19:01:20.438601+00:00",
+  "private_protocol_sha256": "9fbe62920caf6f7eb5bbe677f203b63c5522681ecfbf44be4e35bc1159bbc652",
+  "public_protocol_sha256": "e82c0c35e6f6911fa03bd567e19635e6bdea2c9797f294afa2cc2482da5ccb56",
+  "families": 4,
+  "members_per_family": 32,
+  "private_perturbations": 128
+}
+baseline:
+total 12
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 12:01 .
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 12:01 ..
+-rw-rw-r-- 1 xuandong xuandong 3224 Aug 28 12:01 solve.py
+
+input:
+total 84
+drwxrwxr-x 2 xuandong xuandong  4096 Aug 28 12:01 .
+drwxrwxr-x 5 xuandong xuandong  4096 Aug 28 12:01 ..
+-rw-rw-r-- 1 xuandong xuandong  9073 Aug 28 12:01 PROTOCOL.md
+-rw-rw-r-- 1 xuandong xuandong   516 Aug 28 12:01 commitment.json
+-rw-rw-r-- 1 xuandong xuandong 53313 Aug 28 12:01 protocol.json
+-rw-rw-r-- 1 xuandong xuandong   447 Aug 28 12:01 witness.schema.json
+
+workspace:
+total 24
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 12:01 .
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 12:01 ..
+-rw-rw-r-- 1 xuandong xuandong  394 Aug 28 12:01 README.md
+-rw-rw-r-- 1 xuandong xuandong 9862 Aug 28 12:01 exact.py
+
+exec
+/bin/bash -c "cat input/PROTOCOL.md; sed -n '1,240p' workspace/exact.py; cat workspace/README.md; cat input/witness.schema.json; date -u; nproc" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/generations/generation_2/participant
+  → Inspect protocol and benchmark exact spectra
+  • Search robust structured field profiles
+  • Validate independent replication and constraints
+  • Write final static witness and report
+**Evaluating tool latency and optimization**
+
+I'm noticing the tool latency is huge, possibly starting around 19:14. I've got one hour to gather the benchmark. Now, for my main physics concept, I want to structure it around a strong split leading to doublets near the center and tails. A goal is to achieve P-R at .06 across perturbation averages. I need to optimize around the density windows and ensure I'm working within authorized parameters while using multiple workers for efficiency. I must get an exact read on everything.
+ succeeded in 22914ms:
+# C3-G2-v1 exact protocol: independent replication
+
+This is generation 2 (ratchet 1) of concept_3, Mode B COUNTEREXAMPLE/FALSIFICATION.
+Paths refer to `participant/` unless stated otherwise. All numeric physics,
+field admissibility, proxy definitions, and discrepancy thresholds are fixed.
+
+## Seed and claim
+
+Pal and Huse, *The many-body localization phase transition*, arXiv:1010.1992v1,
+Sections II–III, supplies the periodic random-field Heisenberg model, complete
+zero-magnetization sector, adjacent-gap ratio, and middle rank-third reference.
+The following uniform proxy-accuracy claim is task-authored, not attributed to
+that paper. Structured adversarial fields are allowed. This is a finite-size
+counterexample problem, not an IID-disorder average or thermodynamic claim.
+
+**Claim C3-G2-v1:** for every admissible base field profile and every family
+in the fixed, committed private replication bank,
+
+`abs(mean_(h' in family) [P(h') - R(h')]) <= 0.050`.
+
+Find a single field profile violating this claim with the stronger robustness
+certificate below. The public bank is calibration data only; it does not enter
+the grading score. Public and private banks are generated independently by
+the same disclosed law. They are not adaptively chosen after submission.
+
+## Hamiltonian and exact reference
+
+Use twelve spin-1/2 sites, periodic boundaries, exchange `J=1`, and
+
+`H = sum_j [Sx_j Sx_(j+1) + Sy_j Sy_(j+1) + Sz_j Sz_(j+1) + h_j Sz_j]`.
+
+Use only the complete `sum_j Sz_j=0` sector, dimension `C(12,6)=924`. Up and
+down bits have `Sz=+1/2` and `-1/2`; allowed neighboring spin exchange has
+matrix element `1/2`. Do not mix sectors. Sort all 924 eigenvalues increasingly.
+
+For consecutive energies, form adjacent gaps and average
+`min(gap[k],gap[k+1])/max(gap[k],gap[k+1])`. Only triplets entirely within the
+selected energy list count. With zero-based, stop-exclusive indexing,
+`R(h)=r(E[308:616])`: 308 energies, 307 gaps, and exactly 306 ratios.
+No unfolding, eigenvectors, missing levels, clipping, or approximate eigensolver
+is involved. Every adjacent gap in every full spectrum must exceed `1e-10`.
+
+## Exact proxy
+
+For each target `t` in `(0.49,0.50,0.51)`, set
+`e_t=E[0]+t*(E[923]-E[0])`. Choose rank `j_t` minimizing `abs(E[j]-e_t)`, with
+ties resolved to the smaller rank. Let `a_t=max(0,min(796,j_t-64))`. Compute
+`r_t=r(E[a_t:a_t+128])`, using exactly 126 ratios. Set
+`P(h)=(r_0.49+r_0.50+r_0.51)/3`.
+
+The windows may overlap; each receives equal weight even when triplets recur.
+They are not three independent statistical samples. Targets, widths, rank
+masks, signs, and weights cannot be supplied or modified by a witness.
+
+## Field constraints
+
+The twelve base fields are in site order. Require absolute mean ≤`1e-9`,
+maximum absolute field ≤`8.0`, RMS ≥`0.65`, and minimum pairwise separation
+≥`0.001`. Mean zero fixes the physically irrelevant uniform-field gauge.
+
+Let `D(h)` be the smallest RMS distance between `h` and `s*g(h)`, over every
+cyclic shift and reflected cyclic shift `g`, with `s in {-1,+1}`, excluding
+only the identity with positive sign. Require `D(h) >= 0.12`. The negative
+sign checks combined field/spin inversion and spatial symmetries as well.
+This excludes zero fields and exact or nearly restored spatial symmetries.
+
+Each private derived profile must have absolute mean ≤`1e-9`, maximum absolute
+field ≤`8.5`, RMS ≥`0.55`, minimum pairwise separation ≥`1e-7`, and `D(h') >= 0.05`.
+A violation in even one derived profile invalidates the witness. Public
+calibration uses the same checks on its own profiles. Numerical degeneracy is
+invalid, not a counterexample. There are no epsilon denominators.
+
+## Public/private replication law
+
+Each bank has exactly **four families, 32 members per family**, totaling 128
+perturbations. For every member, `h'=scale*h+offset`.
+
+| Family | Scale | Amplitude before centering |
+|---|---:|---:|
+| `jitter_004` | 1.00 | 0.04 |
+| `jitter_012` | 1.00 | 0.12 |
+| `scale_096` | 0.96 | 0.08 |
+| `scale_104` | 1.04 | 0.08 |
+
+Draw a uniform 256-bit seed for each bank independently, and represent it as
+64 lowercase hexadecimal characters. For family `FAMILY`, member `MEMBER`
+in `0..31`, and site `SITE` in `0..11`, hash the ASCII string
+
+`SEED_HEX|FAMILY|MEMBER|SITE`
+
+with SHA-256. Interpret the first eight digest bytes as an unsigned big-endian
+integer `n`, and compute `u=2.0*n/(2^64-1)-1.0` in float64. For that member,
+`offset_j=amplitude*(u_j-mean(u))`. Centering can produce component magnitudes
+up to twice the pre-centering amplitude. Family/member/site labels provide
+separate pseudorandom draws; there is no witness-dependent randomness.
+
+The literal public offsets and public seed are in `input/protocol.json`.
+The private seed and offsets are not supplied to participants. They use the
+same family counts, scales, amplitudes, conversion, and centering law, with
+a different independent seed. `input/commitment.json` publishes the SHA-256
+of the exact UTF-8 bytes of the private protocol JSON, including its trailing
+newline. The evaluator compares those bytes with a trusted copy of this
+commitment before any diagonalization. A mismatch is an evaluator error,
+never a participant failure or a reason to resample. Neither bank is changed
+after its commitment, and neither bank is the earlier generation's probes.
+
+## Fixed objective and pass conditions
+
+The witness chooses one integer orientation `s in {-1,+1}`. Define
+`d(h')=s*(P(h')-R(h'))`. For each private family, `B_F` is the mean over all
+32 members. All comparisons are inclusive and all conditions are mandatory:
+
+- `core=mean_F B_F >= 0.060`.
+- `worst_family=min_F B_F >= 0.050`.
+- Unperturbed base `d(h) >= 0.055`.
+- In every private family, at least 24/32 members have `d(h') >= 0.025`:
+  coverage fraction at least 75%.
+- Every schema, field, spectrum, and resource constraint passes.
+
+The base is not included in the family mean. Do not take absolute values or
+switch orientation per member. There is no selection of a favorable family
+or subset of members. The core threshold forces at least one family to
+contradict the 0.05 claim; the remaining criteria enforce replication.
+No confidence interval or thermodynamic conclusion is claimed for this
+deterministic finite certificate. Public scores are search diagnostics, not
+an alternative acceptance route or an additional required grading gate.
+
+## Static interface and resources
+
+The witness must be a regular UTF-8 JSON file, at most 16,384 bytes, with
+exactly `schema_version` (integer 1), `fields` (twelve finite JSON numbers),
+and `orientation` (integer -1 or +1). Booleans and numeric strings do not
+count as numbers. Extra or duplicate keys, nonfinite constants, malformed
+JSON, symbolic links, pipes, directories, and code payloads are rejected.
+No supplied code, paths, eigenvalues, or claimed scores are executed or trusted.
+
+The public helper offers `spectrum`, `proxy_statistics`, `validate_witness`,
+`family_fields`, `validate_protocol`, and `assess(witness, protocol)` using
+the public protocol. It supports all 32 members in each family. The trusted
+evaluator has its own physics copy and exclusively uses the committed private
+protocol. Modifying public files cannot modify grading or reveal its probes.
+
+From the participant directory:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python baseline/solve.py --output witness.json
+```
+
+The baseline is the original public unstructured-search algorithm, not a
+previous champion or a witness-seeded solver. It screens 128 profiles and
+checks eight finalists on the public bank. Its search report is explicitly
+public-calibration feedback; success there does not establish a private pass.
+
+The main runner invokes, from the generation_2 package root:
+
+```bash
+python -I -B evaluator/evaluate.py SUBMISSION_DIR/witness.json --output report.json
+```
+
+This is a positional witness-file CLI, not a directory or `--submission` CLI.
+The interpreter, dependencies, and evaluator files are trusted; only
+participant assets are exposed to solvers. Isolated mode ignores participant
+`PYTHONPATH` and working-directory modules. The evaluator reports aggregate
+private scores, not offsets, seeds, per-probe spectra, or per-probe diagnostics.
+
+Reports include `core`, `worst_family`, `pass`, `valid`, `reason`, `resource`,
+plus aliases `core_score`, `worst_family_score`, `passed`, and `runtime_seconds`.
+`evaluator_valid` is true for a grading decision, including invalid input,
+and false for an internal/commitment error. Uncomputed scientific scores are
+null. `resource_score` is 1.0 for a valid witness evaluated within limits and
+0.0 otherwise. All aliases are present on error reports too.
+
+Search allowance is 3,600 seconds, maximum eight generator workers and one
+BLAS thread each. Grading uses 129 full float64 SciPy `evr` diagonalizations
+(base plus 128 private perturbations), one worker, one BLAS thread, a
+180-second wall limit, and a 2-GiB address-space ceiling. Invalid inputs can
+be rejected before any diagonalization. No target is adjusted at runtime.
+import functools
+import itertools
+import os
+
+for variable in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "BLIS_NUM_THREADS"):
+    os.environ[variable] = "1"
+
+import numpy as np
+from scipy.linalg import eigh
+
+
+@functools.lru_cache(maxsize=2)
+def sector(length=12):
+    states = np.array(sorted(sum(1 << site for site in occupied)
+                             for occupied in itertools.combinations(range(length), length // 2)), dtype=np.int64)
+    spins = ((states[:, None] >> np.arange(length)) & 1).astype(float) - 0.5
+    lookup = {int(state): index for index, state in enumerate(states)}
+    exchange = np.diag(np.sum(spins * np.roll(spins, -1, axis=1), axis=1))
+    for column, state in enumerate(states):
+        for site in range(length):
+            neighbour = (site + 1) % length
+            if ((state >> site) & 1) != ((state >> neighbour) & 1):
+                row = lookup[int(state ^ (1 << site) ^ (1 << neighbour))]
+                exchange[row, column] += 0.5
+    return states, spins, exchange
+
+
+def hamiltonian(fields):
+    fields = np.asarray(fields, dtype=float)
+    if fields.shape != (12,) or not np.isfinite(fields).all():
+        raise ValueError("fields must be twelve finite real numbers")
+    states, spins, exchange = sector(len(fields))
+    matrix = exchange.copy(order="F")
+    matrix.flat[::len(states) + 1] += spins @ fields
+    return matrix
+
+
+def spectrum(fields, driver="evr"):
+    return eigh(hamiltonian(fields), eigvals_only=True, driver=driver,
+                overwrite_a=True, check_finite=False)
+
+
+def ratios(energies):
+    energies = np.asarray(energies, dtype=float)
+    gaps = np.diff(energies)
+    if len(gaps) < 2 or not np.isfinite(gaps).all() or np.any(gaps <= 1e-10):
+        raise ValueError("insufficient or numerically degenerate spectrum")
+    return np.minimum(gaps[:-1], gaps[1:]) / np.maximum(gaps[:-1], gaps[1:])
+
+
+def symmetry_distance(fields):
+    fields = np.asarray(fields, dtype=float)
+    distances = []
+    for reflected in (False, True):
+        source = fields[::-1] if reflected else fields
+        for shift in range(len(fields)):
+            for sign in (-1, 1):
+                if not reflected and shift == 0 and sign == 1:
+                    continue
+                distances.append(float(np.sqrt(np.mean((fields - sign * np.roll(source, shift)) ** 2))))
+    return min(distances)
+
+
+def validate_fields(fields, derived=False):
+    fields = np.asarray(fields, dtype=float)
+    if fields.shape != (12,) or not np.isfinite(fields).all():
+        raise ValueError("fields must be twelve finite real numbers")
+    if abs(float(np.mean(fields))) > 1e-9:
+        raise ValueError("fields must have zero mean within 1e-9")
+    bound = 8.5 if derived else 8.0
+    minimum_rms = 0.55 if derived else 0.65
+    minimum_distance = 0.05 if derived else 0.12
+    minimum_separation = 1e-7 if derived else 0.001
+    if float(np.max(np.abs(fields))) > bound:
+        raise ValueError(f"absolute field exceeds {bound}")
+    if float(np.sqrt(np.mean(fields ** 2))) < minimum_rms:
+        raise ValueError(f"field rms is below {minimum_rms}")
+    if float(np.min(np.diff(np.sort(fields)))) < minimum_separation:
+        raise ValueError(f"field pair separation is below {minimum_separation}")
+    distance = symmetry_distance(fields)
+    if distance < minimum_distance:
+        raise ValueError(f"signed dihedral symmetry distance is below {minimum_distance}")
+    return {"maximum_absolute_field": float(np.max(np.abs(fields))),
+            "rms_field": float(np.sqrt(np.mean(fields ** 2))),
+            "pair_separation": float(np.min(np.diff(np.sort(fields)))),
+            "symmetry_distance": distance}
+
+
+def validate_witness(witness):
+    if not isinstance(witness, dict) or set(witness) != {"schema_version", "fields", "orientation"}:
+        raise ValueError("exactly schema_version, fields, orientation are required")
+    if type(witness["schema_version"]) is not int or witness["schema_version"] != 1:
+        raise ValueError("schema_version must be integer 1")
+    if type(witness["orientation"]) is not int or witness["orientation"] not in (-1, 1):
+        raise ValueError("orientation must be integer -1 or +1")
+    fields = witness["fields"]
+    if not isinstance(fields, list) or len(fields) != 12:
+        raise ValueError("fields must be a JSON list of length twelve")
+    if any(type(value) not in (int, float) for value in fields):
+        raise ValueError("field entries must be numbers, not booleans or strings")
+    return validate_fields(fields)
+
+
+def proxy_statistics(energies):
+    energies = np.asarray(energies, dtype=float)
+    if energies.shape != (924,) or not np.isfinite(energies).all():
+        raise ValueError("expected the full 924-level spectrum")
+    ratios(energies)
+    rank_r = float(np.mean(ratios(energies[308:616])))
+    bandwidth = float(energies[-1] - energies[0])
+    windows = []
+    for target in (0.49, 0.50, 0.51):
+        target_energy = energies[0] + target * bandwidth
+        center = int(np.argmin(np.abs(energies - target_energy)))
+        start = max(0, min(796, center - 64))
+        windows.append({"target_density": target, "nearest_rank": center,
+                        "start": start, "stop": start + 128, "ratio_count": 126,
+                        "r": float(np.mean(ratios(energies[start:start + 128])))})
+    proxy_r = float(np.mean([window["r"] for window in windows]))
+    return {"rank_r": rank_r, "proxy_r": proxy_r, "difference": proxy_r - rank_r,
+            "rank_ratio_count": 306, "windows": windows,
+            "minimum_gap": float(np.min(np.diff(energies))),
+            "bandwidth": bandwidth}
+
+
+def family_fields(fields, protocol):
+    fields = np.asarray(fields, dtype=float)
+    for family in protocol["families"]:
+        for member, offset in enumerate(family["offsets"]):
+            yield family["name"], member, family["scale"] * fields + np.asarray(offset)
+
+
+def assess(witness, protocol, driver="evr", counter=None):
+    validate_protocol(protocol)
+    constraints = validate_witness(witness)
+    fields = np.asarray(witness["fields"], dtype=float)
+    orientation = witness["orientation"]
+    profiles = [(family, member, perturbed, validate_fields(perturbed, derived=True))
+                for family, member, perturbed in family_fields(fields, protocol)]
+    def measure(profile):
+        if counter is not None:
+            counter["diagonalizations"] += 1
+        return proxy_statistics(spectrum(profile, driver=driver))
+    base = measure(fields)
+    base["signed_difference"] = orientation * base["difference"]
+    rows = []
+    for family, member, perturbed, member_constraints in profiles:
+        result = measure(perturbed)
+        rows.append({"family": family, "member": member, **result,
+                     "signed_difference": orientation * result["difference"],
+                     "constraints": member_constraints})
+    targets = protocol["targets"]
+    summaries = []
+    for family in protocol["families"]:
+        members = [row for row in rows if row["family"] == family["name"]]
+        differences = [row["signed_difference"] for row in members]
+        summaries.append({"family": family["name"], "members": len(members),
+                          "mean": float(np.mean(differences)), "minimum": min(differences),
+                          "above_member_floor": sum(value >= targets["member_floor"] for value in differences)})
+    core = float(np.mean([family["mean"] for family in summaries]))
+    worst = min(summaries, key=lambda family: family["mean"])
+    checks = {"core": core >= targets["core"],
+              "worst_family": worst["mean"] >= targets["worst_family"],
+              "base": base["signed_difference"] >= targets["base"],
+              "member_coverage": all(family["above_member_floor"] >= targets["members_required"] for family in summaries)}
+    return {"valid": True, "pass": all(checks.values()), "core": core, "case_set": protocol["case_set"],
+            "worst_family": worst["mean"], "worst_family_name": worst["family"],
+            "reason": "counterexample_verified" if all(checks.values()) else "below_target:" + ",".join(name for name, passed in checks.items() if not passed),
+            "checks": checks, "base": base, "families": summaries, "members": rows,
+            "constraints": constraints, "targets": targets, "diagonalizations": len(rows) + 1}
+
+
+def validate_protocol(protocol):
+    expected_targets = {"core": 0.060, "worst_family": 0.050, "base": 0.055,
+                        "member_floor": 0.025, "members_required": 24, "coverage_fraction": 0.75}
+    expected_families = (("jitter_004", 1.0, 0.04), ("jitter_012", 1.0, 0.12),
+                         ("scale_096", 0.96, 0.08), ("scale_104", 1.04, 0.08))
+    if protocol.get("task_id") != "pal_huse_spectral_center_falsification_g2_v1":
+        raise ValueError("wrong generation-two protocol identifier")
+    if protocol.get("targets") != expected_targets or len(protocol.get("families", [])) != 4:
+        raise ValueError("wrong generation-two targets or family count")
+    if protocol.get("case_set") not in ("public_calibration", "private_replication"):
+        raise ValueError("unknown calibration/replication case set")
+    for family, expected in zip(protocol["families"], expected_families):
+        if (family["name"], family["scale"], family["amplitude_before_centering"]) != expected:
+            raise ValueError("wrong perturbation family law")
+        offsets = np.asarray(family["offsets"], dtype=float)
+        if offsets.shape != (32, 12) or not np.isfinite(offsets).all():
+            raise ValueError("each family requires 32 finite twelve-component offsets")
+        if np.max(np.abs(offsets.mean(axis=1))) > 1e-15 or np.max(np.abs(offsets)) > 2 * expected[2]:
+            raise ValueError("offset centering or support constraint failed")
+# Public calibration workspace
+
+Load `../input/protocol.json` and use `exact.assess(witness, protocol)`.
+The four families each contain 32 public members. This helper uses no
+private offsets or prior witnesses. Calibration and grading use identical
+physics, constraints, family laws, and thresholds, but different probe banks.
+Only the independent committed private bank determines acceptance.
+{
+  "title": "C3-v1 static field witness",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "fields", "orientation"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "orientation": {"type": "integer", "enum": [-1, 1]},
+    "fields": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {"type": "number", "minimum": -8.0, "maximum": 8.0}
+    }
+  }
+}
+Fri Aug 28 19:14:12 UTC 2026
+4
+
+exec
+/bin/bash -c 'echo ok' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/generations/generation_2/participant
+exec
+/bin/bash -c "sed -n '103,230p' input/PROTOCOL.md; sed -n '1,165p' workspace/exact.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/generations/generation_2/participant
+ succeeded in 16464ms:
+ok
+
+**Examining command efficiency**
+
+I see that we have 58 million now, but I need to think about executing commands asynchronously since significant calls can be costly. That makes sense, right? I’m also considering the latency issues and that there might be a 40-second startup delay with the scheduler. I need to create a script after figuring out the exact requirements. It’s a bit challenging, but I’m on it!
+ succeeded in 22793ms:
+commitment before any diagonalization. A mismatch is an evaluator error,
+never a participant failure or a reason to resample. Neither bank is changed
+after its commitment, and neither bank is the earlier generation's probes.
+
+## Fixed objective and pass conditions
+
+The witness chooses one integer orientation `s in {-1,+1}`. Define
+`d(h')=s*(P(h')-R(h'))`. For each private family, `B_F` is the mean over all
+32 members. All comparisons are inclusive and all conditions are mandatory:
+
+- `core=mean_F B_F >= 0.060`.
+- `worst_family=min_F B_F >= 0.050`.
+- Unperturbed base `d(h) >= 0.055`.
+- In every private family, at least 24/32 members have `d(h') >= 0.025`:
+  coverage fraction at least 75%.
+- Every schema, field, spectrum, and resource constraint passes.
+
+The base is not included in the family mean. Do not take absolute values or
+switch orientation per member. There is no selection of a favorable family
+or subset of members. The core threshold forces at least one family to
+contradict the 0.05 claim; the remaining criteria enforce replication.
+No confidence interval or thermodynamic conclusion is claimed for this
+deterministic finite certificate. Public scores are search diagnostics, not
+an alternative acceptance route or an additional required grading gate.
+
+## Static interface and resources
+
+The witness must be a regular UTF-8 JSON file, at most 16,384 bytes, with
+exactly `schema_version` (integer 1), `fields` (twelve finite JSON numbers),
+and `orientation` (integer -1 or +1). Booleans and numeric strings do not
+count as numbers. Extra or duplicate keys, nonfinite constants, malformed
+JSON, symbolic links, pipes, directories, and code payloads are rejected.
+No supplied code, paths, eigenvalues, or claimed scores are executed or trusted.
+
+The public helper offers `spectrum`, `proxy_statistics`, `validate_witness`,
+`family_fields`, `validate_protocol`, and `assess(witness, protocol)` using
+the public protocol. It supports all 32 members in each family. The trusted
+evaluator has its own physics copy and exclusively uses the committed private
+protocol. Modifying public files cannot modify grading or reveal its probes.
+
+From the participant directory:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python baseline/solve.py --output witness.json
+```
+
+The baseline is the original public unstructured-search algorithm, not a
+previous champion or a witness-seeded solver. It screens 128 profiles and
+checks eight finalists on the public bank. Its search report is explicitly
+public-calibration feedback; success there does not establish a private pass.
+
+The main runner invokes, from the generation_2 package root:
+
+```bash
+python -I -B evaluator/evaluate.py SUBMISSION_DIR/witness.json --output report.json
+```
+
+This is a positional witness-file CLI, not a directory or `--submission` CLI.
+The interpreter, dependencies, and evaluator files are trusted; only
+participant assets are exposed to solvers. Isolated mode ignores participant
+`PYTHONPATH` and working-directory modules. The evaluator reports aggregate
+private scores, not offsets, seeds, per-probe spectra, or per-probe diagnostics.
+
+Reports include `core`, `worst_family`, `pass`, `valid`, `reason`, `resource`,
+plus aliases `core_score`, `worst_family_score`, `passed`, and `runtime_seconds`.
+`evaluator_valid` is true for a grading decision, including invalid input,
+and false for an internal/commitment error. Uncomputed scientific scores are
+null. `resource_score` is 1.0 for a valid witness evaluated within limits and
+0.0 otherwise. All aliases are present on error reports too.
+
+Search allowance is 3,600 seconds, maximum eight generator workers and one
+BLAS thread each. Grading uses 129 full float64 SciPy `evr` diagonalizations
+(base plus 128 private perturbations), one worker, one BLAS thread, a
+180-second wall limit, and a 2-GiB address-space ceiling. Invalid inputs can
+be rejected before any diagonalization. No target is adjusted at runtime.
+import functools
+import itertools
+import os
+
+for variable in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "BLIS_NUM_THREADS"):
+    os.environ[variable] = "1"
+
+import numpy as np
+from scipy.linalg import eigh
+
+
+@functools.lru_cache(maxsize=2)
+def sector(length=12):
+    states = np.array(sorted(sum(1 << site for site in occupied)
+                             for occupied in itertools.combinations(range(length), length // 2)), dtype=np.int64)
+    spins = ((states[:, None] >> np.arange(length)) & 1).astype(float) - 0.5
+    lookup = {int(state): index for index, state in enumerate(states)}
+    exchange = np.diag(np.sum(spins * np.roll(spins, -1, axis=1), axis=1))
+    for column, state in enumerate(states):
+        for site in range(length):
+            neighbour = (site + 1) % length
+            if ((state >> site) & 1) != ((state >> neighbour) & 1):
+                row = lookup[int(state ^ (1 << site) ^ (1 << neighbour))]
+                exchange[row, column] += 0.5
+    return states, spins, exchange
+
+
+def hamiltonian(fields):
+    fields = np.asarray(fields, dtype=float)
+    if fields.shape != (12,) or not np.isfinite(fields).all():
+        raise ValueError("fields must be twelve finite real numbers")
+    states, spins, exchange = sector(len(fields))
+    matrix = exchange.copy(order="F")
+    matrix.flat[::len(states) + 1] += spins @ fields
+    return matrix
+
+
+def spectrum(fields, driver="evr"):
+    return eigh(hamiltonian(fields), eigvals_only=True, driver=driver,
+                overwrite_a=True, check_finite=False)
+
+
+def ratios(energies):
+    energies = np.asarray(energies, dtype=float)
+    gaps = np.diff(energies)
+    if len(gaps) < 2 or not np.isfinite(gaps).all() or np.any(gaps <= 1e-10):
+        raise ValueError("insufficient or numerically degenerate spectrum")
+    return np.minimum(gaps[:-1], gaps[1:]) / np.maximum(gaps[:-1], gaps[1:])
+
+
+def symmetry_distance(fields):
+    fields = np.asarray(fields, dtype=float)
+    distances = []
+    for reflected in (False, True):
+        source = fields[::-1] if reflected else fields
+        for shift in range(len(fields)):
+            for sign in (-1, 1):
+                if not reflected and shift == 0 and sign == 1:
+                    continue
+                distances.append(float(np.sqrt(np.mean((fields - sign * np.roll(source, shift)) ** 2))))
+    return min(distances)
+
+
+def validate_fields(fields, derived=False):
+    fields = np.asarray(fields, dtype=float)
+    if fields.shape != (12,) or not np.isfinite(fields).all():
+        raise ValueError("fields must be twelve finite real numbers")
+    if abs(float(np.mean(fields))) > 1e-9:
+        raise ValueError("fields must have zero mean within 1e-9")
+    bound = 8.5 if derived else 8.0
+    minimum_rms = 0.55 if derived else 0.65
+    minimum_distance = 0.05 if derived else 0.12
+    minimum_separation = 1e-7 if derived else 0.001
+    if float(np.max(np.abs(fields))) > bound:
+        raise ValueError(f"absolute field exceeds {bound}")
+    if float(np.sqrt(np.mean(fields ** 2))) < minimum_rms:
+        raise ValueError(f"field rms is below {minimum_rms}")
+    if float(np.min(np.diff(np.sort(fields)))) < minimum_separation:
+        raise ValueError(f"field pair separation is below {minimum_separation}")
+    distance = symmetry_distance(fields)
+    if distance < minimum_distance:
+        raise ValueError(f"signed dihedral symmetry distance is below {minimum_distance}")
+    return {"maximum_absolute_field": float(np.max(np.abs(fields))),
+            "rms_field": float(np.sqrt(np.mean(fields ** 2))),
+            "pair_separation": float(np.min(np.diff(np.sort(fields)))),
+            "symmetry_distance": distance}
+
+
+def validate_witness(witness):
+    if not isinstance(witness, dict) or set(witness) != {"schema_version", "fields", "orientation"}:
+        raise ValueError("exactly schema_version, fields, orientation are required")
+    if type(witness["schema_version"]) is not int or witness["schema_version"] != 1:
+        raise ValueError("schema_version must be integer 1")
+    if type(witness["orientation"]) is not int or witness["orientation"] not in (-1, 1):
+        raise ValueError("orientation must be integer -1 or +1")
+    fields = witness["fields"]
+    if not isinstance(fields, list) or len(fields) != 12:
+        raise ValueError("fields must be a JSON list of length twelve")
+    if any(type(value) not in (int, float) for value in fields):
+        raise ValueError("field entries must be numbers, not booleans or strings")
+    return validate_fields(fields)
+
+
+def proxy_statistics(energies):
+    energies = np.asarray(energies, dtype=float)
+    if energies.shape != (924,) or not np.isfinite(energies).all():
+        raise ValueError("expected the full 924-level spectrum")
+    ratios(energies)
+    rank_r = float(np.mean(ratios(energies[308:616])))
+    bandwidth = float(energies[-1] - energies[0])
+    windows = []
+    for target in (0.49, 0.50, 0.51):
+        target_energy = energies[0] + target * bandwidth
+        center = int(np.argmin(np.abs(energies - target_energy)))
+        start = max(0, min(796, center - 64))
+        windows.append({"target_density": target, "nearest_rank": center,
+                        "start": start, "stop": start + 128, "ratio_count": 126,
+                        "r": float(np.mean(ratios(energies[start:start + 128])))})
+    proxy_r = float(np.mean([window["r"] for window in windows]))
+    return {"rank_r": rank_r, "proxy_r": proxy_r, "difference": proxy_r - rank_r,
+            "rank_ratio_count": 306, "windows": windows,
+            "minimum_gap": float(np.min(np.diff(energies))),
+            "bandwidth": bandwidth}
+
+
+def family_fields(fields, protocol):
+    fields = np.asarray(fields, dtype=float)
+    for family in protocol["families"]:
+        for member, offset in enumerate(family["offsets"]):
+            yield family["name"], member, family["scale"] * fields + np.asarray(offset)
+
+
+def assess(witness, protocol, driver="evr", counter=None):
+    validate_protocol(protocol)
+    constraints = validate_witness(witness)
+    fields = np.asarray(witness["fields"], dtype=float)
+    orientation = witness["orientation"]
+    profiles = [(family, member, perturbed, validate_fields(perturbed, derived=True))
+                for family, member, perturbed in family_fields(fields, protocol)]
+    def measure(profile):
+        if counter is not None:
+            counter["diagonalizations"] += 1
+        return proxy_statistics(spectrum(profile, driver=driver))
+    base = measure(fields)
+    base["signed_difference"] = orientation * base["difference"]
+    rows = []
+    for family, member, perturbed, member_constraints in profiles:
+        result = measure(perturbed)
+        rows.append({"family": family, "member": member, **result,
+                     "signed_difference": orientation * result["difference"],
+                     "constraints": member_constraints})
+    targets = protocol["targets"]
+    summaries = []
+    for family in protocol["families"]:
+        members = [row for row in rows if row["family"] == family["name"]]
+        differences = [row["signed_difference"] for row in members]
+        summaries.append({"family": family["name"], "members": len(members),
+                          "mean": float(np.mean(differences)), "minimum": min(differences),
+                          "above_member_floor": sum(value >= targets["member_floor"] for value in differences)})
+    core = float(np.mean([family["mean"] for family in summaries]))
+    worst = min(summaries, key=lambda family: family["mean"])
+    checks = {"core": core >= targets["core"],
+              "worst_family": worst["mean"] >= targets["worst_family"],
+              "base": base["signed_difference"] >= targets["base"],
+              "member_coverage": all(family["above_member_floor"] >= targets["members_required"] for family in summaries)}
+
+**Analyzing energy bands**
+
+The energy tails aren't centered the same way. The central rank's middle third includes the top of the low band and the bottom of the upper band. To generate paired levels near the center, the energy symmetry must almost align, but they shouldn’t be too broad. If my target midpoint is much displaced from 462, it could lead to a rank of around 350 due to skewness of 1. I should sample thousands to measure differences and conduct robustness screening for accuracy.
+exec
+/bin/bash -c "sed -n '25,72p' workspace/exact.py; command -v apply_patch; ls -ld /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3; OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -B -c 'import sys,time; sys.path.insert(0,\"workspace\"); import exact,numpy as np; h=np.random.default_rng(1).uniform(-2,2,12);h-=h.mean();start=time.monotonic();stat=exact.proxy_statistics(exact.spectrum(h));print(time.monotonic()-start,stat,flush=True);start=time.monotonic();[exact.spectrum(h) for _ in range(10)];print(\"10 spectra\",time.monotonic()-start,flush=True)'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/generations/generation_2/participant
+**Planning code implementation**
+
+I need to focus on creating code that effectively implements a robust search, estimating around 0.1 seconds per operation. Starting with a primary sample of 2000 and 128 probes gives me a broader search space of about 4000. I want to optimize this process for smoother sampling, considering 16 base fields.
+
+Even with each iteration taking time, I could end up with over 400 candidates in 180 seconds. It’s crucial to implement flexible checkpoints and ensure a structured sample distribution with proper logging. For the screening, I might start with 512 candidates and narrow it down to 48 top contenders, randomly selecting 16 bases.
+**Optimizing search strategies**
+
+I’m considering using an independent offset bank with rotating seeds per generation, which could potentially incur costs. Starting with 16 probes and later increasing to 36 sounds like a plan. I want to involve differential evolution, with a population size between 6 and 20 for mutation.
+
+To maintain efficiency, I need to disallow strong, regular patterns that could be easily jittered. I'll also look for mechanisms with various patterns, ensuring a mixture of noise to enhance stability. For exceptional cases, I'm thinking structured fields where smoothness is achieved through symmetry and potentially using a homogeneous chain with added defects.
+**Considering central density windows**
+
+I’m thinking about whether central density windows align with the highest magnetization of sublattices. It seems like the center could vary between lower and higher magnetization due to symmetry and weak mixing at different energy levels. 
+
+I need a broad sampling of the structure to validate this idea. It might be wise to have a bench ready before diving into the coding process — possibly using a tool that’s still pending. Let’s see how that goes!
+ succeeded in 16806ms:
+    return states, spins, exchange
+
+
+def hamiltonian(fields):
+    fields = np.asarray(fields, dtype=float)
+    if fields.shape != (12,) or not np.isfinite(fields).all():
+        raise ValueError("fields must be twelve finite real numbers")
+    states, spins, exchange = sector(len(fields))
+    matrix = exchange.copy(order="F")
+    matrix.flat[::len(states) + 1] += spins @ fields
+    return matrix
+
+
+def spectrum(fields, driver="evr"):
+    return eigh(hamiltonian(fields), eigvals_only=True, driver=driver,
+                overwrite_a=True, check_finite=False)
+
+
+def ratios(energies):
+    energies = np.asarray(energies, dtype=float)
+    gaps = np.diff(energies)
+    if len(gaps) < 2 or not np.isfinite(gaps).all() or np.any(gaps <= 1e-10):
+        raise ValueError("insufficient or numerically degenerate spectrum")
+    return np.minimum(gaps[:-1], gaps[1:]) / np.maximum(gaps[:-1], gaps[1:])
+
+
+def symmetry_distance(fields):
+    fields = np.asarray(fields, dtype=float)
+    distances = []
+    for reflected in (False, True):
+        source = fields[::-1] if reflected else fields
+        for shift in range(len(fields)):
+            for sign in (-1, 1):
+                if not reflected and shift == 0 and sign == 1:
+                    continue
+                distances.append(float(np.sqrt(np.mean((fields - sign * np.roll(source, shift)) ** 2))))
+    return min(distances)
+
+
+def validate_fields(fields, derived=False):
+    fields = np.asarray(fields, dtype=float)
+    if fields.shape != (12,) or not np.isfinite(fields).all():
+        raise ValueError("fields must be twelve finite real numbers")
+    if abs(float(np.mean(fields))) > 1e-9:
+        raise ValueError("fields must have zero mean within 1e-9")
+    bound = 8.5 if derived else 8.0
+    minimum_rms = 0.55 if derived else 0.65
+    minimum_distance = 0.05 if derived else 0.12
+/srv/home/xuandong/.codex/tmp/arg0/codex-arg00VTLpM/apply_patch
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 12:15 /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+0.09646858496125787 {'rank_r': 0.4819220642040547, 'proxy_r': 0.4310103682204143, 'difference': -0.050911695983640426, 'rank_ratio_count': 306, 'windows': [{'target_density': 0.49, 'nearest_rank': 282, 'start': 218, 'stop': 346, 'ratio_count': 126, 'r': 0.43881623092600497}, {'target_density': 0.5, 'nearest_rank': 303, 'start': 239, 'stop': 367, 'ratio_count': 126, 'r': 0.4199052867176279}, {'target_density': 0.51, 'nearest_rank': 320, 'start': 256, 'stop': 384, 'ratio_count': 126, 'r': 0.43430958701760985}], 'minimum_gap': 0.00020738037367873385, 'bandwidth': 14.708497565957295}
+10 spectra 0.7073180779116228
+
+**Reviewing output needs**
+
+I’m noticing it’s around 19:18, and I’ve got about 53 minutes and .07 seconds, with a throughput of roughly 50 per second and 150k spectra. It looks like I need to set the output directory without overwriting unrelated files since I have about five directories right now. So, I need to check the existing files with a list command and make sure everything is organized properly.
+codex
+Exact spectra are fast enough for broad, perturbation-aware search.
+
+  ✓ Inspect protocol and benchmark exact spectra
+  → Search robust structured field profiles
+  • Validate independent replication and constraints
+  • Write final static witness and report
+exec
+/bin/bash -c "ls -la; apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: search.py
++import os
++for variable in (\"OPENBLAS_NUM_THREADS\", \"OMP_NUM_THREADS\", \"MKL_NUM_THREADS\", \"BLIS_NUM_THREADS\"):
++    os.environ[variable] = \"1\"
++
++import argparse
++import concurrent.futures
++import hashlib
++import json
++from pathlib import Path
++import sys
++import time
++import numpy as np
++
++ASSETS = Path(\"/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/generations/generation_2/participant\")
++sys.path.insert(0, str(ASSETS / \"workspace\"))
++from exact import spectrum, proxy_statistics, validate_fields, assess
++
++OUTPUT = Path(__file__).resolve().parent
++FAMILIES = ((\"jitter_004\", 1.0, 0.04), (\"jitter_012\", 1.0, 0.12), (\"scale_096\", 0.96, 0.08), (\"scale_104\", 1.04, 0.08))
++
++
++def bank(seed, count=32):
++    seed_hex = hashlib.sha256(str(seed).encode()).hexdigest()
++    families = []
++    for name, scale, amplitude in FAMILIES:
++        offsets = []
++        for member in range(count):
++            uniforms = np.array([2.0 * int.from_bytes(hashlib.sha256(f\"{seed_hex}|{name}|{member}|{site}\".encode()).digest()[:8], \"big\") / (2**64 - 1) - 1.0 for site in range(12)])
++            offsets.append((amplitude * (uniforms - uniforms.mean())).tolist())
++        families.append({\"name\": name, \"scale\": scale, \"amplitude_before_centering\": amplitude, \"offsets\": offsets})
++    protocol = json.loads((ASSETS / \"input/protocol.json\").read_text())
++    protocol[\"families\"] = families
++    protocol[\"seed_hex\"] = seed_hex
++    return protocol
++
++
++def evaluate(task):
++    fields, orientation, protocol, count = task
++    try:
++        validate_fields(fields)
++        base = proxy_statistics(spectrum(fields))[\"difference\"]
++        orientation = orientation or (1 if base >= 0 else -1)
++        values = []
++        for family in protocol[\"families\"]:
++            family_values = []
++            for offset in family[\"offsets\"][:count]:
++                profile = family[\"scale\"] * np.asarray(fields) + offset
++                family_values.append(orientation * proxy_statistics(spectrum(profile))[\"difference\"])
++            values.append(family_values)
++        if count:
++            array = np.array(values)
++            means = array.mean(axis=1)
++            core = float(means.mean())
++            worst = float(means.min())
++            floor = float(np.quantile(array, 0.20, axis=1).min())
++            score = core - 0.30 * (core - worst) - 0.35 * max(0.025 - floor, 0) - 0.3 * max(0.06 - orientation * base, 0)
++        else:
++            core = worst = floor = 0.0
++            score = abs(base)
++        return {\"fields\": list(fields), \"orientation\": orientation, \"base\": orientation * base, \"core\": core, \"worst\": worst, \"floor\": floor, \"score\": score, \"values\": values}
++    except ValueError:
++        return {\"fields\": list(fields), \"orientation\": orientation or 1, \"base\": -1.0, \"core\": -1.0, \"score\": -1.0}
++
++
++def candidate(random):
++    while True:
++        mode = int(random.integers(12))
++        width = float(np.exp(random.uniform(np.log(0.8), np.log(7.5))))
++        noise = float(np.exp(random.uniform(np.log(0.10), np.log(1.5))))
++        sites = np.arange(12)
++        if mode <= 2:
++            fields = random.uniform(-width, width, 12)
++        elif mode == 3:
++            fields = np.zeros(12)
++            selected = random.choice(12, size=int(random.integers(1, 5)), replace=False)
++            fields[selected] = random.choice([-1, 1], len(selected)) * width
++        elif mode == 4:
++            fields = width * (-1.0) ** sites
++        elif mode == 5:
++            fields = width * (sites < int(random.integers(2, 11)))
++        elif mode == 6:
++            fields = width * random.choice([-1, 1], 12)
++        elif mode == 7:
++            fields = width * np.cos(2 * np.pi * random.uniform(0.06, 0.5) * sites + random.uniform(0, 2 * np.pi))
++        elif mode == 8:
++            fields = width * (sites / 5.5 - 1)
++        elif mode == 9:
++            pattern = random.uniform(-width, width, int(random.choice([2, 3, 4, 6])))
++            fields = np.tile(pattern, 12 // len(pattern))
++        elif mode == 10:
++            fields = random.uniform(-width, width, 6)
++            fields = np.concatenate([fields, random.choice([-1, 1]) * fields[::-1]])
++        else:
++            fields = random.uniform(-width, width, 12)
++            fields[::2] *= 0.1
++        fields = np.asarray(fields, dtype=float) + random.uniform(-noise, noise, 12)
++        fields -= fields.mean()
++        try:
++            validate_fields(fields)
++        except ValueError:
++            continue
++        return fields.tolist()
++
++
++def mutate(random, parents, generation):
++    while True:
++        parent = parents[int(random.integers(len(parents)))]
++        fields = np.asarray(parent[\"fields\"]).copy()
++        mode = random.random()
++        width = random.choice([0.01, 0.025, 0.05, 0.10, 0.20, 0.40], p=[0.08, 0.15, 0.25, 0.25, 0.20, 0.07])
++        if mode < 0.60:
++            fields += random.normal(0, width, 12)
++        elif mode < 0.76:
++            fields[int(random.integers(12))] += random.normal(0, width * 3)
++        elif mode < 0.9:
++            fields *= random.uniform(0.94, 1.06)
++            fields += random.normal(0, width / 3, 12)
++        else:
++            other = np.asarray(parents[int(random.integers(len(parents)))][\"fields\"])
++            if np.linalg.norm(fields - other) < 3:
++                fields += random.uniform(-0.6, 0.6) * (other - fields)
++            else:
++                fields += random.normal(0, width, 12)
++        fields -= fields.mean()
++        try:
++            validate_fields(fields)
++        except ValueError:
++            continue
++        return fields.tolist(), parent[\"orientation\"]
++
++
++def log(message):
++    print(message, flush=True)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument(\"--seconds\", type=int, default=2500)
++    parser.add_argument(\"--initial\", type=int, default=3000)
++    parser.add_argument(\"--workers\", type=int, default=4)
++    parser.add_argument(\"--seed\", type=int, default=831901)
++    parser.add_argument(\"--resume\", type=Path)
++    args = parser.parse_args()
++    random = np.random.default_rng(args.seed)
++    started = time.monotonic()
++    training = bank(\"training-\" + str(args.seed))
++    public = json.loads((ASSETS / \"input/protocol.json\").read_text())
++    archive = []
++    full_archive = []
++    with concurrent.futures.ProcessPoolExecutor(max_workers=args.workers) as executor:
++        if args.resume:
++            archive = json.loads(args.resume.read_text())[:32]
++        else:
++            tasks = [(candidate(random), 0, training, 0) for _ in range(args.initial)]
++            screened = list(executor.map(evaluate, tasks, chunksize=4))
++            screened.sort(key=lambda row: row[\"score\"], reverse=True)
++            (OUTPUT / \"screened.json\").write_text(json.dumps(screened[:300]))
++            log({\"phase\": \"base_screen\", \"seconds\": time.monotonic() - started, \"top\": [(row[\"base\"], row[\"fields\"]) for row in screened[:8]]})
++            tasks = [(row[\"fields\"], row[\"orientation\"], training, 4) for row in screened[:200]]
++            archive = list(executor.map(evaluate, tasks))
++        archive.sort(key=lambda row: row[\"score\"], reverse=True)
++        generation = 0
++        while time.monotonic() - started < args.seconds:
++            generation += 1
++            archive.sort(key=lambda row: row[\"score\"], reverse=True)
++            archive = archive[:40]
++            (OUTPUT / \"archive.json\").write_text(json.dumps(archive, indent=2))
++            log({\"generation\": generation, \"seconds\": round(time.monotonic() - started), \"top\": [{key: row.get(key) for key in (\"base\", \"core\", \"worst\", \"floor\", \"score\")} for row in archive[:5]]})
++            if generation % 3 == 1:
++                finalists = archive[:8]
++                checked = list(executor.map(evaluate, [(row[\"fields\"], row[\"orientation\"], public, 32) for row in finalists]))
++                full_archive.extend(checked)
++                full_archive.sort(key=lambda row: row[\"score\"], reverse=True)
++                (OUTPUT / \"full_archive.json\").write_text(json.dumps(full_archive, indent=2))
++                best = full_archive[0]
++                witness = {\"schema_version\": 1, \"fields\": best[\"fields\"], \"orientation\": best[\"orientation\"]}
++                (OUTPUT / \"witness.json\").write_text(json.dumps(witness, indent=2) + \"\\n\")
++                log({\"phase\": \"public_full\", \"seconds\": round(time.monotonic() - started), \"best\": {key: best[key] for key in (\"base\", \"core\", \"worst\", \"floor\", \"score\")}})
++            parents = archive[:16]
++            proposals = [mutate(random, parents, generation) for _ in range(100)]
++            proposals += [(candidate(random), 0) for _ in range(12)]
++            base_rows = list(executor.map(evaluate, [(fields, orientation, training, 0) for fields, orientation in proposals]))
++            base_rows = [row for row in base_rows if row[\"base\"] >= 0.045]
++            if generation % 3 == 0:
++                training = bank(\"training-\" + str(args.seed) + \"-\" + str(generation))
++                base_rows.extend(archive[:24])
++                archive = []
++            results = list(executor.map(evaluate, [(row[\"fields\"], row[\"orientation\"], training, 6) for row in base_rows]))
++            archive.extend(results)
++    log({\"finished_seconds\": time.monotonic() - started})
++
++
++if __name__ == \"__main__\":
++    main()
+*** End Patch
+PATCH
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python -B search.py --seconds 2400 --initial 2400 > search.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+exec
+/bin/bash -c 'date -u; ls -lh; tail -n 5 search.log' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+exec
+/bin/bash -c 'head -n 28 input/protocol.json' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/generations/generation_2/participant
+exec
+/bin/bash -c 'bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+**Considering command execution**
+
+I’m thinking that maybe all the commands are currently queued. How current are the dates? I can consider that it might take around 40 seconds per initialization if the host is running network tools. Polling one command 1,000 times yields 5 seconds, which feels inefficient with a maximum of 1 hour. Instead, it might be better to yield for 60 seconds and make just one call rather than multiple polls.
+ succeeded in 60370ms:
+{
+  "schema_version": 1,
+  "task_id": "pal_huse_spectral_center_falsification_g2_v1",
+  "length": 12,
+  "dimension": 924,
+  "rank_slice": [
+    308,
+    616
+  ],
+  "window_levels": 128,
+  "energy_density_targets": [
+    0.49,
+    0.5,
+    0.51
+  ],
+  "targets": {
+    "core": 0.06,
+    "worst_family": 0.05,
+    "base": 0.055,
+    "member_floor": 0.025,
+    "members_required": 24,
+    "coverage_fraction": 0.75
+  },
+  "witness_byte_limit": 16384,
+  "evaluator_seconds": 180,
+  "workers": 1,
+  "blas_threads": 1,
+  "field_constraints": {
+
+ succeeded in 72326ms:
+Fri Aug 28 19:18:09 UTC 2026
+total 136K
+-rw-rw-r-- 1 xuandong xuandong 119K Aug 28 12:17 screened.json
+-rw-rw-r-- 1 xuandong xuandong 2.2K Aug 28 12:17 search.log
+-rw-rw-r-- 1 xuandong xuandong 9.1K Aug 28 12:17 search.py
+{'phase': 'base_screen', 'seconds': 52.58687428396661, 'top': [(0.14365169924120963, [2.068455201373276, -1.7825376633071996, 1.8752975708042778, -1.7768885634364833, 2.098661288922919, -2.3485715506734497, 1.7832669012812514, -1.8329213444643986, 1.7850042294201744, -1.728260719580273, 1.7474844203822477, -1.8889897707223433]), (0.10423025022624499, [2.1154484061323835, 1.7761257122764673, 2.331660879597517, 0.9060428414567137, 1.5666036025080137, 1.6309052663708818, -2.059964025529869, -1.50287566545309, -2.263188722055416, -1.7252005512858513, -1.6633833711434347, -1.1121743728743185]), (0.09375597882699949, [1.9926561227618613, -1.3110194080421573, 1.8550443804450687, -1.8888661971301943, 1.3370043333581505, -1.6407445839310844, 1.2788445507822899, -1.5918454689791666, 2.1950481617323923, -1.8699372553827245, 1.6849624370149872, -2.041147072629423]), (0.09249160972781284, [-0.7826014483505268, -2.98763049392291, -2.0639070124443837, 0.6643553035499217, 2.0945053903803075, 2.9687202170665583, 2.875655783244563, 2.2430989397718335, 0.9236411320079718, -2.012578561459434, -2.712653334979969, -1.2106059148639325]), (0.09092803620010292, [4.5515121423032445, -3.777517697830026, 4.15044772515537, -4.351887508007208, 3.4814485976932588, -3.9371645692049415, 3.3767951734134245, -3.4718115480400136, 4.652239323858587, -3.90734774702466, 3.8013258956714444, -4.5680397879884795]), (0.08976495842724319, [0.955187899648148, -0.9908121673218246, 0.8891642872133523, -0.6717384955418093, 0.5681551629201267, -0.9401144924202565, 0.7728850940514636, -0.8401277198317898, 0.9916444112602394, -0.8388219471408009, 1.0250526527568637, -0.9204746855937125]), (0.08938247680172345, [-0.020523211201420324, -0.32859702666845153, 0.44039893288696014, -0.8340076694481687, 1.188727605055633, -1.1203744602197148, 0.8291059531206969, -0.9225428720097729, 0.338864950374754, 0.25755003271982607, -0.5231408040628653, 0.6945385694525236]), (0.08566382532735384, [1.870754356207728, -2.0791953546271387, 2.185350735832164, -1.8154452944558448, 1.7296904727554283, -1.658739142180858, 1.6233804077103795, -2.0871525831501256, 2.0594474308359993, -2.130194525481466, 2.0371680608001697, -1.7350645642464364])]}
+
+**Evaluating time constraints**
+
+I just realized that it’s actually 19:18 instead of 21:00, giving us about 54 minutes total. The reasoning time feels strange because there are a lot of tokens, but it’s only taking a few minutes. That’s great! The staggered setup seems pretty obvious at .1436, so a robust solution is needed soon. I’m close to solving it, but I need to check if there’s strong staggering near the central band. I wonder if P is likely low and if R might be higher? I’ll need to read the archive.
+**Evaluating shell performance**
+
+I’m thinking that the shell does help with latency issues, and I need to benchmark it using some code, specifically with applypatch. I wonder about the setup: using a single CPU with maybe four to five workers, but keeping it maximally efficient — like no more than eight. It's a bit of a banded approach, but I'm hoping it's still useful if it leads to faster results.
+codex
+Structured profiles look promising; I’m testing their perturbation stability.
+
+**Evaluating script concerns**
+
+I want to keep things straightforward. One concern is about the "read-only" asset requirement and the handling of files. I see that the script might be trying to import the __pycache__ directory, which I want to avoid. Numpy could be dealing with temporary writes, which doesn't seem relevant. I need to improve the validation of drawn banks to ensure they are independent and follow the law of uniform256, using the right methods for seed generation.
+**Considering bank modifications**
+
+I'm thinking about whether to modify the bank to make it optional and how the signature should work. I want to use a function like bank(seed, count=32, seed_hex=None), which defaults to deriving certain values. I need to ensure that the generated seeds validate as truly independent uniform seeds. It seems I should pick a candidate first and then finalize the eight independent banks without making adjustments after validation to ensure everything's consistent.
+**Evaluating Python functionality**
+
+I'm looking into how Python handles multiplication of integers and floats, specifically the bank formula with a division operation. It seems like there's a question about converting an integer to a float and ensuring that Python accurately handles this kind of division. I think I need a broader evaluation to fully understand the safety and reliability of these calculations. So, let’s keep digging and see what we can find!
+exec
+/bin/bash -c 'date -u; tail -n 4 search.log' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+**Considering token management**
+
+I'm thinking about the existing shell and how the sleep command is set for 70 seconds. The expected output time is around 19:22:40, but we're working with monotonic clocks, so there's no actual clock ticking away. Right now, I'm polling every 5 seconds, which feels inefficient. Since I have 48 minutes available, I wonder if I can let the tool wait a bit longer to minimize token waste. That could be more efficient!
+ succeeded in 43068ms:
+Fri Aug 28 19:22:27 UTC 2026
+{'generation': 2, 'seconds': 171, 'top': [{'base': 0.07490093971356726, 'core': 0.05935193773624796, 'worst': 0.05449443277837788, 'floor': 0.03202398124339684, 'score': 0.05789468624888693}, {'base': 0.05584590178169335, 'core': 0.059854366185770724, 'worst': 0.05001928323066058, 'floor': 0.03828650996270444, 'score': 0.055657611833745686}, {'base': 0.062459899729000956, 'core': 0.05907959024133251, 'worst': 0.04801844009269223, 'floor': 0.011506996995540975, 'score': 0.051038694145179773}, {'base': 0.05479935422588694, 'core': 0.05379314298860324, 'worst': 0.04800740900762762, 'floor': 0.02099714994450863, 'score': 0.04909623154265466}, {'base': 0.06831216039534777, 'core': 0.05418156023199257, 'worst': 0.04099181389259749, 'floor': 0.020942071986776778, 'score': 0.04880436152554592}]}
+{'generation': 3, 'seconds': 209, 'top': [{'base': 0.08300047097111446, 'core': 0.06611654880842606, 'worst': 0.06052817545356819, 'floor': 0.026198439829988318, 'score': 0.0644400368019687}, {'base': 0.07490093971356726, 'core': 0.05935193773624796, 'worst': 0.05449443277837788, 'floor': 0.03202398124339684, 'score': 0.05789468624888693}, {'base': 0.06756784815292843, 'core': 0.05810853352912264, 'worst': 0.055023685275548406, 'floor': 0.025765651226326236, 'score': 0.05718307905305037}, {'base': 0.09194670961335621, 'core': 0.061575365175819366, 'worst': 0.04535793856580111, 'floor': 0.02638893091954797, 'score': 0.05671013719281389}, {'base': 0.1069891564071262, 'core': 0.0631818711137173, 'worst': 0.04265720291972846, 'floor': 0.023471679532193646, 'score': 0.05648955849178842}]}
+{'generation': 4, 'seconds': 263, 'top': [{'base': 0.09467082447048591, 'core': 0.06687099984358756, 'worst': 0.058248725793114346, 'floor': 0.03345309681600439, 'score': 0.0642843176284456}, {'base': 0.1069891564071262, 'core': 0.06500171940450804, 'worst': 0.058017524753089945, 'floor': 0.027129466226844423, 'score': 0.0629064610090826}, {'base': 0.08149151995174603, 'core': 0.06355400963455714, 'worst': 0.05504835447817655, 'floor': 0.04245247142850511, 'score': 0.06100231308764296}, {'base': 0.09509625673458955, 'core': 0.06172222886074439, 'worst': 0.05490342139301067, 'floor': 0.020818503311067493, 'score': 0.05821306277929789}, {'base': 0.06831216039534777, 'core': 0.061374143505747436, 'worst': 0.047101286149914406, 'floor': 0.03630430133740131, 'score': 0.05709228629899753}]}
+{'phase': 'public_full', 'seconds': 287, 'best': {'base': 0.08149151995174603, 'core': 0.057504610830171075, 'worst': 0.049387981182306445, 'floor': 0.03443356953772223, 'score': 0.055069621935811684}}
+
+**Rethinking tool efficiency**
+
+I'm considering that the wall might not be advanced enough because analyses are happening too quickly. That's interesting! I should probably adjust the settings. I need to think of ways to manage how the tools interact, especially if they're running too many processes at once. Maybe I should just try using explicit numbers instead of letting them automatically fill in. It might help clarify the results I get!
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: sweep.py
++import search
++import concurrent.futures
++import json
++import numpy as np
++
++
++def main():
++    rows = json.loads((search.OUTPUT / \"full_archive.json\").read_text())
++    fields = np.asarray(rows[0][\"fields\"])
++    pattern = np.where(fields > 0, 1.0, -1.0)
++    if sum(pattern) "'!= 0:
++        return
++    amplitude = np.dot(fields, pattern) / 12
++    residual = fields - amplitude * pattern
++    protocol = search.bank("amplitude-width-sweep")
++    tasks = []
++    parameters = []
++    for strength in np.arange(1.5, 7.76, 0.25):
++        for width in (0.5, 0.75, 1.0, 1.25):
++            profile = strength * pattern + width * residual
++            if max(abs(profile)) > 8:
++                continue
++            tasks.append((profile.tolist(), -1, protocol, 4))
++            parameters.append([float(strength), width])
++    with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
++        results = list(executor.map(search.evaluate, tasks))
++    for result, parameter in zip(results, parameters):
++        result["parameters"] = parameter
++    results.sort(key=lambda row: row["score"], reverse=True)
++    (search.OUTPUT / "sweep.json").write_text(json.dumps(results, indent=2))
++    for row in results[:10]:
++        print({key: row.get(key) for key in ("parameters", "base", "core", "worst", "score")}, flush=True)
++
++
++if __name__ == "__main__":
++    main()
+*** End Patch
+PATCH
+python -B sweep.py > sweep.log 2>&1' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+codex
+One profile passes public calibration; I’m seeking more margin.
+
+ succeeded in 70133ms:
+Success. Updated the following files:
+A sweep.py
+
+**Considering output timing**
+
+I'm thinking that the output wall times might only be a few seconds because my processing speed is ultra-fast. It’s good to be less than an hour, with honest elapsed time. The current time is around 19:25, so it’s only been about 13 minutes. While we could spend around 25 minutes, I can't sustain analyzing 22k tokens. I noticed the tool wait function yields around 1000, which seems intended, but we could set it to 60000 instead.
+**Assessing script performance**
+
+I'm reviewing the script logs and counting wall and diagnostic counts. I need to set four workers and make sure that the existing search CPU is adequate. Patience seems key right now as I wait for results before writing more. There's a potential plan update validation in progress while I'm working on the search core's successes. It looks like the current plan is underway, but if the scores don’t increase by 10 for each generation, I should consider using the second stage.
+**Evaluating worker parameters**
+
+I’m assessing some worker parameters, focusing on the main current workers defined under the unchanged definition. The new domain for workers seems to keep the old function that was imported before the patch. I’m checking previous scores in the archive, which might have different floor counts that mix reevaluation. It looks like I need to change the floor quantile to 0.15 in the middle for better alignment. Let’s work on refining this!
+codex
+I’m widening the search before independent replication tests.
+
+exec
+/bin/bash -c 'date -u; tail -n 2 search.log; cat domains.log; ls preliminary-validation.log refinement.log 2>/dev/null' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+ exited 2 in 32913ms:
+Fri Aug 28 19:32:14 UTC 2026
+{'phase': 'public_full', 'seconds': 825, 'best': {'base': 0.1036130857586664, 'core': 0.06431413181699733, 'worst': 0.05840783399011926, 'floor': 0.03643448707464142, 'score': 0.0625422424689339}}
+{'generation': 14, 'seconds': 882, 'top': [{'base': 0.06189181033210567, 'core': 0.07154418157982693, 'worst': 0.06559482608440798, 'floor': 0.030870837124490513, 'score': 0.06975937493120124}, {'base': 0.05807311727127562, 'core': 0.07078535902793669, 'worst': 0.06631828158741722, 'floor': 0.034014795052249636, 'score': 0.06886717097716354}, {'base': 0.06584610324428403, 'core': 0.06823505764610073, 'worst': 0.0651623179123635, 'floor': 0.03376998077291804, 'score': 0.06731323572597957}, {'base': 0.07881320088102917, 'core': 0.06879784571266116, 'worst': 0.057483473526617736, 'floor': 0.042651536637422216, 'score': 0.06540353405684814}, {'base': 0.048922025359152965, 'core': 0.07006007179504072, 'worst': 0.06531970771284344, 'floor': 0.04446653918561144, 'score': 0.06531457017812742}]}
+screened 135.39170604897663 0.146931616345242
+
+exec
+/bin/bash -c 'date -u; tail -n 2 domains.log; tail -n 1 search.log; ls -l preliminary-validation.log refinement.log 2>/dev/null' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+ exited 2 in 32270ms:
+Fri Aug 28 19:33:45 UTC 2026
+screened 135.39170604897663 0.146931616345242
+calibrated 321.8911676789867 [{'base': 0.08724647954459852, 'core': 0.07621231433314803, 'worst': 0.06636190656119588, 'score': 0.07325719200156239}, {'base': 0.08646572455595919, 'core': 0.07533474936081273, 'worst': 0.06365157162406143, 'score': 0.07182979603978734}, {'base': 0.06859013489387938, 'core': 0.07155354193375012, 'worst': 0.05994000291322725, 'score': 0.06806948022759325}, {'base': 0.09788331561088337, 'core': 0.07244025550558601, 'worst': 0.05911968983040143, 'score': 0.0675023296410385}, {'base': 0.09071726821864828, 'core': 0.06666350952147392, 'worst': 0.0634238313005064, 'score': 0.06569160605518366}]
+{'generation': 16, 'seconds': 997, 'top': [{'base': 0.14409326383825471, 'core': 0.07075540185092542, 'worst': 0.06376089029663713, 'floor': 0.04328852518526577, 'score': 0.06865704838463893}, {'base': 0.05965614728679908, 'core': 0.07138789394686544, 'worst': 0.05756868049244713, 'floor': 0.041706847702601635, 'score': 0.06713897409657966}, {'base': 0.09954032528174095, 'core': 0.06685807992046905, 'worst': 0.06207834038757429, 'floor': 0.035954186568856905, 'score': 0.06542415806060062}, {'base': 0.07881320088102917, 'core': 0.07127153298782422, 'worst': 0.05088243965669768, 'floor': 0.03619353117882862, 'score': 0.06515480498848626}, {'base': 0.10855235205708597, 'core': 0.06728361441039636, 'worst': 0.05539227348376355, 'floor': 0.040721753409135586, 'score': 0.06371621213240652}]}
+
+codex
+Independent draws exposed overfitting; I’m strengthening the search.
+
+ exited 1 in 1260817ms:
+total 4
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 12:16 .
+drwx------ 3 xuandong xuandong   60 Aug 28 12:16 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 12:16 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 12:16 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 12:16 .git
+Success. Updated the following files:
+A search.py
+
+exec
+/bin/bash -c 'sleep 90; date -u; tail -n 3 polish.log; tail -n 2 refinement.log' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+codex
+The revised search uses larger, independent perturbation banks.
+
+ succeeded in 131528ms:
+Fri Aug 28 19:42:19 UTC 2026
+{'monitor': 1, 'seconds': 101, 'best': {'base': 0.06584610324428403, 'core': 0.062071232418096464, 'worst': 0.0603633083906448, 'floor': 0.0311980107445261, 'score': 0.05940167197800626, 'training_core': 0.06108440100852317, 'holdout_core': 0.06305806382766976}}
+{'generation': 2, 'seconds': 182, 'top': [{'base': 0.08051731161704306, 'core': 0.06359618880557973, 'worst': 0.06002158484862019, 'floor': 0.03311925771629849, 'score': 0.06104724588309718}, {'base': 0.06309351888397868, 'core': 0.06437110195570601, 'worst': 0.05986265782979802, 'floor': 0.029932600887747608, 'score': 0.059808602542921224}, {'base': 0.07881320088102917, 'core': 0.06345769700139377, 'worst': 0.058292346492421196, 'floor': 0.03154677896609057, 'score': 0.0594066787554014}]}
+{'generation': 3, 'seconds': 262, 'top': [{'base': 0.08051731161704306, 'core': 0.06359618880557973, 'worst': 0.06002158484862019, 'floor': 0.03311925771629849, 'score': 0.06104724588309718}, {'base': 0.06309351888397868, 'core': 0.06437110195570601, 'worst': 0.05986265782979802, 'floor': 0.029932600887747608, 'score': 0.059808602542921224}, {'base': 0.09184229735206378, 'core': 0.062358906676526785, 'worst': 0.05931657860473066, 'floor': 0.03201944401243205, 'score': 0.059499581050434555}]}
+{'phase': 'public_full', 'seconds': 374, 'best': {'base': 0.05945613744574246, 'core': 0.060905330173574135, 'worst': 0.05585306875929584, 'floor': 0.02962720347025365, 'score': 0.055673482995146954}}
+{'generation': 5, 'seconds': 455, 'top': [{'base': 0.0750381420635961, 'core': 0.06610822839312336, 'worst': 0.06411574002509997, 'floor': 0.03578069331479874, 'score': 0.06521160862751284}, {'base': 0.06797076284507919, 'core': 0.06522506027704991, 'worst': 0.06260427047433186, 'floor': 0.04295067687387693, 'score': 0.06404570486582678}, {'base': 0.12133949093585011, 'core': 0.06724363826872362, 'worst': 0.058496193080136726, 'floor': 0.036588163924639, 'score': 0.06330728793385952}, {'base': 0.0728382262704872, 'core': 0.07058923973490275, 'worst': 0.06400371618963985, 'floor': 0.02580557601532123, 'score': 0.06302854214719507}, {'base': 0.05933095296350405, 'core': 0.06497410096868517, 'worst': 0.05703643695380536, 'floor': 0.034395023017482755, 'score': 0.06076514015248265}]}
+
+exec
+/bin/bash -c "python -B - <<'PY'
+import ast
+from pathlib import Path
+for path in Path('.').glob('*.py'):
+    ast.parse(path.read_text(), filename=str(path))
+print('All implementation files parse successfully.', flush=True)
+PY
+sleep 120; date -u; tail -n 3 polish.log; tail -n 2 refinement.log" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+ succeeded in 164683ms:
+All implementation files parse successfully.
+Fri Aug 28 19:47:27 UTC 2026
+{'generation': 4, 'seconds': 353, 'top': [{'base': 0.08051731161704306, 'core': 0.06359618880557973, 'worst': 0.06002158484862019, 'floor': 0.03311925771629849, 'score': 0.06104724588309718}, {'base': 0.06309351888397868, 'core': 0.06437110195570601, 'worst': 0.05986265782979802, 'floor': 0.029932600887747608, 'score': 0.059808602542921224}, {'base': 0.09184229735206378, 'core': 0.062358906676526785, 'worst': 0.05931657860473066, 'floor': 0.03201944401243205, 'score': 0.059499581050434555}]}
+{'generation': 5, 'seconds': 503, 'top': [{'base': 0.09823289693770848, 'core': 0.06506614915538633, 'worst': 0.05797354606322075, 'floor': 0.03308025745399179, 'score': 0.06091460649090771}, {'base': 0.1043649197650966, 'core': 0.06171976614862975, 'worst': 0.05872521162842173, 'floor': 0.030618324643289657, 'score': 0.05818137893618097}, {'base': 0.09184229735206378, 'core': 0.062212232234392116, 'worst': 0.05379975659592018, 'floor': 0.03232506988869603, 'score': 0.057089153141427755}]}
+{'monitor': 5, 'seconds': 515, 'best': {'base': 0.07881320088102917, 'core': 0.06342304447858538, 'worst': 0.058501203664343616, 'floor': 0.032325818205714764, 'score': 0.05987112521503396, 'training_core': 0.06345769700139377, 'holdout_core': 0.06338839195577699}}
+{'phase': 'public_full', 'seconds': 685, 'best': {'base': 0.10462261332241068, 'core': 0.06631105527936548, 'worst': 0.05898490713847465, 'floor': 0.03375730650787316, 'score': 0.06239294186990119}}
+{'generation': 8, 'seconds': 757, 'top': [{'base': 0.07913873018373385, 'core': 0.07709118862647212, 'worst': 0.06377870555573087, 'floor': 0.03539403365211224, 'score': 0.07110057124463856}, {'base': 0.08482750309468584, 'core': 0.07090457890876684, 'worst': 0.06571969681098583, 'floor': 0.02935642127752202, 'score': 0.06574959260352639}, {'base': 0.09411200166292749, 'core': 0.06587242490205478, 'worst': 0.06206087414960693, 'floor': 0.03633850224361064, 'score': 0.06415722706345325}, {'base': 0.06399320209762555, 'core': 0.06570856077685959, 'worst': 0.061858411880246565, 'floor': 0.03502100595869287, 'score': 0.06397599377338373}, {'base': 0.06399320209762555, 'core': 0.06570856077685959, 'worst': 0.061858411880246565, 'floor': 0.03502100595869287, 'score': 0.06397599377338373}]}
+
+codex
+I’m now testing finalists on fresh replication banks.
+
+Broad search and refinement produced candidates; independent-bank selection and exact validation now run while the remaining local polishing finishes.
+  ✓ Inspect protocol and benchmark exact spectra
+  ✓ Search robust structured field profiles
+  → Validate independent replication and constraints
+  • Write final static witness and report
+exec
+/bin/bash -c 'date -u; tail -n 3 polish.log; tail -n 2 refinement.log; ls -lh selection selection-witness.json selection-validation.log 2>/dev/null; sleep 90; date -u; tail -n 3 polish.log; tail -n 3 selection-validation.log 2>/dev/null' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+ exited 1 in 123051ms:
+Fri Aug 28 19:49:19 UTC 2026
+{'generation': 6, 'seconds': 598, 'top': [{'base': 0.09823289693770848, 'core': 0.06506614915538633, 'worst': 0.05797354606322075, 'floor': 0.03308025745399179, 'score': 0.06091460649090771}, {'base': 0.11943902490106995, 'core': 0.06379957700895846, 'worst': 0.059271439436619444, 'floor': 0.03194880550199457, 'score': 0.06023631785240318}, {'base': 0.08114963747965742, 'core': 0.06471409610165067, 'worst': 0.05940817622790663, 'floor': 0.028276824828740416, 'score': 0.05896484457283606}]}
+{'generation': 7, 'seconds': 674, 'top': [{'base': 0.06608533461540184, 'core': 0.06329780235850338, 'worst': 0.06065729648736822, 'floor': 0.034108017777038514, 'score': 0.06166358360501181}, {'base': 0.09823289693770848, 'core': 0.06506614915538633, 'worst': 0.05797354606322075, 'floor': 0.03308025745399179, 'score': 0.06091460649090771}, {'base': 0.11943902490106995, 'core': 0.06379957700895846, 'worst': 0.059271439436619444, 'floor': 0.03194880550199457, 'score': 0.06023631785240318}]}
+{'monitor': 7, 'seconds': 688, 'best': {'base': 0.06608533461540184, 'core': 0.06412758128876296, 'worst': 0.06024913868389026, 'floor': 0.030155035997058974, 'score': 0.05995980011509973, 'training_core': 0.06329780235850338, 'holdout_core': 0.06495736021902256}}
+{'generation': 8, 'seconds': 757, 'top': [{'base': 0.07913873018373385, 'core': 0.07709118862647212, 'worst': 0.06377870555573087, 'floor': 0.03539403365211224, 'score': 0.07110057124463856}, {'base': 0.08482750309468584, 'core': 0.07090457890876684, 'worst': 0.06571969681098583, 'floor': 0.02935642127752202, 'score': 0.06574959260352639}, {'base': 0.09411200166292749, 'core': 0.06587242490205478, 'worst': 0.06206087414960693, 'floor': 0.03633850224361064, 'score': 0.06415722706345325}, {'base': 0.06399320209762555, 'core': 0.06570856077685959, 'worst': 0.061858411880246565, 'floor': 0.03502100595869287, 'score': 0.06397599377338373}, {'base': 0.06399320209762555, 'core': 0.06570856077685959, 'worst': 0.061858411880246565, 'floor': 0.03502100595869287, 'score': 0.06397599377338373}]}
+{'finished_seconds': 848.2195803290233}
+selection:
+total 236K
+-rw-rw-r-- 1 xuandong xuandong 71K Aug 28 12:48 candidates.json
+-rw-rw-r-- 1 xuandong xuandong 53K Aug 28 12:48 protocol-0.json
+-rw-rw-r-- 1 xuandong xuandong 52K Aug 28 12:48 protocol-1.json
+-rw-rw-r-- 1 xuandong xuandong 53K Aug 28 12:48 protocol-2.json
+Fri Aug 28 19:50:50 UTC 2026
+{'generation': 7, 'seconds': 674, 'top': [{'base': 0.06608533461540184, 'core': 0.06329780235850338, 'worst': 0.06065729648736822, 'floor': 0.034108017777038514, 'score': 0.06166358360501181}, {'base': 0.09823289693770848, 'core': 0.06506614915538633, 'worst': 0.05797354606322075, 'floor': 0.03308025745399179, 'score': 0.06091460649090771}, {'base': 0.11943902490106995, 'core': 0.06379957700895846, 'worst': 0.059271439436619444, 'floor': 0.03194880550199457, 'score': 0.06023631785240318}]}
+{'monitor': 7, 'seconds': 688, 'best': {'base': 0.06608533461540184, 'core': 0.06412758128876296, 'worst': 0.06024913868389026, 'floor': 0.030155035997058974, 'score': 0.05995980011509973, 'training_core': 0.06329780235850338, 'holdout_core': 0.06495736021902256}}
+{'generation': 8, 'seconds': 748, 'top': [{'base': 0.06608533461540184, 'core': 0.06329780235850338, 'worst': 0.06065729648736822, 'floor': 0.034108017777038514, 'score': 0.06166358360501181}, {'base': 0.09823289693770848, 'core': 0.06506614915538633, 'worst': 0.05797354606322075, 'floor': 0.03308025745399179, 'score': 0.06091460649090771}, {'base': 0.06231412740446224, 'core': 0.06792337560981528, 'worst': 0.059192694210145745, 'floor': 0.028093935305100976, 'score': 0.06054153663251447}]}
+
+**Analyzing workflow and scoring**
+
+I’m contemplating how to use the last 20 minutes effectively, while making sure to monitor the scores closely. With some adjustments, I'm seeing a higher score on our latest tests and reevaluating the pipeline selections based on past performance. If the first selections hold, we could progress smoothly. I need to ensure coordination of our approaches and finalize the total outputs while keeping an eye on any potential overfitting. Overall, I’m feeling optimistic about our workflow!
+**Analyzing grading probabilities**
+
+I’m assessing a grading system that seems to succeed about 75% of the time, which could be acceptable for our tasks. We're looking for a good proof, not a perfect one. The statistics show various expected values and a focus on core results. I’m trying to control for variance while ensuring we maintain coverage and achieve our goals, especially regarding the lowest expectations. It feels like there’s a lot of math to keep track of!
+**Evaluating selection performance**
+
+I'm looking at the performance metrics: my core score is at 0.05957 while the true average is at 0.06251. I notice that the private probability is around 0.88, and I really need to improve my mean by at least 0.003. The chosen selection isn't coming from a refined process, as indicated by the score of 0.081. There’s a need for further inspection to understand the rankings and aggregate scores based on current selections.
+codex
+Seven of eight holdout banks pass; I’m improving the margin.
+
+**Evaluating coherent amplitude issues**
+
+I'm trying to find a coherent amplitude field structure, but it seems that one field dominance changes and that leads to avoiding cross noise. I think the best param should be coherent amplitude. The grid addresses the root cause of energy band stats, which aren't random noise spikes. 
+
+I see there's a narrative README that explains broad methods, and we can add a final param grid statement after results—all while being cautious not to overclaim. I want to ensure everything is done correctly as we move to the next stage.
+exec
+/bin/bash -c 'date -u; cat local-grid.log; tail -n 3 polish.log; sleep 120; date -u; cat local-grid.log; ls -lh final-selection final-validation.log 2>/dev/null' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: POLISH_STOP
++Stop local polishing and retain saved candidates.
+*** End Patch
+PATCH
+date -u; cat local-grid.log; tail -n 1 polish.log" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+ succeeded in 10375ms:
+Success. Updated the following files:
+A POLISH_STOP
+Fri Aug 28 19:58:01 UTC 2026
+{'stage': 'strength', 'seconds': 163, 'top': [{'base': 0.06063917365185745, 'core': 0.06255024809707659, 'worst': 0.06012607043602313, 'score': 0.8325}, {'base': 0.09823289693770848, 'core': 0.06288944203953424, 'worst': 0.053871845790502845, 'score': 0.7093333333333334}, {'base': 0.08114963747965742, 'core': 0.06151274580978221, 'worst': 0.05665672599935113, 'score': 0.6776666666666666}, {'base': 0.0757919643868385, 'core': 0.06170989507589464, 'worst': 0.05402642490990256, 'score': 0.6591666666666667}, {'base': 0.07580856749688569, 'core': 0.060550421677682445, 'worst': 0.05710322815628896, 'score': 0.5708333333333333}]}
+{'generation': 12, 'seconds': 1182, 'top': [{'base': 0.13219156009995336, 'core': 0.07122268286510272, 'worst': 0.06413483286527918, 'floor': 0.03570501017555981, 'score': 0.06803315036518214}, {'base': 0.11776557892819456, 'core': 0.06944880219059157, 'worst': 0.061726925646381006, 'floor': 0.03669302679593169, 'score': 0.06597395774569682}, {'base': 0.11620154444157699, 'core': 0.06903457504286392, 'worst': 0.06298004079796897, 'floor': 0.03403668531096432, 'score': 0.06582837728814335}]}
+
+ exited 2 in 155017ms:
+Fri Aug 28 19:56:30 UTC 2026
+{'generation': 10, 'seconds': 995, 'top': [{'base': 0.09823289693770848, 'core': 0.07157416640739622, 'worst': 0.06400712098821262, 'floor': 0.024807125819170314, 'score': 0.06307255887834876}, {'base': 0.08114963747965742, 'core': 0.06505462269486874, 'worst': 0.06405211256073964, 'floor': 0.030580006249305486, 'score': 0.06239349625916339}, {'base': 0.08114963747965742, 'core': 0.06505462269486874, 'worst': 0.06405211256073964, 'floor': 0.030580006249305486, 'score': 0.06239349625916339}]}
+{'generation': 11, 'seconds': 1085, 'top': [{'base': 0.09823289693770848, 'core': 0.07157416640739622, 'worst': 0.06400712098821262, 'floor': 0.024807125819170314, 'score': 0.06307255887834876}, {'base': 0.08114963747965742, 'core': 0.06505462269486874, 'worst': 0.06405211256073964, 'floor': 0.030580006249305486, 'score': 0.06239349625916339}, {'base': 0.08114963747965742, 'core': 0.06505462269486874, 'worst': 0.06405211256073964, 'floor': 0.030580006249305486, 'score': 0.06239349625916339}]}
+{'monitor': 11, 'seconds': 1098, 'best': {'base': 0.09823289693770848, 'core': 0.06875102137261901, 'worst': 0.062233213132977326, 'floor': 0.029015450777275437, 'score': 0.06282573305341797, 'training_core': 0.07157416640739622, 'holdout_core': 0.0659278763378418}}
+Fri Aug 28 19:58:31 UTC 2026
+{'stage': 'strength', 'seconds': 163, 'top': [{'base': 0.06063917365185745, 'core': 0.06255024809707659, 'worst': 0.06012607043602313, 'score': 0.8325}, {'base': 0.09823289693770848, 'core': 0.06288944203953424, 'worst': 0.053871845790502845, 'score': 0.7093333333333334}, {'base': 0.08114963747965742, 'core': 0.06151274580978221, 'worst': 0.05665672599935113, 'score': 0.6776666666666666}, {'base': 0.0757919643868385, 'core': 0.06170989507589464, 'worst': 0.05402642490990256, 'score': 0.6591666666666667}, {'base': 0.07580856749688569, 'core': 0.060550421677682445, 'worst': 0.05710322815628896, 'score': 0.5708333333333333}]}
+
+codex
+The final candidates are undergoing exact replication checks.
+
+exec
+/bin/bash -c 'date -u; cat local-grid.log; tail -n 2 polish.log; ls -lh final-selection final-validation.log 2>/dev/null; sleep 90; date -u; tail -n 2 final-validation.log 2>/dev/null' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+ exited 1 in 113743ms:
+Fri Aug 28 19:59:45 UTC 2026
+{'stage': 'strength', 'seconds': 163, 'top': [{'base': 0.06063917365185745, 'core': 0.06255024809707659, 'worst': 0.06012607043602313, 'score': 0.8325}, {'base': 0.09823289693770848, 'core': 0.06288944203953424, 'worst': 0.053871845790502845, 'score': 0.7093333333333334}, {'base': 0.08114963747965742, 'core': 0.06151274580978221, 'worst': 0.05665672599935113, 'score': 0.6776666666666666}, {'base': 0.0757919643868385, 'core': 0.06170989507589464, 'worst': 0.05402642490990256, 'score': 0.6591666666666667}, {'base': 0.07580856749688569, 'core': 0.060550421677682445, 'worst': 0.05710322815628896, 'score': 0.5708333333333333}]}
+{'monitor': 11, 'seconds': 1098, 'best': {'base': 0.09823289693770848, 'core': 0.06875102137261901, 'worst': 0.062233213132977326, 'floor': 0.029015450777275437, 'score': 0.06282573305341797, 'training_core': 0.07157416640739622, 'holdout_core': 0.0659278763378418}}
+{'generation': 12, 'seconds': 1182, 'top': [{'base': 0.13219156009995336, 'core': 0.07122268286510272, 'worst': 0.06413483286527918, 'floor': 0.03570501017555981, 'score': 0.06803315036518214}, {'base': 0.11776557892819456, 'core': 0.06944880219059157, 'worst': 0.061726925646381006, 'floor': 0.03669302679593169, 'score': 0.06597395774569682}, {'base': 0.11620154444157699, 'core': 0.06903457504286392, 'worst': 0.06298004079796897, 'floor': 0.03403668531096432, 'score': 0.06582837728814335}]}
+Fri Aug 28 20:01:16 UTC 2026
+
+exec
+/bin/bash -c 'date -u; cat local-grid.log; tail -n 2 polish.log; ls -lh final-selection final-validation.log 2>/dev/null' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/level_statistics_phase_diagram_of_the_random_field_heisenberg_chain_pa__1010_1992/concept_3/attempts/v_3
+ exited 2 in 20691ms:
+Fri Aug 28 20:01:56 UTC 2026
+{'stage': 'strength', 'seconds': 163, 'top': [{'base': 0.06063917365185745, 'core': 0.06255024809707659, 'worst': 0.06012607043602313, 'score': 0.8325}, {'base': 0.09823289693770848, 'core': 0.06288944203953424, 'worst': 0.053871845790502845, 'score': 0.7093333333333334}, {'base': 0.08114963747965742, 'core': 0.06151274580978221, 'worst': 0.05665672599935113, 'score': 0.6776666666666666}, {'base': 0.0757919643868385, 'core': 0.06170989507589464, 'worst': 0.05402642490990256, 'score': 0.6591666666666667}, {'base': 0.07580856749688569, 'core': 0.060550421677682445, 'worst': 0.05710322815628896, 'score': 0.5708333333333333}]}
+{'stage': 'widths', 'seconds': 351, 'top': [{'base': 0.08089867974005133, 'core': 0.06404742221731277, 'worst': 0.06083925690886167, 'score': 0.8953333333333333}, {'base': 0.09838566266605187, 'core': 0.06389831573520442, 'worst': 0.056603927543704774, 'score': 0.8925}, {'base': 0.09102604052333346, 'core': 0.06290936493890198, 'worst': 0.06102684687359669, 'score': 0.8861666666666667}, {'base': 0.05629454182234067, 'core': 0.06359328122070274, 'worst': 0.05749504802560388, 'score': 0.8051666666666667}, {'base': 0.05527632811152444, 'core': 0.06258291854934521, 'worst': 0.059878756457178765, 'score': 0.8028333333333333}]}
+{'generation': 12, 'seconds': 1182, 'top': [{'base': 0.13219156009995336, 'core': 0.07122268286510272, 'worst': 0.06413483286527918, 'floor': 0.03570501017555981, 'score': 0.06803315036518214}, {'base': 0.11776557892819456, 'core': 0.06944880219059157, 'worst': 0.061726925646381006, 'floor': 0.03669302679593169, 'score': 0.06597395774569682}, {'base': 0.11620154444157699, 'core': 0.06903457504286392, 'worst': 0.06298004079796897, 'floor': 0.03403668531096432, 'score': 0.06582837728814335}]}
+{'finished_seconds': 1343.200148434029}
+final-selection:
+total 284K
+-rw-rw-r-- 1 xuandong xuandong 115K Aug 28 12:59 candidates.json
+-rw-rw-r-- 1 xuandong xuandong  53K Aug 28 12:59 protocol-0.json
+-rw-rw-r-- 1 xuandong xuandong  53K Aug 28 12:59 protocol-1.json
+-rw-rw-r-- 1 xuandong xuandong  53K Aug 28 12:59 protocol-2.json
+
+**Evaluating spectral shift**
+
+I'm considering how two nonuniform field domains affect the spectral-center windows, moving them away from the middle-rank third. I believe this holds true for the final amplitude fields if they're not staggered across all six domains. It's interesting to analyze how these physical summaries come into play in my understanding. Let's see if I can clarify further on this concept as it seems important for the overall analysis!
+codex
+I’m comparing the most stable profiles before finalizing.
+
