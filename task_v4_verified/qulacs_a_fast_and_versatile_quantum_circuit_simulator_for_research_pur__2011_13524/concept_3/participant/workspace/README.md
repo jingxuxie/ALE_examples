@@ -1,0 +1,1 @@
+Place your submission's `solution.py` and optional helper files here. The evaluator supplies a fresh sibling `input/` directory inside each staged episode. The runnable starting implementation is in `../baseline/solution.py`.

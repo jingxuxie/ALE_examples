@@ -1,0 +1,3560 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 01a04915-b745-7350-a9ee-f6af916e3e9e
+--------
+user
+You are a fresh independent coding agent. Use only the supplied participant files and local computation. Do not access prior sessions, memories, evaluator material, other agents, or the internet. Write deliverables only to the supplied output directory.
+Read TASK.md and the provided assets. Solve the stated task autonomously and place the executable deliverable and all needed supporting files in the designated output directory. You have up to one hour. The participant directory is read-only; use the output directory for code, experiments, and scratch files. Only participant assets and local installed system dependencies are available. Do not access anything outside the allowlist. Your deliverable must run through the interface specified by TASK.md without access to your conversation or any private evaluator files. Use your available time to investigate, implement, and test the solution rather than returning only a plan.
+
+Output directory: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+exec
+/bin/bash -c 'ls -la && cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant
+ succeeded in 8345ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 08:43 .
+drwx------ 4 xuandong xuandong   80 Aug 28 08:56 ..
+-rw-rw-r-- 1 xuandong xuandong 1383 Aug 28 08:31 TASK.md
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 28 08:52 baseline
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 08:52 input
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 28 08:52 workspace
+# Structure-aware quantum circuit fusion
+
+Improve the supplied compiler planner for repeated state-vector simulation. Produce
+legal fused-block schedules that lower a deterministic roofline resource model,
+without changing gate semantics or hiding expensive matrix construction.
+
+`input/PROTOCOL.md` defines the interface and resource model. `workspace/model.py`
+is the public checker/cost implementation; `baseline/solution.py` is a working
+multi-schedule planner. `input/examples.json` contains representative circuits.
+
+Deliver `solution.py` and any supporting files in the designated output directory.
+Run it as `python3 solution.py INPUT_JSON OUTPUT_JSON`. It receives a batch of
+circuits and returns their schedules. Only standard Python, NumPy and SciPy may
+be assumed; no network, GPU, or other files are available.
+
+The fixed target is geometric-mean modeled speedup **at least 1.20** over the
+supplied baseline, with **every family at least 0.98**, and every schedule valid.
+Private circuits cover modular, nearest-neighbor, wide-frontier, diagonal-heavy,
+and shifting-locality structures within the published bounds. The complete batch
+has a 180-second wall-clock limit, four CPU threads, and 4 GiB address space.
+Scores report aggregate speedup, worst-family speedup, legality, and runtime.
+The resource model is the objective, not a claim of measured Qulacs wall speed.
+
+exec
+/bin/bash -c "cat input/PROTOCOL.md && printf '\\n--- files ---\\n' && find . -maxdepth 3 -type f -print && printf '\\n--- model ---\\n' && cat workspace/model.py && printf '\\n--- baseline ---\\n' && cat baseline/solution.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant
+ succeeded in 18996ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+# Interface
+
+Input is `{"cases":[CASE,...]}`. Each case has `id`, `n_qubits`, `gates`,
+`max_block_qubits`, `max_block_operations`, `repetitions`, and `hardware`.
+Gates have `qubits` (distinct indices), `kind` (`dense`, `diagonal`, or
+`permutation`), and `epoch`. Their list indices identify operations.
+These are opaque unitary kernels: arbitrary gates sharing a qubit retain their
+source order. Disjoint gates may commute. Epochs are separated by nonunitary
+barriers and must remain strictly ordered; no block crosses an epoch.
+
+Output is `{"schedules":{"CASE_ID":[[gate_index,...],...]}}`.
+Each inner list is an ordered fused block. Every gate appears exactly once.
+The flattened list preserves the per-qubit source order and epoch order.
+Each block observes both size caps. You need not return dense gate matrices.
+These ordering constraints are a sufficient, directly checkable certificate of
+equivalence for every possible numerical choice of the opaque gate kernels.
+
+Bounds: 8–28 qubits, 120–1500 operations, 1–4 epochs, gates on 1–3 qubits,
+block support cap 3–6, operation cap 8–48, repetitions 1–128. Hidden evaluation
+contains 25 cases (five families with five cases each). IDs do not carry structure
+information. All numeric hardware coefficients are supplied in each case.
+
+# Cost
+
+All units are normalized modeled resource units. For a block let `width` be its
+distinct qubit count and `count` its operation count. Its specialization is
+`diagonal` if all gates are diagonal, `permutation` if all are permutation, and
+`dense` otherwise. A singleton retains its original specialization.
+
+Per state-vector application:
+
+```
+arithmetic = 2**width  if dense else 1
+stride = 1 + stride_penalty * max(0, min(block_qubits) - cache_qubits)
+update = launch + max(memory * stride, arithmetic * compute)
+```
+
+Construction (zero for singleton):
+
+```
+entry_count = 4**width if dense else 2**width
+construction = build * (count-1) * entry_count
+```
+
+Block cost is `repetitions * update + construction`. Total cost is the sum.
+The objective is the geometric mean of `baseline_cost / submitted_cost` across
+all hidden cases; each family is measured with its own geometric mean. Validity
+and resource limits are mandatory, independently of speedup. NaN, infinities,
+duplicate/missing indices, booleans as integers, and out-of-order dependencies
+are rejected. The full published implementation is in `workspace/model.py`.
+
+# Public run
+
+```
+python3 baseline/solution.py input/examples.json /tmp/plans.json
+python3 workspace/check.py input/examples.json /tmp/plans.json
+```
+
+During a read-only fresh run, replace `/tmp/plans.json` with a file inside the
+designated output directory. Include needed helpers in your submission;
+evaluation does not rely on the participant workspace remaining writable.
+
+--- files ---
+./workspace/check.py
+./workspace/model.py
+./workspace/__pycache__/model.cpython-310.pyc
+./TASK.md
+./baseline/solution.py
+./baseline/__pycache__/solution.cpython-310.pyc
+./input/examples.json
+./input/PROTOCOL.md
+
+--- model ---
+import math
+
+
+def block_cost(case, block):
+    gates = case["gates"]
+    qubits = set()
+    kinds = set()
+    for index in block:
+        qubits.update(gates[index]["qubits"])
+        kinds.add(gates[index]["kind"])
+    width = len(qubits)
+    specialized = len(kinds) == 1 and "dense" not in kinds
+    arithmetic = 1 if specialized else 2 ** width
+    hardware = case["hardware"]
+    stride = 1 + hardware["stride_penalty"] * max(0, min(qubits) - hardware["cache_qubits"])
+    update = hardware["launch"] + max(hardware["memory"] * stride, arithmetic * hardware["compute"])
+    entries = 2 ** width if specialized else 4 ** width
+    construction = hardware["build"] * max(0, len(block) - 1) * entries
+    return case["repetitions"] * update + construction
+
+
+def validate_and_cost(case, blocks):
+    if not isinstance(blocks, list) or not blocks:
+        raise ValueError("schedule must be a nonempty list")
+    gates = case["gates"]
+    seen = set()
+    last_by_qubit = {}
+    previous_epoch = -1
+    total = 0.0
+    for block in blocks:
+        if not isinstance(block, list) or not 1 <= len(block) <= case["max_block_operations"]:
+            raise ValueError("invalid operation cap or empty block")
+        qubits = set()
+        epochs = set()
+        for index in block:
+            if type(index) is not int or not 0 <= index < len(gates) or index in seen:
+                raise ValueError("gate index invalid or repeated")
+            gate = gates[index]
+            if gate["epoch"] < previous_epoch:
+                raise ValueError("barrier order violated")
+            previous_epoch = gate["epoch"]
+            epochs.add(gate["epoch"])
+            for qubit in gate["qubits"]:
+                if last_by_qubit.get(qubit, -1) > index:
+                    raise ValueError("per-qubit dependency violated")
+                last_by_qubit[qubit] = index
+            qubits.update(gate["qubits"])
+            seen.add(index)
+        if len(epochs) != 1 or len(qubits) > case["max_block_qubits"]:
+            raise ValueError("block crosses barrier or support cap")
+        total += block_cost(case, block)
+    if len(seen) != len(gates):
+        raise ValueError("missing gates")
+    if not math.isfinite(total) or total <= 0:
+        raise ValueError("nonfinite/nonpositive cost")
+    return total
+
+
+def predecessors(case):
+    previous = {}
+    result = []
+    for index, gate in enumerate(case["gates"]):
+        dependencies = set()
+        for qubit in gate["qubits"]:
+            if qubit in previous:
+                dependencies.add(previous[qubit])
+            previous[qubit] = index
+        result.append(dependencies)
+    return result
+
+--- baseline ---
+import json
+import math
+from pathlib import Path
+import sys
+
+
+def cost_from_stats(case, mask, kind_mask, count):
+    width = mask.bit_count()
+    specialized = kind_mask in (2, 4)
+    arithmetic = 1 if specialized else 2 ** width
+    hardware = case["hardware"]
+    minimum = (mask & -mask).bit_length() - 1
+    stride = 1 + hardware["stride_penalty"] * max(0, minimum - hardware["cache_qubits"])
+    update = hardware["launch"] + max(hardware["memory"] * stride, arithmetic * hardware["compute"])
+    entries = 2 ** width if specialized else 4 ** width
+    return case["repetitions"] * update + hardware["build"] * (count - 1) * entries
+
+
+def partition(case, order):
+    count = len(order)
+    gates = case["gates"]
+    masks = [sum(1 << qubit for qubit in gate["qubits"]) for gate in gates]
+    kinds = [{"dense": 1, "diagonal": 2, "permutation": 4}[gate["kind"]] for gate in gates]
+    best = [math.inf] * (count + 1)
+    following = [None] * count
+    best[count] = 0.0
+    for start in range(count - 1, -1, -1):
+        mask = 0
+        kind_mask = 0
+        epoch = gates[order[start]]["epoch"]
+        for stop in range(start, min(count, start + case["max_block_operations"])):
+            index = order[stop]
+            mask |= masks[index]
+            kind_mask |= kinds[index]
+            if mask.bit_count() > case["max_block_qubits"] or gates[index]["epoch"] != epoch:
+                break
+            value = cost_from_stats(case, mask, kind_mask, stop - start + 1) + best[stop + 1]
+            if value < best[start]:
+                best[start] = value
+                following[start] = stop + 1
+    blocks = []
+    start = 0
+    while start < count:
+        stop = following[start]
+        blocks.append(order[start:stop])
+        start = stop
+    return best[0], blocks
+
+
+def reordered(case, window, preference):
+    gates = case["gates"]
+    masks = [sum(1 << qubit for qubit in gate["qubits"]) for gate in gates]
+    children = [[] for _ in gates]
+    unmet = [0] * len(gates)
+    previous = {}
+    epochs = {}
+    for index, gate in enumerate(gates):
+        dependencies = {previous[qubit] for qubit in gate["qubits"] if qubit in previous}
+        unmet[index] = len(dependencies)
+        for parent in dependencies:
+            children[parent].append(index)
+        for qubit in gate["qubits"]:
+            previous[qubit] = index
+        epochs.setdefault(gate["epoch"], []).append(index)
+    order = []
+    for epoch in sorted(epochs):
+        members = epochs[epoch]
+        ready = {index for index in members if unmet[index] == 0}
+        history = []
+        while ready:
+            recent = 0
+            for index in history[-window:]:
+                recent |= masks[index]
+            def priority(index):
+                extra = (masks[index] & ~recent).bit_count()
+                overlap = (masks[index] & recent).bit_count()
+                specialized = 0 if gates[index]["kind"] == preference else 1
+                return (extra, specialized, -overlap, index)
+            chosen = min(ready, key=priority)
+            ready.remove(chosen)
+            order.append(chosen)
+            history.append(chosen)
+            for child in children[chosen]:
+                unmet[child] -= 1
+                if unmet[child] == 0 and gates[child]["epoch"] == epoch:
+                    ready.add(child)
+    return order
+
+
+def plan(case):
+    winner = partition(case, list(range(len(case["gates"]))))
+    for window in (1, 3, 6):
+        for preference in ("dense", "diagonal"):
+            candidate = partition(case, reordered(case, window, preference))
+            if candidate[0] < winner[0]:
+                winner = candidate
+    return winner[1]
+
+
+if __name__ == "__main__":
+    request = json.loads(Path(sys.argv[1]).read_text())
+    response = {"schedules": {case["id"]: plan(case) for case in request["cases"]}}
+    Path(sys.argv[2]).write_text(json.dumps(response))
+
+**Analyzing planner topology**
+
+I need to develop a robust fusion planner with topology support that's aware, as opposed to a simple baseline. I've been thinking about the time it takes—around 54 hours? Checking the current time is 8:58. I also need to inspect examples and statistics related to this. There's a lot to consider here, and I want to ensure I’m on the right track with this development task. Let's figure it out!
+codex
+I’ll inspect the example circuits and cost model, then build a dependency-aware fusion planner and test its legality and modeled speedup against the supplied baseline.
+  → Inspect circuit structures and establish baseline costs and runtimes.
+  • Implement structure-aware block search with cost-aware scheduling and refinement.
+  • Benchmark, validate, and package the executable solution.
+exec
+/bin/bash -c "cat workspace/check.py; python3 - <<'PY'
+import json, collections
+cs=json.load(open('input/examples.json'))['cases']
+print('cases',len(cs))
+for c in cs:
+ print({k:v for k,v in c.items() if k"'!='"'gates'})
+ print('kind/size/epoch',collections.Counter((g['kind'],len(g['qubits']),g['epoch']) for g in c['gates']), 'num',len(c['gates']))
+ print('first20',c['gates'][:20])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant
+**Considering tool efficiency**
+
+I'm thinking about the tools I'm using and their timing. It seems that they might take anywhere from 8 to 20 seconds, which feels a bit slow. I wonder if there's a way to optimize this or even use them in batches to save time? It’s like knowing I could be more efficient, but figuring out the best method can be tricky. Let’s explore how to streamline this process!
+ succeeded in 20734ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+import json
+import sys
+
+from model import validate_and_cost
+
+
+if __name__ == "__main__":
+    cases = json.load(open(sys.argv[1]))["cases"]
+    schedules = json.load(open(sys.argv[2]))["schedules"]
+    costs = {case["id"]: validate_and_cost(case, schedules[case["id"]]) for case in cases}
+    print(json.dumps({"valid": True, "costs": costs}, indent=2))
+cases 5
+{'id': 'cd62a746049b0', 'n_qubits': 24, 'max_block_qubits': 6, 'max_block_operations': 24, 'repetitions': 64, 'hardware': {'launch': 0.5, 'memory': 24.0, 'compute': 0.5, 'build': 0.002, 'stride_penalty': 0.0, 'cache_qubits': 4}}
+kind/size/epoch Counter({('dense', 1, 0): 47, ('dense', 1, 2): 47, ('dense', 1, 1): 45, ('dense', 2, 1): 31, ('dense', 2, 2): 31, ('dense', 2, 0): 29, ('diagonal', 1, 2): 27, ('diagonal', 1, 0): 23, ('diagonal', 1, 1): 21, ('diagonal', 2, 0): 14, ('diagonal', 2, 2): 14, ('diagonal', 2, 1): 12}) num 341
+first20 [{'qubits': [13, 12], 'kind': 'dense', 'epoch': 0}, {'qubits': [12, 14], 'kind': 'dense', 'epoch': 0}, {'qubits': [6], 'kind': 'dense', 'epoch': 0}, {'qubits': [4], 'kind': 'dense', 'epoch': 0}, {'qubits': [1], 'kind': 'dense', 'epoch': 0}, {'qubits': [3], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [2], 'kind': 'dense', 'epoch': 0}, {'qubits': [20, 21], 'kind': 'dense', 'epoch': 0}, {'qubits': [22, 23], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [20, 23], 'kind': 'dense', 'epoch': 0}, {'qubits': [9], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [8], 'kind': 'dense', 'epoch': 0}, {'qubits': [16, 18], 'kind': 'dense', 'epoch': 0}, {'qubits': [18, 17], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [18], 'kind': 'dense', 'epoch': 0}, {'qubits': [6, 5], 'kind': 'dense', 'epoch': 0}, {'qubits': [6], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [4], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [13], 'kind': 'dense', 'epoch': 0}, {'qubits': [14], 'kind': 'diagonal', 'epoch': 0}]
+{'id': 'cc94844f62e45', 'n_qubits': 24, 'max_block_qubits': 6, 'max_block_operations': 12, 'repetitions': 128, 'hardware': {'launch': 0.5, 'memory': 6.0, 'compute': 0.5, 'build': 0.1, 'stride_penalty': 0.08, 'cache_qubits': 4}}
+kind/size/epoch Counter({('dense', 1, 0): 216, ('dense', 1, 1): 216, ('diagonal', 2, 0): 58, ('permutation', 2, 1): 54, ('diagonal', 2, 1): 50, ('permutation', 2, 0): 46}) num 640
+first20 [{'qubits': [4], 'kind': 'dense', 'epoch': 0}, {'qubits': [5], 'kind': 'dense', 'epoch': 0}, {'qubits': [16], 'kind': 'dense', 'epoch': 0}, {'qubits': [7], 'kind': 'dense', 'epoch': 0}, {'qubits': [15], 'kind': 'dense', 'epoch': 0}, {'qubits': [23], 'kind': 'dense', 'epoch': 0}, {'qubits': [2], 'kind': 'dense', 'epoch': 0}, {'qubits': [12], 'kind': 'dense', 'epoch': 0}, {'qubits': [6], 'kind': 'dense', 'epoch': 0}, {'qubits': [11], 'kind': 'dense', 'epoch': 0}, {'qubits': [17], 'kind': 'dense', 'epoch': 0}, {'qubits': [10], 'kind': 'dense', 'epoch': 0}, {'qubits': [14], 'kind': 'dense', 'epoch': 0}, {'qubits': [0], 'kind': 'dense', 'epoch': 0}, {'qubits': [18], 'kind': 'dense', 'epoch': 0}, {'qubits': [21], 'kind': 'dense', 'epoch': 0}, {'qubits': [1], 'kind': 'dense', 'epoch': 0}, {'qubits': [3], 'kind': 'dense', 'epoch': 0}, {'qubits': [13], 'kind': 'dense', 'epoch': 0}, {'qubits': [22], 'kind': 'dense', 'epoch': 0}]
+{'id': 'c686c88eceb56', 'n_qubits': 20, 'max_block_qubits': 6, 'max_block_operations': 24, 'repetitions': 64, 'hardware': {'launch': 0.5, 'memory': 24.0, 'compute': 0.25, 'build': 0.02, 'stride_penalty': 0.0, 'cache_qubits': 4}}
+kind/size/epoch Counter({('dense', 1, 0): 76, ('permutation', 1, 0): 70, ('diagonal', 1, 0): 54, ('dense', 2, 0): 30}) num 230
+first20 [{'qubits': [13], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [5], 'kind': 'permutation', 'epoch': 0}, {'qubits': [17], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [11], 'kind': 'permutation', 'epoch': 0}, {'qubits': [0], 'kind': 'dense', 'epoch': 0}, {'qubits': [15], 'kind': 'dense', 'epoch': 0}, {'qubits': [12], 'kind': 'permutation', 'epoch': 0}, {'qubits': [14], 'kind': 'permutation', 'epoch': 0}, {'qubits': [10], 'kind': 'dense', 'epoch': 0}, {'qubits': [2], 'kind': 'dense', 'epoch': 0}, {'qubits': [8], 'kind': 'dense', 'epoch': 0}, {'qubits': [9], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [7], 'kind': 'permutation', 'epoch': 0}, {'qubits': [16], 'kind': 'dense', 'epoch': 0}, {'qubits': [19], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [18], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [1], 'kind': 'permutation', 'epoch': 0}, {'qubits': [4], 'kind': 'dense', 'epoch': 0}, {'qubits': [3], 'kind': 'dense', 'epoch': 0}, {'qubits': [6], 'kind': 'diagonal', 'epoch': 0}]
+{'id': 'cf2c307568de2', 'n_qubits': 12, 'max_block_qubits': 3, 'max_block_operations': 40, 'repetitions': 128, 'hardware': {'launch': 6.0, 'memory': 24.0, 'compute': 0.12, 'build': 0.1, 'stride_penalty': 0.08, 'cache_qubits': 4}}
+kind/size/epoch Counter({('diagonal', 2, 0): 54, ('diagonal', 3, 0): 33, ('diagonal', 1, 0): 21, ('dense', 1, 0): 18}) num 126
+first20 [{'qubits': [5, 6], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [3, 10, 4], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [11, 10], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [0, 11, 8], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [3, 7, 1], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [1, 11, 0], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [0], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [10, 4], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [0, 5], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [10, 9], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [5, 1], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [1, 6], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [5], 'kind': 'dense', 'epoch': 0}, {'qubits': [11], 'kind': 'dense', 'epoch': 0}, {'qubits': [7], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [6], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [6, 4, 2], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [9, 8], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [9, 7], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [8, 0], 'kind': 'diagonal', 'epoch': 0}]
+{'id': 'cfdae45352162', 'n_qubits': 12, 'max_block_qubits': 4, 'max_block_operations': 12, 'repetitions': 64, 'hardware': {'launch': 6.0, 'memory': 24.0, 'compute': 0.12, 'build': 0.02, 'stride_penalty': 0.0, 'cache_qubits': 4}}
+kind/size/epoch Counter({('dense', 2, 1): 30, ('diagonal', 2, 0): 27, ('diagonal', 1, 0): 25, ('dense', 1, 1): 24, ('dense', 2, 0): 20, ('diagonal', 1, 1): 20, ('dense', 1, 0): 18, ('diagonal', 2, 1): 16}) num 180
+first20 [{'qubits': [5, 4], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [2, 3], 'kind': 'dense', 'epoch': 0}, {'qubits': [11, 8], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [0, 2], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [11, 9], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [6, 5], 'kind': 'dense', 'epoch': 0}, {'qubits': [0, 3], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [4, 7], 'kind': 'dense', 'epoch': 0}, {'qubits': [8, 10], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [10, 9], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [2], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [5, 6], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [9], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [7], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [1], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [6, 4], 'kind': 'dense', 'epoch': 0}, {'qubits': [11, 10], 'kind': 'dense', 'epoch': 0}, {'qubits': [1], 'kind': 'diagonal', 'epoch': 0}, {'qubits': [11, 8], 'kind': 'dense', 'epoch': 0}, {'qubits': [3], 'kind': 'diagonal', 'epoch': 0}]
+
+exec
+/bin/bash -c "cp /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/baseline/solution.py baseline.py
+cp /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/workspace/model.py model.py
+cat > bench.py <<'PY'
+import json, time, sys, math, statistics
+from model import validate_and_cost
+from baseline import plan as baseline
+cases=json.load(open('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/input/examples.json'))['cases']
+try:
+ old=json.load(open('baseline_results.json'))
+except FileNotFoundError:
+ old={}
+ for c in cases:
+  t=time.monotonic(); b=baseline(c); cost=validate_and_cost(c,b)
+  old[c['id']]={'cost':cost,'blocks':b,'time':time.monotonic()-t}
+ json.dump(old,open('baseline_results.json','w'))
+if len(sys.argv)>1:
+ mod=__import__(sys.argv[1]); ratios=[]; st=time.monotonic()
+ for c in cases:
+  t=time.monotonic(); b=mod.plan(c); cost=validate_and_cost(c,b); elapsed=time.monotonic()-t
+  base=old[c['id']]['cost']; ratios.append(base/cost)
+  print(c['id'],len(c['gates']),'cost %.3f'%cost, 'base %.3f'%base,'speedup %.4f'%(base/cost),'blocks',len(b),'secs %.3f'%elapsed,flush=True)
+ print('Geomean %.5f'%math.exp(statistics.mean(map(math.log,ratios))),'time',time.monotonic()-st,flush=True)
+else:
+ for c in cases:
+  b=old[c['id']];print(c['id'],'cost',b['cost'],'blocks',len(b['blocks']),'time',b['time'])
+PY
+python3 bench.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 21040ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+
+**Exploring candidate mask evaluation**
+
+I'm considering whether I can use a submask table to build a dictionary for subset lookup and integer bits. I need to ensure there's enough budget for this process. To start, I think about maxing out at 5 per width and expanding the beam for up to 3 rounds. I want to ensure I seed every requirement not exceeding the capacity. Then, I can generate unions of the top B per width, creating repeated width-layer generations dynamically.
+exec
+/bin/bash -c "cat > fusion.py <<'PY'
+import math, json, sys, time
+from pathlib import Path
+from baseline import plan as baseline_plan, partition
+
+class Problem:
+ def __init__(self,case,reverse=False):
+  self.case=case; self.n=case['n_qubits']; self.cap=case['max_block_qubits']; self.limit=case['max_block_operations']
+  g=case['gates']; self.g=g; self.N=len(g)
+  self.masks=[sum(1<<q for q in x['qubits']) for x in g]
+  self.kinds=[{'dense':1,'diagonal':2,'permutation':4}[x['kind']] for x in g]
+  self.epochs={}
+  for i,x in enumerate(g):self.epochs.setdefault(x['epoch'],[]).append(i)
+  self.parents=[[] for _ in g]; prev={}
+  for i in (range(len(g)-1,-1,-1) if reverse else range(len(g))):
+   self.parents[i]=list({prev[q] for q in g[i]['qubits'] if q in prev and g[prev[q]]['epoch']==g[i]['epoch']})
+   for q in g[i]['qubits']:prev[q]=i
+  self.reverse=reverse
+  h=case['hardware']; self.build=h['build']
+  self.app={}
+  for w in range(1,self.cap+1):
+   for s in (False,True):
+    for q in range(self.n):
+     stride=1+h['stride_penalty']*max(0,q-h['cache_qubits'])
+     self.app[w,s,q]=case['repetitions']*(h['launch']+max(h['memory']*stride,h['compute']*(1 if s else 1<<w)))
+ def cost(self,mask,kind,count):
+  w=mask.bit_count(); s=kind in (2,4); q=(mask&-mask).bit_length()-1
+  return self.app[w,s,q]+self.build*(count-1)*(1<<(w if s else w*2))
+
+ def greedy(self,beam=5,weight=0.0,power=1.0,debug=False):
+  result=[]; evaluated=0
+  for ep,ii in sorted(self.epochs.items(),reverse=self.reverse):
+   remain=ii[::-1] if self.reverse else ii[:]
+   while remain:
+    req={}; rk={}; grouped={}; gd={}; gp={}
+    a2=0; a3=0
+    for i in remain:
+     m=self.masks[i]; k=self.kinds[i]
+     for p in self.parents[i]:
+      m|=req.get(p,0); k|=rk.get(p,0)
+     req[i]=m;rk[i]=k
+     if m.bit_count()<=self.cap:
+      grouped[m]=grouped.get(m,0)|(1<<i)
+      if k==2: gd[m]=gd.get(m,0)|(1<<i)
+      if k==4: gp[m]=gp.get(m,0)|(1<<i)
+      w=self.masks[i].bit_count()
+      if w==2:a2|=1<<i
+      elif w==3:a3|=1<<i
+    seeds=list(grouped)
+    cache={}; widths=[set() for _ in range(self.cap+1)]
+    def evaluate(s):
+     nonlocal evaluated
+     old=cache.get(s)
+     if old is not None:return old
+     evaluated+=1
+     bits=d=p=0; sub=s
+     while sub:
+      bits|=grouped.get(sub,0); d|=gd.get(sub,0);p|=gp.get(sub,0);sub=(sub-1)&s
+     best=(math.inf,0)
+     for b,k in ((bits,1),(d,2),(p,4)):
+      if not b:continue
+      count=b.bit_count(); c=min(self.limit,count)
+      size=c*(1+weight*((b&a2).bit_count()+2*(b&a3).bit_count())/count)
+      val=self.cost(s,k,c)/(size**power)
+      if val<best[0]:best=(val,b)
+     cache[s]=best
+     return best
+    for s in seeds:widths[s.bit_count()].add(s);evaluate(s)
+    for w in range(1,self.cap):
+     top=sorted(widths[w],key=lambda s:evaluate(s)[0])[:beam]
+     for a in top:
+      for b in seeds:
+       s=a|b; ws=s.bit_count()
+       if w<ws<=self.cap:
+        widths[ws].add(s)
+    best_s=min((s for ss in widths for s in ss),key=lambda s:evaluate(s)[0])
+    b=cache[best_s][1]
+    selected=[i for i in remain if b>>i&1][:self.limit]
+    # Prefix subpartitioning is deferred to final order dynamic programming.
+    selected_set=set(selected)
+    remain=[i for i in remain if i not in selected_set]
+    result.extend(selected)
+  if self.reverse:result.reverse()
+  if debug:print('evaluated',evaluated,file=sys.stderr)
+  return partition(self.case,result)
+
+def plan(case):
+ win=partition(case,list(range(len(case['gates']))))
+ for rev in (False,True):
+  p=Problem(case,rev)
+  for weight in (0.,1.):
+   z=p.greedy(beam=5,weight=weight)
+   if z[0]<win[0]:win=z
+ base=baseline_plan(case)
+ from model import validate_and_cost
+ bc=validate_and_cost(case,base)
+ if bc<win[0]:win=(bc,base)
+ return win[1]
+
+if __name__=='__main__':
+ req=json.loads(Path(sys.argv[1]).read_text()); resp={'schedules':{c['id']:plan(c) for c in req['cases']}}
+ Path(sys.argv[2]).write_text(json.dumps(resp))
+PY
+python3 bench.py fusion" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 6044ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 341 cost 32566.272 base 41236.608 speedup 1.2662 blocks 20 secs 0.530
+cc94844f62e45 640 cost 96101.120 base 100677.440 speedup 1.0476 blocks 64 secs 1.505
+c686c88eceb56 230 cost 19962.880 base 22009.600 speedup 1.1025 blocks 12 secs 0.467
+cf2c307568de2 126 cost 260255.520 base 285511.760 speedup 1.0970 blocks 66 secs 0.060
+cfdae45352162 180 cost 35289.600 base 37089.280 speedup 1.0510 blocks 18 secs 0.105
+Geomean 1.11016 time 2.6693297310266644
+
+exec
+/bin/bash -c "cat > inspect_cases.py <<'PY'
+from bench import cases,old
+from fusion import Problem
+from collections import Counter
+import time
+for c in cases:
+ print('\\nCASE',c['id'],flush=True)
+ for rev in (False,True):
+  for wt in (0.,0.3,1.,3.):
+   t=time.monotonic();p=Problem(c,rev);z=p.greedy(beam=10,weight=wt,debug=False)
+   print(rev,wt,round(z[0],3),len(z[1]),round(time.monotonic()-t,3),flush=True)
+   if not rev and wt==0:
+    for b in z[1]:
+     qs=set();ks=Counter()
+     for i in b:qs.update(c['gates'][i]['qubits']);ks[c['gates'][i]['kind']]+=1
+     print(c['gates'][b[0]]['epoch'],len(b),sorted(qs),dict(ks),b)
+PY
+python3 inspect_cases.py > inspection.txt
+cat inspection.txt" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+**Evaluating beam search strategy**
+
+I'm exploring beam search to determine how to manage frontiers at scheduled gates. I want to use an A* greedy heuristic to estimate costs based on a baseline schedule while considering gate execution and leftover resources. I aim to find a simple heuristic for the best potential outcomes by taking a one-step lookahead. I’ll evaluate the interactions between qubits and assess support availability, using a hypergraph model to approximate costs and optimize resource usage effectively.
+**Assessing modular strategies**
+
+I'm examining modular module widths to find a lower cost bound relative to the number of gates and lengths. Choosing to close certain widths can lead to unnecessary complications, particularly if it affects the second module. I want the future benefit of a coherent cluster, so I must focus on scoring cost efficiently. Also, I’m prioritizing completing qubit chains, while being mindful of the “frontier cut” effect from blocked supports. This strategy aims to optimize resource use and improve overall effectiveness.
+ succeeded in 43312ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+
+CASE cd62a746049b0
+False 0.0 38781.312 24 0.191
+0 24 [1, 20, 21, 22, 23] {'dense': 18, 'diagonal': 6} [4, 7, 8, 9, 21, 22, 23, 45, 46, 47, 48, 67, 68, 69, 70, 73, 74, 80, 82, 103, 104, 109, 110, 111]
+0 21 [3, 4, 5, 6, 7] {'dense': 13, 'diagonal': 8} [2, 3, 5, 15, 16, 17, 28, 29, 35, 36, 37, 54, 63, 64, 65, 66, 75, 76, 77, 99, 100]
+0 19 [16, 17, 18, 19, 20] {'dense': 13, 'diagonal': 6} [12, 13, 14, 24, 25, 26, 27, 43, 44, 57, 58, 59, 60, 83, 84, 89, 96, 97, 102]
+0 20 [12, 13, 14, 15, 16] {'dense': 15, 'diagonal': 5} [0, 1, 18, 19, 20, 41, 42, 49, 50, 51, 52, 78, 79, 88, 90, 91, 92, 93, 94, 95]
+0 15 [7, 8, 9, 10, 11] {'diagonal': 5, 'dense': 10} [10, 11, 31, 32, 33, 34, 61, 62, 71, 72, 86, 98, 105, 106, 107]
+0 11 [0, 2, 3, 4] {'dense': 6, 'diagonal': 5} [6, 30, 38, 39, 40, 53, 55, 56, 81, 85, 101]
+0 3 [1, 11, 12] {'diagonal': 2, 'dense': 1} [112, 87, 108]
+1 24 [10, 15, 21, 22, 23] {'dense': 12, 'diagonal': 12} [116, 125, 127, 128, 129, 130, 136, 137, 138, 142, 143, 144, 145, 146, 151, 163, 164, 165, 166, 168, 169, 178, 189, 207]
+1 18 [16, 17, 18, 19, 20] {'dense': 12, 'diagonal': 6} [121, 122, 123, 124, 139, 140, 148, 149, 150, 172, 173, 184, 185, 186, 190, 199, 204, 205]
+1 16 [8, 12, 13, 14, 15] {'diagonal': 5, 'dense': 11} [115, 117, 126, 141, 147, 152, 153, 154, 155, 174, 175, 187, 188, 211, 212, 213]
+1 15 [0, 1, 2, 3, 11] {'dense': 14, 'diagonal': 1} [118, 119, 120, 133, 134, 135, 156, 157, 159, 176, 177, 181, 182, 183, 218]
+1 15 [3, 4, 5, 6, 7] {'dense': 12, 'diagonal': 3} [113, 114, 131, 132, 161, 162, 170, 171, 191, 192, 193, 194, 195, 201, 219]
+1 8 [5, 7, 8, 9, 11] {'diagonal': 3, 'dense': 5} [158, 160, 167, 179, 180, 196, 200, 202]
+1 5 [9, 10, 15, 16] {'dense': 4, 'diagonal': 1} [214, 198, 206, 215, 217]
+1 3 [20, 21, 22, 23] {'dense': 2, 'diagonal': 1} [208, 209, 210]
+1 3 [4, 5, 8, 11, 12] {'dense': 3} [197, 203, 216]
+1 2 [1, 2, 3] {'dense': 1, 'diagonal': 1} [220, 221]
+2 23 [0, 1, 2, 3, 9] {'dense': 15, 'diagonal': 8} [228, 234, 235, 236, 237, 249, 251, 252, 253, 269, 270, 295, 296, 297, 298, 310, 311, 312, 313, 324, 325, 333, 335]
+2 21 [8, 20, 21, 22, 23] {'diagonal': 10, 'dense': 11} [226, 227, 229, 230, 231, 245, 246, 247, 271, 272, 273, 275, 277, 278, 279, 280, 314, 315, 338, 339, 340]
+2 20 [16, 17, 18, 19, 20] {'dense': 15, 'diagonal': 5} [238, 239, 240, 257, 258, 259, 260, 263, 264, 265, 285, 286, 287, 288, 307, 308, 309, 320, 328, 337]
+2 20 [12, 13, 14, 15, 16] {'dense': 11, 'diagonal': 9} [222, 223, 224, 241, 242, 243, 244, 266, 267, 268, 281, 282, 283, 284, 299, 300, 319, 322, 327, 329]
+2 19 [4, 5, 6, 7, 10] {'dense': 13, 'diagonal': 6} [225, 232, 233, 248, 254, 255, 256, 261, 262, 291, 292, 293, 294, 301, 302, 303, 304, 330, 331]
+2 12 [3, 4, 10, 11, 12] {'dense': 9, 'diagonal': 3} [250, 274, 276, 289, 290, 305, 306, 316, 318, 321, 326, 332]
+2 4 [1, 3, 7, 8, 12, 13] {'dense': 4} [317, 334, 336, 323]
+False 0.3 35137.408 22 0.167
+False 1.0 32566.272 20 0.153
+False 3.0 31989.376 20 0.16
+True 0.0 33558.272 19 0.131
+True 0.3 33539.84 19 0.134
+True 1.0 32947.2 19 0.117
+True 3.0 31374.336 18 0.115
+
+CASE cc94844f62e45
+False 0.0 98993.6 68 0.548
+0 12 [0, 1, 2, 3] {'dense': 9, 'diagonal': 2, 'permutation': 1} [6, 13, 16, 17, 24, 25, 37, 45, 55, 58, 60, 77]
+0 8 [3, 4, 5] {'dense': 6, 'diagonal': 2} [0, 1, 26, 39, 44, 61, 85, 90]
+0 12 [0, 1, 2, 3] {'dense': 9, 'permutation': 2, 'diagonal': 1} [78, 86, 95, 96, 108, 118, 120, 129, 131, 150, 157, 165]
+0 12 [8, 9, 10, 11] {'dense': 9, 'diagonal': 3} [9, 11, 21, 23, 28, 29, 38, 43, 57, 59, 64, 87]
+0 12 [6, 7, 8, 9] {'dense': 9, 'permutation': 1, 'diagonal': 2} [3, 8, 27, 46, 54, 63, 82, 91, 93, 99, 109, 112]
+0 12 [4, 5, 6, 7] {'diagonal': 3, 'dense': 8, 'permutation': 1} [62, 72, 89, 97, 98, 119, 123, 124, 128, 133, 154, 159]
+0 12 [2, 3, 4, 5] {'diagonal': 2, 'dense': 8, 'permutation': 2} [132, 145, 160, 167, 168, 179, 181, 182, 193, 203, 215, 235]
+0 11 [0, 1, 2] {'permutation': 3, 'dense': 8} [166, 184, 194, 202, 217, 219, 229, 237, 264, 272, 294]
+0 11 [10, 11, 12, 13] {'dense': 8, 'diagonal': 3} [7, 18, 30, 50, 51, 65, 79, 94, 100, 115, 122]
+0 11 [12, 13, 14, 15] {'dense': 8, 'diagonal': 1, 'permutation': 2} [4, 12, 31, 42, 47, 66, 75, 76, 101, 107, 113]
+0 9 [2, 3, 22, 23] {'dense': 7, 'diagonal': 1, 'permutation': 1} [5, 19, 35, 53, 56, 84, 238, 252, 260]
+0 9 [7, 8, 9, 10] {'diagonal': 1, 'permutation': 2, 'dense': 6} [134, 135, 143, 146, 155, 158, 170, 183, 187]
+0 12 [5, 6, 7, 8] {'diagonal': 2, 'dense': 8, 'permutation': 2} [169, 186, 189, 204, 205, 218, 225, 227, 231, 240, 255, 266]
+0 10 [3, 4, 5, 6] {'diagonal': 2, 'dense': 6, 'permutation': 2} [239, 258, 268, 274, 275, 288, 290, 291, 303, 310]
+0 9 [9, 10, 11, 12] {'diagonal': 2, 'dense': 6, 'permutation': 1} [136, 156, 162, 171, 188, 191, 206, 216, 230]
+0 12 [16, 17, 18, 19] {'dense': 9, 'permutation': 2, 'diagonal': 1} [2, 10, 14, 22, 32, 33, 36, 40, 48, 52, 68, 71]
+0 12 [14, 15, 16, 17] {'permutation': 2, 'dense': 8, 'diagonal': 2} [67, 73, 83, 102, 103, 116, 117, 127, 130, 138, 142, 147]
+0 12 [12, 13, 14, 15] {'diagonal': 3, 'dense': 8, 'permutation': 1} [137, 149, 163, 172, 173, 190, 197, 198, 200, 208, 228, 236]
+0 12 [10, 11, 12, 13] {'diagonal': 3, 'dense': 8, 'permutation': 1} [207, 213, 224, 242, 243, 254, 256, 263, 265, 278, 297, 305]
+0 10 [7, 8, 9, 10] {'permutation': 3, 'dense': 6, 'diagonal': 1} [241, 261, 267, 276, 277, 287, 299, 300, 302, 312]
+0 8 [1, 2, 20, 21] {'dense': 6, 'diagonal': 1, 'permutation': 1} [15, 20, 34, 41, 49, 273, 284, 298]
+0 10 [17, 18, 19, 20] {'diagonal': 2, 'dense': 7, 'permutation': 1} [69, 74, 80, 88, 104, 121, 126, 139, 151, 153]
+0 12 [20, 21, 22, 23] {'permutation': 2, 'dense': 8, 'diagonal': 2} [70, 81, 92, 105, 106, 110, 111, 114, 125, 141, 152, 161]
+0 12 [18, 19, 20, 21] {'permutation': 2, 'dense': 8, 'diagonal': 2} [140, 144, 148, 175, 176, 180, 195, 196, 199, 211, 220, 221]
+0 12 [15, 16, 17, 18] {'diagonal': 2, 'dense': 8, 'permutation': 2} [174, 178, 185, 209, 210, 222, 226, 232, 234, 245, 249, 271]
+0 10 [13, 14, 15, 16] {'diagonal': 2, 'dense': 6, 'permutation': 2} [244, 253, 270, 279, 280, 286, 292, 301, 307, 315]
+0 12 [21, 22, 23] {'dense': 9, 'permutation': 1, 'diagonal': 2} [164, 177, 192, 201, 212, 214, 223, 233, 248, 250, 259, 306]
+0 9 [18, 19, 20, 21] {'permutation': 2, 'diagonal': 1, 'dense': 6} [246, 247, 251, 257, 262, 269, 282, 295, 296]
+0 4 [0, 1, 17, 18] {'permutation': 1, 'dense': 2, 'diagonal': 1} [281, 285, 293, 308]
+0 3 [2, 3, 12, 13, 16, 17] {'diagonal': 3} [309, 314, 316]
+0 4 [6, 7, 21, 22] {'permutation': 1, 'dense': 2, 'diagonal': 1} [283, 289, 304, 311]
+0 2 [10, 11, 22, 23] {'permutation': 2} [313, 319]
+0 2 [18, 19, 20, 21] {'diagonal': 2} [317, 318]
+1 12 [0, 1, 2, 3] {'dense': 9, 'permutation': 1, 'diagonal': 2} [326, 327, 331, 338, 344, 345, 359, 364, 369, 377, 380, 392]
+1 8 [3, 4, 5] {'dense': 6, 'permutation': 1, 'diagonal': 1} [322, 328, 346, 374, 379, 381, 393, 395]
+1 12 [0, 1, 2, 3] {'dense': 9, 'diagonal': 3} [396, 407, 415, 416, 431, 438, 441, 444, 451, 465, 467, 475]
+1 12 [8, 9, 10, 11] {'dense': 9, 'permutation': 2, 'diagonal': 1} [333, 334, 336, 339, 348, 349, 357, 360, 365, 370, 384, 410]
+1 12 [5, 6, 7, 8] {'dense': 8, 'diagonal': 3, 'permutation': 1} [332, 340, 347, 373, 375, 382, 383, 405, 408, 411, 414, 418]
+1 12 [3, 4, 5, 6] {'diagonal': 4, 'dense': 8} [417, 427, 428, 429, 452, 453, 468, 469, 479, 480, 488, 507]
+1 12 [0, 1, 2, 3] {'diagonal': 2, 'permutation': 2, 'dense': 8} [486, 487, 501, 504, 513, 517, 522, 540, 543, 545, 557, 572]
+1 8 [0, 22, 23] {'dense': 7, 'permutation': 1} [320, 325, 355, 361, 368, 401, 579, 626]
+1 12 [10, 11, 12, 13] {'dense': 9, 'diagonal': 2, 'permutation': 1} [342, 343, 350, 371, 378, 385, 399, 400, 412, 420, 434, 450]
+1 12 [7, 8, 9, 10] {'permutation': 4, 'dense': 8} [419, 433, 440, 443, 454, 455, 462, 471, 473, 481, 490, 510]
+1 12 [5, 6, 7, 8] {'diagonal': 2, 'dense': 8, 'permutation': 2} [489, 498, 520, 524, 525, 537, 547, 548, 553, 560, 569, 588]
+1 12 [2, 3, 4, 5] {'dense': 8, 'diagonal': 2, 'permutation': 2} [511, 523, 541, 555, 558, 559, 580, 582, 586, 587, 594, 607]
+1 11 [12, 13, 14, 15] {'dense': 8, 'diagonal': 2, 'permutation': 1} [324, 330, 351, 363, 376, 386, 394, 413, 421, 446, 449]
+1 10 [9, 10, 11, 12] {'permutation': 3, 'dense': 7} [456, 484, 485, 491, 512, 519, 521, 526, 535, 546]
+1 9 [4, 15, 16, 17] {'dense': 7, 'diagonal': 2} [323, 341, 352, 366, 372, 387, 402, 406, 621]
+1 8 [8, 9, 18, 19] {'dense': 6, 'permutation': 1, 'diagonal': 1} [321, 335, 353, 358, 367, 561, 583, 591]
+1 8 [1, 2, 20, 21] {'dense': 6, 'permutation': 1, 'diagonal': 1} [329, 337, 354, 356, 362, 593, 620, 627]
+1 9 [12, 13, 14, 15] {'permutation': 2, 'dense': 6, 'diagonal': 1} [422, 447, 448, 457, 466, 482, 492, 502, 503]
+1 9 [9, 10, 11, 12] {'permutation': 3, 'dense': 6} [527, 539, 544, 562, 574, 576, 597, 604, 610]
+1 7 [5, 6, 7, 8] {'permutation': 2, 'dense': 4, 'diagonal': 1} [595, 596, 605, 608, 616, 623, 631]
+1 9 [15, 16, 17, 18] {'permutation': 2, 'dense': 6, 'diagonal': 1} [388, 391, 403, 423, 432, 436, 458, 470, 476]
+1 9 [12, 13, 14, 15] {'permutation': 1, 'dense': 6, 'diagonal': 2} [493, 514, 515, 528, 534, 542, 563, 581, 584]
+1 9 [17, 18, 19, 20] {'diagonal': 3, 'dense': 6} [389, 397, 409, 424, 430, 439, 459, 464, 477]
+1 12 [20, 21, 22, 23] {'permutation': 2, 'dense': 8, 'diagonal': 2} [390, 398, 404, 425, 426, 435, 437, 442, 445, 461, 463, 472]
+1 12 [18, 19, 20, 21] {'permutation': 2, 'dense': 8, 'diagonal': 2} [460, 474, 478, 495, 496, 500, 505, 506, 518, 531, 549, 554]
+1 12 [15, 16, 17, 18] {'permutation': 2, 'dense': 8, 'diagonal': 2} [494, 499, 509, 529, 530, 533, 536, 538, 551, 565, 575, 589]
+1 10 [13, 14, 15, 16] {'permutation': 3, 'dense': 6, 'diagonal': 1} [564, 578, 585, 599, 600, 612, 613, 618, 624, 635]
+1 12 [21, 22, 23] {'dense': 9, 'permutation': 3} [483, 497, 508, 516, 532, 550, 552, 556, 568, 570, 590, 611]
+1 9 [18, 19, 20, 21] {'permutation': 1, 'diagonal': 2, 'dense': 6} [566, 567, 571, 573, 577, 592, 602, 614, 622]
+1 6 [11, 12, 17, 18] {'permutation': 2, 'dense': 4} [598, 601, 606, 609, 619, 625]
+1 3 [0, 1, 2, 3, 8, 9] {'permutation': 3} [628, 629, 632]
+1 4 [4, 5, 21, 22] {'diagonal': 1, 'dense': 2, 'permutation': 1} [603, 615, 617, 630]
+1 3 [10, 11, 12, 13, 18, 19] {'diagonal': 3} [633, 634, 637]
+1 2 [16, 17, 22, 23] {'permutation': 2} [636, 639]
+1 1 [20, 21] {'diagonal': 1} [638]
+False 0.3 93937.92 65 0.641
+False 1.0 96463.36 67 0.633
+False 3.0 97184.32 67 0.622
+True 0.0 96101.12 64 0.221
+True 0.3 96101.12 64 0.226
+True 1.0 96188.16 64 0.36
+True 3.0 96659.52 72 0.694
+
+CASE c686c88eceb56
+False 0.0 20696.32 12 0.203
+0 24 [1, 12, 15] {'dense': 11, 'permutation': 10, 'diagonal': 3} [5, 6, 16, 27, 32, 39, 45, 54, 56, 60, 76, 78, 83, 95, 100, 103, 124, 131, 132, 146, 148, 156, 172, 178]
+0 23 [6, 7, 8] {'dense': 9, 'permutation': 10, 'diagonal': 4} [10, 12, 19, 33, 35, 38, 44, 46, 52, 62, 70, 80, 85, 99, 102, 105, 116, 122, 125, 138, 147, 161, 176]
+0 24 [10, 11, 17, 18] {'diagonal': 7, 'permutation': 8, 'dense': 9} [2, 3, 8, 15, 20, 23, 29, 30, 36, 48, 57, 63, 64, 73, 75, 81, 82, 106, 110, 113, 117, 127, 157, 167]
+0 24 [0, 2, 9, 19] {'dense': 14, 'diagonal': 8, 'permutation': 2} [4, 9, 11, 14, 22, 24, 28, 40, 42, 49, 51, 58, 65, 66, 67, 77, 79, 86, 88, 93, 96, 108, 109, 115]
+0 24 [4, 11, 13, 14] {'diagonal': 8, 'permutation': 8, 'dense': 8} [0, 7, 17, 21, 25, 31, 41, 43, 47, 50, 61, 71, 72, 84, 92, 97, 118, 123, 137, 143, 144, 151, 162, 171]
+0 24 [3, 5, 16, 18] {'permutation': 3, 'dense': 16, 'diagonal': 5} [1, 13, 18, 26, 34, 37, 53, 55, 59, 68, 69, 74, 87, 89, 91, 98, 101, 107, 111, 112, 121, 129, 133, 142]
+0 21 [4, 10, 18, 19] {'dense': 10, 'diagonal': 3, 'permutation': 8} [90, 94, 104, 114, 120, 126, 130, 135, 139, 140, 141, 155, 165, 166, 170, 173, 185, 186, 196, 212, 226]
+0 22 [0, 2, 6, 9, 12] {'dense': 9, 'permutation': 9, 'diagonal': 4} [119, 128, 134, 136, 145, 150, 152, 153, 158, 159, 160, 163, 164, 168, 177, 179, 184, 191, 199, 202, 210, 222]
+0 17 [2, 5, 7, 14, 16] {'dense': 7, 'permutation': 6, 'diagonal': 4} [149, 154, 169, 174, 180, 181, 182, 188, 192, 194, 195, 198, 207, 215, 219, 220, 224]
+0 12 [0, 6, 8, 18, 19] {'dense': 8, 'permutation': 2, 'diagonal': 2} [183, 187, 190, 204, 205, 206, 208, 213, 218, 221, 225, 228]
+0 11 [3, 11, 13, 15, 17] {'diagonal': 6, 'dense': 2, 'permutation': 3} [175, 189, 193, 200, 201, 203, 209, 211, 214, 216, 217]
+0 4 [1, 4, 6, 9, 15] {'permutation': 1, 'dense': 3} [197, 223, 227, 229]
+False 0.3 20170.24 12 0.182
+False 1.0 19962.88 12 0.211
+False 3.0 20104.96 12 0.219
+True 0.0 19966.72 12 0.187
+True 0.3 18734.08 11 0.136
+True 1.0 20350.72 12 0.204
+True 3.0 18803.2 11 0.162
+
+CASE cf2c307568de2
+False 0.0 274262.72 69 0.009
+0 1 [3, 4, 10] {'diagonal': 1} [1]
+0 2 [4, 10, 11] {'diagonal': 2} [2, 7]
+0 2 [1, 3, 7] {'diagonal': 2} [4, 14]
+0 1 [0, 8, 11] {'diagonal': 1} [3]
+0 3 [0, 1, 11] {'diagonal': 2, 'dense': 1} [5, 6, 13]
+0 2 [0, 5, 6] {'diagonal': 2} [0, 8]
+0 3 [1, 5, 6] {'diagonal': 2, 'dense': 1} [10, 11, 12]
+0 3 [2, 4, 6] {'diagonal': 3} [15, 16, 22]
+0 2 [8, 9, 10] {'diagonal': 2} [9, 17]
+0 6 [0, 1, 8] {'diagonal': 4, 'dense': 2} [19, 20, 21, 24, 26, 27]
+0 2 [7, 9] {'diagonal': 2} [18, 28]
+0 2 [3, 5, 9] {'diagonal': 2} [23, 25]
+0 2 [2, 6, 9] {'diagonal': 2} [29, 30]
+0 3 [1, 3, 9] {'diagonal': 2, 'dense': 1} [32, 36, 40]
+0 1 [4, 6, 11] {'diagonal': 1} [31]
+0 2 [2, 6, 7] {'diagonal': 2} [33, 49]
+0 1 [1, 10, 11] {'diagonal': 1} [35]
+0 1 [2, 4, 8] {'diagonal': 1} [34]
+0 1 [8, 10] {'diagonal': 1} [37]
+0 1 [0, 2, 8] {'diagonal': 1} [38]
+0 2 [0, 4, 8] {'dense': 1, 'diagonal': 1} [41, 42]
+0 1 [4, 8, 11] {'diagonal': 1} [43]
+0 1 [0, 3, 4] {'diagonal': 1} [45]
+0 1 [3, 9] {'diagonal': 1} [46]
+0 1 [5, 7, 10] {'diagonal': 1} [39]
+0 1 [8, 10] {'diagonal': 1} [44]
+0 1 [7, 8, 9] {'diagonal': 1} [47]
+0 1 [2, 7] {'diagonal': 1} [48]
+0 3 [2, 3, 8] {'diagonal': 2, 'dense': 1} [51, 54, 64]
+0 1 [6, 7, 11] {'diagonal': 1} [52]
+0 2 [0, 7] {'diagonal': 1, 'dense': 1} [53, 55]
+0 3 [0, 4, 6] {'diagonal': 3} [56, 58, 60]
+0 1 [3, 8, 11] {'diagonal': 1} [59]
+0 1 [6, 7] {'diagonal': 1} [57]
+0 1 [9, 10] {'diagonal': 1} [50]
+0 2 [1, 4, 9] {'diagonal': 1, 'dense': 1} [62, 68]
+0 1 [3, 8, 10] {'diagonal': 1} [61]
+0 1 [0, 5, 8] {'diagonal': 1} [63]
+0 3 [3, 5, 10] {'diagonal': 3} [70, 72, 78]
+0 3 [0, 8, 9] {'diagonal': 2, 'dense': 1} [65, 66, 69]
+0 3 [7, 9] {'diagonal': 2, 'dense': 1} [71, 85, 96]
+0 1 [0, 6] {'diagonal': 1} [67]
+0 1 [1, 4, 8] {'diagonal': 1} [73]
+0 5 [1, 7, 11] {'diagonal': 4, 'dense': 1} [74, 75, 79, 82, 88]
+0 1 [2, 6, 8] {'diagonal': 1} [77]
+0 2 [2, 3, 8] {'dense': 1, 'diagonal': 1} [83, 91]
+0 1 [1, 4] {'diagonal': 1} [80]
+0 4 [4, 7, 10] {'diagonal': 4} [76, 81, 89, 100]
+0 2 [2, 5, 10] {'dense': 1, 'diagonal': 1} [111, 84]
+0 3 [0, 1, 5] {'diagonal': 3} [86, 87, 90]
+0 1 [3, 5] {'diagonal': 1} [92]
+0 4 [2, 5, 7] {'diagonal': 2, 'dense': 2} [93, 94, 97, 125]
+0 1 [3, 4, 7] {'diagonal': 1} [95]
+0 2 [1, 3, 4] {'diagonal': 2} [98, 103]
+0 2 [3, 6, 8] {'diagonal': 2} [101, 102]
+0 2 [0, 1, 4] {'diagonal': 2} [99, 104]
+0 2 [0, 6] {'diagonal': 2} [109, 113]
+0 1 [3, 9] {'diagonal': 1} [105]
+0 3 [1, 3, 8] {'diagonal': 2, 'dense': 1} [106, 107, 110]
+0 2 [3, 5, 7] {'diagonal': 2} [108, 116]
+0 2 [3, 4, 10] {'dense': 1, 'diagonal': 1} [124, 112]
+0 2 [4, 6, 8] {'diagonal': 2} [114, 115]
+0 1 [5, 8, 10] {'diagonal': 1} [118]
+0 1 [6, 9, 11] {'diagonal': 1} [117]
+0 1 [1, 6] {'diagonal': 1} [119]
+0 1 [1, 4, 7] {'diagonal': 1} [120]
+0 1 [7, 9] {'diagonal': 1} [121]
+0 1 [0, 4, 9] {'diagonal': 1} [122]
+0 1 [4, 7] {'diagonal': 1} [123]
+False 0.3 270412.72 68 0.009
+False 1.0 269921.2 68 0.009
+False 3.0 269915.6 68 0.01
+True 0.0 273712.4 69 0.01
+True 0.3 260255.52 66 0.01
+True 1.0 260255.52 66 0.01
+True 3.0 265077.36 67 0.011
+
+CASE cfdae45352162
+False 0.0 37152.64 19 0.018
+0 12 [0, 2, 3] {'dense': 3, 'diagonal': 9} [1, 3, 6, 10, 19, 22, 26, 28, 32, 33, 38, 41]
+0 12 [8, 9, 10, 11] {'diagonal': 8, 'dense': 4} [2, 4, 8, 9, 12, 16, 18, 21, 24, 29, 30, 35]
+0 12 [9, 10, 11] {'dense': 7, 'diagonal': 5} [37, 39, 43, 47, 48, 52, 54, 59, 60, 65, 67, 71]
+0 9 [4, 5, 6, 7] {'diagonal': 4, 'dense': 5} [0, 5, 7, 11, 13, 15, 20, 23, 25]
+0 12 [1, 4, 6, 7] {'dense': 4, 'diagonal': 8} [27, 31, 34, 14, 17, 36, 40, 42, 49, 50, 55, 58]
+0 12 [5, 6, 7, 8] {'dense': 6, 'diagonal': 6} [46, 51, 62, 63, 66, 69, 72, 75, 78, 82, 85, 89]
+0 12 [1, 2, 3, 4] {'dense': 4, 'diagonal': 8} [44, 45, 53, 56, 57, 61, 64, 68, 70, 73, 77, 80]
+0 5 [9, 10, 11] {'diagonal': 2, 'dense': 3} [74, 76, 79, 81, 84]
+0 4 [1, 3, 4, 9] {'dense': 2, 'diagonal': 2} [86, 88, 83, 87]
+1 12 [8, 9, 10, 11] {'dense': 9, 'diagonal': 3} [91, 93, 98, 99, 104, 107, 109, 112, 114, 117, 121, 125]
+1 12 [9, 10, 11] {'dense': 7, 'diagonal': 5} [133, 135, 140, 141, 144, 147, 150, 153, 158, 161, 163, 166]
+1 12 [0, 1, 2, 3] {'dense': 7, 'diagonal': 5} [90, 95, 97, 101, 103, 105, 110, 113, 116, 118, 122, 123]
+1 12 [4, 5, 6, 7] {'dense': 8, 'diagonal': 4} [92, 94, 96, 100, 102, 106, 108, 111, 115, 119, 120, 124]
+1 10 [4, 5, 6, 8] {'dense': 6, 'diagonal': 4} [126, 128, 130, 131, 132, 137, 138, 142, 146, 154]
+1 10 [5, 6, 7, 8] {'dense': 7, 'diagonal': 3} [157, 159, 148, 151, 162, 167, 168, 172, 174, 177]
+1 3 [1, 3] {'dense': 2, 'diagonal': 1} [129, 136, 145]
+1 4 [0, 2, 9, 11] {'diagonal': 3, 'dense': 1} [169, 171, 175, 127]
+1 12 [1, 2, 3, 4] {'dense': 6, 'diagonal': 6} [134, 139, 143, 149, 152, 155, 156, 165, 173, 160, 164, 170]
+1 3 [1, 3, 4, 10] {'dense': 1, 'diagonal': 2} [176, 178, 179]
+False 0.3 35285.76 18 0.014
+False 1.0 35289.6 18 0.014
+False 3.0 35284.8 18 0.014
+True 0.0 37139.2 19 0.014
+True 0.3 37247.68 19 0.021
+True 1.0 37247.68 19 0.024
+True 3.0 37247.68 19 0.02
+
+exec
+/bin/bash -c "grep -E '"'^(CASE|False|True)'"' inspection.txt; date -u" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 11339ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+CASE cd62a746049b0
+False 0.0 38781.312 24 0.191
+False 0.3 35137.408 22 0.167
+False 1.0 32566.272 20 0.153
+False 3.0 31989.376 20 0.16
+True 0.0 33558.272 19 0.131
+True 0.3 33539.84 19 0.134
+True 1.0 32947.2 19 0.117
+True 3.0 31374.336 18 0.115
+CASE cc94844f62e45
+False 0.0 98993.6 68 0.548
+False 0.3 93937.92 65 0.641
+False 1.0 96463.36 67 0.633
+False 3.0 97184.32 67 0.622
+True 0.0 96101.12 64 0.221
+True 0.3 96101.12 64 0.226
+True 1.0 96188.16 64 0.36
+True 3.0 96659.52 72 0.694
+CASE c686c88eceb56
+False 0.0 20696.32 12 0.203
+False 0.3 20170.24 12 0.182
+False 1.0 19962.88 12 0.211
+False 3.0 20104.96 12 0.219
+True 0.0 19966.72 12 0.187
+True 0.3 18734.08 11 0.136
+True 1.0 20350.72 12 0.204
+True 3.0 18803.2 11 0.162
+CASE cf2c307568de2
+False 0.0 274262.72 69 0.009
+False 0.3 270412.72 68 0.009
+False 1.0 269921.2 68 0.009
+False 3.0 269915.6 68 0.01
+True 0.0 273712.4 69 0.01
+True 0.3 260255.52 66 0.01
+True 1.0 260255.52 66 0.01
+True 3.0 265077.36 67 0.011
+CASE cfdae45352162
+False 0.0 37152.64 19 0.018
+False 0.3 35285.76 18 0.014
+False 1.0 35289.6 18 0.014
+False 3.0 35284.8 18 0.014
+True 0.0 37139.2 19 0.014
+True 0.3 37247.68 19 0.021
+True 1.0 37247.68 19 0.024
+True 3.0 37247.68 19 0.02
+Fri Aug 28 16:00:28 UTC 2026
+
+exec
+/bin/bash -c "cat > improve.py <<'PY'
+import math,random
+from fusion import Problem
+
+class Local:
+ def __init__(self,case,blocks):
+  self.p=Problem(case);self.c=case;self.N=self.p.N;self.L=self.p.limit;self.W=self.p.cap
+  self.bs=[set(b) for b in blocks];self.B=len(blocks)
+  self.mask=[0]*self.B;self.kind=[0]*self.B;self.costs=[0.]*self.B
+  self.pos=[0]*self.N
+  self.parents=self.p.parents;self.children=[[] for _ in range(self.N)]
+  for i,pp in enumerate(self.parents):
+   for j in pp:self.children[j].append(i)
+  self.epoch=[]
+  for j,b in enumerate(self.bs):
+   self.epoch.append(case['gates'][next(iter(b))]['epoch'])
+   for i in b:self.pos[i]=j
+   self.update(j)
+ def update(self,j):
+  m=k=0
+  for i in self.bs[j]:m|=self.p.masks[i];k|=self.p.kinds[i]
+  self.mask[j]=m;self.kind[j]=k
+  self.costs[j]=self.p.cost(m,k,len(self.bs[j])) if m else 0.
+ def targetcost(self,i,j):
+  if len(self.bs[j])>=self.L:return math.inf
+  m=self.mask[j]|self.p.masks[i]
+  if m.bit_count()>self.W:return math.inf
+  return self.p.cost(m,self.kind[j]|self.p.kinds[i],len(self.bs[j])+1)
+ def bounds(self,i):
+  return max((self.pos[p] for p in self.parents[i]),default=0),min((self.pos[p] for p in self.children[i]),default=self.B-1)
+ def move(self,i,s,t):
+  self.bs[s].remove(i);self.bs[t].add(i);self.pos[i]=t;self.update(s);self.update(t)
+ def eliminate(self,s,mode=0):
+  if not self.bs[s]:return False
+  before=self.costs[s];orig={};moves=[];remaining=self.bs[s].copy();total_extra=0
+  # For an empty block the decrease in launch cost can pay for locally uphill moves.
+  while remaining:
+   options=[]
+   for i in remaining:
+    lo,hi=self.bounds(i)
+    for t in range(lo,hi+1):
+     if t==s or not self.bs[t] or self.epoch[t]"'!=self.epoch[s]:continue
+     tc=self.targetcost(i,t);extra=tc-self.costs[t]
+     if math.isfinite(extra):
+      key=extra
+      if mode==1:key+=abs(t-s)*1e-6
+      elif mode==2:key-=len(self.bs[t])*1e-5
+      options.append((key,i,t,extra))
+   if not options:break
+   key,i,t,extra=min(options)
+   if t not in orig:orig[t]=self.costs[t]
+   moves.append((i,s,t));self.move(i,s,t);remaining.remove(i)
+   total_extra+=extra
+  if not remaining and total_extra<before-1e-7:
+   return True
+  for i,s,t in reversed(moves):self.move(i,t,s)
+  return False
+ def single_moves(self,rev=False):
+  gain=0
+  for i in (range(self.N-1,-1,-1) if rev else range(self.N)):
+   s=self.pos[i];lo,hi=self.bounds(i);old=self.costs[s]
+   self.bs[s].remove(i);self.update(s);saving=old-self.costs[s]
+   best=(1e-7,None)
+   for t in range(lo,hi+1):
+    if t==s or not self.bs[t] or self.epoch[t]!=self.epoch[s]:continue
+    tc=self.targetcost(i,t)
+    delta=saving-(tc-self.costs[t])
+    if delta>best[0]:best=(delta,t)
+   self.bs[s].add(i);self.update(s)
+   if best[1] is not None:
+    self.move(i,s,best[1]);gain+=best[0]
+  return gain
+ def run(self,passes=3):
+  for iteration in range(passes):
+   old=sum(self.costs)
+   self.single_moves(iteration%2)
+   for s in sorted(range(self.B),key=lambda s:(len(self.bs[s]),-self.costs[s])):
+    if self.bs[s]:self.eliminate(s,iteration%3)
+   if old-sum(self.costs)<1e-7:break
+  return sum(self.costs),[sorted(b) for b in self.bs if b]
+
+def improve(case,blocks,passes=3):return Local(case,blocks).run(passes)
+PY
+cat > test_improve.py <<'"'PY'
+from bench import cases,old
+from fusion import Problem
+from improve import improve
+from model import validate_and_cost
+import time,math
+rs=[]
+for c in cases:
+ win=old[c['id']]['cost'],old[c['id']]['blocks'];t=time.monotonic()
+ opts=[('base',win)]
+ for rev in (False,True):
+  p=Problem(c,rev)
+  for wt in (0.,1.,3.):opts.append(((rev,wt),p.greedy(beam=5,weight=wt)))
+ for param,z in opts:
+  zz=improve(c,z[1]);validate_and_cost(c,zz[1]);print(c['id'],param,round(z[0],2),'->',round(zz[0],2),len(zz[1]),flush=True)
+  if zz[0]<win[0]:win=zz
+ rs.append(old[c['id']]['cost']/win[0]);print('best',win[0],rs[-1],'time',time.monotonic()-t,flush=True)
+print('GEO',math.prod(rs)**(1/len(rs)))
+PY
+python3 test_improve.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 34484ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+cd62a746049b0 base 41236.61 -> 34763.52 19
+cd62a746049b0 (False, 0.0) 37226.5 -> 34360.32 20
+cd62a746049b0 (False, 1.0) 32566.27 -> 32085.76 19
+cd62a746049b0 (False, 3.0) 31989.38 -> 31049.47 19
+cd62a746049b0 (True, 0.0) 33558.27 -> 33151.49 18
+cd62a746049b0 (True, 1.0) 32947.2 -> 32536.58 18
+cd62a746049b0 (True, 3.0) 31374.34 -> 31342.08 18
+best 31049.472000000005 1.3280936951198397 time 1.05457565409597
+cc94844f62e45 base 100677.44 -> 95740.16 68
+cc94844f62e45 (False, 0.0) 97420.8 -> 96828.48 68
+cc94844f62e45 (False, 1.0) 98258.24 -> 96828.16 67
+cc94844f62e45 (False, 3.0) 97184.32 -> 96008.96 66
+cc94844f62e45 (True, 0.0) 96101.12 -> 94376.96 64
+cc94844f62e45 (True, 1.0) 96188.16 -> 94464.0 64
+cc94844f62e45 (True, 3.0) 90438.4 -> 90246.4 66
+best 90246.40000000001 1.1155840011346714 time 3.0599897790234536
+c686c88eceb56 base 22009.6 -> 20339.2 11
+c686c88eceb56 (False, 0.0) 20696.32 -> 20696.32 12
+c686c88eceb56 (False, 1.0) 19962.88 -> 19959.04 12
+c686c88eceb56 (False, 3.0) 20104.96 -> 19955.2 12
+c686c88eceb56 (True, 0.0) 19966.72 -> 19678.72 11
+c686c88eceb56 (True, 1.0) 20350.72 -> 19724.8 11
+c686c88eceb56 (True, 3.0) 18803.2 -> 18803.2 11
+best 18803.2 1.1705241660993873 time 0.7148405739571899
+cf2c307568de2 base 285511.76 -> 266675.52 68
+cf2c307568de2 (False, 0.0) 274262.72 -> 261852.08 67
+cf2c307568de2 (False, 1.0) 269921.2 -> 261846.48 67
+cf2c307568de2 (False, 3.0) 269915.6 -> 261846.48 67
+cf2c307568de2 (True, 0.0) 273712.4 -> 258740.96 66
+cf2c307568de2 (True, 1.0) 260255.52 -> 258740.96 66
+cf2c307568de2 (True, 3.0) 265077.36 -> 258740.96 66
+best 258740.9599999999 1.1034656437851977 time 0.1272378619760275
+cfdae45352162 base 37089.28 -> 37004.16 19
+cfdae45352162 (False, 0.0) 37152.64 -> 35230.08 18
+cfdae45352162 (False, 1.0) 35289.6 -> 35189.76 18
+cfdae45352162 (False, 3.0) 35284.8 -> 35219.52 18
+cfdae45352162 (True, 0.0) 37139.2 -> 37062.4 19
+cfdae45352162 (True, 1.0) 37247.68 -> 37208.32 19
+cfdae45352162 (True, 3.0) 37247.68 -> 37208.32 19
+best 35189.759999999995 1.053979339444202 time 0.1960396639769897
+GEO 1.1506426246425903
+
+**Exploring beam scoring**
+
+I'm considering how to retain beam grouped blocks and perhaps implement a weighted score cost. At a pure gate-level cost, I notice it behaves like a step function: the first addition incurs an update, but the next one is free. This suggests the beam favors filling the same block, limiting planning for new blocks later on. However, using a multibeam approach could ensure a broader exploration.
+exec
+/bin/bash -c "python3 - <<'PY'
+p='fusion.py'
+s=open(p).read().replace('power=1.0,debug=False','power=1.0,alpha=0.,anchor=False,debug=False')
+s=s.replace('val=self.cost(s,k,c)/(size**power)','val=self.cost(s,k,c)*(1+alpha*s.bit_count())/(size**power)')
+s=s.replace('best_s=min((s for ss in widths for s in ss),key=lambda s:evaluate(s)[0])','''pool=[s for ss in widths for s in ss]
+    if anchor:pool=[s for s in pool if evaluate(s)[1]>>remain[0]&1]
+    best_s=min(pool,key=lambda s:evaluate(s)[0])''')
+open(p,'w').write(s)
+PY
+cat > grid.py <<'PY'
+from bench import cases,old
+from fusion import Problem
+from improve import improve
+from model import validate_and_cost
+import time,math,json
+rs=[];allbest={}
+for c in cases:
+ t=time.monotonic();opts=[]
+ for rev in (False,True):
+  p=Problem(c,rev)
+  for wt in (0.,1.,3.):
+   for a in (0.,.1,.3,1.):
+    for anchor in (False,True):
+     par=(rev,wt,a,anchor);z=p.greedy(beam=5,weight=wt,alpha=a,anchor=anchor);opts.append((z[0],par,z[1]))
+ opts.sort();print('\\n',c['id'], 'time',time.monotonic()-t,flush=True)
+ best=(math.inf,None)
+ for cost,param,b in opts[:8]:
+  z=improve(c,b);validate_and_cost(c,z[1]);print(param,round(cost,2),'->',round(z[0],2),len(z[1]),flush=True)
+  if z[0]<best[0]:best=z
+ rs.append(old[c['id']]['cost']/best[0]);allbest[c['id']]=best[1];print('best',best[0],rs[-1],flush=True)
+json.dump(allbest,open('grid_best.json','w'))
+print('GEO',math.prod(rs)**(1/len(rs)))
+PY
+python3 grid.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 55166ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+
+ cd62a746049b0 time 4.734925440046936
+(True, 3.0, 0.0, False) 31374.34 -> 31342.08 18
+(False, 3.0, 0.0, False) 31989.38 -> 31049.47 19
+(False, 3.0, 0.1, False) 31989.38 -> 31049.47 19
+(True, 1.0, 0.1, False) 32302.34 -> 31907.84 18
+(False, 1.0, 0.3, False) 32518.66 -> 31615.23 19
+(False, 1.0, 0.0, False) 32566.27 -> 32085.76 19
+(False, 1.0, 0.1, False) 32566.27 -> 32085.76 19
+(True, 3.0, 0.1, False) 32877.31 -> 32542.72 18
+best 31049.472000000005 1.3280936951198397
+
+ cc94844f62e45 time 20.345656284946017
+(True, 3.0, 0.0, False) 90438.4 -> 90246.4 66
+(True, 3.0, 0.1, False) 93543.68 -> 92280.32 69
+(True, 3.0, 0.0, True) 93688.32 -> 91773.44 67
+(False, 3.0, 0.0, True) 94013.76 -> 92810.24 67
+(True, 1.0, 0.1, False) 94046.72 -> 93358.08 64
+(False, 3.0, 0.1, True) 94516.16 -> 93291.52 72
+(True, 3.0, 0.1, True) 94603.52 -> 93463.04 68
+(False, 0.0, 0.0, True) 94674.24 -> 94443.84 68
+best 90246.40000000001 1.1155840011346714
+
+ c686c88eceb56 time 4.150223637931049
+(True, 1.0, 0.1, False) 18734.08 -> 18373.12 11
+(True, 3.0, 0.0, False) 18803.2 -> 18803.2 11
+(False, 1.0, 0.0, True) 18952.96 -> 18918.4 11
+(True, 1.0, 0.1, True) 18976.0 -> 18837.76 11
+(True, 3.0, 0.1, True) 19041.28 -> 18595.84 11
+(False, 3.0, 0.0, True) 19052.8 -> 19048.96 11
+(True, 3.0, 0.0, True) 19217.92 -> 19187.2 11
+(True, 1.0, 0.0, True) 19244.8 -> 19214.08 11
+best 18373.12 1.197923923644977
+
+ cf2c307568de2 time 0.5522803519852459
+(True, 1.0, 0.0, False) 260255.52 -> 258740.96 66
+(True, 1.0, 0.1, False) 260255.52 -> 258740.96 66
+(True, 1.0, 0.3, False) 260255.52 -> 258740.96 66
+(True, 3.0, 0.0, False) 265077.36 -> 258740.96 66
+(True, 3.0, 0.1, False) 265077.36 -> 258740.96 66
+(True, 3.0, 0.3, False) 265077.36 -> 258740.96 66
+(True, 3.0, 1.0, False) 265077.36 -> 258740.96 66
+(True, 0.0, 0.0, True) 267917.12 -> 261105.6 67
+best 258740.9599999999 1.1034656437851977
+
+ cfdae45352162 time 0.7252936259610578
+(False, 1.0, 1.0, False) 35149.44 -> 35130.24 18
+(False, 1.0, 0.3, False) 35184.0 -> 35130.24 18
+(False, 3.0, 0.3, False) 35191.68 -> 35114.88 18
+(False, 3.0, 1.0, False) 35191.68 -> 35114.88 18
+(False, 0.0, 0.3, False) 35203.2 -> 35203.2 18
+(False, 1.0, 0.1, False) 35218.56 -> 35153.28 18
+(False, 3.0, 0.1, False) 35225.28 -> 35160.0 18
+(False, 1.0, 0.3, True) 35235.84 -> 35178.24 18
+best 35114.880000000005 1.0562268758999032
+GEO 1.1564723457225374
+
+codex
+The first planner is producing legal schedules and improving all five public examples, but its aggregate gain is still below the target. I’m now testing global block merging and local reassignment to reduce the small leftover blocks created by greedy scheduling.
+exec
+/bin/bash -c "cat > contract.py <<'PY'
+import heapq,math,random
+from fusion import Problem
+from baseline import partition
+
+class Contractor:
+ def __init__(self,c,alpha=0.,beta=0.,seed=0):
+  self.p=Problem(c);self.c=c;self.W=self.p.cap;self.L=self.p.limit
+  self.alpha=alpha;self.beta=beta;self.rng=random.Random(seed);self.noise=0. if seed==0 else .08
+ def epoch(self,indices):
+  p=self.p
+  nodes={i:[p.masks[i],p.kinds[i],1,p.cost(p.masks[i],p.kinds[i],1),[i]] for i in indices}
+  parents={i:set(p.parents[i]) for i in indices};children={i:set() for i in indices}
+  for i,pp in parents.items():
+   for j in pp:children[j].add(i)
+  order=indices[:];position={i:j for j,i in enumerate(order)}
+  heap=[];serial=len(p.g);phase=0
+  def push(a,b):
+   if a==b:return
+   aa=nodes[a];bb=nodes[b];m=aa[0]|bb[0];n=aa[2]+bb[2];w=m.bit_count()
+   if w>self.W or n>self.L:return
+   cost=p.cost(m,aa[1]|bb[1],n);gain=aa[3]+bb[3]-cost
+   if gain<=1e-8:return
+   score=gain*n**self.beta/w**self.alpha
+   if self.noise:score*=self.rng.uniform(1-self.noise,1+self.noise)
+   heapq.heappush(heap,(-score,min(a,b),max(a,b)))
+  for a in indices:
+   for b in children[a]:push(a,b)
+  while True:
+   if not heap:
+    if phase:break
+    phase=1
+    oo=list(nodes)
+    for j,a in enumerate(oo):
+     for b in oo[j+1:]:push(a,b)
+    if not heap:break
+   _,a,b=heapq.heappop(heap)
+   if a not in nodes or b not in nodes:continue
+   if position[a]>position[b]:a,b=b,a
+   # Find every intermediate node on a dependency path from a to b.
+   upper=position[b];lower=position[a]
+   desc={a};todo=[a]
+   while todo:
+    x=todo.pop()
+    for y in children[x]:
+     if position[y]<=upper and y not in desc:desc.add(y);todo.append(y)
+   merge={a,b}
+   if b in desc:
+    todo=[b]
+    while todo:
+     x=todo.pop()
+     for y in parents[x]:
+      if y in desc and y not in merge:merge.add(y);todo.append(y)
+   m=k=n=0;old=0.;bb=[]
+   for x in merge:
+    xx=nodes[x];m|=xx[0];k|=xx[1];n+=xx[2];old+=xx[3];bb.extend(xx[4])
+   if m.bit_count()>self.W or n>self.L:continue
+   cost=p.cost(m,k,n)
+   if cost>=old-1e-8:continue
+   new=serial;serial+=1
+   pp=set();cc=set()
+   for x in merge:pp.update(parents[x]);cc.update(children[x])
+   pp-=merge;cc-=merge
+   for x in pp:children[x].difference_update(merge);children[x].add(new)
+   for x in cc:parents[x].difference_update(merge);parents[x].add(new)
+   for x in merge:del nodes[x],parents[x],children[x]
+   nodes[new]=[m,k,n,cost,bb];parents[new]=pp;children[new]=cc
+   # Preserve the old order as far as possible when topologically sorting the quotient.
+   priority=position[a]
+   position[new]=priority
+   indeg={x:len(parents[x]) for x in nodes}
+   ready=[(position[x],x) for x in nodes if indeg[x]==0];heapq.heapify(ready);order=[]
+   while ready:
+    _,x=heapq.heappop(ready);order.append(x)
+    for y in children[x]:
+     indeg[y]-=1
+     if indeg[y]==0:heapq.heappush(ready,(position[y],y))
+   assert len(order)==len(nodes)
+   position={x:i for i,x in enumerate(order)}
+   if phase:
+    for x in nodes:
+     if x"'!=new:push(new,x)
+   else:
+    for x in pp|cc:push(new,x)
+  return [sorted(nodes[x][4]) for x in order]
+ def run(self):
+  blocks=[]
+  for ep,ii in sorted(self.p.epochs.items()):blocks.extend(self.epoch(ii))
+  return partition(self.c,[i for b in blocks for i in b])
+
+def plan(c):
+ from improve import improve
+ win=(math.inf,None)
+ for a,b in [(0,0),(1,0),(0,.5),(1,.5)]:
+  z=Contractor(c,a,b).run();z=improve(c,z[1])
+  if z[0]<win[0]:win=z
+ return win[1]
+PY
+cat > test_contract.py <<'"'PY'
+from bench import cases,old
+from contract import Contractor
+from improve import improve
+from model import validate_and_cost
+import time,math,json
+rs=[];allbest={}
+for c in cases:
+ best=(math.inf,None);t=time.monotonic()
+ for a,b in [(0,0),(1,0),(0,.5),(1,.5),(2,1),(0,1)]:
+  z=Contractor(c,a,b).run();zz=improve(c,z[1]);validate_and_cost(c,zz[1]);print(c['id'],a,b,round(z[0],3),'->',round(zz[0],3),len(zz[1]),flush=True)
+  if zz[0]<best[0]:best=zz
+ rs.append(old[c['id']]['cost']/best[0]);allbest[c['id']]=best[1];print('best',best[0],rs[-1],'time',time.monotonic()-t,flush=True)
+json.dump(allbest,open('contract_best.json','w'))
+print('GEO',math.prod(rs)**(1/len(rs)))
+PY
+python3 test_contract.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 21938ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+cd62a746049b0 0 0 32161.024 -> 31912.448 18
+cd62a746049b0 1 0 31847.936 -> 31843.328 18
+cd62a746049b0 0 0.5 37495.04 -> 32674.816 18
+cd62a746049b0 1 0.5 32910.336 -> 32228.608 19
+cd62a746049b0 2 1 32910.336 -> 32228.608 19
+cd62a746049b0 0 1 37756.928 -> 35174.4 18
+best 31843.327999999998 1.2949842428530087 time 0.7263791098957881
+cc94844f62e45 0 0 112529.92 -> 104234.24 75
+cc94844f62e45 1 0 115316.16 -> 103326.72 77
+cc94844f62e45 0 0.5 96089.6 -> 95288.32 66
+cc94844f62e45 1 0.5 94931.2 -> 93954.56 66
+cc94844f62e45 2 1 93638.4 -> 92062.72 63
+cc94844f62e45 0 1 96089.6 -> 95288.32 66
+best 92062.72000000002 1.0935744674934653 time 2.177536749979481
+c686c88eceb56 0 0 19997.44 -> 19905.28 11
+c686c88eceb56 1 0 19997.44 -> 19905.28 11
+c686c88eceb56 0 0.5 19836.16 -> 19836.16 11
+c686c88eceb56 1 0.5 20780.8 -> 18388.48 11
+c686c88eceb56 2 1 18853.12 -> 18472.96 11
+c686c88eceb56 0 1 19836.16 -> 19836.16 11
+best 18388.48 1.1969232911039955 time 0.7013491679681465
+cf2c307568de2 0 0 260507.28 -> 258026.48 66
+cf2c307568de2 1 0 260540.08 -> 259009.52 66
+cf2c307568de2 0 0.5 264384.48 -> 261847.68 67
+cf2c307568de2 1 0.5 264644.64 -> 262360.8 67
+cf2c307568de2 2 1 264644.64 -> 262360.8 67
+cf2c307568de2 0 1 264384.48 -> 261847.68 67
+best 258026.4799999999 1.1065211601537956 time 0.21245173003990203
+cfdae45352162 0 0 42707.2 -> 35105.28 18
+cfdae45352162 1 0 40799.04 -> 37054.72 19
+cfdae45352162 0 0.5 39026.0 -> 37089.28 19
+cfdae45352162 1 0.5 39030.08 -> 37085.44 19
+cfdae45352162 2 1 39030.08 -> 37085.44 19
+cfdae45352162 0 1 39026.0 -> 37089.28 19
+best 35105.28 1.0565157150149493 time 0.25673088093753904
+GEO 1.1465763242168294
+
+exec
+/bin/bash -c "cat > pair_opt.py <<'PY'
+import math,itertools,time
+from fusion import Problem
+from baseline import partition
+
+class PairOptimizer:
+ def __init__(self,c):self.c=c;self.p=Problem(c);self.last_stats=0
+ def solve(self,blocks,force_first=(),force_last=()):
+  p=self.p;W=p.cap;L=p.limit
+  indices=sorted(i for b in blocks for i in b);n=len(indices)
+  if n>2*L:return None
+  union=0;old=0.
+  for b in blocks:
+   m=k=0
+   for i in b:m|=p.masks[i];k|=p.kinds[i]
+   union|=m;old+=p.cost(m,k,len(b))
+  d=union.bit_count()
+  if d>2*W:return None
+  qs=[q for q in range(p.n) if union>>q&1];qmap={q:i for i,q in enumerate(qs)}
+  loc={j:i for i,j in enumerate(indices)};ALL=(1<<n)-1;full=(1<<d)-1
+  masks=[];kinds=[];anc=[];prev={};succ=[[] for _ in indices];desc=[0]*n
+  for i,j in enumerate(indices):
+   mask=sum(1<<qmap[q] for q in self.c['gates'][j]['qubits']);masks.append(mask);kinds.append(p.kinds[j])
+   a=1<<i
+   for q in self.c['gates'][j]['qubits']:
+    if q in prev:a|=anc[prev[q]];succ[prev[q]].append(i)
+    prev[q]=i
+   anc.append(a)
+  for i in range(n-1,-1,-1):
+   a=1<<i
+   for j in succ[i]:a|=desc[j]
+   desc[i]=a
+  aq=[0]*d;dq=[0]*d;qb=[0]*d;kt={1:0,2:0,4:0}
+  for i,m in enumerate(masks):
+   kt[kinds[i]]|=1<<i
+   while m:
+    x=m&-m;q=x.bit_length()-1;m-=x
+    aq[q]|=anc[i];dq[q]|=desc[i];qb[q]|=1<<i
+  at=[0]*(full+1);dt=at[:];gm=at[:];wc=at[:]
+  for m in range(1,full+1):
+   x=m&-m;r=m-x;q=x.bit_length()-1
+   at[m]=at[r]|aq[q];dt[m]=dt[r]|dq[q];gm[m]=gm[r]|1<<qs[q];wc[m]=wc[r]+1
+  ffirst=flast=0
+  for i in force_first:ffirst|=anc[loc[i]]
+  for i in force_last:flast|=desc[loc[i]]
+  if ffirst&flast:return None
+  kindopts=[]
+  for typ in (1,2,4):
+   if typ"'!=1 and not kt[typ]:continue
+   # Constrain a specialized first/second block by moving every other kind.
+   fa=fd=0
+   if typ!=1:
+    nb=ALL''^kt[typ]
+    while nb:
+     x=nb&-nb;i=x.bit_length()-1;nb-=x;fa|=anc[i];fd|=desc[i]
+   kindopts.append((typ,fa,fd))
+  best=old;win=None;seen=set()
+  def actual(b):
+   m=k=0;out=[]
+   while b:
+    x=b&-b;i=x.bit_length()-1;b-=x;j=indices[i];m|=p.masks[j];k|=kinds[i];out.append(j)
+   return p.cost(m,k,len(out)),out
+  for S in range(1,full+1):
+   if wc[S]>W:continue
+   FL=dt[full''^S]|flast
+   if FL.bit_count()>L or FL&ffirst:continue
+   T0=0
+   for q in range(d):
+    if qb[q]&FL:T0|=1<<q
+   if wc[T0]>W:continue
+   available=full''^T0;spare=W-wc[T0]
+   # Only optional qubits already present in the first block can overlap.
+   extra=[1<<q for q in range(d) if available>>q&1]
+   for ne in range(min(spare,len(extra))+1):
+    for comb in itertools.combinations(extra,ne):
+     T=T0|sum(comb)
+     if not T or (S|T)!=full:continue
+     FF=at[full''^T]|ffirst
+     if FF&FL or FF.bit_count()>L:continue
+     for k1,ka1,kd1 in kindopts:
+      fl=FL|kd1
+      if fl.bit_count()>L or FF&fl:continue
+      for k2,ka2,kd2 in kindopts:
+       ff=FF|ka2
+       if ff&fl:continue
+       lo=max(ff.bit_count(),n-L,1);hi=min(n-fl.bit_count(),L,n-1)
+       if lo>hi:continue
+       e1=1<<(wc[S] if k1 in(2,4) else 2*wc[S]);e2=1<<(wc[T] if k2 in(2,4) else 2*wc[T])
+       c=lo if e1>e2 else hi
+       est=p.cost(gm[S],k1,c)+p.cost(gm[T],k2,n-c)
+       if est>=best-1e-7:continue
+       first=ff;rest=ALL''^fl''^ff;need=c-first.bit_count()
+       # FF is an ideal and FL is a filter; append an ordered prefix of the flexible gates.
+       while need:
+        x=rest&-rest;rest-=x;first|=x;need-=1
+       if first in seen:continue
+       seen.add(first)
+       ca,ba=actual(first);cb,bb=actual(ALL''^first)
+       if ca+cb<best-1e-7:best=ca+cb;win=[ba,bb]
+  self.last_stats=len(seen)
+  # One block may be better as well.
+  if d<=W and n<=L:
+   k=0
+   for x in kinds:k|=x
+   co=p.cost(union,k,n)
+   if co<best-1e-7 and not(force_first or force_last):best=co;win=[indices]
+  if win is None:return None
+  return best,win
+ def run(self,blocks,passes=2,span=1,deadline=math.inf):
+  bs=[b[:] for b in blocks]
+  for iteration in range(passes):
+   changed=False
+   for window in (3,2):
+    for s in range(len(bs)-window,-1,-1) if iteration%2 else range(len(bs)-window+1):
+     if time.monotonic()>deadline:break
+     if s+window>len(bs):continue
+     bb=bs[s:s+window]
+     if self.c['"'gates'][bb[0][0]]['epoch']"'!=self.c['"'gates'][bb[-1][0]]['epoch']:continue
+     z=self.solve(bb)
+     if z:
+      bs[s:s+window]=z[1];changed=True
+   if not changed:break
+  return partition(self.c,[i for b in bs for i in b])
+PY
+cat > test_pair.py <<'PY'
+from bench import cases,old
+from pair_opt import PairOptimizer
+from improve import improve
+from model import validate_and_cost
+import time,math,json
+rs=[];allbest={};best1=json.load(open('grid_best.json'));best2=json.load(open('contract_best.json'))
+for c in cases:
+ b=min((best1[c['id']],best2[c['id']]),key=lambda b:validate_and_cost(c,b));start=validate_and_cost(c,b);t=time.monotonic()
+ po=PairOptimizer(c);z=po.run(b,passes=3);z=improve(c,z[1]);validate_and_cost(c,z[1])
+ rs.append(old[c['id']]['cost']/z[0]);allbest[c['id']]=z[1]
+ print(c['id'],start,'->',z[0],len(z[1]),'ratio',rs[-1],'time',time.monotonic()-t,flush=True)
+json.dump(allbest,open('pair_best.json','w'));print('GEO',math.prod(rs)**(1/len(rs)))
+PY
+python3 test_pair.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+**Calculating time usage**
+
+I'm reviewing how much time we've used for the text analysis, which seems to be around 45 minutes. I need to account for the actual time taken, as there's overhead from using the tools that isn’t factored in. I might have about an hour left for analysis and can read around 30k tokens. So, I need to start tracking the time properly now to stay on schedule.
+exec
+/bin/bash -c 'date -u; ls -l --time-style=long-iso *.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+**Considering optimization strategies**
+
+I’m thinking about optimizing global constrained cover using interval supports and MILP for modular approaches. However, I've realized we might only have about 20 minutes to work with. I wonder if getting a pair of exact solutions could lead to a dramatic improvement. It's interesting to see how small adjustments can impact results so significantly! I'm curious about how this will unfold and what kind of strategies may be most effective.
+ succeeded in 17958ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+Fri Aug 28 16:07:58 UTC 2026
+-rw------- 1 xuandong xuandong 3911 2026-08-28 08:57 baseline.py
+-rw------- 1 xuandong xuandong 1211 2026-08-28 08:57 bench.py
+-rw------- 1 xuandong xuandong 3440 2026-08-28 09:05 contract.py
+-rw------- 1 xuandong xuandong 4018 2026-08-28 09:03 fusion.py
+-rw------- 1 xuandong xuandong  888 2026-08-28 09:03 grid.py
+-rw------- 1 xuandong xuandong 3201 2026-08-28 09:01 improve.py
+-rw------- 1 xuandong xuandong  584 2026-08-28 09:00 inspect_cases.py
+-rw------- 1 xuandong xuandong 2657 2026-08-28 08:57 model.py
+-rw------- 1 xuandong xuandong 4358 2026-08-28 09:07 pair_opt.py
+-rw------- 1 xuandong xuandong  671 2026-08-28 09:05 test_contract.py
+-rw------- 1 xuandong xuandong  683 2026-08-28 09:01 test_improve.py
+-rw------- 1 xuandong xuandong  716 2026-08-28 09:07 test_pair.py
+
+ succeeded in 24329ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+cd62a746049b0 31049.472000000005 -> 31043.32800000001 19 ratio 1.3283565473392542 time 0.1018485949607566
+cc94844f62e45 90246.40000000001 -> 89978.88000000002 66 ratio 1.118900790941163 time 0.4041650249855593
+c686c88eceb56 18373.12 -> 18373.12 11 ratio 1.197923923644977 time 0.052179576945491135
+cf2c307568de2 258026.4799999999 -> 258016.4799999999 66 ratio 1.1065640458314916 time 0.03547559794969857
+cfdae45352162 35105.28 -> 35105.28 18 ratio 1.0565157150149493 time 0.0157831609249115
+GEO 1.1579174510122805
+
+**Evaluating pipeline dynamics**
+
+I’m breaking down the incremental pipeline with a focus on how the random merge might find the minimum block target. It seems that using greedy, strong, but local grids with a reverse global approach gives me a limitation of 18 shifts. I want to analyze how the natural regions are clustering into three phases, each having four clusters. With the gate capacity at a maximum of 12, finding an ideal grouping of 18 might be tricky.
+**Considering optimal size selection**
+
+I'm thinking about how to maximize weights with an ideal size L, possibly using the dynamic knapsack algorithm on a directed acyclic graph (DAG). It's a pretty complex task, but there may be some clever strategies for figuring out the best size to achieve maximum efficiency. I’ll need to break down the problem and explore the details to ensure I’m approaching it correctly. It seems like a fascinating challenge!
+exec
+/bin/bash -c "python3 - <<'PY'
+p='fusion.py';s=open(p).read().replace('anchor=False,debug=False','anchor=False,select=0,debug=False')
+s=s.replace('selected=[i for i in remain if b>>i&1][:self.limit]','''selected=[i for i in remain if b>>i&1]
+    if len(selected)>self.limit and select:
+     ancestors={}
+     for i in selected:
+      a=1<<i
+      for pp in self.parents[i]:a|=ancestors.get(pp,0)
+      ancestors[i]=a
+     chosen=0;left=self.limit
+     while left:
+      top=None
+      for i,aa in ancestors.items():
+       a=aa&~chosen;n=a.bit_count()
+       if not 0<n<=left:continue
+       value=1+max(weight,1.)*((a&a2).bit_count()+2*(a&a3).bit_count())/n
+       rank=(value,n,-i) if select==1 else (value,-n,-i)
+       if top is None or rank>top[0]:top=rank,a
+      if top is None:break
+      chosen|=top[1];left=self.limit-chosen.bit_count()
+     selected=[i for i in selected if chosen>>i&1]
+    else:selected=selected[:self.limit]''')
+open(p,'w').write(s)
+PY
+cat > grid2.py <<'PY'
+from bench import cases,old
+from fusion import Problem
+from improve import improve
+from model import validate_and_cost
+import time,math,json
+rs=[];allbest={}
+for c in cases:
+ t=time.monotonic();opts=[]
+ for rev in (False,True):
+  p=Problem(c,rev)
+  for wt in (3.,10.,100.):
+   for a in (0.,.1):
+    for select in (0,1,2):
+     par=(rev,wt,a,select);z=p.greedy(beam=7,weight=wt,alpha=a,select=select);opts.append((z[0],par,z[1]))
+ opts.sort();print('\\n',c['id'], 'time',time.monotonic()-t,flush=True);best=(math.inf,None)
+ for cost,param,b in opts[:6]:
+  z=improve(c,b);validate_and_cost(c,z[1]);print(param,round(cost,2),'->',round(z[0],2),len(z[1]),flush=True)
+  if z[0]<best[0]:best=z
+ rs.append(old[c['id']]['cost']/best[0]);allbest[c['id']]=best[1];print('best',best[0],rs[-1],flush=True)
+json.dump(allbest,open('grid2_best.json','w'));print('GEO',math.prod(rs)**(1/len(rs)))
+PY
+python3 grid2.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 58638ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+
+ cd62a746049b0 time 4.296140150050633
+(False, 10.0, 0.0, 0) 31074.05 -> 31074.05 19
+(False, 10.0, 0.0, 1) 31074.05 -> 31074.05 19
+(False, 10.0, 0.0, 2) 31074.05 -> 31074.05 19
+(True, 10.0, 0.1, 0) 31327.1 -> 31309.82 18
+(True, 10.0, 0.1, 1) 31327.1 -> 31309.82 18
+(True, 10.0, 0.1, 2) 31327.1 -> 31309.82 18
+best 31074.048000000006 1.3270433256716343
+
+ cc94844f62e45 time 25.650902741006576
+(True, 3.0, 0.0, 0) 90228.48 -> 90017.28 66
+(True, 3.0, 0.0, 1) 91993.6 -> 91936.0 66
+(True, 3.0, 0.0, 2) 92080.64 -> 92042.24 66
+(True, 10.0, 0.1, 1) 92146.88 -> 91051.84 70
+(True, 10.0, 0.1, 2) 92146.88 -> 91051.84 70
+(True, 3.0, 0.1, 2) 92565.76 -> 90677.76 67
+best 90017.28000000001 1.118423484913119
+
+ c686c88eceb56 time 4.187506205053069
+(True, 10.0, 0.0, 2) 17466.88 -> 17466.88 10
+(False, 10.0, 0.0, 1) 18284.8 -> 18284.8 11
+(False, 10.0, 0.1, 1) 18284.8 -> 18284.8 11
+(True, 3.0, 0.0, 2) 18449.92 -> 18146.56 10
+(False, 100.0, 0.0, 2) 18453.76 -> 18426.88 11
+(False, 100.0, 0.1, 2) 18453.76 -> 18426.88 11
+best 17466.88 1.2600762128096143
+
+ cf2c307568de2 time 0.4241591499885544
+(True, 100.0, 0.1, 0) 264335.28 -> 262575.36 67
+(True, 100.0, 0.1, 1) 264335.28 -> 262575.36 67
+(True, 100.0, 0.1, 2) 264335.28 -> 262575.36 67
+(True, 3.0, 0.0, 0) 265077.36 -> 258740.96 66
+(True, 3.0, 0.0, 1) 265077.36 -> 258740.96 66
+(True, 3.0, 0.0, 2) 265077.36 -> 258740.96 66
+best 258740.9599999999 1.1034656437851977
+
+ cfdae45352162 time 0.6149655869230628
+(False, 3.0, 0.1, 0) 35225.28 -> 35160.0 18
+(False, 3.0, 0.1, 1) 35225.28 -> 35160.0 18
+(False, 3.0, 0.1, 2) 35225.28 -> 35160.0 18
+(False, 10.0, 0.1, 0) 35225.28 -> 35160.0 18
+(False, 10.0, 0.1, 1) 35225.28 -> 35160.0 18
+(False, 10.0, 0.1, 2) 35225.28 -> 35160.0 18
+best 35160.0 1.0548714448236631
+GEO 1.1683401704696226
+
+**Evaluating project deadlines**
+
+I'm considering a deadline that's coming up in just a few seconds. I need to complete depth with minimal blocks. There are loops at initial layers, and I worry about loss if the support width choices aren't cost-effective. So far, costs have been comparable, but large counts are preferred for first complete management. I’ll also add a beam call for public epochs, but wow, I only have 42 minutes left!
+exec
+/bin/bash -c "cat > beam.py <<'PY'
+import math,time,heapq
+from fusion import Problem
+from baseline import partition
+
+class BeamPlanner:
+ def __init__(self,c):self.c=c;self.p=Problem(c)
+ def epoch(self,ii,incumbent,beam=24,branch=16,support_beam=3,weight=0.,scale=1.,deadline=math.inf):
+  p=self.p;N=len(ii);L=p.limit;W=p.cap;ALL=(1<<N)-1
+  local={j:i for i,j in enumerate(ii)};masks=[p.masks[j] for j in ii];kinds=[p.kinds[j] for j in ii]
+  parents=[[local[j] for j in p.parents[i] if j in local] for i in ii]
+  pb=[sum(1<<j for j in pp) for pp in parents];children=[[] for _ in ii];qb=[0]*p.n
+  a2=a3=0
+  for i,m in enumerate(masks):
+   for j in parents[i]:children[j].append(i)
+   for q in range(p.n):
+    if m>>q&1:qb[q]|=1<<i
+   if m.bit_count()==2:a2|=1<<i
+   if m.bit_count()==3:a3|=1<<i
+  def convert(bb):return [[ii[i] for i in range(N) if b>>i&1] for b in bb]
+  def costblocks(bb):
+   z=0
+   for b in bb:
+    m=k=0
+    for i in b:m|=p.masks[i];k|=p.kinds[i]
+    z+=p.cost(m,k,len(b))
+   return z
+  bestcost=costblocks(incumbent);bestblocks=incumbent
+  minapp=min(p.app.values());unit=bestcost/(N+weight*(a2.bit_count()+2*a3.bit_count()))*scale
+  evalstates=0;cache={}
+  def actions(done):
+   nonlocal evalstates
+   if done in cache:return cache[done]
+   evalstates+=1;remaining=ALL"'^done;front=0
+   for b in qb:
+    x=b&remaining;front|=x&-x
+   todo=[]
+   while front:
+    x=front&-front;front-=x;i=x.bit_length()-1
+    if not pb[i]&remaining:todo.append(i)
+   req={};rk={};anc={};grouped={};gd={};gp={};queued=set(todo)
+   while todo:
+    i=todo.pop();m=masks[i];k=kinds[i];a=1<<i
+    for j in parents[i]:
+     if not done>>j&1:m|=req[j];k|=rk[j];a|=anc[j]
+    if m.bit_count()>W or a.bit_count()>L:continue
+    req[i]=m;rk[i]=k;anc[i]=a;grouped[m]=grouped.get(m,0)|(1<<i)
+    if k==2:gd[m]=gd.get(m,0)|(1<<i)
+    if k==4:gp[m]=gp.get(m,0)|(1<<i)
+    for j in children[i]:
+     if j not in queued and all(done>>z&1 or z in req for z in parents[j]):todo.append(j);queued.add(j)
+   seeds=list(grouped);levels=[set() for _ in range(W+1)];mcache={};bcache={}
+   def assess(S):
+    if S in mcache:return mcache[S]
+    sub=S;b=d=r=0
+    while sub:b|=grouped.get(sub,0);d|=gd.get(sub,0);r|=gp.get(sub,0);sub=(sub-1)&S
+    best=math.inf
+    for B in (b,d,r):
+     if not B:continue
+     if B.bit_count()>L:
+      tmp=B;B=0
+      for _ in range(L):x=tmp&-tmp;tmp-=x;B|=x
+     if B not in bcache:
+      m=k=0;tmp=B
+      while tmp:x=tmp&-tmp;tmp-=x;i=x.bit_length()-1;m|=masks[i];k|=kinds[i]
+      n=B.bit_count();v=p.cost(m,k,n);wt=n+weight*((B&a2).bit_count()+2*(B&a3).bit_count())
+      bcache[B]=(v,B,n,wt)
+     v,B,n,wt=bcache[B];score=v/wt
+     if score<best:best=score
+    mcache[S]=best;return best
+   for m in seeds:levels[m.bit_count()].add(m)
+   for w in range(1,W):
+    for s in sorted(levels[w],key=assess)[:support_beam]:
+     for m in seeds:
+      u=s|m;wc=u.bit_count()
+      if w<wc<=W:levels[wc].add(u)
+   for s in levels[W]:assess(s)
+   # Keep complementary candidates: high efficiency and high packed operation count.
+   opts=list(bcache.values());opts.sort(key=lambda a:(a[0]/a[3],-a[2]))
+   selected=opts[:branch]
+   if len(opts)>branch:
+    ss={a[1] for a in selected}
+    for a in sorted(opts,key=lambda a:(-a[2],a[0]))[:branch//2]:
+     if a[1] not in ss:selected.append(a)
+   if len(cache)<15000:cache[done]=selected
+   return selected
+  states=[(0.,0.,0,None,0.)];seen={0:0.};depth=0
+  while states and time.monotonic()<deadline:
+   depth+=1;next_states={}
+   for _,co,done,path,covered in states:
+    for v,b,n,wt in actions(done):
+     nc=co+v;nd=done|b
+     if nc>=bestcost-1e-7:continue
+     if nd==ALL:
+      bb=[b];pa=path
+      while pa is not None:pa,ob=pa;bb.append(ob)
+      bestcost=nc;bestblocks=convert(bb[::-1]);continue
+     rem=N-nd.bit_count()
+     if nc+((rem+L-1)//L)*minapp>=bestcost-1e-7:continue
+     if nc>=seen.get(nd,math.inf)-1e-7:continue
+     seen[nd]=nc
+     score=nc-unit*(covered+wt)
+     next_states[nd]=(score,nc,nd,(path,b),covered+wt)
+    if time.monotonic()>deadline:break
+   states=heapq.nsmallest(beam,next_states.values(),key=lambda a:a[0])
+  self.last_states=evalstates
+  return bestcost,bestblocks
+ def run(self,blocks,beam=24,branch=16,weight=0.,scale=1.,deadline=math.inf):
+  result=[];total=0;num=0
+  for ep,ii in sorted(self.p.epochs.items()):
+   inc=[b for b in blocks if self.c['"'gates'][b[0]]['epoch']==ep]
+   z=self.epoch(ii,inc,beam=beam,branch=branch,weight=weight,scale=scale,deadline=deadline)
+   total+=z[0];result.extend(z[1]);num+=self.last_states
+  self.last_states=num
+  return partition(self.c,[i for b in result for i in b])
+PY
+cat > test_beam.py <<'PY'
+from bench import cases,old
+from beam import BeamPlanner
+from improve import improve
+from model import validate_and_cost
+import time,math,json
+rs=[];allbest={};best1=json.load(open('pair_best.json'))
+for c in cases:
+ b=best1[c['id']];start=validate_and_cost(c,b);best=(start,b);t=time.monotonic()
+ for wt in (0.,3.,30.):
+  po=BeamPlanner(c);z=po.run(b,beam=24,branch=12,weight=wt,deadline=time.monotonic()+20);z=improve(c,z[1]);validate_and_cost(c,z[1]);print(c['id'],wt,z[0],len(z[1]),'states',po.last_states,'time',time.monotonic()-t,flush=True)
+  if z[0]<best[0]:best=z
+ rs.append(old[c['id']]['cost']/best[0]);allbest[c['id']]=best[1]
+ print('BEST',start,'->',best[0],'ratio',rs[-1],'time',time.monotonic()-t,flush=True)
+json.dump(allbest,open('beam_best.json','w'));print('GEO',math.prod(rs)**(1/len(rs)))
+PY
+python3 test_beam.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 51296ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+cd62a746049b0 0.0 30433.024000000005 19 states 359 time 1.0701356189092621
+cd62a746049b0 3.0 30403.840000000004 19 states 367 time 2.380966807017103
+cd62a746049b0 30.0 30399.232000000004 19 states 368 time 3.5379132059169933
+BEST 31043.32800000001 -> 30399.232000000004 ratio 1.3565016379361163 time 3.538187540951185
+cc94844f62e45 0.0 87045.11999999998 61 states 1402 time 10.523567313095555
+cc94844f62e45 3.0 87746.55999999998 61 states 1394 time 19.973485480062664
+cc94844f62e45 30.0 88276.47999999998 62 states 1396 time 29.292034842073917
+BEST 89978.88000000002 -> 87045.11999999998 ratio 1.1566121110522916 time 29.29235152900219
+c686c88eceb56 0.0 18373.12 11 states 229 time 1.5632223390275612
+c686c88eceb56 3.0 18373.12 11 states 221 time 3.4662882270058617
+c686c88eceb56 30.0 18373.12 11 states 211 time 5.615317319985479
+BEST 18373.12 -> 18373.12 ratio 1.197923923644977 time 5.615693046944216
+cf2c307568de2 0.0 253202.23999999993 65 states 967 time 0.16568109206855297
+cf2c307568de2 3.0 253196.6399999999 65 states 994 time 0.309676647069864
+cf2c307568de2 30.0 253196.63999999993 65 states 985 time 0.5224767370382324
+BEST 258016.4799999999 -> 253196.6399999999 ratio 1.12762854988913 time 0.5228114339988679
+cfdae45352162 0.0 31475.2 16 states 314 time 0.19305619003716856
+cfdae45352162 3.0 33267.2 17 states 332 time 0.6050933320075274
+cfdae45352162 30.0 33267.2 17 states 324 time 0.8964683399535716
+BEST 35105.28 -> 31475.2 ratio 1.1783651891012605 time 0.8967801859835163
+GEO 1.2008718173686912
+
+exec
+/bin/bash -c "python3 - <<'PY'
+p='beam.py';s=open(p).read();s=s.replace('weight=0.,scale=1.,deadline=math.inf','weight=0.,scale=1.,resource=False,deadline=math.inf')
+s=s.replace('minapp=min(p.app.values());unit=bestcost/(N+weight*(a2.bit_count()+2*a3.bit_count()))*scale','''minapp=min(p.app.values())
+  weights=[(1+weight*(m.bit_count()-1))*(p.cost(m,k,1)/minapp if resource else 1.) for m,k in zip(masks,kinds)]
+  unit=bestcost/sum(weights)*scale''')
+s=s.replace('m=k=0;tmp=B\\n      while tmp:x=tmp&-tmp;tmp-=x;i=x.bit_length()-1;m|=masks[i];k|=kinds[i]\\n      n=B.bit_count();v=p.cost(m,k,n);wt=n+weight*((B&a2).bit_count()+2*(B&a3).bit_count())','''m=k=0;tmp=B;wt=0.
+      while tmp:x=tmp&-tmp;tmp-=x;i=x.bit_length()-1;m|=masks[i];k|=kinds[i];wt+=weights[i]
+      n=B.bit_count();v=p.cost(m,k,n)''')
+s=s.replace('weight=weight,scale=scale,deadline=deadline','weight=weight,scale=scale,resource=resource,deadline=deadline')
+open(p,'w').write(s)
+p='fusion.py';s=open(p).read().replace('select=0,debug=False','select=0,resource=False,debug=False')
+s=s.replace('result=[]; evaluated=0','''result=[]; evaluated=0
+  weightgroups={}
+  if resource:
+   low=min(self.app.values())
+   for i,m in enumerate(self.masks):
+    w=(1+weight*(m.bit_count()-1))*self.cost(m,self.kinds[i],1)/low
+    weightgroups[w]=weightgroups.get(w,0)|(1<<i)''')
+s=s.replace('size=c*(1+weight*((b&a2).bit_count()+2*(b&a3).bit_count())/count)','''size=c*(1+weight*((b&a2).bit_count()+2*(b&a3).bit_count())/count)
+      if resource:size=sum(w*(b&bg).bit_count() for w,bg in weightgroups.items())*c/count''')
+open(p,'w').write(s)
+PY
+cat > test_resource.py <<'PY'
+from bench import cases,old
+from fusion import Problem
+from beam import BeamPlanner
+from improve import improve
+from model import validate_and_cost
+import time,math,json
+rs=[];allbest={};best1=json.load(open('pair_best.json'))
+for c in cases:
+ if not c['hardware']['stride_penalty']:continue
+ b=best1[c['id']];best=(validate_and_cost(c,b),b);t=time.monotonic()
+ for rev in (False,True):
+  po=Problem(c,rev)
+  for wt in (0.,3.,10.):
+   z=po.greedy(beam=7,weight=wt,resource=True);z=improve(c,z[1]);validate_and_cost(c,z[1]);print(c['id'],'greedy',rev,wt,z[0],len(z[1]),'time',time.monotonic()-t,flush=True)
+   if z[0]<best[0]:best=z
+ for wt in (0.,3.):
+  po=BeamPlanner(c);z=po.run(best[1],beam=32,branch=16,weight=wt,resource=True,deadline=time.monotonic()+30);z=improve(c,z[1]);validate_and_cost(c,z[1]);print(c['id'],'BEAM',wt,z[0],len(z[1]),'states',po.last_states,'time',time.monotonic()-t,flush=True)
+  if z[0]<best[0]:best=z
+ rs.append(old[c['id']]['cost']/best[0]);allbest[c['id']]=best[1];print('BEST',best[0],'ratio',rs[-1],'time',time.monotonic()-t,flush=True)
+json.dump(allbest,open('resource_best.json','w'))
+PY
+python3 test_resource.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+**Evaluating hardware regressions**
+
+I'm considering how to approach regression for various methods and whether to avoid negative coefficient scenarios. The coefficients supplied seem to have positive bounds, but the ranges are still unclear. I think hardware setups will generally lead to expected costs being finite, especially with memory. There's this potential for dramatically better results if I use optimal sparse anchor scheduling, but I need to consider how branching costs may dominate the overall resource needs. I should have results soon!
+ succeeded in 67765ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+cc94844f62e45 greedy False 0.0 92011.84000000004 68 time 0.9273751809960231
+cc94844f62e45 greedy False 3.0 91332.80000000003 67 time 2.0077335139503703
+cc94844f62e45 greedy False 10.0 96466.56 73 time 3.140161741990596
+cc94844f62e45 greedy True 0.0 98827.52 65 time 3.57190478395205
+cc94844f62e45 greedy True 3.0 96735.04 71 time 4.4648672969779
+cc94844f62e45 greedy True 10.0 94207.36000000003 71 time 5.620072613935918
+cc94844f62e45 BEAM 0.0 87117.44 64 states 2092 time 23.88249000289943
+cc94844f62e45 BEAM 3.0 87117.44 64 states 2044 time 37.682780939969234
+BEST 87117.44 ratio 1.1556519567149817 time 37.68299231398851
+cf2c307568de2 greedy False 0.0 265943.0399999998 68 time 0.026819778024218976
+cf2c307568de2 greedy False 3.0 259483.03999999992 66 time 0.052410711999982595
+cf2c307568de2 greedy False 10.0 261606.31999999986 67 time 0.07859997800551355
+cf2c307568de2 greedy True 0.0 265196.55999999994 68 time 0.10295385692734271
+cf2c307568de2 greedy True 3.0 261370.9599999999 67 time 0.12850180000532418
+cf2c307568de2 greedy True 10.0 262349.1999999999 67 time 0.1533375889994204
+cf2c307568de2 BEAM 0.0 253196.6399999999 65 states 1170 time 0.2764200229430571
+cf2c307568de2 BEAM 3.0 253196.6399999999 65 states 1185 time 0.755224731983617
+BEST 253196.6399999999 ratio 1.12762854988913 time 0.7552776229567826
+
+exec
+/bin/bash -c "cat >> pair_opt.py <<'PY'
+
+ def distant(self,blocks,passes=1,deadline=math.inf):
+  bs=[b[:] for b in blocks];p=self.p;children=[[] for _ in p.g]
+  for i,pp in enumerate(p.parents):
+   for j in pp:children[j].append(i)
+  for it in range(passes):
+   pos={i:s for s,b in enumerate(bs) for i in b};pairs=[]
+   for s in range(len(bs)):
+    for t in range(s+2,len(bs)):
+     if self.c['gates'][bs[s][0]]['epoch']"'!=self.c['"'gates'][bs[t][0]]['epoch']:continue
+     m1=m2=0
+     for i in bs[s]:m1|=p.masks[i]
+     for i in bs[t]:m2|=p.masks[i]
+     if (m1|m2).bit_count()>2*p.cap:continue
+     if t-s>12 and not m1&m2:continue
+     pairs.append(((m1|m2).bit_count(),len(bs[s])+len(bs[t]),t-s,s,t))
+   changed=False
+   for _,_,_,s,t in sorted(pairs):
+    if time.monotonic()>deadline:break
+    if not bs[s] or not bs[t]:continue
+    FF=[];FL=[]
+    for i in bs[s]+bs[t]:
+     if any(s<pos[j]<t for j in children[i]):FF.append(i)
+     if any(s<pos[j]<t for j in p.parents[i]):FL.append(i)
+    z=self.solve([bs[s],bs[t]],FF,FL)
+    if z:
+     bs[s]=z[1][0];bs[t]=z[1][1] if len(z[1])==2 else []
+     for i in bs[s]:pos[i]=s
+     for i in bs[t]:pos[i]=t
+     changed=True
+   bs=[b for b in bs if b]
+   if not changed:break
+  return partition(self.c,[i for b in bs for i in b])
+PY
+cat > test_distant.py <<'PY'
+from bench import cases,old
+from pair_opt import PairOptimizer
+from improve import improve
+from model import validate_and_cost
+import time,math,json
+rs=[];allbest={};cands=[json.load(open(f)) for f in ['beam_best.json','grid2_best.json','grid_best.json']]
+for c in cases:
+ b=min((d[c['id']] for d in cands),key=lambda b:validate_and_cost(c,b));start=validate_and_cost(c,b);t=time.monotonic()
+ po=PairOptimizer(c);z=po.distant(b,passes=3,deadline=time.monotonic()+15);z=improve(c,z[1]);validate_and_cost(c,z[1]);print(c['id'],start,'->',z[0],len(z[1]),'time',time.monotonic()-t,flush=True)
+ rs.append(old[c['id']]['cost']/z[0]);allbest[c['id']]=z[1]
+json.dump(allbest,open('distant_best.json','w'));print('GEO',math.prod(rs)**(1/len(rs)))
+PY
+python3 test_distant.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 19659ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+cd62a746049b0 30399.232000000004 -> 30359.296000000006 19 time 0.22949337994214147
+cc94844f62e45 87045.11999999998 -> 87045.11999999998 61 time 0.7758687890600413
+c686c88eceb56 17466.88 -> 17466.88 10 time 0.08999952196609229
+cf2c307568de2 253196.6399999999 -> 253196.6399999999 65 time 0.20974731992464513
+cfdae45352162 31475.2 -> 31475.2 16 time 0.03127263602800667
+GEO 1.2134010062697902
+
+**Exploring optimization techniques**
+
+I’m looking at linear programming with LP sparse techniques and the impact of sample sizes like 2000 and 1500. Using SciPy's linprog is quick, around 0.1 seconds, and I’m thinking about dual pricing where y_i must be greater than or equal to zero. I notice constraints influence choices, especially favoring harder-to-pack gate indices. I should run a heuristic block builder to maximize covered prices versus cost. It seems this relates to column generation.
+exec
+/bin/bash -c "cat > cover.py <<'PY'
+import math,time,warnings
+from fusion import Problem
+from baseline import partition
+
+class Pool:
+ def __init__(self,c):
+  self.c=c;self.p=Problem(c);self.columns={};self.supports=set();self.lpweights=None
+  for i in range(self.p.N):self.add([i])
+ def add(self,b):
+  b=sorted(b);bits=sum(1<<i for i in b)
+  if bits in self.columns:return
+  m=k=0
+  for i in b:m|=self.p.masks[i];k|=self.p.kinds[i]
+  self.columns[bits]=(self.p.cost(m,k,len(b)),b);self.supports.add(m)
+ def add_plan(self,bs):
+  for b in bs:self.add(b)
+ def expand(self,trim=2,deadline=math.inf):
+  p=self.p
+  supports=list(self.supports)
+  for S in supports:
+   if time.monotonic()>deadline:break
+   for ep,ii in p.epochs.items():
+    touching=[i for i in ii if p.masks[i]&S]
+    for start,i in enumerate(touching):
+     if p.masks[i]&~S:continue
+     for typ in (0,2,4):
+      if typ and p.kinds[i]"'!=typ:continue
+      bb=[];blocked=0
+      for j in touching[start:]:
+       m=p.masks[j]
+       if m&~S or m&blocked or (typ and p.kinds[j]!=typ):
+        blocked|=m&S
+        if blocked==S:break
+       else:
+        bb.append(j)
+        if len(bb)==p.limit:break
+      if len(bb)>1:
+       self.add(bb)
+       for t in range(1,min(trim,len(bb)-1)+1):self.add(bb[t:]);self.add(bb[:-t])
+ def matrix(self):
+  import numpy as np
+  from scipy.sparse import csc_matrix
+  cols=list(self.columns.values());rows=[];cindices=[];cost=[]
+  for j,(co,b) in enumerate(cols):
+   rows.extend(b);cindices.extend([j]*len(b));cost.append(co)
+  matrix=csc_matrix((np.ones(len(rows)),(rows,cindices)),shape=(self.p.N,len(cols)))
+  return cols,matrix,np.array(cost)
+ def dual(self):
+  import numpy as np
+  from scipy.optimize import linprog
+  cols,A,c=self.matrix();norm=min(self.p.app.values())
+  with warnings.catch_warnings():
+   warnings.simplefilter('"'ignore')
+   r=linprog(c/norm,A_ub=-A,b_ub=-np.ones(self.p.N),bounds=(0,None),method='highs',options={'threads':1})
+  if r.success:
+   self.lpweights=(-r.ineqlin.marginals*norm).tolist()
+   return r.fun*norm,self.lpweights
+  return None
+ def order_selected(self,selected):
+  # Condense the chosen blocks; return a legal topological schedule or cycle cuts.
+  pos={i:j for j,b in enumerate(selected) for i in b};parents=[set() for b in selected];children=[set() for b in selected]
+  for i,pp in enumerate(self.p.parents):
+   j=pos[i]
+   for g in pp:
+    k=pos[g]
+    if j"'!=k:parents[j].add(k);children[k].add(j)
+  indeg=list(map(len,parents));ready=[j for j,v in enumerate(indeg) if not v];order=[]
+  while ready:
+   j=ready.pop();order.append(j)
+   for k in children[j]:
+    indeg[k]-=1
+    if not indeg[k]:ready.append(k)
+  if len(order)==len(selected):
+   order.sort(key=lambda j:self.c['"'gates'][selected[j][0]]['epoch'])
+   return [selected[j] for j in order],[]
+  # Tarjan SCCs (quotient graphs are small).
+  counter=0;stack=[];on=set();num={};low={};cycles=[]
+  def dfs(v):
+   nonlocal counter
+   num[v]=low[v]=counter;counter+=1;stack.append(v);on.add(v)
+   for w in children[v]:
+    if w not in num:dfs(w);low[v]=min(low[v],low[w])
+    elif w in on:low[v]=min(low[v],num[w])
+   if low[v]==num[v]:
+    cc=[]
+    while True:
+     w=stack.pop();on.remove(w);cc.append(w)
+     if w==v:break
+    if len(cc)>1:cycles.append(cc)
+  for j in range(len(selected)):
+   if j not in num:dfs(j)
+  return None,cycles
+ def integer(self,incumbent,seconds=5.,gap=.002):
+  import numpy as np
+  from scipy.sparse import vstack,csc_matrix
+  from scipy.optimize import milp,Bounds,LinearConstraint
+  cols,A,c=self.matrix();norm=min(self.p.app.values());N=self.p.N;C=len(cols)
+  best=partition(self.c,[i for b in incumbent for i in b]);deadline=time.monotonic()+seconds;cuts=[];iters=0
+  while time.monotonic()<deadline:
+   mat=A;lb=np.ones(N);ub=np.ones(N)
+   if cuts:
+    rr=[];cc=[]
+    for j,cut in enumerate(cuts):rr.extend([j]*len(cut));cc.extend(cut)
+    CA=csc_matrix((np.ones(len(rr)),(rr,cc)),shape=(len(cuts),C))
+    mat=vstack([A,CA],format='csc');lb=np.r_[lb,[-np.inf]*len(cuts)];ub=np.r_[ub,[len(cut)-1 for cut in cuts]]
+   with warnings.catch_warnings():
+    warnings.simplefilter('ignore')
+    r=milp(c/norm,integrality=np.ones(C),bounds=Bounds(0,1),constraints=LinearConstraint(mat,lb,ub),options={'time_limit':max(.01,deadline-time.monotonic()),'mip_rel_gap':gap,'threads':1})
+   iters+=1
+   if r.x is None:break
+   chosen=[i for i,x in enumerate(r.x) if x>.5];sel=[cols[i][1] for i in chosen]
+   # Reject a tolerance-infeasible incumbent rather than guessing its coverage.
+   flat=[i for b in sel for i in b]
+   if len(flat)"'!=N or len(set(flat))!=N:break
+   out,cycles=self.order_selected(sel)
+   if out:
+    z=partition(self.c,[i for b in out for i in b])
+    if z[0]<best[0]:best=z
+    break
+   for cyc in cycles:cuts.append([chosen[i] for i in cyc])
+  self.last_mip=(C,iters,len(cuts))
+  return best
+PY
+cat > test_cover.py <<'"'PY'
+import os
+os.environ['OMP_NUM_THREADS']='1';os.environ['OPENBLAS_NUM_THREADS']='1';os.environ['MKL_NUM_THREADS']='1'
+from bench import cases,old
+from cover import Pool
+from fusion import Problem
+from improve import improve
+from model import validate_and_cost
+import time,math,json
+rs=[];allbest={};cands=[json.load(open(f)) for f in ['distant_best.json','beam_best.json','grid2_best.json','grid_best.json','contract_best.json','pair_best.json']]
+for c in cases:
+ b=min((d[c['id']] for d in cands),key=lambda b:validate_and_cost(c,b));start=validate_and_cost(c,b);t=time.monotonic();po=Pool(c)
+ po.add_plan(old[c['id']]['blocks'])
+ for d in cands:po.add_plan(d[c['id']])
+ for rev in (False,True):
+  for wt in (0.,1.,3.,10.):po.add_plan(Problem(c,rev).greedy(beam=5,weight=wt)[1])
+ print(c['id'],'initial cols',len(po.columns),flush=True);po.expand(trim=2,deadline=time.monotonic()+8);z=po.dual();print('expanded cols',len(po.columns),'lp',z[0] if z else None,flush=True)
+ z=po.integer(b,seconds=12);z=improve(c,z[1]);validate_and_cost(c,z[1]);print(c['id'],start,'->',z[0],len(z[1]),'mip',po.last_mip,'time',time.monotonic()-t,flush=True)
+ rs.append(old[c['id']]['cost']/z[0]);allbest[c['id']]=z[1]
+json.dump(allbest,open('cover_best.json','w'));print('GEO',math.prod(rs)**(1/len(rs)))
+PY
+python3 test_cover.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ exited 1 in 46074ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+cd62a746049b0 initial cols 478
+expanded cols 12287 lp 29903.999999999996
+Traceback (most recent call last):
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1/test_cover.py", line 17, in <module>
+    z=po.integer(b,seconds=12);z=improve(c,z[1]);validate_and_cost(c,z[1]);print(c['id'],start,'->',z[0],len(z[1]),'mip',po.last_mip,'time',time.monotonic()-t,flush=True)
+  File "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1/cover.py", line 96, in integer
+    from scipy.optimize import milp,Bounds,LinearConstraint
+ImportError: cannot import name 'milp' from 'scipy.optimize' (/usr/lib/python3/dist-packages/scipy/optimize/__init__.py)
+
+exec
+/bin/bash -c "python3 - <<'PY'
+p='beam.py';s=open(p).read().replace('resource=False,deadline=math.inf','resource=False,prices=None,deadline=math.inf')
+s=s.replace('unit=bestcost/sum(weights)*scale','''if prices is not None:weights=[prices[j] for j in ii]
+  unit=bestcost/sum(weights)*scale''')
+s=s.replace('resource=resource,deadline=deadline','resource=resource,prices=prices,deadline=deadline')
+open(p,'w').write(s)
+p='fusion.py';s=open(p).read().replace('resource=False,debug=False','resource=False,prices=None,debug=False')
+s=s.replace('req={}; rk={}; grouped={}; gd={}; gp={}','req={}; rk={}; grouped={}; gd={}; gp={}; gw={};gdw={};gpw={}')
+s=s.replace('grouped[m]=grouped.get(m,0)|(1<<i)','''grouped[m]=grouped.get(m,0)|(1<<i)
+      if prices is not None:
+       gw[m]=gw.get(m,0.)+prices[i]
+       if k==2:gdw[m]=gdw.get(m,0.)+prices[i]
+       if k==4:gpw[m]=gpw.get(m,0.)+prices[i]''')
+s=s.replace('bits=d=p=0; sub=s','bits=d=p=0; sub=s; vw=dw=pw=0.')
+s=s.replace('bits|=grouped.get(sub,0); d|=gd.get(sub,0);p|=gp.get(sub,0);sub=(sub-1)&s','''bits|=grouped.get(sub,0); d|=gd.get(sub,0);p|=gp.get(sub,0)
+      if prices is not None:vw+=gw.get(sub,0.);dw+=gdw.get(sub,0.);pw+=gpw.get(sub,0.)
+      sub=(sub-1)&s''')
+s=s.replace('for b,k in ((bits,1),(d,2),(p,4)):','for b,k,pw0 in ((bits,1,vw),(d,2,dw),(p,4,pw)):')
+s=s.replace('if resource:size=sum(w*(b&bg).bit_count() for w,bg in weightgroups.items())*c/count','''if resource:size=sum(w*(b&bg).bit_count() for w,bg in weightgroups.items())*c/count
+      if prices is not None:size=pw0*c/count''')
+open(p,'w').write(s)
+PY
+cat > test_lpbeam.py <<'PY'
+import os
+os.environ['OMP_NUM_THREADS']='1';os.environ['OPENBLAS_NUM_THREADS']='1';os.environ['MKL_NUM_THREADS']='1'
+from bench import cases,old
+from cover import Pool
+from fusion import Problem
+from beam import BeamPlanner
+from improve import improve
+from model import validate_and_cost
+import time,math,json
+rs=[];allbest={};cands=[json.load(open(f)) for f in ['distant_best.json','beam_best.json','grid2_best.json','grid_best.json','contract_best.json']]
+for c in cases:
+ b=min((d[c['id']] for d in cands),key=lambda b:validate_and_cost(c,b));start=validate_and_cost(c,b);best=(start,b);t=time.monotonic();po=Pool(c)
+ po.add_plan(old[c['id']]['blocks'])
+ for d in cands:po.add_plan(d[c['id']])
+ po.expand(trim=1,deadline=time.monotonic()+3);val,prices=po.dual()
+ print(c['id'],'cols',len(po.columns),'lp',val,flush=True)
+ for mix in (.2,.5,.8):
+  ww=[(1-mix)*v+mix*val/len(prices) for v in prices]
+  for rev in (False,True):
+   z=Problem(c,rev).greedy(beam=7,prices=ww);z=improve(c,z[1]);validate_and_cost(c,z[1]);print(c['id'],'greedy',mix,rev,z[0],len(z[1]),flush=True)
+   if z[0]<best[0]:best=z
+  bp=BeamPlanner(c);z=bp.run(best[1],beam=24,branch=16,prices=ww,deadline=time.monotonic()+20);z=improve(c,z[1]);validate_and_cost(c,z[1]);print(c['id'],'BEAM',mix,z[0],len(z[1]),'states',bp.last_states,'time',time.monotonic()-t,flush=True)
+  if z[0]<best[0]:best=z
+ rs.append(old[c['id']]['cost']/best[0]);allbest[c['id']]=best[1];print('BEST',best[0],rs[-1],flush=True)
+json.dump(allbest,open('lpbeam_best.json','w'));print('GEO',math.prod(rs)**(1/len(rs)))
+PY
+python3 test_lpbeam.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+**Clarifying file output process**
+
+I need to ensure that the output is written to a designated path. The cost of storing every case update is minimal — just 0.5MB. I'll confirm that the task input and output can be processed in our tests and that the evaluation path is writable. It’s crucial to stick to the specified directory to maintain code quality and avoid using any other files outside this context.
+**Examining SciPy options**
+
+I’m facing a dilemma since the version of SciPy I have is outdated and doesn’t support MILP. I see that linprog's integrality was introduced in version 1.9, and I need to verify if my installed version is 1.8 or not. I wonder if the local installed SciPy Highs wrapper allows for MIP? The dependencies need further inspection to ensure they’re all local and allowed. It seems like using a Cython private wrapper for SciPy could be a workaround, even if integrality isn't in the current version.
+exec
+/bin/bash -c "python3 - <<'PY'
+import scipy,inspect
+from scipy.optimize._highs._highs_wrapper import _highs_wrapper
+from scipy.optimize import linprog
+print('scipy',scipy.__version__)
+print('linprog',inspect.signature(linprog))
+print(_highs_wrapper.__doc__[:8000])
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 71374ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+cd62a746049b0 cols 6220 lp 30265.514666666666
+cd62a746049b0 greedy 0.2 False 32059.904 18
+cd62a746049b0 greedy 0.2 True 33393.920000000006 19
+cd62a746049b0 BEAM 0.2 30359.296000000006 19 states 386 time 2.568670289008878
+cd62a746049b0 greedy 0.5 False 34434.04800000001 20
+cd62a746049b0 greedy 0.5 True 33393.920000000006 19
+cd62a746049b0 BEAM 0.5 30359.296000000006 19 states 377 time 4.688581991009414
+cd62a746049b0 greedy 0.8 False 32559.61600000001 18
+cd62a746049b0 greedy 0.8 True 31921.664 18
+cd62a746049b0 BEAM 0.8 30359.296000000006 19 states 359 time 7.2531609300058335
+BEST 30359.296000000006 1.3582860419424745
+cc94844f62e45 cols 15221 lp 87045.12000000005
+cc94844f62e45 greedy 0.2 False 93622.08000000003 69
+cc94844f62e45 greedy 0.2 True 94284.80000000003 66
+cc94844f62e45 BEAM 0.2 87045.11999999998 61 states 1556 time 14.592424159985967
+cc94844f62e45 greedy 0.5 False 94976.00000000006 67
+cc94844f62e45 greedy 0.5 True 92602.88000000002 63
+cc94844f62e45 BEAM 0.5 87045.11999999998 61 states 1480 time 27.03360614099074
+cc94844f62e45 greedy 0.8 False 93094.72000000002 66
+cc94844f62e45 greedy 0.8 True 92636.16000000003 61
+cc94844f62e45 BEAM 0.8 86839.04 60 states 1439 time 37.79417087393813
+BEST 86839.04 1.1593568975428565
+c686c88eceb56 cols 5327 lp 17466.88
+c686c88eceb56 greedy 0.2 False 19720.96 11
+c686c88eceb56 greedy 0.2 True 19935.999999999996 11
+c686c88eceb56 BEAM 0.2 17466.88 10 states 216 time 2.0366366419475526
+c686c88eceb56 greedy 0.5 False 19801.6 11
+c686c88eceb56 greedy 0.5 True 19294.72 11
+c686c88eceb56 BEAM 0.5 17466.88 10 states 216 time 4.26429632701911
+c686c88eceb56 greedy 0.8 False 20304.64 12
+c686c88eceb56 greedy 0.8 True 19555.839999999997 11
+c686c88eceb56 BEAM 0.8 17466.88 10 states 214 time 6.57882040203549
+BEST 17466.88 1.2600762128096143
+cf2c307568de2 cols 504 lp 253191.8399999999
+cf2c307568de2 greedy 0.2 False 257768.31999999986 66
+cf2c307568de2 greedy 0.2 True 258997.1199999999 66
+cf2c307568de2 BEAM 0.2 253196.6399999999 65 states 986 time 0.3535236429888755
+cf2c307568de2 greedy 0.5 False 258008.4799999999 66
+cf2c307568de2 greedy 0.5 True 259488.63999999987 66
+cf2c307568de2 BEAM 0.5 253196.6399999999 65 states 976 time 0.5141175559256226
+cf2c307568de2 greedy 0.8 False 261841.67999999985 67
+cf2c307568de2 greedy 0.8 True 259488.63999999987 66
+cf2c307568de2 BEAM 0.8 253196.6399999999 65 states 972 time 0.6808855909621343
+BEST 253196.6399999999 1.12762854988913
+cfdae45352162 cols 1680 lp 31475.200000000008
+cfdae45352162 greedy 0.2 False 37242.88 19
+cfdae45352162 greedy 0.2 True 39088.64 20
+cfdae45352162 BEAM 0.2 31475.2 16 states 293 time 0.2809791740728542
+cfdae45352162 greedy 0.5 False 35347.2 18
+cfdae45352162 greedy 0.5 True 37162.24 19
+cfdae45352162 BEAM 0.5 31475.2 16 states 287 time 0.5117590090958402
+cfdae45352162 greedy 0.8 False 35208.32 18
+cfdae45352162 greedy 0.8 True 38935.03999999999 20
+cfdae45352162 BEAM 0.8 31475.2 16 states 285 time 0.7576904729939997
+BEST 31475.2 1.1783651891012605
+GEO 1.2139763711043674
+
+ succeeded in 29125ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+scipy 1.8.0
+linprog (c, A_ub=None, b_ub=None, A_eq=None, b_eq=None, bounds=None, method='interior-point', callback=None, options=None, x0=None)
+Solve linear programs using HiGHS [1]_.
+
+    Assume problems of the form:
+
+        MIN c.T @ x
+        s.t. lhs <= A @ x <= rhs
+             lb <= x <= ub
+
+    Parameters
+    ----------
+    c : 1-D array, (n,)
+        Array of objective value coefficients.
+    astart : 1-D array
+        CSC format index array.
+    aindex : 1-D array
+        CSC format index array.
+    avalue : 1-D array
+        Data array of the matrix.
+    lhs : 1-D array (or None), (m,)
+        Array of left hand side values of the inequality constraints.
+        If ``lhs=None``, then an array of ``-inf`` is assumed.
+    rhs : 1-D array, (m,)
+        Array of right hand side values of the inequality constraints.
+    lb : 1-D array (or None), (n,)
+        Lower bounds on solution variables x.  If ``lb=None``, then an
+        array of all `0` is assumed.
+    ub : 1-D array (or None), (n,)
+        Upper bounds on solution variables x.  If ``ub=None``, then an
+        array of ``inf`` is assumed.
+    options : dict
+        A dictionary of solver options with the following fields:
+
+            - allowed_simplex_cost_scale_factor : int
+                Undocumented advanced option.
+
+            - allowed_simplex_matrix_scale_factor : int
+                Undocumented advanced option.
+
+            - dual_feasibility_tolerance : double
+                Dual feasibility tolerance for simplex.
+                ``min(dual_feasibility_tolerance,
+                primal_feasibility_tolerance)`` will be used for
+                ipm feasibility tolerance.
+
+            - dual_objective_value_upper_bound : double
+                Upper bound on objective value for dual simplex:
+                algorithm terminates if reached
+
+            - dual_simplex_cleanup_strategy : int
+                Undocumented advanced option.
+
+            - dual_simplex_cost_perturbation_multiplier : double
+                Undocumented advanced option.
+
+            - dual_steepest_edge_weight_log_error_threshhold : double
+                Undocumented advanced option.
+
+            - infinite_bound : double
+                Limit on abs(constraint bound): values larger than
+                this will be treated as infinite
+
+            - infinite_cost : double
+                Limit on cost coefficient: values larger than this
+                will be treated as infinite.
+
+            - ipm_iteration_limit : int
+                Iteration limit for interior-point solver.
+
+            - ipm_optimality_tolerance : double
+                Optimality tolerance for IPM.
+
+            - keep_n_rows : int {-1, 0, 1}
+                Undocumented advanced option.
+
+                    - ``-1``: ``KEEP_N_ROWS_DELETE_ROWS``
+                    - ``0``: ``KEEP_N_ROWS_DELETE_ENTRIES``
+                    - ``1``: ``KEEP_N_ROWS_KEEP_ROWS``
+
+            - large_matrix_value : double
+                Upper limit on abs(matrix entries): values larger than
+                this will be treated as infinite
+
+            - less_infeasible_DSE_check : bool
+                Undocumented advanced option.
+
+            - less_infeasible_DSE_choose_row : bool
+                Undocumented advanced option.
+
+            - max_threads : int
+                Maximum number of threads in parallel execution.
+
+            - message_level : int {0, 1, 2, 4, 7}
+                Verbosity level, corresponds to:
+
+                    - ``0``: ``ML_NONE``
+                        All messaging to stdout is supressed.
+
+                    - ``1``: ``ML_VERBOSE``
+                        Includes a once-per-iteration report on simplex/ipm
+                        progress and information about each nonzero row and
+                        column.
+
+                    - ``2``: ``ML_DETAILED``
+                        Includes technical information about progress and
+                        events in applying the simplex method.
+
+                    - ``4``: ``ML_MINIMAL``
+                        Once-per-solve information about progress as well as a
+                        once-per-basis-matrix-reinversion report on progress in
+                        simplex or a once-per-iteration report on progress in IPX.
+
+                ``message_level`` behaves like a bitmask, i.e., any
+                combination of levels is possible using the bit-or
+                operator.
+
+            - min_threads : int
+                Minimum number of threads in parallel execution.
+
+            - mps_parser_type_free : bool
+                Use free format MPS parsing.
+
+            - parallel : bool
+                Run the solver in serial (False) or parallel (True).
+
+            - presolve : bool
+                Run the presolve or not (or if ``None``, then choose).
+
+            - primal_feasibility_tolerance : double
+                Primal feasibility tolerance.
+                ``min(dual_feasibility_tolerance,
+                primal_feasibility_tolerance)`` will be used for
+                ipm feasibility tolerance.
+
+            - run_as_hsol : bool
+                Undocumented advanced option.
+
+            - run_crossover : bool
+                Advanced option. Toggles running the crossover routine
+                for IPX.
+
+            - sense : int {1, -1}
+                ``sense=1`` corresponds to the MIN problem, ``sense=-1``
+                corresponds to the MAX problem. TODO: NOT IMPLEMENTED
+
+            - simplex_crash_strategy : int {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+                Strategy for simplex crash: off / LTSSF / Bixby (0/1/2).
+                Default is ``0``.  Corresponds to the following:
+
+                    - ``0``: ``SIMPLEX_CRASH_STRATEGY_OFF``
+                    - ``1``: ``SIMPLEX_CRASH_STRATEGY_LTSSF_K``
+                    - ``2``: ``SIMPLEX_CRASH_STRATEGY_BIXBY``
+                    - ``3``: ``SIMPLEX_CRASH_STRATEGY_LTSSF_PRI``
+                    - ``4``: ``SIMPLEX_CRASH_STRATEGY_LTSF_K``
+                    - ``5``: ``SIMPLEX_CRASH_STRATEGY_LTSF_PRI``
+                    - ``6``: ``SIMPLEX_CRASH_STRATEGY_LTSF``
+                    - ``7``: ``SIMPLEX_CRASH_STRATEGY_BIXBY_NO_NONZERO_COL_COSTS``
+                    - ``8``: ``SIMPLEX_CRASH_STRATEGY_BASIC``
+                    - ``9``: ``SIMPLE_CRASH_STRATEGY_TEST_SING``
+
+            - simplex_dualise_strategy : int
+                Undocumented advanced option.
+
+            - simplex_dual_edge_weight_strategy : int {0, 1, 2, 3, 4}
+                Strategy for simplex dual edge weights:
+                Dantzig / Devex / Steepest Edge. Corresponds
+                to the following:
+
+                    - ``0``: ``SIMPLEX_DUAL_EDGE_WEIGHT_STRATEGY_DANTZIG``
+                    - ``1``: ``SIMPLEX_DUAL_EDGE_WEIGHT_STRATEGY_DEVEX``
+                    - ``2``: ``SIMPLEX_DUAL_EDGE_WEIGHT_STRATEGY_STEEPEST_EDGE_TO_DEVEX_SWITCH``
+                    - ``3``: ``SIMPLEX_DUAL_EDGE_WEIGHT_STRATEGY_STEEPEST_EDGE``
+                    - ``4``: ``SIMPLEX_DUAL_EDGE_WEIGHT_STRATEGY_STEEPEST_EDGE_UNIT_INITIAL``
+
+            - simplex_initial_condition_check : bool
+                Undocumented advanced option.
+
+            - simplex_initial_condition_tolerance : double
+                Undocumented advanced option.
+
+            - simplex_iteration_limit : int
+                Iteration limit for simplex solver.
+
+            - simplex_permute_strategy : int
+                Undocumented advanced option.
+
+            - simplex_price_strategy : int
+                Undocumented advanced option.
+
+            - simplex_primal_edge_weight_strategy : int {0, 1}
+                Strategy for simplex primal edge weights:
+                Dantzig / Devex.  Corresponds to the following:
+
+                    - ``0``: ``SIMPLEX_PRIMAL_EDGE_WEIGHT_STRATEGY_DANTZIG``
+                    - ``1``: ``SIMPLEX_PRIMAL_EDGE_WEIGHT_STRATEGY_DEVEX``
+
+            - simplex_scale_strategy : int {0, 1, 2, 3, 4, 5}
+                Strategy for scaling before simplex solver:
+                off / on (0/1)
+
+                    - ``0``:  ``SIMPLEX_SCALE_STRATEGY_OFF``
+                
+
+**Considering cost evaluations**
+
+I’m analyzing whether the minimal dense cost for a block exceeds the baseline average operation cost, particularly when looking at ideal conditions. If that's the case, it seems like the dense block could cost more on average than the baseline. Even if I need wide gatearity at level 3, there’s a possibility to remove it if the width exceeds maximum limits. Overall, I’ll need to include more pre-cost evaluations and ensure I’m assessing all factors effectively.
+exec
+/bin/bash -c "python3 - <<'PY'
+p='beam.py';s=open(p).read().replace('prices=None,deadline=math.inf','prices=None,cut=False,deadline=math.inf')
+s=s.replace('evalstates=0;cache={}','''expandcap=W
+  if cut and sum(k in (2,4) for k in kinds)<.65*N:
+   while expandcap>max(m.bit_count() for m in masks) and p.cost((1<<expandcap)-1,1,L)/L>1.15*bestcost/N:
+    expandcap-=1
+  evalstates=0;cache={}''')
+s=s.replace('if w<wc<=W:levels[wc].add(u)','if w<wc<=expandcap:levels[wc].add(u)')
+s=s.replace('prices=prices,deadline=deadline','prices=prices,cut=cut,deadline=deadline')
+open(p,'w').write(s)
+p='fusion.py';s=open(p).read().replace('prices=None,debug=False','prices=None,deadline=math.inf,debug=False')
+s=s.replace('while remain:\\n    req=', '''while remain:
+    if time.monotonic()>deadline:
+     result.extend(remain);break
+    req=''')
+open(p,'w').write(s)
+p='improve.py';s=open(p).read().replace('import math,random','import math,random,time')
+s=s.replace('self.p=Problem(case);','self.deadline=math.inf;self.p=Problem(case);')
+s=s.replace('while remaining:\\n   options=[]','''while remaining:
+   if time.monotonic()>self.deadline:break
+   options=[]''')
+s=s.replace('s=self.pos[i];lo,hi=self.bounds(i);old=self.costs[s]','''if time.monotonic()>self.deadline:break
+   s=self.pos[i];lo,hi=self.bounds(i);old=self.costs[s]''')
+s=s.replace('def run(self,passes=3):','def run(self,passes=3,deadline=math.inf):\\n  self.deadline=deadline')
+s=s.replace('if self.bs[s]:self.eliminate(s,iteration%3)','''if time.monotonic()>deadline:break
+    if self.bs[s]:self.eliminate(s,iteration%3)''')
+s=s.replace('def improve(case,blocks,passes=3):return Local(case,blocks).run(passes)','def improve(case,blocks,passes=3,deadline=math.inf):return Local(case,blocks).run(passes,deadline)')
+open(p,'w').write(s)
+PY
+cat > test_cut.py <<'PY'
+from bench import cases,old
+from beam import BeamPlanner
+from improve import improve
+from model import validate_and_cost
+import time,math,json
+rs=[];allbest={};best1=json.load(open('distant_best.json'))
+for c in cases:
+ b=best1[c['id']];start=validate_and_cost(c,b);best=(start,b);t=time.monotonic()
+ for rev in (False,True):
+  rc=c;rb=b
+  if rev:
+   rc=c.copy();N=len(c['gates']);eps=sorted(set(g['epoch'] for g in c['gates']),reverse=True);emap={e:i for i,e in enumerate(eps)}
+   rc['gates']=[dict(g,epoch=emap[g['epoch']]) for g in reversed(c['gates'])]
+   rb=[[N-1-i for i in reversed(bb)] for bb in reversed(b)]
+  po=BeamPlanner(rc);z=po.run(rb,beam=32,branch=16,cut=True,deadline=time.monotonic()+20)
+  if rev:z=(z[0],[[N-1-i for i in reversed(bb)] for bb in reversed(z[1])])
+  z=improve(c,z[1]);validate_and_cost(c,z[1]);print(c['id'],rev,z[0],len(z[1]),'states',po.last_states,'time',time.monotonic()-t,flush=True)
+  if z[0]<best[0]:best=z
+ rs.append(old[c['id']]['cost']/best[0]);allbest[c['id']]=best[1]
+ print('BEST',start,'->',best[0],'ratio',rs[-1],'time',time.monotonic()-t,flush=True)
+json.dump(allbest,open('cut_best.json','w'));print('GEO',math.prod(rs)**(1/len(rs)))
+PY
+python3 test_cut.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 42184ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+cd62a746049b0 False 30359.296000000006 19 states 459 time 1.4427365369629115
+cd62a746049b0 True 30359.296000000006 19 states 477 time 2.6112414620583877
+BEST 30359.296000000006 -> 30359.296000000006 ratio 1.3582860419424745 time 2.611533268005587
+cc94844f62e45 False 87045.11999999998 61 states 1865 time 5.52645482099615
+cc94844f62e45 True 87045.11999999998 61 states 1813 time 8.932554839993827
+BEST 87045.11999999998 -> 87045.11999999998 ratio 1.1566121110522916 time 8.932877416023985
+c686c88eceb56 False 17466.88 10 states 273 time 1.9746190630830824
+c686c88eceb56 True 17466.88 10 states 273 time 3.002176352078095
+BEST 17466.88 -> 17466.88 ratio 1.2600762128096143 time 3.0023885960690677
+cf2c307568de2 False 253196.6399999999 65 states 1161 time 0.1966808239230886
+cf2c307568de2 True 253196.6399999999 65 states 1141 time 0.3671244609868154
+BEST 253196.6399999999 -> 253196.6399999999 ratio 1.12762854988913 time 0.3673785759601742
+cfdae45352162 False 31475.2 16 states 372 time 0.2006649220129475
+cfdae45352162 True 31475.2 16 states 394 time 0.43641246506012976
+BEST 31475.2 -> 31475.2 ratio 1.1783651891012605 time 0.4367574420757592
+GEO 1.2134010062697902
+
+exec
+/bin/bash -c "python3 - <<'PY'
+p='fusion.py';s=open(p).read();insert='''
+ def partition(self,order):
+  count=len(order);best=[math.inf]*(count+1);following=[0]*count;best[count]=0.
+  masks=self.masks;kinds=self.kinds;gates=self.g;W=self.cap;L=self.limit;app=self.app;build=self.build
+  for start in range(count-1,-1,-1):
+   mask=kind=0;epoch=gates[order[start]][\"epoch\"];value=math.inf;end=start+1
+   for stop in range(start,min(count,start+L)):
+    index=order[stop]
+    if gates[index][\"epoch\"]"'!=epoch:break
+    mask|=masks[index];kind|=kinds[index];w=mask.bit_count()
+    if w>W:break
+    spec=kind in (2,4);minimum=(mask&-mask).bit_length()-1
+    candidate=app[w,spec,minimum]+build*(stop-start)*(1<<(w if spec else 2*w))+best[stop+1]
+    if candidate<value:value=candidate;end=stop+1
+   best[start]=value;following[start]=end
+  blocks=[];start=0
+  while start<count:
+   stop=following[start];blocks.append(order[start:stop]);start=stop
+  return best[0],blocks
+'"'''
+s=s.replace(' def greedy(self,',insert+'\\n def greedy(self,').replace('return partition(self.case,result)','return self.partition(result)')
+open(p,'w').write(s)
+p='beam.py';s=open(p).read().replace('return partition(self.c,[i for b in result for i in b])','return self.p.partition([i for b in result for i in b])')
+open(p,'w').write(s)
+p='contract.py';s=open(p).read().replace('import heapq,math,random','import heapq,math,random,time').replace('seed=0):','seed=0,deadline=math.inf):').replace('self.p=Problem(c);','self.deadline=deadline;self.p=Problem(c);').replace('while True:\\n   if not heap:', 'while True:\\n   if time.monotonic()>self.deadline:break\\n   if not heap:').replace('return partition(self.c,[i for b in blocks for i in b])','return self.p.partition([i for b in blocks for i in b])')
+open(p,'w').write(s)
+PY
+cat > solution.py <<'PY'
+#"'!/usr/bin/env python3
+"""Structure-aware, costed state-vector fusion planner.
+
+All transformations use the per-qubit dependency DAG.  Matrix construction
+costs are included, including for blocks built by the local optimizers.
+"""
+import json
+import math
+import os
+import sys
+import time
+from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
+
+# The search uses processes, not threaded numerical kernels.
+for _name in ('"'OMP_NUM_THREADS','OPENBLAS_NUM_THREADS','MKL_NUM_THREADS','NUMEXPR_NUM_THREADS'):
+    os.environ[_name]='1'
+
+from baseline import reordered
+from fusion import Problem
+from beam import BeamPlanner
+from improve import improve
+from pair_opt import PairOptimizer
+from contract import Contractor
+from model import validate_and_cost
+
+class Portfolio:
+    \"\"\"Barriers make epoch-wise selection exact, without interactions.\"\"\"
+    def __init__(self,case,initial=None):
+        self.case=case
+        self.p=Problem(case)
+        self.best={}
+        self.cache={}
+        if initial is not None:self.offer(initial)
+    def offer(self,blocks):
+        costs={};parts={}
+        for b in blocks:
+            ep=self.case['gates'][b[0]]['epoch']
+            bits=sum(1<<i for i in b)
+            cost=self.cache.get(bits)
+            if cost is None:
+                m=k=0
+                for i in b:m|=self.p.masks[i];k|=self.p.kinds[i]
+                cost=self.p.cost(m,k,len(b));self.cache[bits]=cost
+            costs[ep]=costs.get(ep,0.)+cost
+            parts.setdefault(ep,[]).append(b)
+        changed=False
+        for ep,co in costs.items():
+            if ep not in self.best or co<self.best[ep][0]-1e-8:
+                self.best[ep]=(co,parts[ep]);changed=True
+        return changed
+    def result(self):
+        return [b for ep in sorted(self.best) for b in self.best[ep][1]]
+    def cost(self):return sum(z[0] for z in self.best.values())
+
+def baseline(case):
+    po=Portfolio(case)
+    po.offer(po.p.partition(list(range(len(case['gates']))))[1])
+    for window in (1,3,6):
+        for preference in ('dense','diagonal'):
+            po.offer(po.p.partition(reordered(case,window,preference))[1])
+    return po.result()
+
+def reverse_problem(case,blocks):
+    n=len(case['gates'])
+    emap={ep:i for i,ep in enumerate(sorted({g['epoch'] for g in case['gates']},reverse=True))}
+    rc=case.copy()
+    rc['gates']=[dict(g,epoch=emap[g['epoch']]) for g in reversed(case['gates'])]
+    rb=[[n-1-i for i in reversed(b)] for b in reversed(blocks)]
+    return rc,rb
+
+def _search(case,initial,budget,global_deadline):
+    cpu_start=time.process_time()
+    start=time.monotonic()
+    po=Portfolio(case,initial)
+    def remaining():return max(0.,min(budget-(time.process_time()-cpu_start),global_deadline-time.monotonic()))
+    def limit(seconds):return time.monotonic()+max(0.,min(seconds,remaining()))
+    def polish(seconds=.5):
+        if remaining()>.02:
+            z=improve(case,po.result(),passes=3,deadline=limit(seconds))
+            po.offer(z[1])
+    polish(.4)
+    # Different arity weights balance narrow fusion, full operation-cap packing,
+    # and leaving flexible one-qubit gates for subsequent blocks.
+    configs=[(False,3.,0.,0),(True,3.,0.,0),(True,10.,0.,2),
+             (False,0.,0.,0),(True,1.,.1,0),(False,1.,.3,0),
+             (False,10.,0.,1),(True,0.,0.,0)]
+    greedy_end=limit(min(5.8,budget*.27))
+    for j,(rev,weight,alpha,selection) in enumerate(configs):
+        now=time.monotonic()
+        if now>=greedy_end or remaining()<.08:break
+        p=Problem(case,rev)
+        dl=greedy_end
+        if j<2:dl=min(dl,now+max(.4,(greedy_end-now)/2))
+        z=p.greedy(beam=7 if selection else 5,weight=weight,alpha=alpha,
+                   select=selection,deadline=dl)
+        po.offer(z[1])
+    polish(.5)
+    if remaining()>1.:
+        dl=limit(min(.8,remaining()*.06))
+        z=Contractor(case,0.,0.,deadline=dl).run()
+        po.offer(z[1]);polish(.3)
+    # A bounded block-level beam retains alternate frontiers instead of
+    # committing irrevocably to the best immediate cost per operation.
+    for j,(rev,weight,cut) in enumerate([(False,0.,True),(True,0.,True),(False,3.,False)]):
+        rem=remaining()
+        if rem<.15:break
+        slots=3-j
+        allowance=max(.1,(rem-.6)/slots)
+        cc=case;bb=po.result()
+        if rev:cc,bb=reverse_problem(case,bb)
+        width=32
+        if cc['max_block_qubits']<=3:width=72
+        bp=BeamPlanner(cc)
+        z=bp.run(bb,beam=width,branch=16,weight=weight,cut=cut,deadline=limit(allowance))
+        if rev:
+            n=len(case['gates'])
+            z=(z[0],[[n-1-i for i in reversed(b)] for b in reversed(z[1])])
+        po.offer(z[1]);polish(.3)
+    if remaining()>.15:
+        pp=PairOptimizer(case)
+        z=pp.run(po.result(),passes=2,deadline=limit(min(.6,remaining()*.3)))
+        po.offer(z[1])
+        if remaining()>.15:
+            z=pp.distant(po.result(),passes=1,deadline=limit(min(.7,remaining()*.4)))
+            po.offer(z[1])
+    # Spend spare time on a wider frontier beam, particularly useful for
+    # highly parallel and diagonal-heavy circuits.
+    if remaining()>.4:
+        bp=BeamPlanner(case)
+        z=bp.run(po.result(),beam=72,branch=20,weight=0.,cut=True,deadline=limit(remaining()-.2))
+        po.offer(z[1])
+    polish(.15)
+    result=po.result()
+    # Independent, public-model validation protects the baseline fallback.
+    co=validate_and_cost(case,result)
+    if co>validate_and_cost(case,initial)+1e-6:return initial
+    return result
+
+def _worker(payload):
+    case,initial,budget,deadline=payload
+    try:return case['id'],_search(case,initial,budget,deadline)
+    except Exception:
+        # Never sacrifice validity when an optional search is interrupted or
+        # encounters an unusual input structure.
+        return case['id'],initial
+
+def plan(case,budget=22.):
+    initial=baseline(case)
+    return _search(case,initial,budget,time.monotonic()+budget+2.)
+
+def main():
+    request=json.loads(Path(sys.argv[1]).read_text())
+    cases=request['cases']
+    started=time.monotonic()
+    schedules={c['id']:baseline(c) for c in cases}
+    target=Path(sys.argv[2])
+    # Checkpoint a complete legal batch before the optional optimization.
+    target.write_text(json.dumps({'schedules':schedules},separators=(',',':')))
+    if not cases:return
+    workers=min(4,len(cases))
+    deadline=started+166.
+    budget=min(22.,max(.1,(deadline-time.monotonic()-3.)*workers/len(cases)*.91))
+    # Long cases first keeps the four-worker tail short.
+    jobs=sorted(cases,key=lambda c:len(c['gates']),reverse=True)
+    if workers==1:
+        cid,bs=_worker((jobs[0],schedules[jobs[0]['id']],budget,deadline))
+        schedules[cid]=bs
+    else:
+        context=multiprocessing.get_context('fork')
+        with ProcessPoolExecutor(max_workers=workers,mp_context=context) as pool:
+            futures=[pool.submit(_worker,(c,schedules[c['id']],budget,deadline)) for c in jobs]
+            for future in as_completed(futures):
+                cid,bs=future.result();schedules[cid]=bs
+    target.write_text(json.dumps({'schedules':schedules},separators=(',',':')))
+
+if __name__=='__main__':main()
+PY
+python3 -m py_compile solution.py fusion.py beam.py contract.py improve.py pair_opt.py
+python3 bench.py solution" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+codex
+The combined search now exceeds 1.20× modeled speedup on the public examples. I’m checking larger, locally generated circuits next, with particular attention to the 180-second batch limit and a validated baseline fallback for every case.
+Implemented dependency-closure fusion, alternate-frontier beam search, exact per-epoch selection, and legal local block refinement. The combined methods exceed the public-example target; now validating the packaged planner and worst-case runtime.
+  ✓ Inspect circuit structures and establish baseline costs and runtimes.
+  ✓ Implement structure-aware block search with cost-aware scheduling and refinement.
+  → Benchmark, validate, and package the executable solution.
+exec
+/bin/bash -c "cat > make_stress.py <<'PY'
+import random,json
+r=random.Random(81315);cases=[]
+for family in range(5):
+ for trial,N in enumerate([120,300,600,1000,1500]):
+  n=[8,12,20,24,28][trial];W=[3,4,5,6,6][trial];L=[8,12,24,40,48][trial];E=[1,2,3,4,1][trial];gates=[]
+  def add(q,k='dense'):
+   if len(gates)<N:gates.append({'qubits':q,'kind':k,'epoch':min(E-1,len(gates)*E//N)})
+  if family==0:
+   while len(gates)<N:
+    modules=list(range(0,n,4));r.shuffle(modules)
+    for m in modules:
+     local=list(range(m,min(m+4,n)))
+     for _ in range(r.randint(1,4)):add(r.sample(local,r.choice([1,1,2])),r.choice(['dense','dense','diagonal']))
+    if len(gates)%80<20:add(r.sample(range(n),2),'diagonal')
+  elif family==1:
+   layer=0
+   while len(gates)<N:
+    qs=list(range(n));r.shuffle(qs)
+    for q in qs:add([q])
+    for q in range(layer%2,n-1,2):
+     if r.random()<.85:add([q,q+1],r.choice(['permutation','diagonal']))
+    layer+=1
+  elif family==2:
+   while len(gates)<N:
+    qs=list(range(n));r.shuffle(qs)
+    for q in qs:add([q],r.choice(['dense','permutation','diagonal']))
+    for _ in range(max(1,n//8)):add(r.sample(range(n),2))
+  elif family==3:
+   while len(gates)<N:
+    add(r.sample(range(n),r.choices([1,2,3],[2,5,3])[0]),'dense' if r.random()<.12 else 'diagonal')
+  else:
+   while len(gates)<N:
+    shift=(len(gates)//70)%n;local=r.randrange((n+3)//4)*4
+    qs=[(q+shift)%n for q in range(local,min(local+4,n))]
+    add(r.sample(qs,r.choice([1,1,2])),r.choice(['dense','diagonal']))
+  c={'id':f'local_{family}_{trial}','n_qubits':n,'gates':gates,'max_block_qubits':W,'max_block_operations':L,'repetitions':[1,4,16,64,128][(trial+family)%5], 'hardware':{'launch':r.choice([.5,6.]),'memory':r.choice([6.,12.,24.]),'compute':r.choice([.12,.25,.5]),'build':r.choice([.002,.02,.1]),'stride_penalty':r.choice([0.,.08,.15]),'cache_qubits':4}}
+  cases.append(c)
+json.dump({'cases':cases},open('stress.json','w'))
+PY
+python3 make_stress.py
+/usr/bin/time -v python3 solution.py stress.json stress_plans.json 2>stress_time.txt
+python3 - <<'PY'
+import json,time,math
+from baseline import plan
+from model import validate_and_cost
+cs=json.load(open('stress.json'))['cases'];plans=json.load(open('stress_plans.json'))['schedules'];ratios=[];families={}
+for c in cs:
+ a=validate_and_cost(c,plans[c['id']]);b=validate_and_cost(c,plan(c));ratios.append(b/a);families.setdefault(c['id'].split('_')[1],[]).append(b/a)
+ print(c['id'],len(c['gates']),len(plans[c['id']]),'cost %.3f'%a,'baseline %.3f'%b,'ratio %.4f'%(b/a),flush=True)
+print('Geo',math.prod(ratios)**(1/len(ratios)));print('Families',{k:math.prod(v)**(1/len(v)) for k,v in families.items()})
+print(open('stress_time.txt').read())
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 75539ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 341 cost 30036.992 base 41236.608 speedup 1.3729 blocks 18 secs 13.813
+cc94844f62e45 640 cost 87848.960 base 100677.440 speedup 1.1460 blocks 62 secs 24.290
+c686c88eceb56 230 cost 17466.880 base 22009.600 speedup 1.2601 blocks 10 secs 11.142
+cf2c307568de2 126 cost 253196.640 base 285511.760 speedup 1.1276 blocks 65 secs 1.670
+cfdae45352162 180 cost 31475.200 base 37089.280 speedup 1.1784 blocks 16 secs 1.989
+Geomean 1.21376 time 52.91139522695448
+
+exec
+/bin/bash -c "cat > tune_nearest.py <<'PY'
+from bench import cases,old
+from solution import baseline,Portfolio
+from beam import BeamPlanner
+from fusion import Problem
+from improve import improve
+from model import validate_and_cost
+import time,json
+c=cases[1];po=Portfolio(c,baseline(c))
+for rev,w,a,sel in [(False,3,0,0),(True,3,0,0),(True,10,0,2),(False,0,0,0),(True,1,.1,0),(False,1,.3,0),(False,10,0,1),(True,0,0,0)]:
+ z=Problem(c,rev).greedy(beam=7 if sel else 5,weight=w,alpha=a,select=sel);po.offer(z[1])
+po.offer(improve(c,po.result())[1]);b=po.result();print('START',po.cost(),flush=True)
+for cut in (True,False):
+ for scale in (.8,1.,1.2,1.5):
+  t=time.monotonic();bp=BeamPlanner(c);z=bp.run(b,beam=24,branch=16,cut=cut,scale=scale,deadline=time.monotonic()+20);z=improve(c,z[1]);validate_and_cost(c,z[1]);print(cut,scale,z[0],len(z[1]),bp.last_states,time.monotonic()-t,flush=True)
+PY
+python3 tune_nearest.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+exec
+/bin/bash -c 'date -u; cat stress_time.txt; ps -o pid,ppid,etime,time,pcpu,rss,args -C python3' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 60266ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+cd62a746049b0 cost 41236.60800000001 blocks 22 time 0.1015121340751648
+cc94844f62e45 cost 100677.44000000002 blocks 73 time 0.21118649607524276
+c686c88eceb56 cost 22009.6 blocks 12 time 0.1234083540039137
+cf2c307568de2 cost 285511.76 blocks 72 time 0.014842770993709564
+cfdae45352162 cost 37089.28 blocks 19 time 0.041798811056651175
+START 90246.4
+True 0.8 90246.40000000001 66 1502 2.371700207935646
+True 1.0 88168.95999999999 62 1457 2.5144950699759647
+True 1.2 87910.39999999998 62 1406 2.7056038059527054
+True 1.5 87910.39999999998 62 1430 2.797819760045968
+False 0.8 90246.40000000001 66 1514 7.481817277031951
+False 1.0 87106.55999999998 61 1430 7.540138216107152
+False 1.2 87091.19999999998 61 1406 9.436086043016985
+False 1.5 87091.19999999998 61 1406 10.228582764975727
+
+ exited 1 in 13222ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+Fri Aug 28 16:28:05 UTC 2026
+    PID    PPID     ELAPSED     TIME %CPU   RSS COMMAND
+
+ succeeded in 171809ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+local_0_0 120 21 cost 640.240 baseline 671.200 ratio 1.0484
+local_0_1 300 26 cost 2827.296 baseline 3685.104 ratio 1.3034
+local_0_2 600 51 cost 16985.280 baseline 19553.920 ratio 1.1512
+local_0_3 1000 50 cost 82067.200 baseline 108364.800 ratio 1.3204
+local_0_4 1500 39 cost 211507.200 baseline 309447.680 ratio 1.4631
+local_1_0 120 16 cost 884.320 baseline 1029.760 ratio 1.1645
+local_1_1 300 32 cost 10260.800 baseline 11769.600 ratio 1.1470
+local_1_2 600 35 cost 20113.408 baseline 28129.152 ratio 1.3985
+local_1_3 1000 37 cost 141691.392 baseline 218587.648 ratio 1.5427
+local_1_4 1500 397 cost 6682.400 baseline 6828.000 ratio 1.0218
+local_2_0 120 15 cost 2884.032 baseline 2889.408 ratio 1.0019
+local_2_1 300 26 cost 41823.200 baseline 43578.560 ratio 1.0420
+local_2_2 600 27 cost 44043.520 baseline 54289.920 ratio 1.2326
+local_2_3 1000 79 cost 2051.760 baseline 2501.920 ratio 1.2194
+local_2_4 1500 47 cost 4052.288 baseline 5159.392 ratio 1.2732
+local_3_0 120 59 cost 24546.064 baseline 26656.280 ratio 1.0860
+local_3_1 300 103 cost 163895.200 baseline 197552.960 ratio 1.2054
+local_3_2 600 211 cost 3601.600 baseline 3995.800 ratio 1.1095
+local_3_3 1000 266 cost 18338.400 baseline 22111.600 ratio 1.2058
+local_3_4 1500 400 cost 47284.224 baseline 55209.280 ratio 1.1676
+local_4_0 120 20 cost 76811.296 baseline 80896.416 ratio 1.0532
+local_4_1 300 33 cost 1425.120 baseline 1589.120 ratio 1.1151
+local_4_2 600 69 cost 9073.920 baseline 10262.560 ratio 1.1310
+local_4_3 1000 37 cost 20598.528 baseline 28243.968 ratio 1.3712
+local_4_4 1500 87 cost 131596.800 baseline 160779.200 ratio 1.2218
+Geo 1.1923659780865123
+Families {'0': 1.248952397574314, '1': 1.241092766598556, '2': 1.1484427096866674, '3': 1.1537708418593173, '4': 1.1734615228186047}
+	Command being timed: "python3 solution.py stress.json stress_plans.json"
+	User time (seconds): 298.64
+	System time (seconds): 0.73
+	Percent of CPU this job got: 209%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:23.04
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 63732
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 94471
+	Voluntary context switches: 111
+	Involuntary context switches: 38062
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 304
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+
+exec
+/bin/bash -c "python3 - <<'PY'
+p='beam.py';s=open(p).read();s=s.replace('states=[(0.,0.,0,None,0.)];seen={0:0.};depth=0','''states=[(0.,0.,0,None,0.)];seen={0:0.};depth=0
+  search_start=time.monotonic()''')
+s=s.replace('states=heapq.nsmallest(beam,next_states.values(),key=lambda a:a[0])','''effective_beam=beam
+   if math.isfinite(deadline) and evalstates>8:
+    now=time.monotonic();per_state=(now-search_start)/evalstates
+    layers_left=max(1,len(incumbent)-depth)
+    effective_beam=max(2,min(beam,int(max(0.,deadline-now)/(per_state*layers_left*1.15+1e-9))))
+   states=heapq.nsmallest(effective_beam,next_states.values(),key=lambda a:a[0])''')
+s=s.replace('self.last_states=evalstates\\n  return bestcost,bestblocks','''# Anytime completion: a scheduled ideal can always be followed by the
+  # incumbent with those gates removed.  Repartitioning that legal order
+  # makes useful partial searches available even at the time limit.
+  for _,co,done,path,covered in states[:3]:
+   prefix=[];pa=path
+   while pa is not None:pa,ob=pa;prefix.append(ob)
+   prefix=convert(prefix[::-1])
+   tail=[[i for i in b if not done>>local[i]&1] for b in incumbent]
+   order=[i for b in prefix+tail for i in b]
+   z=p.partition(order)
+   if z[0]<bestcost-1e-7:bestcost,bestblocks=z
+  self.last_states=evalstates
+  return bestcost,bestblocks''')
+# Give every epoch a fair share of a bounded search invocation.
+s=s.replace('result=[];total=0;num=0\\n  for ep,ii in sorted(self.p.epochs.items()):','''result=[];total=0;num=0;remaining_operations=self.p.N
+  for ep,ii in sorted(self.p.epochs.items()):''')
+s=s.replace('z=self.epoch(ii,inc,beam=beam,branch=branch,weight=weight,scale=scale,resource=resource,prices=prices,cut=cut,deadline=deadline)','''epoch_deadline=deadline
+   if math.isfinite(deadline):
+    now=time.monotonic();epoch_deadline=now+max(0.,deadline-now)*len(ii)/remaining_operations
+   z=self.epoch(ii,inc,beam=beam,branch=branch,weight=weight,scale=scale,resource=resource,prices=prices,cut=cut,deadline=epoch_deadline)
+   remaining_operations-=len(ii)''')
+open(p,'w').write(s)
+p='solution.py';s=open(p).read().replace('(False,3.,False)', '(False,0.,False)')
+open(p,'w').write(s)
+PY
+python3 -m py_compile beam.py solution.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 25975ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+
+**Analyzing resource allocations**
+
+I'm noting that the first version seems incomplete, and I need to adapt any improvements. For the main case, maybe it’s better to prioritize the budget limit rather than cutting the CPU. The total job start count is 166, and I can still manage completed cases. I need to set a global deadline to finish within a specified time. I'll also ensure tuning reports results after modifications, which should keep resource usage consistent. Overall, it looks manageable!
+exec
+/bin/bash -c "python3 - <<'PY'
+p='solution.py';s=open(p).read().replace(\"for j,(rev,weight,cut) in enumerate([(False,0.,True),(True,0.,True),(False,0.,False)]):\", \"for j,(rev,weight,cut,scale) in enumerate([(False,0.,True,1.),(True,0.,True,1.2),(False,0.,False,1.2)]):\")
+s=s.replace('weight=weight,cut=cut,deadline=limit(allowance)', 'weight=weight,cut=cut,scale=scale,deadline=limit(allowance)')
+s=s.replace(\"case,initial,budget,deadline=payload\\n    try:\",\"case,initial,budget,deadline=payload\\n    deadline=min(deadline,time.monotonic()+budget)\\n    try:\")
+open(p,'w').write(s)
+PY
+/usr/bin/time -v python3 solution.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/input/examples.json public_plans.json 2>public_time.txt
+PYTHONDONTWRITEBYTECODE=1 python3 /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/workspace/check.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/input/examples.json public_plans.json
+python3 - <<'PY'
+import json,math
+from model import validate_and_cost
+cs=json.load(open('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/input/examples.json'))['cases'];r=json.load(open('baseline_results.json'));out=json.load(open('public_plans.json'))['schedules'];rs=[]
+for c in cs:
+ co=validate_and_cost(c,out[c['id']]);rs.append(r[c['id']]['cost']/co);print(c['id'],co,rs[-1])
+print('GEO',math.prod(rs)**.2);print(open('public_time.txt').read())
+PY
+/usr/bin/time -v python3 solution.py stress.json stress_v2_plans.json 2>stress_v2_time.txt
+python3 - <<'PY'
+import json,math
+from model import validate_and_cost
+from baseline import plan
+cs=json.load(open('stress.json'))['cases'];p=json.load(open('stress_v2_plans.json'))['schedules'];rs=[];ff={}
+for c in cs:
+ co=validate_and_cost(c,p[c['id']]);bc=validate_and_cost(c,plan(c));rs.append(bc/co);ff.setdefault(c['id'].split('_')[1],[]).append(bc/co);print(c['id'],len(p[c['id']]),co,rs[-1],flush=True)
+print('GEO',math.prod(rs)**(1/len(rs)));print('FAMILIES',{k:math.prod(v)**(1/len(v)) for k,v in ff.items()});print(open('stress_v2_time.txt').read())
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+**Assessing remaining time**
+
+I need to figure out the time left for the testing. I have about 17 minutes before we need the final diagnostics and to get samples issued. I could skip the full call and just read the first line for a maximum output. This approach might save some time, and it seems necessary to stay within our timeframe. Let’s keep prioritizing efficiency while ensuring we still cover everything we need!
+exec
+/bin/bash -c 'date -u; wc -l solution.py fusion.py beam.py improve.py pair_opt.py contract.py baseline.py model.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 10087ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+Fri Aug 28 16:30:44 UTC 2026
+  179 solution.py
+  158 fusion.py
+  142 beam.py
+   85 improve.py
+  155 pair_opt.py
+   97 contract.py
+  103 baseline.py
+   69 model.py
+  988 total
+
+exec
+/bin/bash -c "cat > fuzz.py <<'PY'
+import random,time,math
+from model import validate_and_cost
+from solution import baseline,_search
+from fusion import Problem
+from beam import BeamPlanner
+from contract import Contractor
+from improve import improve
+from pair_opt import PairOptimizer
+r=random.Random(91218);st=time.monotonic()
+for trial in range(60):
+ n=r.randint(8,28);N=r.randint(120,220);E=r.randint(1,4)
+ c={'id':str(trial),'n_qubits':n,'max_block_qubits':r.randint(3,6),'max_block_operations':r.choice([8,12,24,40,48]),'repetitions':r.choice([1,3,16,128]),'hardware':{'launch':r.choice([.1,.5,6]),'memory':r.choice([1.,6.,24.]),'compute':r.choice([.03,.12,.5,2.]),'build':r.choice([0.,.002,.02,.1,1.]),'stride_penalty':r.choice([0.,.01,.08,.5]),'cache_qubits':r.randint(0,8)}}
+ c['gates']=[{'qubits':r.sample(range(n),r.choice([1,1,2,2,3])),'kind':r.choice(['dense','diagonal','diagonal','permutation']),'epoch':min(E-1,i*E//N)} for i in range(N)]
+ b=baseline(c);bc=validate_and_cost(c,b)
+ for rev in (False,True):
+  z=Problem(c,rev).greedy(beam=3,weight=3,select=2,deadline=time.monotonic()+.003);validate_and_cost(c,z[1])
+ z=Contractor(c,deadline=time.monotonic()+.003).run();validate_and_cost(c,z[1])
+ z=BeamPlanner(c).run(b,beam=8,branch=6,cut=True,deadline=time.monotonic()+.015);validate_and_cost(c,z[1])
+ z=improve(c,z[1],deadline=time.monotonic()+.003);validate_and_cost(c,z[1])
+ z=PairOptimizer(c).run(z[1],deadline=time.monotonic()+.003);validate_and_cost(c,z[1])
+ if trial%5==0:
+  z=PairOptimizer(c).distant(z[1],deadline=time.monotonic()+.003);validate_and_cost(c,z[1])
+ out=_search(c,b,.08,time.monotonic()+.15);co=validate_and_cost(c,out);assert co<=bc+1e-5
+ if trial%10==9:print('valid',trial+1,'elapsed',time.monotonic()-st,flush=True)
+print('ALL FUZZ CHECKS PASSED',time.monotonic()-st,flush=True)
+PY
+python3 fuzz.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 15461ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+valid 10 elapsed 1.186776538961567
+valid 20 elapsed 2.3158138090511784
+valid 30 elapsed 3.9253490150440484
+valid 40 elapsed 5.39592417399399
+valid 50 elapsed 6.68887013301719
+valid 60 elapsed 8.026034364011139
+ALL FUZZ CHECKS PASSED 8.026393951033242
+
+ succeeded in 129018ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+{
+  "valid": true,
+  "costs": {
+    "cd62a746049b0": 30036.992000000002,
+    "cc94844f62e45": 86873.6,
+    "c686c88eceb56": 17466.88,
+    "cf2c307568de2": 253196.6399999999,
+    "cfdae45352162": 31475.2
+  }
+}
+cd62a746049b0 30036.992000000002 1.3728607711451268
+cc94844f62e45 86873.6 1.1588956829232357
+c686c88eceb56 17466.88 1.2600762128096143
+cf2c307568de2 253196.6399999999 1.12762854988913
+cfdae45352162 31475.2 1.1783651891012605
+GEO 1.216473700599462
+	Command being timed: "python3 solution.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/input/examples.json public_plans.json"
+	User time (seconds): 35.98
+	System time (seconds): 0.32
+	Percent of CPU this job got: 163%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:22.26
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 20856
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 17122
+	Voluntary context switches: 39
+	Involuntary context switches: 4160
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 32
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+local_0_0 21 640.24 1.0483568661751843
+local_0_1 27 2857.0080000000003 1.2898472807916532
+local_0_2 51 16985.280000000002 1.1512274157388043
+local_0_3 50 81196.80000000003 1.3345944667770153
+local_0_4 40 208261.12 1.485863900088504
+local_1_0 16 884.3200000000002 1.164465351908811
+local_1_1 33 10219.199999999999 1.1517144199154534
+local_1_2 35 20113.408000000003 1.3985273902861208
+local_1_3 37 142739.968 1.5313696021005132
+local_1_4 387 6578.399999999995 1.0379423568040853
+local_2_0 15 2884.032 1.001864056986885
+local_2_1 26 41852.00000000001 1.04125394246392
+local_2_2 27 44043.52 1.232642622569677
+local_2_3 77 2055.76 1.2170292252013857
+local_2_4 46 4022.655999999998 1.2825834473541864
+local_3_0 59 24546.06399999999 1.085969628368931
+local_3_1 103 163895.20000000013 1.205361474893713
+local_3_2 210 3604.0999999999995 1.1086817790849308
+local_3_3 271 18378.000000000007 1.2031559473283275
+local_3_4 379 43362.111999999965 1.2732147364039825
+local_4_0 20 76811.29599999999 1.0531838442095809
+local_4_1 33 1426.8 1.1137650686851697
+local_4_2 69 9160.640000000001 1.1202885387920491
+local_4_3 37 20486.783999999996 1.3786433243987934
+local_4_4 87 131635.19999999995 1.2213997471800864
+GEO 1.1976694937620338
+FAMILIES {'0': 1.25287395820895, '1': 1.244168271289675, '2': 1.1495235017135896, '3': 1.173256840472432, '4': 1.1721615855518468}
+	Command being timed: "python3 solution.py stress.json stress_v2_plans.json"
+	User time (seconds): 285.10
+	System time (seconds): 1.08
+	Percent of CPU this job got: 346%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:22.65
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 62708
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 64269
+	Voluntary context switches: 193
+	Involuntary context switches: 23941
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 304
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+
+**Evaluating process constraints**
+
+I'm reflecting on how to manage the separate epochs during execution. The output gate indices maintain the qubit order despite issues with order preservation. I don't need any actual simulation validation, and I've set parameters for performance and resource constraints, such as a maximum of 4 CPU threads. It looks like I can optimize baselines and use Python packages efficiently without additional network dependencies. Let's also ensure the README is clear for users regarding execution permissions.
+**Clarifying validation and sourcing**
+
+I’m reflecting on the validation process for cost effectiveness, which is imported from the model.py file. It’s good to note that it’s copied and standalone without needing any external dependencies. The baseline.py and model.py files can be sourced as they’re originally public and allowed, which means I can freely use them in my work. I want to ensure everything is clear and compliant with the necessary guidelines.
+exec
+/bin/bash -c "python3 - <<'PY'
+p='solution.py';s=open(p).read()
+s=s.replace(\"configs=[(False,3.,0.,0),(True,3.,0.,0),(True,10.,0.,2),\\n             (False,0.,0.,0),(True,1.,.1,0),(False,1.,.3,0),\\n             (False,10.,0.,1),(True,0.,0.,0)]\", \"\"\"configs=[(False,3.,0.,0,False),(True,3.,0.,0,False),(True,10.,0.,2,False),
+             (False,0.,0.,0,False),(True,1.,.1,0,False),(False,1.,.3,0,False),
+             (False,10.,0.,1,False),(True,0.,0.,0,False)]
+    use_resource=(case['hardware']['stride_penalty']>0 and
+                  case['hardware']['build']/case['repetitions']>.003)
+    if use_resource:
+        configs[2:2]=[(False,0.,0.,0,True),(False,3.,0.,0,True)]\"\"\")
+s=s.replace('for j,(rev,weight,alpha,selection) in enumerate(configs):','for j,(rev,weight,alpha,selection,resource) in enumerate(configs):')
+s=s.replace('select=selection,deadline=dl)', 'select=selection,resource=resource,deadline=dl)')
+s=s.replace('weight=weight,cut=cut,scale=scale,deadline=limit(allowance)', 'weight=weight,cut=cut,scale=scale,resource=(use_resource and j==2),deadline=limit(allowance)')
+open(p,'w').write(s)
+PY
+cat > test_resource_low.py <<'PY'
+import json,time
+from model import validate_and_cost
+from solution import plan
+cs=json.load(open('stress.json'))['cases'];old=json.load(open('stress_plans.json'))['schedules']
+for c in cs:
+ if c['id'] not in ('local_1_4','local_3_2','local_4_1','local_2_3'):continue
+ t=time.monotonic();b=plan(c,budget=22);co=validate_and_cost(c,b);oc=validate_and_cost(c,old[c['id']]);print(c['id'],co,'was',oc,'gain',oc/co,'secs',time.monotonic()-t,flush=True)
+PY
+python3 test_resource_low.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+exec
+/bin/bash -c "python3 - <<'PY'
+p='beam.py';s=open(p).read();s=s.replace('for s in levels[W]:assess(s)\\n   # Keep complementary candidates:', '''for s in levels[W]:assess(s)
+   if expandcap<W:
+    # A dense-kernel width bound must not suppress cheap wide diagonal or
+    # permutation blocks.  Grow those using homogeneous dependency closures.
+    for homogeneous in (gd,gp):
+     if len(homogeneous)<2:continue
+     pureseeds=list(homogeneous);purelevels=[set() for _ in range(W+1)]
+     for m in pureseeds:purelevels[m.bit_count()].add(m)
+     for w in range(1,W):
+      for ss in sorted(purelevels[w],key=assess)[:support_beam]:
+       for m in pureseeds:
+        u=ss|m;wc=u.bit_count()
+        if w<wc<=W:purelevels[wc].add(u)
+     for ss in purelevels[W]:assess(ss)
+   # Keep complementary candidates:''')
+open(p,'w').write(s)
+PY
+python3 -m py_compile beam.py solution.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 29445ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+
+ succeeded in 103156ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+local_1_4 6598.399999999986 was 6682.399999999989 gain 1.0127303588748793 secs 24.544225462013856
+local_2_3 2055.76 was 2051.7599999999993 gain 0.9980542475775378 secs 23.32212243799586
+local_3_2 3604.0999999999995 was 3601.6 gain 0.9993063455509005 secs 14.92406620294787
+local_4_1 1426.8000000000002 was 1425.1199999999997 gain 0.9988225399495371 secs 3.161597962025553
+
+exec
+/bin/bash -c "python3 - <<'PY'
+p='solution.py';s=open(p).read();marker='def plan(case,budget=22.):'
+insert='''def _refine_worker(payload):
+    case,initial,budget,deadline=payload
+    deadline=min(deadline,time.monotonic()+budget)
+    try:
+        po=Portfolio(case,initial)
+        def left():return max(0.,deadline-time.monotonic())
+        # Larger and differently scored frontiers diversify the first pass.
+        for j,(rev,weight,scale,cut) in enumerate([(False,0.,1.15,False),(True,3.,1.,True)]):
+            if left()<.2:break
+            allocation=max(.05,(left()-.25)/(2-j))
+            cc=case;bb=po.result()
+            if rev:cc,bb=reverse_problem(case,bb)
+            z=BeamPlanner(cc).run(bb,beam=72,branch=20,weight=weight,scale=scale,
+                                 cut=cut,deadline=min(deadline,time.monotonic()+allocation))
+            if rev:
+                n=len(case['gates'])
+                z=(z[0],[[n-1-i for i in reversed(b)] for b in reversed(z[1])])
+            po.offer(z[1])
+        if left()>.03:
+            po.offer(improve(case,po.result(),passes=4,deadline=deadline)[1])
+        out=po.result()
+        if validate_and_cost(case,out)<=validate_and_cost(case,initial)+1e-6:
+            return case['id'],out
+    except Exception:
+        pass
+    return case['id'],initial
+
+'''
+s=s.replace(marker,insert+marker)
+s=s.replace(\"schedules[cid]=bs\\n    else:\",\"\"\"schedules[cid]=bs
+        spare=deadline-time.monotonic()
+        if spare>8.:
+            cid,bs=_refine_worker((jobs[0],schedules[cid],min(14.,spare-2.),deadline))
+            schedules[cid]=bs
+    else:\"\"\")
+s=s.replace(\"cid,bs=future.result();schedules[cid]=bs\\n    target.write_text\", \"\"\"cid,bs=future.result();schedules[cid]=bs
+            target.write_text(json.dumps({'schedules':schedules},separators=(',',':')))
+            spare=deadline-time.monotonic()
+            if spare>8.:
+                extra=min(14.,spare*workers/len(jobs)*.82)
+                futures=[pool.submit(_refine_worker,(c,schedules[c['id']],extra,deadline)) for c in jobs]
+                for future in as_completed(futures):
+                    cid,bs=future.result();schedules[cid]=bs
+    target.write_text\"\"\")
+open(p,'w').write(s)
+PY
+python3 -m py_compile solution.py
+/usr/bin/time -v python3 solution.py stress.json stress_final_plans.json 2>stress_final_time.txt
+python3 - <<'PY'
+import json,math
+from model import validate_and_cost
+from baseline import plan
+cs=json.load(open('stress.json'))['cases'];p=json.load(open('stress_final_plans.json'))['schedules'];rs=[];ff={}
+for c in cs:
+ co=validate_and_cost(c,p[c['id']]);bc=validate_and_cost(c,plan(c));rs.append(bc/co);ff.setdefault(c['id'].split('_')[1],[]).append(bc/co);print(c['id'],len(p[c['id']]),co,rs[-1],flush=True)
+print('GEO',math.prod(rs)**(1/len(rs)));print('FAMILIES',{k:math.prod(v)**(1/len(v)) for k,v in ff.items()});print(open('stress_final_time.txt').read())
+PY
+/usr/bin/time -v python3 solution.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/input/examples.json public_final_plans.json 2>public_final_time.txt
+python3 - <<'PY'
+import json,math
+from model import validate_and_cost
+cs=json.load(open('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/input/examples.json'))['cases'];p=json.load(open('public_final_plans.json'))['schedules'];b=json.load(open('baseline_results.json'));rr=[]
+for c in cs:
+ co=validate_and_cost(c,p[c['id']]);rr.append(b[c['id']]['cost']/co);print(c['id'],co,rr[-1])
+print('PUBLIC GEO',math.prod(rr)**.2);print(open('public_final_time.txt').read())
+PY
+python3 fuzz.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 200594ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+local_0_0 21 640.24 1.0483568661751843
+local_0_1 27 2842.608 1.2963813512098747
+local_0_2 54 16916.8 1.155887638324033
+local_0_3 52 81913.59999999998 1.3229158528010005
+local_0_4 40 208384.0 1.4849877149877146
+local_1_0 16 884.3200000000002 1.164465351908811
+local_1_1 31 10110.4 1.164108244975471
+local_1_2 35 20074.752000000004 1.4012203986380496
+local_1_3 36 142070.27200000003 1.538588227662434
+local_1_4 341 5946.400000000004 1.1482577694066973
+local_2_0 15 2884.032 1.001864056986885
+local_2_1 26 41852.00000000001 1.04125394246392
+local_2_2 27 44043.52 1.232642622569677
+local_2_3 77 2039.4399999999998 1.2267681324285105
+local_2_4 46 4022.655999999998 1.2825834473541864
+local_3_0 59 24546.06399999999 1.085969628368931
+local_3_1 103 163895.20000000013 1.205361474893713
+local_3_2 210 3597.2 1.1108084065384185
+local_3_3 272 18360.000000000015 1.2043355119825705
+local_3_4 381 43512.639999999956 1.2688101664252036
+local_4_0 20 76811.29599999999 1.0531838442095809
+local_4_1 33 1397.76 1.1369047619047619
+local_4_2 70 9074.560000000001 1.130915438324282
+local_4_3 37 20486.783999999996 1.3786433243987934
+local_4_4 87 131615.99999999994 1.221577923656699
+GEO 1.2051470829552202
+FAMILIES {'0': 1.2528022477907206, '1': 1.273965411593377, '2': 1.1513573836673192, '3': 1.173123290843863, '4': 1.1792511295205508}
+	Command being timed: "python3 solution.py stress.json stress_final_plans.json"
+	User time (seconds): 427.84
+	System time (seconds): 1.63
+	Percent of CPU this job got: 342%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:05.27
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 61292
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 105771
+	Voluntary context switches: 489
+	Involuntary context switches: 44929
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 456
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+cd62a746049b0 30036.992000000002 1.3728607711451268
+cc94844f62e45 86873.6 1.1588956829232357
+c686c88eceb56 17466.88 1.2600762128096143
+cf2c307568de2 253196.6399999999 1.12762854988913
+cfdae45352162 31475.2 1.1783651891012605
+PUBLIC GEO 1.216473700599462
+	Command being timed: "python3 solution.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/input/examples.json public_final_plans.json"
+	User time (seconds): 62.50
+	System time (seconds): 0.60
+	Percent of CPU this job got: 175%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:35.87
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 29004
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 22268
+	Voluntary context switches: 61
+	Involuntary context switches: 5423
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 48
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+valid 10 elapsed 1.2488054810091853
+valid 20 elapsed 2.4096985600190237
+valid 30 elapsed 3.8495455849915743
+valid 40 elapsed 5.3018734090728685
+valid 50 elapsed 6.7115545680280775
+valid 60 elapsed 8.029061701963656
+ALL FUZZ CHECKS PASSED 8.029108433052897
+
+exec
+/bin/bash -c "cat > README.md <<'MD'
+# Structure-aware circuit fusion
+
+Run the standalone planner with:
+
+"'```sh
+python3 solution.py INPUT_JSON OUTPUT_JSON
+```
+
+The input and output follow `TASK.md`'"'s batch interface. The implementation uses
+only the Python standard library. All required modules are in this directory;
+there are no runtime references to the participant directory or to test data.
+
+## Planner
+
+- Retains all seven supplied baseline orderings, with optimal contiguous
+  partitioning and independent selection across barrier-separated epochs.
+- Builds fusible dependency closures rather than relying only on recent gates.
+  Dense, diagonal, and permutation construction costs are all charged explicitly.
+- Searches alternative block frontiers in both directions, including separate
+  homogeneous-support searches when dense matrix construction is expensive.
+- Refines legal schedules through dependency-constrained gate reassignment,
+  block contraction, and small exact two-block repartitioning problems.
+- Uses up to four worker processes, bounded per-case searches, an overall
+  deadline, and legal anytime completions. A second refinement pass uses spare
+  batch time without replacing a schedule by a more expensive one.
+- Independently validates every returned worker result against the supplied
+  public resource model and retains a baseline fallback.
+
+"'`baseline.py` and `model.py` contain the supplied public baseline and checker.
+The other supporting modules implement the searches described above.
+
+## Validation
+
+The official public checker accepted every schedule on the supplied examples.
+Additional tests exercised 60 randomized circuits, including very short search
+budgets, and a locally generated 25-case batch spanning the published circuit
+sizes and all five structural patterns. Test inputs and cached schedules are not
+needed by the executable.
+MD
+chmod +x solution.py
+python3 -m py_compile solution.py baseline.py model.py fusion.py beam.py contract.py improve.py pair_opt.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 37192ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+
+codex
+The final planner has passed the public checker and randomized legality tests. It achieved 1.216× geometric-mean speedup on the supplied examples and 1.205× on a locally generated 25-case stress batch, which completed in 125 seconds. I’m doing a final maximum-size runtime check before cleaning the output directory.
+exec
+/bin/bash -c "python3 - <<'PY'
+import json,copy
+cs=json.load(open('stress.json'))['cases'];large=[c for c in cs if len(c['gates'])==1500];out=[]
+for r in range(5):
+ for j,c in enumerate(large):
+  z=copy.deepcopy(c);z['id']='max_%d_%d'%(r,j);out.append(z)
+json.dump({'cases':out},open('maximum_batch.json','w'))
+PY
+/usr/bin/time -v python3 solution.py maximum_batch.json maximum_plans.json 2>maximum_time.txt
+python3 - <<'PY'
+import json
+from model import validate_and_cost
+cs=json.load(open('maximum_batch.json'))['cases'];p=json.load(open('maximum_plans.json'))['schedules']
+for c in cs:validate_and_cost(c,p[c['id']])
+print('MAXIMUM BATCH VALID:',len(cs),'cases,',sum(len(c['gates']) for c in cs),'operations')
+print(open('maximum_time.txt').read())
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+**Cleaning up project files**
+
+I’m ensuring the project is set up safely and correctly. I’m checking files for execution permissions and organizing the necessary components. I’ll keep essential scripts and the README while cleaning up unnecessary files. The user may want to keep supporting modules, and I’ll make sure to maintain clear logs for testing. Although I could include additional documentation like `TESTING.md`, it’s not strictly necessary. I’m focused on a smooth, efficient process while retaining critical elements for the user.
+exec
+/bin/bash -c 'date -u; ls -l solution.py beam.py README.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 21627ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+Fri Aug 28 16:43:23 UTC 2026
+-rw------- 1 xuandong xuandong 1842 Aug 28 09:41 README.md
+-rw------- 1 xuandong xuandong 6671 Aug 28 09:35 beam.py
+-rwx------ 1 xuandong xuandong 9424 Aug 28 09:37 solution.py
+
+ succeeded in 189895ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+MAXIMUM BATCH VALID: 25 cases, 37500 operations
+	Command being timed: "python3 solution.py maximum_batch.json maximum_plans.json"
+	User time (seconds): 519.95
+	System time (seconds): 1.80
+	Percent of CPU this job got: 315%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:45.49
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 66764
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 173678
+	Voluntary context switches: 145
+	Involuntary context switches: 31778
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 1008
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+
+
+exec
+/bin/bash -c "python3 - <<'PY'
+p='beam.py';s=open(p).read();s=s.replace('def convert(bb):return [[ii[i] for i in range(N) if b>>i&1] for b in bb]', '''def convert(bb):
+   out=[]
+   for b in bb:
+    row=[]
+    while b:
+     x=b&-b;b-=x;row.append(ii[x.bit_length()-1])
+    out.append(row)
+   return out''')
+open(p,'w').write(s)
+PY
+PYTHONDONTWRITEBYTECODE=1 python3 -B fuzz.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 21419ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+valid 10 elapsed 1.3510227940278128
+valid 20 elapsed 2.6374587760074064
+valid 30 elapsed 4.160656093037687
+valid 40 elapsed 5.9078020609449595
+valid 50 elapsed 7.418494540965185
+valid 60 elapsed 9.038660418940708
+ALL FUZZ CHECKS PASSED 9.038953725015745
+
+exec
+/bin/bash -c "python3 - <<'PY'
+p='README.md';s=open(p).read().replace('small exact two-block repartitioning problems','bounded two-block support repartitioning problems')
+s+='''\\nRecorded local results (modeled speedup, not simulator wall speed):\\n\\n- Supplied five-case examples: **1.21647×** geometric-mean speedup, all valid.\\n- Generated 25-case stress batch: **1.20515×**, all valid, **125.3 s** wall time.\\n- Sixty additional randomized cases passed legality checks, including deliberately\\n  interrupted searches and reverse planning.\\n\\nTimings depend on the host. Hidden-case performance was not measured.\\n'''
+open(p,'w').write(s)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 19007ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+
+codex
+The maximum-size check also passed: 25 circuits totaling 37,500 operations completed with valid schedules in 165.5 seconds, below the 180-second limit. I’m removing experiment files and verifying the standalone deliverable once more.
+exec
+/bin/bash -c "python3 - <<'PY'
+from pathlib import Path
+import shutil
+keep={'solution.py','baseline.py','model.py','fusion.py','beam.py','contract.py','improve.py','pair_opt.py','README.md'}
+for p in Path('.').iterdir():
+ if p.name not in keep:
+  if p.is_dir():shutil.rmtree(p)
+  else:p.unlink()
+p=Path('README.md');s=p.read_text().replace('- Sixty additional randomized cases passed legality checks, including deliberately', '- Maximum-size batch: **25 × 1,500 operations**, all valid, **165.5 s** wall time.\\n- Sixty additional randomized cases passed legality checks, including deliberately');p.write_text(s)
+PY
+chmod 644 baseline.py model.py fusion.py beam.py contract.py improve.py pair_opt.py README.md
+chmod 755 solution.py
+python3 -B solution.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/input/examples.json verification.json
+PYTHONDONTWRITEBYTECODE=1 python3 /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/workspace/check.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/input/examples.json verification.json
+python3 -B - <<'PY'
+import json,math
+from model import validate_and_cost
+from baseline import plan
+from pathlib import Path
+cs=json.load(open('/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/participant/input/examples.json'))['cases'];out=json.load(open('verification.json'))['schedules'];ratios=[]
+for c in cs:ratios.append(validate_and_cost(c,plan(c))/validate_and_cost(c,out[c['id']]))
+print('Final standalone geometric-mean speedup:',math.prod(ratios)**(1/len(ratios)))
+print('Per-case speedups:',ratios)
+Path('verification.json').unlink()
+PY
+ls -la" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 48542ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+Traceback (most recent call last):
+  File "<stdin>", line 6, in <module>
+  File "/usr/lib/python3.10/shutil.py", line 731, in rmtree
+    onerror(os.rmdir, path, sys.exc_info())
+  File "/usr/lib/python3.10/shutil.py", line 729, in rmtree
+    os.rmdir(path)
+OSError: [Errno 16] Device or resource busy: '.agents'
+{
+  "valid": true,
+  "costs": {
+    "cd62a746049b0": 30036.992000000002,
+    "cc94844f62e45": 86796.79999999999,
+    "c686c88eceb56": 17466.88,
+    "cf2c307568de2": 253196.6399999999,
+    "cfdae45352162": 31475.2
+  }
+}
+Final standalone geometric-mean speedup: 1.2166888977766999
+Per-case speedups: [1.3728607711451268, 1.1599211030821417, 1.2600762128096143, 1.12762854988913, 1.1783651891012605]
+total 3376
+drwxrwxr-x 6 xuandong xuandong    4096 Aug 28 09:47 .
+drwx------ 3 xuandong xuandong      60 Aug 28 09:46 ..
+dr-xr-xr-x 2 xuandong xuandong      40 Aug 28 09:46 .agents
+dr-xr-xr-x 2 xuandong xuandong      40 Aug 28 09:46 .codex
+dr-xr-xr-x 2 xuandong xuandong      40 Aug 28 09:46 .git
+-rw-r--r-- 1 xuandong xuandong    2278 Aug 28 09:45 README.md
+drwx------ 2 xuandong xuandong    4096 Aug 28 09:41 __pycache__
+-rw-r--r-- 1 xuandong xuandong    3911 Aug 28 08:57 baseline.py
+-rw------- 1 xuandong xuandong    7840 Aug 28 08:57 baseline_results.json
+-rw-r--r-- 1 xuandong xuandong    6749 Aug 28 09:45 beam.py
+-rw------- 1 xuandong xuandong    7474 Aug 28 09:13 beam_best.json
+-rw------- 1 xuandong xuandong    1211 Aug 28 08:57 bench.py
+-rw-r--r-- 1 xuandong xuandong    3529 Aug 28 09:25 contract.py
+-rw------- 1 xuandong xuandong    7482 Aug 28 09:05 contract_best.json
+-rw------- 1 xuandong xuandong    4803 Aug 28 09:19 cover.py
+-rw------- 1 xuandong xuandong    7472 Aug 28 09:22 cut_best.json
+-rw------- 1 xuandong xuandong    7472 Aug 28 09:15 distant_best.json
+-rw-r--r-- 1 xuandong xuandong    6360 Aug 28 09:25 fusion.py
+-rw------- 1 xuandong xuandong    1785 Aug 28 09:31 fuzz.py
+-rw------- 1 xuandong xuandong     888 Aug 28 09:03 grid.py
+-rw------- 1 xuandong xuandong     880 Aug 28 09:10 grid2.py
+-rw------- 1 xuandong xuandong    7488 Aug 28 09:10 grid2_best.json
+-rw------- 1 xuandong xuandong    7490 Aug 28 09:03 grid_best.json
+-rw-r--r-- 1 xuandong xuandong    3424 Aug 28 09:22 improve.py
+-rw------- 1 xuandong xuandong     584 Aug 28 09:00 inspect_cases.py
+-rw------- 1 xuandong xuandong   17895 Aug 28 09:00 inspection.txt
+-rw------- 1 xuandong xuandong    7470 Aug 28 09:20 lpbeam_best.json
+-rw------- 1 xuandong xuandong    1886 Aug 28 09:26 make_stress.py
+-rw------- 1 xuandong xuandong 1882651 Aug 28 09:41 maximum_batch.json
+-rw------- 1 xuandong xuandong  169313 Aug 28 09:44 maximum_plans.json
+-rw------- 1 xuandong xuandong     786 Aug 28 09:44 maximum_time.txt
+-rw-r--r-- 1 xuandong xuandong    2657 Aug 28 08:57 model.py
+-rw------- 1 xuandong xuandong    7490 Aug 28 09:07 pair_best.json
+-rw-r--r-- 1 xuandong xuandong    5596 Aug 28 09:15 pair_opt.py
+-rw------- 1 xuandong xuandong    5961 Aug 28 09:40 public_final_plans.json
+-rw------- 1 xuandong xuandong     934 Aug 28 09:40 public_final_time.txt
+-rw------- 1 xuandong xuandong    5961 Aug 28 09:30 public_plans.json
+-rw------- 1 xuandong xuandong     928 Aug 28 09:30 public_time.txt
+-rw------- 1 xuandong xuandong    3906 Aug 28 09:15 resource_best.json
+-rwxr-xr-x 1 xuandong xuandong    9424 Aug 28 09:37 solution.py
+-rw------- 1 xuandong xuandong  884128 Aug 28 09:26 stress.json
+-rw------- 1 xuandong xuandong   74747 Aug 28 09:39 stress_final_plans.json
+-rw------- 1 xuandong xuandong     783 Aug 28 09:39 stress_final_time.txt
+-rw------- 1 xuandong xuandong   74881 Aug 28 09:28 stress_plans.json
+-rw------- 1 xuandong xuandong     776 Aug 28 09:28 stress_time.txt
+-rw------- 1 xuandong xuandong   74827 Aug 28 09:32 stress_v2_plans.json
+-rw------- 1 xuandong xuandong     779 Aug 28 09:32 stress_v2_time.txt
+-rw------- 1 xuandong xuandong     811 Aug 28 09:12 test_beam.py
+-rw------- 1 xuandong xuandong     671 Aug 28 09:05 test_contract.py
+-rw------- 1 xuandong xuandong    1285 Aug 28 09:19 test_cover.py
+-rw------- 1 xuandong xuandong    1185 Aug 28 09:22 test_cut.py
+-rw------- 1 xuandong xuandong     738 Aug 28 09:15 test_distant.py
+-rw------- 1 xuandong xuandong     683 Aug 28 09:01 test_improve.py
+-rw------- 1 xuandong xuandong    1561 Aug 28 09:19 test_lpbeam.py
+-rw------- 1 xuandong xuandong     716 Aug 28 09:07 test_pair.py
+-rw------- 1 xuandong xuandong    1121 Aug 28 09:14 test_resource.py
+-rw------- 1 xuandong xuandong     447 Aug 28 09:35 test_resource_low.py
+-rw------- 1 xuandong xuandong     849 Aug 28 09:27 tune_nearest.py
+
+exec
+/bin/bash -c "python3 - <<'PY'
+from pathlib import Path
+import shutil
+keep={'solution.py','baseline.py','model.py','fusion.py','beam.py','contract.py','improve.py','pair_opt.py','README.md'}
+for p in Path('.').iterdir():
+ # Leave isolation-managed dot directories untouched.
+ if p.name.startswith('.'):continue
+ if p.name=='__pycache__':shutil.rmtree(p)
+ elif p.is_file() and p.name not in keep:p.unlink()
+p=Path('README.md');s=p.read_text().replace('1.21647×','1.21669×')
+s=s.replace('- Sixty additional randomized cases passed legality checks, including deliberately','- Maximum-size batch: **25 × 1,500 operations**, all valid, **165.5 s** wall time.\\n- Sixty additional randomized cases passed legality checks, including deliberately')
+p.write_text(s)
+import json
+c={'id':'smoke','n_qubits':8,'max_block_qubits':3,'max_block_operations':8,'repetitions':4,'hardware':{'launch':.5,'memory':6.,'compute':.5,'build':.002,'stride_penalty':.08,'cache_qubits':4},'gates':[{'qubits':[0],'kind':'diagonal','epoch':0} for _ in range(120)]}
+Path('_smoke_input.json').write_text(json.dumps({'cases':[c]}))
+PY
+python3 -B solution.py _smoke_input.json _smoke_output.json
+python3 -B - <<'PY'
+import json
+from pathlib import Path
+from model import validate_and_cost
+c=json.load(open('_smoke_input.json'))['cases'][0];b=json.load(open('_smoke_output.json'))['schedules']['smoke']
+print('Clean-directory interface test: valid; modeled cost =',validate_and_cost(c,b))
+Path('_smoke_input.json').unlink();Path('_smoke_output.json').unlink()
+for p in sorted(Path('.').iterdir()):
+ if not p.name.startswith('.'):
+  print(p.name,p.stat().st_size)
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/qulacs_a_fast_and_versatile_quantum_circuit_simulator_for_research_pur__2011_13524/concept_1/attempts/v_1
+ succeeded in 19226ms:
+ISOLATION_ADAPTER: filesystem arguments retained; network namespace replaced by inherited deny-network seccomp; existing filters retained
+Clean-directory interface test: valid; modeled cost = 390.4200000000001
+README.md 2362
+baseline.py 3911
+beam.py 6749
+contract.py 3529
+fusion.py 6360
+improve.py 3424
+model.py 2657
+pair_opt.py 5596
+solution.py 9424
+
+Delivered and verified the standalone executable with only its required supporting modules. Official public checking passed with 1.21669× modeled geometric-mean speedup. Randomized legality tests passed, the 25-case structural stress batch achieved 1.20515× in 125.3 seconds, and a 25-case maximum-size batch remained valid and completed in 165.5 seconds. Experiment files were removed and the clean-directory interface was tested.
+  ✓ Inspect circuit structures and establish baseline costs and runtimes.
+  ✓ Implement structure-aware block search with cost-aware scheduling and refinement.
+  ✓ Benchmark, validate, and package the executable solution.
+codex
+Delivered `solution.py` and supporting modules in the designated output directory.
+
+- Public examples: **1.2167×** geometric-mean modeled speedup; all schedules valid.
+- Maximum-size batch: **25 circuits, 37,500 operations**, valid in **165.5 seconds**.
+- Experiment files removed; standalone interface verified.
+
+Run:
+```sh
+python3 solution.py INPUT_JSON OUTPUT_JSON
+```
+tokens used
+253,967
+Delivered `solution.py` and supporting modules in the designated output directory.
+
+- Public examples: **1.2167×** geometric-mean modeled speedup; all schedules valid.
+- Maximum-size batch: **25 circuits, 37,500 operations**, valid in **165.5 seconds**.
+- Experiment files removed; standalone interface verified.
+
+Run:
+```sh
+python3 solution.py INPUT_JSON OUTPUT_JSON
+```

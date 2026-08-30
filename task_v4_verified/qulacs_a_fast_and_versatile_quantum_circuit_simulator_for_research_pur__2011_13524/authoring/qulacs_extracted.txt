@@ -1,0 +1,3167 @@
+Qulacs: a fast and versatile quantum circuit simulator for
+research purpose
+Yasunari Suzuki1,2, Yoshiaki Kawase3, Yuya Masumura4, Yuria Hiraga5, Masahiro Nakadai6,
+Jiabao Chen7, Ken M. Nakanishi7,8, Kosuke Mitarai3,7,9, Ryosuke Imai7, Shiro Tamiya7,10,
+Takahiro Yamamoto7, Tennin Yan7, Toru Kawakubo7, Yuya O. Nakagawa7, Yohei Ibe7,
+Youyuan Zhang7,8, Hirotsugu Yamashita11, Hikaru Yoshimura11, Akihiro Hayashi12, and
+Keisuke Fujii2,3,9,13
+1NTT Computer and Data Science Laboratories, NTT Corporation, Musashino 180-8585, Japan
+2JST PRESTO, Kawaguchi, Saitama 332-0012, Japan
+3Graduate School of Engineering Science, Osaka University, 1-3 Machikaneyama, Toyonaka, Osaka 560-8531, Japan
+4Graduate School of Information Science and Technology, Osaka University, 1-1 Yamadaoka, Suita, Osaka 565-0871, Japan
+5Graduate School of Information and Science, Nara Institute of Science and Technology, Takayama, Ikoma, Nara 630-0192,
+Japan
+6Graduate School of Science, Kyoto University, Yoshida-Ushinomiya, Sakyo, Kyoto 606-8302, Japan
+7QunaSys Inc., Aqua Hakusan Building 9F, 1-13-7 Hakusan, Bunkyo, Tokyo 113-0001, Japan
+8Graduate School of Science, The University of Tokyo, 7-3-1 Hongo, Bunkyo-ku, Tokyo 113-0033, Japan
+9Center for Quantum Information and Quantum Biology, Institute for Open and Transdisciplinary Research Initiatives, Osaka
+University, Japan
+10Graduate School of Engineering, The University of Tokyo, 7-3-1 Hongo, Bunkyo-ku, Tokyo 113-0033, Japan
+11Individual researcher
+12School of Computer Science, Georgia Institute of Technology, Atlanta, GA, 30332, USA
+13Center for Emergent Matter Science, RIKEN, Wako Saitama 351-0198, Japan
+To explore the possibilities of a near-
+term intermediate-scale quantum algo-
+rithm and long-term fault-tolerant quan-
+tum computing, a fast and versatile quan-
+tum circuit simulator is needed. Here,
+we introduce Qulacs, a fast simulator for
+quantum circuits intended for research
+purpose. We show the main concepts of
+Qulacs, explain how to use its features via
+examples, describe numerical techniques
+to speed-up simulation, and demonstrate
+its performance with numerical bench-
+marks.
+Yasunari Suzuki: yasunari.suzuki.gz@hco.ntt.co.jp
+Jiabao Chen: qulacs@qunasys.com
+Ryosuke Imai: qulacs@qunasys.com
+Tennin Yan: qulacs@qunasys.com
+Toru Kawakubo: qulacs@qunasys.com
+Yuya O. Nakagawa: qulacs@qunasys.com
+1 Introduction
+Many theoretical groups have explored quantum
+computing applications due to the rapid improve-
+ments in quantum technologies and huge eﬀorts
+of experimental groups to develop quantum com-
+puters [1, 2]. Although classical simulation of
+quantum circuits is a vital tool to develop quan-
+tum computers, the simulation time increases ex-
+ponentially with the number of qubits.
+The primary reasons for using a classical sim-
+ulator are the following: (i) Quantum devices
+suﬀer from much higher error rates. A classical
+simulator is necessary to determine the ideal re-
+sults for comparison. (ii) In certain cases, not all
+necessary values can be directly measured from
+experiments such as the full quantum state vec-
+tor and marginal probabilities of measurements.
+(iii) To analyze the performance of quantum error
+correction and noise characterization for an arbi-
+trary noise model, noisy quantum circuits must
+be simulated. Hence, there are broad demands
+on classical simulators for research on quantum
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 1
+arXiv:2011.13524v4  [quant-ph]  5 Oct 2021
+
+computing. Although full simulations of quan-
+tum circuits are not eﬃcient in the sense of com-
+putational complexity theory, it is important to
+implement a fast classical simulator as much as
+possible.
+Here, we introduce a quantum circuit simula-
+tor, which is calledQulacs [3]. The main feature
+of Qulacs is that it meets many popular demands
+in quantum computing research such as evaluat-
+ing near-term applications, quantum error correc-
+tion, and quantum benchmark methods. In ad-
+dition, Qulacs is available on many popular en-
+vironments, and is one of the fastest quantum
+circuit simulators. Herein we demonstrate the
+structure of our library, optimization methods,
+and numerical benchmarks for simulating typical
+quantum gates and circuits.
+Thispaperconsistsofthefollowingtopics. Sec-
+tion.2 overviews the main features and struc-
+ture of Qulacs as well as compares it with exist-
+ing libraries. Section.3 introduces the expected
+use of Qulacs. Section.4 discusses how to write
+codes with Qulacs using examples codes. Sec-
+tion.5 introduces further optimization techniques
+to speed-up the simulation of quantum circuits.
+Section.6 shows the numerical benchmarks for
+Qulacs. Section7 compares the performance of
+Qulacs with that of existing simulators. Finally,
+Section.8 is devoted to summary and discussion.
+2 Overview
+2.1 Features of Qulacs
+Qulacs is designed to accelerate research on quan-
+tum computing. Thus, Qulacs prioritizes the fol-
+lowing:
+Fast simulation of large quantum circuits:
+A full simulation of quantum circuits requires a
+time that grows exponentially with the number
+of qubits. This problem can be mitigated by op-
+timizing and parallelizing the simulation codes
+for single- or multi-core CPUs and SIMD (Sin-
+gle Instruction Multiple Data) units and even
+GPUs (Graphics Processing Units), and optimiz-
+ing quantum circuits before a simulation. These
+techniques can enable a few orders of magnitude
+performance improvement compared to naive im-
+plementations. Although this is a constant fac-
+tor speed-up, the eﬀect on practical research is
+tremendous. Qulacs oﬀers optimized and paral-
+lelized codes to update a quantum state and eval-
+uate probability distributions, observables, and
+so on.
+Small overhead for simulating small quan-
+tum circuits: Often small but noisy quantum
+circuits (up to 10 qubits) are simulated many
+times rather than simulating a single-shot large
+ideal quantum circuit. In this case, the over-
+head due to pre- and post-processing for calling
+core API functions is not negligible relative to
+the overall simulation time. Qulacs is designed
+to minimize such overhead by focusing on core
+features and avoiding complicated functionalities.
+Available on diﬀerent environments:
+While numerical analysis is typically performed
+on workstations or high-performance computers,
+most software development occurs on laptops
+or desktop personal computers. For versatility,
+Qulacs provides interfaces for both Python and
+C++ languages, while most of the codes of
+Qulacs are written in C and C++ languages.
+In addition, Qulacs supports several compilers
+such as GNU Compiler Collection (GCC) and
+Microsoft Visual Studio C++ (MSVC). Qulacs
+is tested on several operating systems such as
+Linux, Windows, and Mac OS.
+Many useful utilities for research:To meet
+various demands in quantum computing research,
+a simulator should support general quantum op-
+erations. Qulacscancreatenotonlycommonuni-
+tary gates and projection measurements, but also
+general operations such as completely positive
+instruments and adaptive quantum gates condi-
+tioned on measurement results.
+2.2 Structure of Qulacs
+Qulacs consists of three shared libraries. The ﬁrst
+one is a core library written in C language for op-
+timized memory management, update functions
+of quantum states, and property evaluation of
+quantum states. The second library is built on
+top of the ﬁrst library, and is written in C++
+language. This allows users to easily create and
+control quantum gates and circuits in an object-
+oriented way, thereby improving the programma-
+bility. Also, at runtime, it adaptively chooses
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 2
+
+the best performing implementation of quantum
+gates depending on the number of qubits. The
+third library explores variational methods with
+quantum circuits. This library wraps quantum
+gates and circuits so that quantum circuits can
+be treated as variational objects.
+We expect that users who work on variational
+quantum algorithms use Qulacs via the third li-
+brary, and the other users access Qulacs via the
+second library. Additionally, Qulacs can be used
+as a Python library, while there is some over-
+head in interfacing between Python and C++.
+Figure1 shows the overview of the structure of
+Qulacs. The components of Qulacs and their us-
+ages are explained in Sec.4 with example codes.
+Qulacs uses Eigen [4] to treat a sparse matrix
+and to manage matrix representations of quan-
+tum gates and pybind11 [5] for exporting func-
+tions and classes from C++ to python. The fea-
+tures introduced in this paper is fully tested with
+GoogleTest [6] and pytest [7].
+2.3 Simulation methods
+There are several approaches to simulate general
+quantum circuits with classical computers. The
+simplest approach is to update quantum states
+represented by state vectors or density matrices
+sequentially by applying quantum gates as gen-
+eral maps. This method is called Schrödinger’s
+method [1]. Qulacs implements this method for
+simulating quantum circuits due to its fast and
+versatile simulations of quantum circuits com-
+pared with the other methods introduced in this
+section. A detail of implementation with this
+method is described in Sec.4.
+Another method is Feynman’s approach [1, 8,
+9], which computes the sum of all Feynman’s
+path contributions. This technique greatly de-
+creases the memory size requirement, allowing
+for the single amplitude of the ﬁnal quantum
+state to be quickly known. While the number
+of Feynman’s paths increases exponentially ac-
+cording to not only the number of qubits but also
+the number of quantum gates, this requirement
+can be relaxed by using tensor-network-based ap-
+proach. With tensor-network-based simulator,
+we can make the simulation time increases ex-
+ponentially according to a tree-width of the net-
+work [9], which is a characteristic value of graph
+representing how a tensor network is close to a
+tree graph. However, except special cases where
+tree-width is small, such as shallow quantum cir-
+cuits with a large number of qubits, a tree-width
+becomes equal to the number of qubits. More-
+over, the Schrödinger’s method is much faster
+than Feynman’s path integral when the number
+of qubits is limited and the memory size is suf-
+ﬁcient for storing a full state vector. Although
+we can also consider Schrödinger-Feynman ap-
+proach [1, 10] as a hybrid method, this method is
+typically faster than Schrödinger’s method simu-
+lating large quantum circuits with a small depth.
+If quantum circuits have speciﬁc features, then
+the simulation time can be reduced. For exam-
+ple, if quantum circuits are dominated by Cliﬀord
+gates, non-Cliﬀord gates can be treated as a per-
+turbation to the simulation. This treatment can
+reduce the time for simulation [11, 12]. This con-
+dition is satisﬁed in several situations, e.g., quan-
+tum circuits of stabilizer measurements where
+non-Cliﬀord errors happens with a very small
+probability or fault-tolerant quantum computing
+with a limited number ofT and TOFFOLI-gates.
+However, most of the quantum circuits of typical
+quantum algorithms do not satisfy these condi-
+tions.
+2.4 Relation to the existing libraries
+To date, many groups have published a vari-
+ety of quantum circuit simulators. Cirq [13],
+Qiskit [14], PyQuil [15], and PennyLane [16] are
+published by Google, IBM, Rigetti computing,
+and Xanadu, respectively. Since these groups
+are developers of hardware for quantum com-
+puting, these libraries are designed for submit-
+ting quantum tasks as a job without thinking
+about detailed experimental procedures or se-
+tups. Q# [17] by Microsoft focuses on provid-
+ing higher levels of abstraction, such as pack-
+aged instructions for integer arithmetic or tool-
+chains for compilation. To simulate quantum
+circuits with a low depth and a large num-
+ber of qubits, tensor-network-based simulators
+are used [18–20]. However, these are not good
+for higher depths or a fewer number of qubits.
+For quantum circuit simulations on state-of-the-
+art supercomputers, several works have reported
+on the performance and optimizations [21–24].
+Qiskit-Aer [14], Intel-QS [25, 26], QX Simula-
+tor [27, 28], ProjectQ [29], QuEST [30], qsim [31],
+Yao [32], QCGPU [33], and Qibo [34] were all de-
+veloped with motivations similar to ours. They
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 3
+
+Quantum State
+Quantum Circuit
+Quantum Gates
+Front-end C++ classes Optimized low-level functions
+CPUs
+GPUs
+Computing devices
+Qulacs
+Python interfaces
+C++ user codes
+Memory management
+Quantum state evaluation
+Quantum state manipulation
+Basic gate
+General quantum maps
+CPTP-map
+Adaptive op
+CP-instrument
+Dense matrix Diagonal matrix
+Sparse matrix Permutation matrix
+Pauli matrix ⋯
+Python user codes
+Expectation value
+Marginal probability
+Sampling with Z-basis
+Inner product
+Observable
+෨𝑂 = ෍
+𝑃∈𝒫𝑛
+𝜃𝑃𝑃
+𝜓 =
+𝜓0
+𝜓1
+⋮
+𝜌 =
+𝜌00 𝜌01 ⋯
+𝜌10 ⋱
+⋮
+𝜌 ↦ 𝑈𝜌𝑈† 𝜌 ↦ ෍
+𝑖
+𝐾𝑖𝜌𝐾𝑖
+†
+𝑅𝑋 𝜃
+𝐻
+𝑅𝑍𝑋(𝜙)
+depolarize
+𝑓 𝑣
+Circuit optimization 
+for fast simulation
+Concatenate / drop qubits
+Copy / load state
+Allocate / deallocate array
+⋯
+⋯
+⋯
+Parameter controls and differentiation 
+for variational algorithms - SIMD
+- Multi-threading
+Figure 1: The overview of the structure of Qulacs.
+focused on optimizing quantum circuit simula-
+tions for quantum computing researchers. By
+contrast, Qulacs is one of the fastest simulators,
+which minimizes overhead even for small simula-
+tions, supports general quantum operations such
+as completely-positive and trace-preserving maps
+and completely-positive instruments, and runs on
+various environments. In addition, Qulacs pro-
+vides many useful utilities frequently used in re-
+search such as calculations of transition ampli-
+tudes and reversible Boolean functions.
+3 Expected usages of Qulacs
+Quantum circuit simulators should be designed
+for speciﬁc targets. Qulacs is designed to help
+researchers of quantum computing. In particular,
+we expect the following usages:
+3.1 Exploration of near-term applications and
+error mitigation techniques
+To highlight typical evaluation targets, here we
+show two popular directions of near-term appli-
+cations. One is optimizing a target function using
+variational quantum circuits such as the varia-
+tional quantum eigensolver (VQE) [35]. In a typ-
+ical scenario, we assume rotation angles of Pauli
+gates as variational parameters of a cost func-
+tion and optimize them by repeatedly simulating
+quantum circuits with a relatively small number
+of qubits. The other application is a quantum
+simulator [36]. In this approach, large quantum
+systems are simulated to explore physics in many-
+body quantum systems. In a typical scenario, we
+performasinglesimulationwithquantumcircuits
+as large as possible. Thus, the size of memory or
+allowed time limits the size of quantum circuits.
+To date, Qulacs has been used in a few tens
+of research papers. For example, Qulacs is
+used by papers related to noisy intermediate-
+scale quantum (NISQ) applications [37, 37–42]
+and fault-tolerant quantum computing [43]. Al-
+though Qulacs does not support gate decompo-
+sition, which is supported by high-layer libraries,
+Qulacs can be used as a faster backend library.
+For example, Qulacs can serve as a backend of
+Cirq [13] using a library cirq-qulacs [44]. Qulacs
+has also been chosen as a fast backend simulator
+in several libraries and services such as Penny-
+Lane (Xanadu) [16], t|ket> (Cambridge Quan-
+tum Computing) [45], Orquestra (Zapata com-
+puting) [46], and Tequila [47].
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 4
+
+3.2 Performance analysis of quantum error
+correction schemes
+Another important usage of the simulator for
+quantum circuits is performance analysis of
+the quantum error correction and fault-tolerant
+quantum computing. To construct a quantum
+computer large enough for Shor’s algorithm [48,
+49], a quantum simulation for quantum many-
+body systems [36, 50], or algorithms for linear
+systems [51], quantum error correction [52] is nec-
+essary to reduce logical error rates to an arbitrar-
+ily small value. Many types of quantum error-
+correcting codes and schemes have been pro-
+posed. However, the number of qubits needed
+for a speciﬁc application is highly dependent
+on the performance of quantum error-correcting
+schemes. Consequently, it is diﬃcult to control
+the noise properties on real devices and the per-
+formance of quantum error correction must be
+analyzed with classical simulation in near-term
+development. Unfortunately, the time to accu-
+rately simulate quantum error-correcting codes
+with practical noise models grows exponentially
+with the number of qubits. Thus, we need a fast
+and accurate simulator of noisy quantum circuits
+of quantum error correction.
+3.3 Generation of a reference of experimental
+data
+To characterize and calibrate controls of qubits,
+sometimes experimental data must be compared
+with the ideal one. For example, several veriﬁ-
+cation methods for large quantum devices [1, 53]
+require a full simulation of large quantum sys-
+tems. While quantum circuits in quantum com-
+putational supremacy regime require supercom-
+puters for simulations, portable and fast quan-
+tum circuit simulators remain useful for generat-
+ing small-scale experimental references.
+4 Implementation of Qulacs
+4.1 Overview
+In Qulacs, any state of a quantum system is rep-
+resented as a subclass of theQuantumStateBase
+class. Thus far, Qulacs supports two represen-
+tations of quantum states: state vector and den-
+sity matrix. The StateVector class represents
+a state vector, while the DensityMatrix class
+represents a density matrix. These classes have
+some basic utilities as their member functions
+such as initialization to a certain quantum state,
+computing marginal probabilities, and sampling
+measurement results. The QuantumStateBase
+class also contains a variable-length integer array
+called classical registers, which are used to store
+measurement results.
+When a quantum state is updated by quan-
+tum operations, subclasses of QuantumGateBase
+are instantiated and applied to a quantum state.
+This class supports not only unitary operations
+and projection measurements but also a vari-
+ety of operations for general quantum mapping
+such as a completely-positive instrument and a
+completely-positive trace-preserving map.
+To evaluate the expectation values of observ-
+ables, there is a class named Observable. We
+assume the Observable class is described as a
+linear combination of Pauli operators. Thus, the
+Observable instance can be constructed directly
+or from an output of an external library such as
+OpenFermion [54]. Additionally, a Trotterized
+quantum circuit can be created from a given ob-
+servable.
+By default, Qulacs performs a simulation by
+allocating and manipulating StateVector on a
+CPU. Also, since the use of GPUs can signiﬁ-
+cantly outperform a CPU in certain cases, Qulacs
+supports GPU execution. This can be done by
+using the StateVectorGpu. Once a state vector
+is allocated on a GPU, all the computations such
+as update and evaluation of state vectors are per-
+formed in a GPU unless the state is explicitly
+converted into StateVector. Qulacs does not
+support allocating a quantum state on multiple
+GPUs. One GPU can be selected by supplying
+an index if multiple GPUs are installed.
+In the discussion below, we explain the case
+where quantum states are allocated as state vec-
+tors on the main RAM and processed within a
+CPU. Although Qulacs can be used as a C++
+library, we show examples in the Python lan-
+guage for simplicity in the main text. See Ap-
+pendix.A for the example codes of the C++ lan-
+guage. Here, we show typical examples and their
+basic features. Qulacs supports more operations
+than those explained here. For a detailed expla-
+nation, please see the documentation on the oﬃ-
+cial website [3].
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 5
+
+4.2 Quantum state
+4.2.1 Initialization
+In Qulacs, instantiating the StateVector class
+allocates a state vector. By default, a state
+vector is initialized to zero-state |0⟩⊗n. How-
+ever, the state can be initialized to other states
+such as a computational basis, a state vector of
+a given complex array, or a random pure state
+with its member functions. The instance of the
+StateVector class can create its copy or load
+the contents of anotherStateVector. Listing.1
+shows example codes.
+1 import numpy as np
+2 from qulacs import S t a t e V e c t o r
+3
+4 # Allocate a state vector
+5 n um _q ub it = 2
+6 state = S t a t e V e c t o r ( n um _q ub it )
+7
+8 # Reset to a c o m p u t a t i o n a l basis
+9 # # (0:|00 > , 1:|01 > , 2:|10 > , 3:|11 >)
+10 # # Note that the right - most digit
+c o r r e s p o n d s to
+11 # # the 0 - th qubit in Qulacs .
+12 state . s e t _ c o m p u t a t i o n a l _ b a s i s ( index = 2)
+13
+14 # Create a copy of the state vector
+15 s ub _s ta te = state . copy ()
+16
+17 # Load a given list , numpy array ,
+18 # or another S t a t e V e c t o r
+19 state . load ( state =[0.5 , 0.5 , 0.5 , -0.5])
+20 state . load ( np . ones (4) /2)
+21 state . load ( su b_ s ta te )
+22
+23 # Prepare a r a n d o m i z e d pure quantum
+state
+24 state . s e t _ H a a r _ r a n d o m _ s t a t e ( seed = 42)
+Listing 1: An example Python program that initializes
+quantum states.
+4.2.2 Analysis
+Qulacs implements several functions to evaluate
+the properties of quantum states. Although the
+get_vector functions provide a full state vec-
+tor, evaluating the properties with built-in func-
+tions is fast. For example, Listing.2 shows ex-
+ample codes to compute a marginal probability,
+squared norm, and inner-product of two states.
+Note that thesampling functions create a cumu-
+lative probability distribution as pre-processing
+for the fast sampling, which temporally allocates
+an additional 2n-length array.
+1 from qulacs import S t a t e V e c t o r
+2 nu m_ qu b it = 3
+3 state = S t a t e V e c t o r ( n um _q ub it )
+4 state . s e t _ H a a r _ r a n d o m _ s t a t e (0)
+5
+6 # Get the state vector as numpy array
+7 vec = state . g e t _ v e c t o r ()
+8
+9 # Get the marginal p r o b a b i l i t y
+10 # # The below example obtains prob of
+|021 >
+11 # # where "2" is a wild card
+12 # # matching to both 0 and 1.
+13 prob = state . g e t _ m a r g i n a l _ p r o b a b i l i t y (
+m e a s u r e d _ v a l u e =[1 , 2 , 0])
+14
+15 # Sampling results of the Z - basis
+m e a s u r e m e n t s
+16 samples = state . sampling ( count =100 , seed
+=42)
+17
+18 # C om pu ti ng the squared norm
+19 s q u a r e d _ n o r m = state . g e t _ s q u a r e d _ n o r m ()
+20
+21 # C om pu ti ng the inner product of two
+quantum states
+22 from qulacs . state import i n n e r _ p r o d u c t
+23 st at e_ b ra = S t a t e V e c t o r ( n um _q ub it )
+24 st at e_ b ra . s e t _ H a a r _ r a n d o m _ s t a t e ()
+25 st at e_ k et = S t a t e V e c t o r ( n um _q ub it )
+26 st at e_ k et . s e t _ H a a r _ r a n d o m _ s t a t e ()
+27 value = i n n e r _ p r o d u c t ( state_bra ,
+s ta te _k et )
+Listing 2: An example Python program that evaluates
+the properties of quantum states.
+4.2.3 Update
+Several member functions ofStateVectorcan be
+used for quickly updating a state vector. The
+multiply_coef function multiplies a complex
+number to each element of a quantum state, while
+the multiply_elementwise_function multi-
+plies index-dependent coeﬃcients to a state vec-
+tor with a function that returns a coeﬃcient ac-
+cording to a given index. The add_state func-
+tion adds two state vectors. While these op-
+erations are not physically achievable, they are
+useful for analysis in theoretical studies such
+as creating a superposition of two given states
+and supplying speciﬁc phases to each element
+of a state vector. A list of qubits in a state
+vector can be concatenated, permutated, or re-
+duced with tensor_product, permutate_qubit,
+or drop_qubit, respectively. Listing.3 shows
+code examples for multiplication kernels.
+1 from qulacs import S t a t e V e c t o r
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 6
+
+2 from qulacs . state import tensor_product ,
+permutate_qubit , d r o p _ q u b i t
+3
+4 state = S t a t e V e c t o r (2)
+5 state . s e t _ H a a r _ r a n d o m _ s t a t e ()
+6
+7 # No rm al iz e the state vector
+8 s q u a r e d _ n o r m = state . g e t _ s q u a r e d _ n o r m ()
+9 state . no rm al iz e ( s q u a r e d _ n o r m )
+10
+11 # Multiply a complex number to each
+element
+12 state . m u l t i p l y _ c o e f (0.5+0.1 j )
+13
+14 # Perform element - wise multiply
+15 def func ( index ) :
+16 return (0.5 if index %2 else 0)
+17
+18 state . m u l t i p l y _ e l e m e n t w i s e _ f u n c t i o n ( func
+)
+19
+20 # Perform element - wise addition
+21 state . ad d_ st at e ( state )
+22
+23 # Make a tensor product of states .
+24 # The re s ul ta nt state has 4 qubits
+25 s ub _s ta te = S t a t e V e c t o r (2)
+26 state = t e n s o r _ p r o d u c t ( state , s ub _s ta te )
+27
+28 # Pe rm ut at e qubit indices from [0 ,1 ,2 ,3]
+to [3 ,1 ,2 ,0]
+29 state = p e r m u t a t e _ q u b i t ( state ,
+[3 ,1 ,2 ,0])
+30
+31 # Drop the 1 - st and 2 - nd qubits from
+state
+32 # and project to |0 > and |0 > subspace .
+33 n ew _s ta te = d r o p _ q u b i t ( state , [1 ,2] ,
+[0 ,0])
+Listing 3: An example Python program that update and
+modify quantum states.
+4.3 Quantum gates
+4.3.1 Gate type
+As explained in the overview, quantum gates in-
+clude not only typical quantum gates such as
+unitary operators and Pauli-Z basis measure-
+ments, but also contain all operations that up-
+date quantum states. All the classes of quan-
+tum gates are deﬁned as a subclass of the
+QuantumGateBase class, which has a function
+update_quantum_state that acts on derived
+classes of QuantumStateBase. In Qulacs, quan-
+tum gates in which the action can be written as
+|ψ⟩ ↦→K|ψ⟩, where |ψ⟩is a state vector and
+K is a certain complex matrix, are called basic
+gates. Examples include a Pauli rotation on mul-
+tiple qubits, TOFFOLI-gate, and stabilizer pro-
+jection to +1 eigenspace. Quantum maps that
+are not basic gates such as CPTP-map, projec-
+tion measurements, and adaptive operations, are
+represented using basic gates. Here, we show sev-
+eral popular types of operations which are imple-
+mented as basic operations.
+4.3.2 Basic gate
+A basic gate is an operation that can be repre-
+sented by ρ↦→KρK†. In the case of a pure
+state, its action on the state vector is represented
+by |ψ⟩ ↦→K|ψ⟩. Note that K is not neces-
+sarily unitary. Suppose that this quantum gate
+acts on a pure quantum state|ψ⟩and obtain an
+updated quantum state|ψ′⟩= K|ψ⟩. We de-
+note a state vector of the computational basis as
+|x⟩=⨂
+i|xi⟩for x∈{0, 1}n, a coeﬃcient of the
+state vector along with the computational basis
+as ψx =⟨x|ψ⟩, and a matrix representation of
+K as Kx,y =⟨x|K|y⟩. Then, a coeﬃcient of the
+updated quantum state can be written by
+ψ′
+x =
+∑
+y∈{0,1}n
+Kx,yψy. (1)
+Typically, quantum gates non-trivially act only
+onafewqubits. Supposethatthetotalnumberof
+qubits isn, the list of qubits on which the quan-
+tum gate non-trivially acts isM, and the num-
+ber of the target qubits ism. Then, the action of
+the quantum gateK can be simpliﬁed by using a
+2m×2m complex matrix ˜K, which we call a gate
+matrix, as follows. We deﬁne the following two
+lists ofn-bit strings:
+B(0) ={x∈{0, 1}n|∀i∈M,x i = 0}(2)
+B(1) ={x∈{0, 1}n|∀i /∈M,x i = 0}. (3)
+Here, B(0) is a list ofn-bit strings where all the
+values at indices contained inM are zero, and
+B(1) is a list ofn-bit strings where all the values
+at indices not contained inM are zero. There are
+2n−m elements inB(0) and 2m elements inB(1).
+An arbitraryn-bit string x can be uniquely de-
+composed as x = x(0) + x(1) where x(i) ∈Bi.
+We use this decomposition implicitly in the fol-
+lowing discussion. Since the quantum gate only
+acts on the target qubits, a transition amplitude
+between two computational basis states is zero
+if their n-bit strings are diﬀerent at indices not
+contained in the target qubits, and a transition
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 7
+
+amplitude is independent of the values at indices
+not contained in the target qubit, i.e.,
+Kx,y =Kx(0)+x(1),y(0)+y(1)
+=Kx(1),y(1)δx(0),y(0) (4)
+for an arbitraryx, y∈{0, 1}n. Then, Eq.(1) can
+be rephrased as
+ψ′
+x(0)+x(1) =
+∑
+y(1)∈B(1)
+Kx(1),y(1)ψx(0)+y(1). (5)
+We deﬁne a bijective functionr :B(1)→{0, 1}m
+such that (x0,···,x n−1) ↦→(xM0,···,x Mm−1)
+where Mi is the qubit index of the i-th target
+qubit, and also deﬁnes :{0, 1}m→B(1) as the
+inverse of r. Then, a 2m×2m gate matrix ˜K of
+the quantum gateK is deﬁned as
+˜Kz,w =⟨s(z)|K|s(w)⟩ (6)
+for z, w∈{0, 1}m. With the gate matrix, we can
+write Eq.(5) as follows:
+ψ′
+x(0)+s(z) =
+∑
+w∈{0,1}m
+˜Kz,wψx(0)+s(w). (7)
+We also deﬁne a temporal state vector|˜ψx(0)⟩as a
+2m-dim complex vector of which thei-th element
+isψx(0)+s(bin(i)) where bin(i) represents them-bit
+binary representation of the integeri. Then, we
+can simplify Eq.(7) as
+|˜ψ′x(0)⟩= ˜K|˜ψx(0)⟩. (8)
+Since for allx(0)∈B(0), Eq.(8) has to be calcu-
+lated, an update function forK consists of 2n−m
+matrix-vector multiplications with a gate matrix
+˜K and the temporal state vectors|˜ψx(0)⟩. List-
+ing.4 shows a naive implementation of update
+functions in the Python language, whereB0 and
+B1 are a list ofn-bit integers corresponding toB0
+and B1, respectively.
+1 import numpy as np
+2
+3 def func ( state_vector , gate_matrix , B0 ,
+B1 , m ) :
+4 t e m p _ v e c t o r = np . zeros (2** m )
+5 for x0 in B0 :
+6 # Read values from the state vector
+7 for ind , x1 in en um er at e ( B1 ) :
+8 t e m p _ v e c t o r [ ind ] = s t a t e _ v e c t o r [ x0
++ x1 ]
+9 # Perform matrix - vector
+m u l t i p l i c a t i o n
+10 t e m p _ v e c t o r = np . dot ( gate_matrix ,
+t e m p _ v e c t o r )
+11 # Write values to the state vector
+12 for ind , x1 in en um er at e ( B1 ) :
+13 s t a t e _ v e c t o r [ x0 + x1 ] = t e m p _ v e c t o r [
+ind ]
+Listing 4: An example Python code that naively
+implements an update function of a quantum state
+Note that in the example code, without loss of
+generality,B1 isconsideredtobearrangedsothat
+the i-th element ofB1 is s(bin(i)). In practice,
+a time for reading/writing temporal state vectors
+(i.e., temp_vector in the example code) from/to
+the whole state vector is not negligible. Thus,
+the update function essentially performs2n−m it-
+erations of the following three parts: read 2m-
+dim complex numbers from a memory, perform
+matrix-vector multiplication, and write2m com-
+plex numbers to the memory.
+The DenseMatrix function generates a ba-
+sic gate K with a gate matrix ˜K, and the
+RandomUnitary function generates that with a
+random unitary matrix sampled from a Haar-
+random distribution. Listing.5 shows quantum
+gates instantiated with dense matrices.
+1 from qulacs import S t a t e V e c t o r
+2 from qulacs . gate import DenseMatrix ,
+R a n d o m U n i t a r y
+3 state = S t a t e V e c t o r (10)
+4
+5 # Update quantum state with given gate
+matrix
+6 t a r g e t _ l i s t = [1]
+7 g a t e _ m a t r i x = [[0 , 1] ,[1 , 0]]
+8 gate = D e n s e M a t r i x ( target_list ,
+g a t e _ m a t r i x )
+9 gate . u p d a t e _ q u a n t u m _ s t a t e ( state )
+10
+11 # Update quantum state with random
+unitary
+12 # # Matrix is drawn from Haar - random
+d i s t r i b u t i o n
+13 r a n d o m _ g a t e = R a n d o m U n i t a r y ( t a r g e t _ l i s t )
+14 r a n d o m _ g a t e . u p d a t e _ q u a n t u m _ s t a t e ( state )
+Listing 5: An example Python program that applies
+dense matrix gates to quantum states.
+Thecomputationtimetoapplyaquantumgate
+ismainlydeterminedbytwofactors: timeforpro-
+cessing arithmetic operations to perform a calcu-
+lation with complex numbers and time for pro-
+cessing memory operations to transfer complex
+numbers between the CPU and main RAM; we
+call these arithmetic-operation cost and memory-
+operation cost, respectively. They are propor-
+tional to the number of arithmetic and mem-
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 8
+
+ory operations in update functions. The heavier
+of the two determines the application time of a
+function. The number of arithmetic operations
+in each iteration of an update function of dense
+matrix gates isO(22m) and that of memory op-
+erations is O(2m + 2 2m), where O is a Landau
+notation. Since this iteration is looped for2n−m
+times, the total number of arithmetic and mem-
+ory operations areO(2n+m) and O(2n + 2n+m).
+In the case of smallm, the gate matrix˜K, which
+is re-used in all the iterations, is expected to re-
+side on cache memory, and the memory-operation
+cost for the gate matrix is counted at once. Thus,
+the number of memory operation is eﬀectively
+O(2n + 22m). Typically, because we consider the
+case whenm≪n, the memory-operation cost is
+further approximated asO(2n).
+Although any basic gate can be treated as
+a dense matrix gate, quantum gates in quan-
+tum computing research sometimes have an addi-
+tional structure in a gate matrix˜K. By utilizing
+this structure, the arithmetic-operation cost, the
+memory-operationcost, orbothcanbedecreased.
+This motivates us to deﬁne specialized subclasses
+of dense matrix gates for quantum gates with
+structured gate matrices. Here, we show func-
+tions for several types of basic gates with a struc-
+ture. Note that the relation between arithmetic-
+and memory-operation costs and the total com-
+putation time is discussed in Sec.5.
+LetMc be a subset of target qubits andc (0≤
+c < 2|Mc|) be an integer, where|·|represents
+the number of elements in a given set. Any
+gate matrix ˜K can be represented in the form
+˜K =∑2|Mc|−1
+x,y=0 |x⟩⟨y|⊗Lx,y, where the ﬁrst part
+of the tensor product acts on the space of qubits
+in Mc, and the latter part acts on the space of
+target qubits except forMc. Suppose a gate ma-
+trix ˜K which satisﬁesLx,y = 0 if x ⁄= y and
+Lx,x = I if x⁄= c. A quantum gate with such
+a gate matrix ˜K is called controlled quantum
+gates. We can describe a gate matrix of a con-
+trolled quantum gate with an integerc and com-
+plex matrix Lc,c. Let mc :=|Mc|be the num-
+ber of control qubits, andmt := m−mc be the
+number of qubits on whichLc,cact. Then, this
+gate can be applied with arithmetic-operation
+costs O(2n−mc+mt) and memory-operation costs
+O(2n−mc). In Qulacs, we can specify the
+pair of the digit of control index c and corre-
+sponding item in Mc with a member function
+add_control_qubit.
+When a gate matrix has a small number of
+non-zero elements, it is called sparse. When ˜K
+is a sparse matrix, the arithmetic- and memory-
+operation costs can be decreased according to the
+number of non-zero elements. A quantum gate
+with a sparse gate matrix can be generated with
+SparseMatrix.
+Another special case is a diagonal matrix,
+which is a matrix with non-zero elements only in
+the diagonal elements. In this case, arithmetic-
+and memory-operation costs become O(2n).
+These costs are independent of the number of tar-
+get qubitsm. In this case,DiagonalMatrix can
+be used for generating diagonal matrix gates.
+An action of reversible Boolean functions in
+classical computing can always be represented as
+a permutation matrix, which is a matrix where
+there is a single unity element in each row and
+column. ReversibleBoolean creates a unitary
+operation with a permutation matrix by supply-
+ing a function that returns the index of a column
+with a unity element from the index of a given
+row. This function is applicable not only for re-
+versible circuits but also for creating and anni-
+hilating operators as a product of a permutation
+matrix and a diagonal matrix. Its arithmetic-
+and memory-operation costs areO(2n) and are
+also independent of the number of target qubits
+m.
+A set ofm-qubit Pauli matrices is deﬁned as a
+tensor product of Pauli matrices{I,X,Y,Z }⊗m,
+where
+I =
+(
+1 0
+0 1
+)
+,X =
+(
+0 1
+1 0
+)
+,
+Y =
+(
+0 −i
+i 0
+)
+,Z =
+(
+1 0
+0 −1
+)
+. (9)
+APauligateisagateinwhichthegatematrixisa
+Pauli matrix. By assigning numbers{0, 1, 2, 3}to
+Pauli matrices{I,X,Y,Z }, respectively, a Pauli
+matrix can be represented with a sequence of in-
+tegers{0, 1, 2, 3}m. The Paulifunctiongenerates
+a basic gate with a Pauli matrix represented by
+a sequence of assigned integers. Its arithmetic-
+and memory-operation costs areO(2n) and are
+independent ofm.
+Since a set ofm-qubit Pauli matrices is a ba-
+sis of 2m×2m matrices, any 2m×2m matrix
+can be represented as a linear combination of
+m-qubit Pauli matrices. Furthermore, any self-
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 9
+
+adjointmatrixcanberepresentedasalinearcom-
+bination ofm-qubit Pauli matrices with real co-
+eﬃcients. Therefore, any unitary gate matrix can
+be represented in the form ˜K = exp(i∑
+PθPP ),
+where θP is a real coeﬃcient. Suppose a quan-
+tum gate such thatθP = 0 if P ⁄= Q, where Q
+is a certain Pauli matrix. Such a quantum gate
+is called a Pauli rotation gate. PauliRotation
+can be used for generating a Pauli rotation gate
+with a description of Pauli matrixQ and rotation
+angle θQ. Its arithmetic- and memory-operation
+costs are alsoO(2n). Note that quantum gates
+with multiple non-zero rotation angles, which are
+vital for simulating the dynamics of quantum sys-
+tems under a given Hamiltonian, can be gener-
+ated with DenseMatrix function with an explicit
+matrix representation of exp(i∑
+PθPP ) or gen-
+erated as a Trotterized quantum circuit with ob-
+servable. For the latter, see Sec.4.5. Listing.6
+shows examples. Qulacs has several other spe-
+cializations for basic gates, which are detailed in
+the online manuals [3].
+1 import numpy as np
+2 from scipy . sparse import c s r _ m a t r i x
+3 from qulacs import S t a t e V e c t o r
+4 from qulacs . gate import DenseMatrix ,
+SparseMatrix , DiagonalMatrix , Pauli ,
+PauliRotation , R e v e r s i b l e B o o l e a n
+5 state = S t a t e V e c t o r (10)
+6
+7 # Update a quantum state with a
+c o n t r o l l e d dense matrix gate
+8 t a r g e t _ l i s t = [1]
+9 g a t e _ m a t r i x = [[0 , 1] ,[1 , 0]]
+10 c o n t r o l _ g a t e = D e n s e M a t r i x ( target_list ,
+g a t e _ m a t r i x )
+11 # # Act when the 2 - nd qubit is |0 >
+12 c o n t r o l _ g a t e . a d d _ c o n t r o l _ q u b i t (2 , 0)
+13 # # Act when the 3 - rd qubit is |1 >
+14 c o n t r o l _ g a t e . a d d _ c o n t r o l _ q u b i t (3 , 1)
+15 c o n t r o l _ g a t e . u p d a t e _ q u a n t u m _ s t a t e ( state )
+16
+17 # Update a quantum state with a sparse
+matrix gate
+18 t a r g e t _ l i s t = [2 , 1]
+19 s p a r s e _ m a t r i x = c s r _ m a t r i x (
+20 ([1 ,1] , ([0 ,3] , [0 ,3]) ) ,
+21 shape =(4 ,4) , dtype = complex )
+22 s p a r s e _ g a t e = S p a r s e M a t r i x ( target_list ,
+s p a r s e _ m a t r i x )
+23 s p a r s e _ g a t e . u p d a t e _ q u a n t u m _ s t a t e ( state )
+24
+25 # update a quantum state with a diagonal
+matrix gate
+26 t a r g e t _ l i s t = [3 , 5]
+27 d i a g o n a l _ e l e m e n t = [1 , -1 , -1 , 1]
+28 d i a g o n a l _ g a t e = D i a g o n a l M a t r i x (
+target_list , d i a g o n a l _ e l e m e n t )
+29 d i a g o n a l _ g a t e . u p d a t e _ q u a n t u m _ s t a t e ( state
+)
+30
+31 # Update a quantum state with a
+p e r m u t a t i o n matrix gate
+32 def b a s i s _ t o _ b a s i s ( index , dim ) :
+33 return ( index +3) % dim
+34
+35 t a r g e t _ l i s t = [0 , 3 , 4]
+36 rev_gate = R e v e r s i b l e B o o l e a n ( target_list
+, b a s i s _ t o _ b a s i s )
+37 rev_gate . u p d a t e _ q u a n t u m _ s t a t e ( state )
+38
+39 # Update a quantum state with Pauli gate
+40 t a r g e t _ l i s t = [1 ,2]
+41 pa ul i_ i ds = [3 ,2]
+42 p a u l i _ g a t e = Pauli ( target_list ,
+p au li _i ds )
+43 p a u l i _ g a t e . u p d a t e _ q u a n t u m _ s t a t e ( state )
+44
+45 # Update a quantum state with a Pauli
+rotation gate
+46 t a r g e t _ l i s t = [1 ,2]
+47 pa ul i_ i ds = [3 ,2]
+48 r o t a t i o n _ a n g l e = np . pi /5
+49 rot_gate = P a u l i R o t a t i o n ( target_list ,
+pauli_ids , r o t a t i o n _ a n g l e )
+50 rot_gate . u p d a t e _ q u a n t u m _ s t a t e ( state )
+Listing 6: An example Python program that applies
+several basic gates to quantum states.
+4.3.3 Quantum map
+Quantum maps are a general operation, which
+includes all the quantum maps that cannot be
+represented as basic gates such as measurement,
+noisy operation, and feedback operation.
+The most general form of physical operations
+without measurements is a completely-positive
+trace-preserving (CPTP) [55]. According to the
+operator-sum representation, this map can be
+representedas ρ↦→∑
+iKiρK†
+i, whereρistheden-
+sity matrix andKi is called the Kraus operator.
+The map must satisfy the condition∑
+iK†
+iKi =
+I. In Qulacs, a list of basic gates, which represent
+the action of Kraus operators{Ki}, is required to
+create a CPTP-map. When a density matrix is
+used as a representation of quantum states,ρis
+mapped to∑
+iKiρK†
+i. On the other hand, when
+a state vector is used as a representation of quan-
+tumstates, thei-thKrausoperatoris chosenwith
+probabilitypi =|Ki|ψ⟩|2. Then, the state vector
+is mapped to Ki|ψ⟩
+√pi
+. Suppose that the number
+of Kraus operators is k and each Kraus opera-
+tor acts onm-qubits, then in the worst case, the
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 10
+
+arithmetic- and memory-operation costs become
+O(2n+mk). The CPTP-map can be created with
+a CPTP function.
+One of the most general representations of all
+physically achievable operations, including mea-
+surements, is the completely-positive (CP) in-
+strument. In Qulacs, this operation is the same
+as a CPTP-map except that the index of the
+chosen Kraus operator is stored in the classical
+register of QuantumStateBase and can be used
+later. This map can be generated with a func-
+tion Instrument. The arithmetic- and memory-
+operation costs are the same as CPTP-map.
+A CPTP-map is called unital when it maps a
+maximally mixed state to itself. A unital CPTP-
+mapcan be representedas aprobabilisticapplica-
+tion of unitary operations (i.e., for alli,Ki has a
+formKi =√piUi, wherepi is a real value andUi
+is unitary). Unlike a CPTP-map, the arithmetic-
+and memory-operation costs of unital maps de-
+crease to O(2n+m). The costs become indepen-
+dent of the number of Kraus operators since the
+probability distribution for sampling a Kraus op-
+erator is independent of the input state and can
+be given in advance. A unital CPTP-map can
+generated with Probabilistic function.
+An adaptive map is one that acts on the quan-
+tum states only when a given classical condition
+is satisﬁed. This map requires a Boolean func-
+tion that determines an output according to the
+classical registers. Then, a map is applied only
+when the returned value of the Boolean function
+is True. This map is useful for treating feedback
+and feedforward operations such as the heralded
+operation, readout initialization, measurement-
+based quantum computation, and look-up ta-
+ble decoder for quantum error correction. This
+gate can be generated with a function named
+Adaptive. Its arithmetic- and memory-operation
+costs are dependent on a given gate and the prob-
+ability that the given condition is satisﬁed.
+Listing.7showstheexamplecodesofthesegen-
+eral maps. There are several other forms of gen-
+eral gates in Qulacs for a speciﬁc research pur-
+pose. See the online manual [3] for details.
+1 from qulacs import S t a t e V e c t o r
+2 from qulacs . gate import X , Y , Z , P0 , P1
+3 from qulacs . gate import Instrument , CPTP
+, Probabilistic , Adaptive
+4
+5 state = S t a t e V e c t o r (3)
+6 g at e_ li st = [ X (0) , Y (0) , Z (0) ]
+7
+8
+9 # Update a quantum state with a CPTP map
+10 ga te _l i st = [ P0 (0) , P1 (0) ]
+11 cp tp _g a te = CPTP ( g at e_ li st )
+12 cp tp _g a te . u p d a t e _ q u a n t u m _ s t a t e ( state )
+13
+14 # Update a quantum state with a CP
+i n s t r u m e n t
+15 c l a s s i c a l _ r e g i s t e r = 0
+16 ga te _l i st = [ P0 (0) , P1 (0) ]
+17 in st _g a te = I n s t r u m e n t ( gate_list ,
+c l a s s i c a l _ r e g i s t e r )
+18 in st _g a te . u p d a t e _ q u a n t u m _ s t a t e ( state )
+19
+20 # Get and set values in the c la ss ic al
+register
+21 value = state . g e t _ c l a s s i c a l _ v a l u e (
+c l a s s i c a l _ r e g i s t e r )
+22 state . s e t _ c l a s s i c a l _ v a l u e (
+c la ss ic al _r eg is te r , 1 - value )
+23
+24 # Update a quantum state with a unital
+gate
+25 ga te _l i st = [ X (0) , Y (0) , Z (0) ]
+26 pr ob _l i st = [0.2 , 0.3 , 0.1]
+27 pr ob _g a te = P r o b a b i l i s t i c ( prob_list ,
+g at e_ li st )
+28 pr ob _g a te . u p d a t e _ q u a n t u m _ s t a t e ( state )
+29
+30 # Update a quantum state with an
+adaptive gate
+31 def func ( c l a s s i c a l _ r e g i s t e r _ l i s t ) :
+32 return c l a s s i c a l _ r e g i s t e r _ l i s t [0] ==
+0
+33
+34 gate = X (0)
+35 ad ap _g a te = Adaptive ( gate , c on di ti on =
+func )
+36 ad ap _g a te . u p d a t e _ q u a n t u m _ s t a t e ( state )
+Listing 7: An example Python program that applies
+general quantum maps to quantum states.
+4.3.4 Named gate
+Since quantum gates with several speciﬁc gate
+matrices and Kraus operators are frequently used
+in quantum computing research, functions to
+generate these gates are deﬁned. TABLE.1
+lists these named gates. Although some of
+these function calls are simply redirected to
+the deﬁnition as quantum maps, the following
+gates are redirected optimized update functions:
+X,Y,Z,H,CNOT,SWAP,CZ. Thus, when these quan-
+tum gates are used, they should be instantiated
+using these functions.
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 11
+
+Category Name Description
+Single-qubit gate X Pauli-X gate
+Y Pauli-Y gate
+Z Pauli-Z gate
+sqrtX π/4 rotation of Pauli-X gate
+sqrtXdag −π/4 rotation of Pauli-X gate
+sqrtY π/4 rotation of Pauli-Y gate
+sqrtYdag −π/4 rotation of Pauli-Y gate
+S π/4 rotation of Pauli-Z gate
+Sdag −π/4 rotation of Pauli-Z gate
+T π/8 rotation of Pauli-Z gate
+Tdag −π/8 rotation of Pauli-Z gate
+H Hadamard gate
+Two-qubit gate CNOT Controlled-NOT gate
+CZ Controlled-Z gate
+SWAP SWAP gate
+Three-qubit gate TOFFOLI TOFFOLI gate
+FREDKIN FREDKIN gate
+Single-qubit RX Pauli-X rotation: exp(iθX/2)
+rotation gate RY Pauli-Y rotation: exp(iθY/2)
+RZ Pauli-Z rotation: exp(iθZ/2)
+U1 Rotate phase of LO (Local oscillator)
+U2 Rotate phase of LO with singleπ/2-pulse
+U3 Rotate phase of LO with twoπ/2-pulses
+Projection and P0 Projection matrix to|0⟩state
+measurement P1 Projection matrix to|1⟩state
+Measurement Single qubit measurement withZ-basis
+Noise BitFlipNoise Probabilistic Pauli-X operation
+DephasingNoise Probabilistic Pauli-Z operation
+DepolarizingNoise Single-qubit uniform depolarizing noise
+TwoQubitDepolarizingNoise Two-qubit uniform depolarizing noise
+AmplitudeDampingNoise Single-qubit amplitude damping noise
+Table 1: Partial listing of named gates in Qulacs. These are all deﬁned in thequlacs.gate module. Several gates
+have optimized functions, while others are alias to quantum gates. For the deﬁnition ofU1, U2, and U3, see the
+reference of IBMQ [56]
+4.4 Quantum circuit
+In Qulacs, a quantum circuit is represented
+as a simple array of quantum gates. The
+QuantumCircuit class instantiates quantum cir-
+cuits. The add_gate function inserts a quan-
+tum gate to a circuit with a given position.
+If a position is not given, the gate is ap-
+pended to the last of a quantum circuit. The
+remove_gate function removes a quantum gate
+at a given position. By calling a member function
+update_quantum_state, all the contained quan-
+tum gates are applied to a given state sequen-
+tially.
+When users need to treat paramet-
+ric quantum gates and circuits, the
+ParametricQuantumCircuit class should
+be used, which provides functions to treat
+parameters in quantum circuits. By adding
+ParametricRX, ParametricRY, ParametricRZ,
+and PrametricPauliRotation gates with the
+add_parametric_gate function, their rota-
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 12
+
+tion angles can be set and varied with the
+get_parameter and set_parameter functions.
+Listing.8 shows some examples.
+1 from qulacs import StateVector ,
+QuantumCircuit ,
+P a r a m e t r i c Q u a n t u m C i r c u i t
+2 from qulacs . gate import DenseMatrix , H ,
+CNOT
+3 from qulacs . gate import ParametricRX ,
+ParametricRY , P a r a m e t r i c P a u l i R o t a t i o n
+4
+5 # Create a quantum circuit and add
+quantum gates
+6 n = 5
+7 circuit = Q u a n t u m C i r c u i t ( n )
+8 circuit . add_gate ( D e n s e M a t r i x ([1] ,
+[[0 ,1] ,[1 ,0]]) )
+9 for index in range ( n ) :
+10 circuit . add_gate ( H ( index ) )
+11
+12 # Insert quantum gates into a given
+position
+13 position = 1
+14 circuit . add_gate ( CNOT (2 ,3) , position )
+15
+16 # Remove a quantum gate at a position
+17 position = 0
+18 circuit . r e m o v e _ g a t e ( position )
+19
+20 # Compute the depth of the quantum
+circuit
+21 depth = circuit . c a l c u l a t e _ d e p t h ()
+22
+23 # Get the number of quantum gates
+24 g a t e _ c o u n t = circuit . g e t _ g a t e _ c o u n t ()
+25
+26 # Get a copy of the quantum gate at a
+position
+27 position = 0
+28 gate = circuit . get_gate ( position )
+29
+30 # Update a state vector with the quantum
+circuit
+31 state = S t a t e V e c t o r ( n )
+32 circuit . u p d a t e _ q u a n t u m _ s t a t e ( state )
+33
+34 # Create p a r a m e t r i c quantum circuit
+35 p a r _ c i r c u i t = P a r a m e t r i c Q u a n t u m C i r c u i t ( n
+)
+36 p a r _ c i r c u i t . a d d _ p a r a m e t r i c _ g a t e (
+P a r a m e t r i c R X (0 , 0.1) )
+37 p a r _ c i r c u i t . a d d _ p a r a m e t r i c _ g a t e (
+P a r a m e t r i c R Y (1 , 0.1) )
+38 p a r _ c i r c u i t . a d d _ p a r a m e t r i c _ g a t e (
+P a r a m e t r i c P a u l i R o t a t i o n ([0 ,1] , [1 ,1] ,
+0.1) )
+39
+40 # Get the number of p a r a m e t e r s in the
+quantum circuit
+41 pa r_ co u nt = p a r _ c i r c u i t .
+g e t _ p a r a m e t e r _ c o u n t ()
+42
+43 # Get and set a p ar am et er at a position
+44 index = 0
+45 angle = 0.2
+46 value = p a r _ c i r c u i t . g e t _ p a r a m e t e r ( index )
+47 p a r _ c i r c u i t . s e t _ p a r a m e t e r ( index , angle )
+48
+49 # Get the position of a p a r a m e t r i c gate
+from the index of a pa ra me te r
+50 position = p a r _ c i r c u i t .
+g e t _ p a r a m e t r i c _ g a t e _ p o s i t i o n ( index )
+Listing 8: An example Python program that generates
+quantum circuits and parametric ones.
+4.5 Observable
+In quantum physics, physical values are obtained as an expectation value of a self-adjoint operator
+named observable. In Qulacs, any observableO is represented as a linear combination of Pauli ma-
+trices with real coeﬃcients, i.e.,O = ∑
+PαPP where αP ∈R. A Pauli term in observableαPP is
+constructed with the PauliOperator class. An observable is generated with the Observable class.
+The add_operator function adds a Pauli term to an observable. Then, theget_expectation_value
+function computes the expectation value of an observable according to a given quantum state, and the
+get_transition_amplitude function computes the transition amplitude of an observable according
+to two quantum states.
+A Hamiltonian is an observable for the energy of a quantum system, and a unitary operator for time
+evolution is described as an exponential of the Hamiltonian operator with an imaginary coeﬃcient.
+The add_observable_rotation_gate function adds a set of quantum gates for simulating the time
+evolution under a given Hamiltonian, which is generated with the Trotter decomposition, to a quantum
+circuit.
+Expectation values or transition amplitudes of Hamiltonian of molecules are frequently studied
+in the ﬁeld of NISQ applications [41, 57, 58]. They are usually represented as a linear combi-
+nation of products of fermionic operators. They can be converted to an observable with Pauli
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 13
+
+operators using the Jordan-Wigner transformation [59] or the Bravyi-Kitaev transformation [60],
+which are implemented in OpenFermion [54]. The format of OpenFermion is loaded with the
+create_quantum_operator_from_openfermion_text function, which allows the output of Open-
+Fermion to be interpreted as a format of Qulacs. TheGeneralQuantumOperator class can be used to
+generate observables that are not self-adjoint. Listing.9 shows example codes for treating observables
+and evaluating expectation values.
+1 from qulacs import Observable , PauliOperator , StateVector , Q u a n t u m C i r c u i t
+2 from qulacs . q u a n t u m _ o p e r a t o r import c r e a t e _ q u a n t u m _ o p e r a t o r _ f r o m _ o p e n f e r m i o n _ t e x t
+3
+4 # Co ns tr uc t a Pauli operator
+5 coef = 2.0
+6 P a u l i _ s t r i n g = " X 0 X 1 Y 2 Z 4 "
+7 pauli = P a u l i O p e r a t o r ( Pauli_string , coef )
+8
+9 # Create an o b s e r v a b l e acting on n qubits
+10 n = 5
+11 o b s e r v a b l e = O b s e r v a b l e ( n )
+12 # Add a Pauli operator to the o b s e r v a b l e
+13 o b s e r v a b l e . a d d _ o p e r a t o r ( pauli )
+14 # or directly add it with coef and str
+15 o b s e r v a b l e . a d d _ o p e r a t o r (0.5 , " Y 1 Z 4 " )
+16
+17 # Get the number of terms in the o b s e r v a b l e
+18 t e r m _ c o u n t = o b s e r v a b l e . g e t _ t e r m _ c o u n t ()
+19
+20 # Get the number of qubit on which the o b s e r v a b l e acts
+21 q u b i t _ c o u n t = o b s e r v a b l e . g e t _ q u b i t _ c o u n t ()
+22
+23 # Get a specific term as P a u l i O p e r a t o r
+24 index = 1
+25 pauli = o b s e r v a b l e . get_term ( index )
+26
+27 # Ca lc ul at e the e x p e c t a t i o n value <a | H |a >
+28 state = S t a t e V e c t o r ( n )
+29 state . s e t _ H a a r _ r a n d o m _ s t a t e (0)
+30 expect = o b s e r v a b l e . g e t _ e x p e c t a t i o n _ v a l u e ( state )
+31
+32 # Ca lc ul at e the t r a n s i t i o n a mp li tu de <a | H |b >
+33 bra = S t a t e V e c t o r ( n )
+34 bra . s e t _ H a a r _ r a n d o m _ s t a t e (1)
+35 t ra ns _a mp = o b s e r v a b l e . g e t _ t r a n s i t i o n _ a m p l i t u d e ( bra , state )
+36
+37 # Create a quantum circuit to simulate
+38 # the time e vo lu ti on by a given o b s e r v a b l e
+39 # O b s e r v a b l e is T r o t t e r i z e d with given slice count .
+40 circuit = Q u a n t u m C i r c u i t ( n )
+41 angle = 0.1
+42 t_slice = 100
+43 circuit . a d d _ o b s e r v a b l e _ r o t a t i o n _ g a t e ( obs , angle , t_slice )
+44 circuit . u p d a t e _ q u a n t u m _ s t a t e ( state )
+45
+46 # Load an o b s e r v a b l e from O p e n F e r m i o n text
+47 o p e n _ f e r m i o n _ t e x t = """
+48 ( - 0 . 8 1 2 6 1 0 0 0 0 0 0 0 0 0 0 5 + 0 j ) [] +
+49 ( 0 . 0 4 5 3 2 1 7 5 + 0 j ) [ X0 Z1 X2 ] +
+50 ( 0 . 0 4 5 3 2 1 7 5 + 0 j ) [ X0 Z1 X2 Z3 ] +
+51 ( 0 . 0 4 5 3 2 1 7 5 + 0 j ) [ Y0 Z1 Y2 ] +
+52 ( 0 . 0 4 5 3 2 1 7 5 + 0 j ) [ Y0 Z1 Y2 Z3 ] +
+53 ( 0 . 1 7 1 2 0 1 0 0 0 0 0 0 0 0 0 0 2 + 0 j ) [ Z0 ] +
+54 ( 0 . 1 7 1 2 0 1 0 0 0 0 0 0 0 0 0 0 2 + 0 j ) [ Z0 Z1 ] +
+55 ( 0 . 1 6 5 8 6 8 + 0 j ) [ Z0 Z1 Z2 ] +
+56 ( 0 . 1 6 5 8 6 8 + 0 j ) [ Z0 Z1 Z2 Z3 ] +
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 14
+
+57 ( 0 . 1 2 0 5 4 6 2 5 + 0 j ) [ Z0 Z2 ] +
+58 ( 0 . 1 2 0 5 4 6 2 5 + 0 j ) [ Z0 Z2 Z3 ] +
+59 ( 0 . 1 6 8 6 2 3 2 5 + 0 j ) [ Z1 ] +
+60 ( - 0 . 2 2 2 7 9 6 4 9 9 9 9 9 9 9 9 9 8 + 0 j ) [ Z1 Z2 Z3 ] +
+61 ( 0 . 1 7 4 3 4 9 2 5 + 0 j ) [ Z1 Z3 ] +
+62 ( - 0 . 2 2 2 7 9 6 4 9 9 9 9 9 9 9 9 9 8 + 0 j ) [ Z2 ]
+63 """
+64 obs_of = c r e a t e _ q u a n t u m _ o p e r a t o r _ f r o m _ o p e n f e r m i o n _ t e x t ( o p e n _ f e r m i o n _ t e x t )
+Listing 9: An example Python program that generates and evaluates observables.
+5 Optimizations
+In this section, we discuss possible performance
+bottlenecks in quantum simulation, and discuss
+several optimization techniques for diﬀerent com-
+puting devices.
+5.1 Background
+Since an application of a quantum gate is a large
+number of simple iterations, a time for circuit
+simulation can be roughly estimated as the sum
+of constant-time overheads for invoking functions
+and times for processing arithmetic and memory
+operations. Several factors such as an overhead
+to call C++ function via python interfaces, func-
+tions with parallelization, and GPU kernels in-
+cur additional overheads in computation. These
+additional overheads are quantitatively discussed
+later in Sec.6. The times for processing arith-
+metic and memory operations are determined by
+the number of operations divided by throughput.
+For the time for arithmetic operations, the num-
+ber of operations that can be processed in a unit
+second is vital, which is known as ﬂoating-point
+operations per second (FLOPS). To process com-
+plex numbers in the CPU, we need to load com-
+plex numbers representing quantum states from
+the CPU cache or main RAM to the CPU reg-
+isters. The size of data per unit time that we
+can transfer between a memory and processor is
+calledthebandwidthofthememory. Letthetime
+for the additional overheads beTover, the number
+of arithmetic operations beNcom, the number of
+memory operations beNmem, the FLOPS of CPU
+be VFLOPS, and the memory bandwidth, i.e., the
+number of complex numbers which we can trans-
+fer, be VBW. Tover is determined by a design of
+a library, Nmem and Ncom are determined by a
+quantum gate to apply, andVFLOPS andVBW are
+determined by a computing device. Then, an ap-
+proximate total time for applying a quantum gate
+Tgate is lower bounded as
+Tgate≥Tover + max(Ncom/VFLOPS,N mem/VBW)
+(10)
+whencomputationandmemoryoperationsdonot
+block each other. While actual processing is not
+necessarily simpliﬁed to this equation, estimation
+with this equation works well when we develop a
+quantum circuit simulator.
+To develop a quantum circuit simulator satis-
+fying the demands shown in Sec.3, we can ﬁnd
+several basic directions from this equation. In the
+case of a small number of qubits,Tover becomes
+a dominant factor. Thus, the pre- and post-
+processing for applying quantum gates should be
+minimized. In Qulacs, every core function is de-
+signed to minimize overheads. When the number
+of qubitsn increases, values ofNcom/VFLOPS and
+Nmem/VBW grow exponentially to n, and they
+become larger than the overheadTover. In this
+region, the valuesNcom/VFLOPS and Nmem/VBW
+should be minimized. If there are two ways to
+update quantum states, and if one has smaller
+Ncom and Nmem than the other, the ﬁrst one
+should be chosen to minimize Tgate. To this
+end, Qulacs provides several specialized update
+functions that utilize the structure of gate ma-
+trices as introduced in Sec.4. In this section,
+we show four additional techniques to minimize
+Tgate when Ncom/VFLOPS and Nmem/VBW are
+dominant: SIMD Optimization, multi-threading
+withOpenMP,quantumcircuitoptimization, and
+GPU acceleration.
+5.2 SIMD optimization
+Recent processors support SIMD (single-
+instruction, multiple data) instructions, which
+can apply the same operation to multiple data
+simultaneously. Qulacs utilizes instructions
+named Intel AVX2 [61], in which up to 256-bit
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 15
+
+data can be processed simultaneously. When
+a quantum state is represented as an array of
+double-precision real values, we can load, store,
+and process four real values (i.e. two complex
+numbers) simultaneously. Thus, the use of AVX2
+can reduce the number of instructionsNcom by a
+factor of four at most. In Qulacs, several update
+functions are optimized with AVX2 instructions
+by hand. When Qulacs is being installed, the
+installer checks if a system supports such a
+feature. If it is supported, the library is built
+with AVX2 instructions enabled.
+Here, we discuss our SIMD optimization tech-
+niques using dense matrix gates. However, it is
+worth noting that our techniques are applicable
+to the other quantum gates. The naive imple-
+mentation of dense matrix gates is shown in List-
+ing.4. We implemented two SIMD versions of the
+B1-loop. When all the indices of the target qubits
+are large, it is not possible to SIMDize it as it is
+because the state vector elements required in one
+iteration of theB0-loop are scattered across non-
+contiguous memory locations. However, since the
+value of the adjacent memory location is always
+loaded in the next iteration, we unroll theB0-
+loop according to the number of target qubits to
+enable AVX2’s SIMD load/store operations. On
+the other hand, when there is a target qubit with
+a small index, we can SIMDize it without such
+an unrolling because the required state vector el-
+ements are already adjacent. Note that the over-
+head of enumeratingB0 and B1 is not negligible
+when the number of target qubitsm is small. We
+reduce the cost of the enumeration ofB0 andB1
+as follows: Instead of listing all the items inB0
+beforehand, the i-th element ofB0 is computed
+from the indexi in each iteration using bit-wise
+operation techniques. In contrast, the list ofB1 is
+computed before theB0-loop since the size ofB1
+is typically small. This implementation is useful
+for parallelizing iterations with multi-threading
+by OpenMP, which is explained in the Sec.5.3.
+When a gate matrix has a structure and basic
+gates other than a dense matrix can be utilized,
+anupdatedstatevectorcanbecalculatedwithout
+matrix-vector multiplication, and thus a diﬀerent
+optimization is applied.
+5.3 Multi-threading with OpenMP
+Since recent CPUs contain multiple processing
+cores, executing iterations in update and eval-
+uation functions in parallel can increase the ef-
+fective instruction throughputVFLOPS. The use
+of multiple cores is eﬀective particularly when
+FLOPS is a performance bottleneck (compute-
+bound), and each core has a certain amount of
+workload. Qulacs parallelizes the execution of
+update functions using OpenMP directives [62].
+The number of threads used in these func-
+tions can be controlled with environment vari-
+able OMP_NUM_THREADS. The naive implementa-
+tion shown in Listing.4 consists of two loops:
+B0-loop andB1-loop. In Qulacs, the B0-loop is
+parallelized to maximize the amount of workload
+for each core and to minimize the overhead in-
+curred by multi-threading. Speciﬁcally, the par-
+allelized loop iterates over[0..2n−m−1] and the
+iteration space is chunked intoT chunks, where
+T is the number of threads. In the loop body, the
+i-th element ofB0 is computed on-the-ﬂy from
+the loop index, which enables the even distribu-
+tion of workload across threads. In contrast, the
+list ofB1 is created before executing the parallel
+loop. While the data ofB1 is accessed from ev-
+ery thread, its overhead is expected to be not so
+high becauseB1 is not updated during the loop
+and its size|B1|= 2 m is typically small enough
+to store within CPU registers or caches. A buﬀer
+for a temporal state vector (temp_vector in List-
+ing.4) is a thread-local array that can be read
+and written by each thread independently. Thus,
+a buﬀer space forT×2m data is allocated be-
+fore the B0-loop, so that each 2m block can be
+used by a corresponding thread, and is deallo-
+cated at the end of the parallel loop. Note that
+whenn andm are small, the amount of workload
+for each thread becomes small. In that case, the
+overhead due to multi-threading becomes larger
+than the speed-up by multi-threading. Therefore,
+Qulacs automatically disables multi-threading if
+the number of qubitsn is smaller than a thresh-
+old value even whenOMP_NUM_THREADS is set to
+2 or more. This threshold value is empirically
+determined according to the number ofm and a
+type of basic gates.
+5.4 Circuit optimization
+When the SIMD and multi-threading with
+OpenMP are enabled, a time for processing arith-
+metic operations Ncom/VFLOPS becomes smaller
+than that for processing memory operations
+Nmem/VBW, and a computing time Tgate is de-
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 16
+
+voted to transferring data between the main
+RAM or CPU cache and the CPU. Circuit opti-
+mization is a technique to tradeNmem andNcom,
+i.e., we can reduceNmem by sacriﬁcingNcom with
+a circuit optimization technique. For simplicity,
+we suppose the case when we are given a quan-
+tum circuit that consists only of dense matrix
+gates. As we discussed in Sec.4, the number of
+arithmetic operations for a dense matrix gate act-
+ing on a set of qubitsM increases as 2n+|M|and
+that of memory operations as2n. We suppose a
+situation where we need to apply two successive
+dense matrix gates which act on a set of qubits
+M1 and M2, where|M2|≤|M1|≪n. Here, we
+can merge these two quantum gates to a single
+quantum gate and apply it to a quantum state
+instead of applying two gates one by one. Then,
+thenumberofarithmeticoperationschangesfrom
+2n+|M1|+ 2 n+|M2|to 2n+|M1∪M2|, and the num-
+ber of memory operations changes from2n+1 to
+2n. Note that while there is a cost for comput-
+ing a gate matrix of a merged quantum gate,
+the complexity for computing the gate matrix is
+at most O(23|M1∪M2|), which is negligible com-
+pared with the cost for applying quantum gates
+to quantum states when|M1∪M2|≪n. Thus,
+we can halve the number of memory operations
+by multiplying that of arithmetic operations by
+2|M1∪M2|−|M1|. Thismeanswhen M2 isasubsetof
+M1, we can decrease the number of memory oper-
+ations with a negligible penalty. Even if there is a
+penalty, we should perform merge operations un-
+tilNmem/VBW is balanced toNcom/VFLOPS. The
+optimal size of merged quantum gates is relevant
+to a value ofVBW divided by VFLOPS, which is
+called a BF ratio. Although the BF ratio varies
+depending on a chosen CPU and memory and
+the best strategy is dependent on the structure
+of given quantum circuits, it is typically optimal
+tomergequantumgatesuntileveryquantumgate
+acts on at most two qubits in the case of random
+quantum circuits.
+To minimize the time for simulating quantum
+circuits with this technique, Qulacs provides the
+gate.mergefunctiontocreateamergedquantum
+gate from two basic gates. Themerge_all func-
+tion of QuantumCircuitOptimizer class merges
+all the basic quantum gates in a given quantum
+circuittoasinglegate. WhileQulacsexpectsthat
+this kind of optimization should be performed by
+the user according to the tasks, Qulacs provides
+two strategies to quickly merge several quantum
+gates in quantum circuits: light and heavy opti-
+mizations. The light optimization ﬁnds a pair of
+gates such that they are neighboring and target
+qubits of one gate is a subset of the other with
+a greedy algorithm and merge it. As discussed,
+such a pair of gates can be merged without any
+penalty. By contrast, the heavy optimization
+merges two quantum gates when the following
+conditions are satisﬁed; two gates can be moved
+to neighboring positions by repetitively swap the
+commutative quantum gates, and the number of
+target qubits of the merged quantum gate is not
+larger than the given block size. While the heavy
+optimization can decrease the number of quan-
+tum gates compared to the light optimization, it
+consumes a longer time for optimization. When
+we measure a time for optimization as a part of
+the simulation time, overall performance bene-
+ﬁts from the heavy optimization varies depending
+on the structure of quantum circuits and com-
+puting devices. Note that every quantum gate
+keeps the information about commutable Pauli-
+basis for each qubit index. For example, a CNOT
+gate can commute with the Pauli-Z basis at the
+controlled qubit and with the Pauli-X basis at
+the target qubit. By utilizing this information,
+the heavy optimization can check whether two
+quantum gates can commute or not quickly. Note
+that several quantum gates such as CPTP-maps
+and parametric quantum gates cannot be merged
+in the optimization process. Listing.10 shows ex-
+ample codes for circuit optimization.
+1 from qulacs import StateVector ,
+Q u a n t u m C i r c u i t
+2 from qulacs . gate import RandomUnitary ,
+CNOT , merge
+3 from qulacs . circuit import
+Q u a n t u m C i r c u i t O p t i m i z e r
+4 n = 4
+5 gate1 = R a n d o m U n i t a r y ([0 ,1])
+6 gate2 = R a n d o m U n i t a r y ([2 ,1])
+7
+8 # Create a merged gate
+9 m e r g e d _ g a t e = merge ( gate1 , gate2 )
+10
+11
+12 # Create an example circuit
+13 l a y e r _ c o u n t = 5
+14 circuit = Q u a n t u m C i r c u i t ( n )
+15 for l a y e r _ i n d e x in range ( l a y e r _ c o u n t ) :
+16 for index in range ( n ) :
+17 circuit . add_gate ( R a n d o m U n i t a r y ([
+index ]) )
+18 for index in range ( l a y e r _ i n d e x %2 , n -1 ,
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 17
+
+2) :
+19 circuit . add_gate ( CNOT ( index , index
++1) )
+20
+21 for index in range ( n ) :
+22 circuit . add_gate ( R a n d o m U n i t a r y ([ index
+]) )
+23
+24 # Optimize the quantum circuit
+25 o pt im iz er = Q u a n t u m C i r c u i t O p t i m i z e r ()
+26 # # Merge all the gates to a single
+unitary
+27 w h o l e _ u n i t a r y = o pt im iz er . m er ge _a ll (
+circuit )
+28 # # Light o p t i m i z a t i o n
+29 c i r c u i t _ o p t 1 = circuit . copy ()
+30 o pt im iz er . o p t i m i z e _ l i g h t ( c i r c u i t _ o p t 1 )
+31 # # Heavy o p t i m i z a t i o n
+32 c i r c u i t _ o p t 2 = circuit . copy ()
+33 o pt im iz er . optimize ( circuit_opt2 ,
+b l o c k _ s i z e =3)
+Listing 10: An example Python program that performs
+circuit optimization.
+5.5 GPU acceleration
+A GPU is a computing device that has a higher
+memory bandwidth than a CPU, and it also has
+higher peak performance than a CPU since a
+GPU has a large number of processing cores.
+Therefore, it is possible that a quantum simula-
+tion on a GPU is signiﬁcantly faster than that on
+a CPU in certain cases. Also, since a GPU has
+several types of memories with diﬀerent perfor-
+mance characteristics, it is important to consider
+how to access and where to place state vectors
+and gate matrices for achieving the performance
+close to the peak FLOPS. Here, we discuss op-
+timization techniques for NVIDIA GPUs, How-
+ever, our techniques should apply to other GPUs
+such as AMD GPUs. In NVIDIA GPUs, there
+are six types of memories in a GPU: registers,
+shared memory, local memory, constant memory,
+texture memory, and global memory. Qulacs uses
+registers, shared memory, constant memory, and
+global memory for calculation. The global mem-
+ory has the largest capacity but has the highest
+latency and lowest bandwidth in the memories.
+By contrast, the registers can be accessed with
+the lowest latency in the memories but their ca-
+pacity is limited. The shared memory is a mem-
+ory that is shared by and synchronized among
+threads in a block. This memory has a larger
+capacity than the registers and has higher band-
+width and lower latency than the global mem-
+ory. The constant memory is a memory that is
+read-only for GPU kernels and writable from a
+CPU host. Since memory accesses to the con-
+stant memory are cached, we can use the con-
+stant memory as a read-only memory of which
+the bandwidth and latency are almost the same
+as those of the registers and the capacity is larger
+than the registers. In our implementation, a
+whole state vector is allocated in the global mem-
+ory since the size of the other memories is typi-
+cally not suﬃcient for storing the state vector. In
+each iteration, a gate matrix, which consists of
+4m complex numbers, and a temporal state vec-
+tor, which consists of2m complex numbers of the
+whole state vector (i.e., a variabletemp_vector
+in Listing.4), should be temporally stored in a
+high-bandwidth memory to minimize the time for
+memoryoperations. Tothisend, inQulacs, mem-
+ories used for storing a gate matrix and a tempo-
+ral state vector is chosen according to the number
+of target qubits. The memory used for storing a
+temporal state vector is chosen as follows: When
+the number of target qubits is no more than four,
+we expect that a temporal state vector is fetched
+from the global memory to registers and arith-
+metic operations are performed in each thread.
+When the number of target qubits is between ﬁve
+to eleven, a temporal state vector is loaded to the
+shared memory since it must be synchronized in
+the block. Otherwise, a temporal state vector
+is allocated on the global memory, and matrix-
+vector multiplication is performed with that. The
+memory used for storing a gate matrix is chosen
+as follows: If the number of the target qubits is
+no more than three, it tends to be placed in regis-
+tersbythecompilerbygivingelementsofthegate
+matrix as arguments of the function call. When
+the number of target qubits is four or ﬁve, we
+use constant memory since a gate matrix is com-
+mon and constant for all the threads. When the
+number of qubits is six or more, gate matrices are
+stored in the global memory.
+A state vector can be allocated on a GPU with
+the StateVectorGpu class. When the computing
+node has multiple GPUs, the index of GPU to al-
+locate state vectors can be identiﬁed with the sec-
+ondargumentoftheconstructorfunction. Oncea
+state vector is allocated on a GPU, every process-
+ing on it is performed with the selected GPU un-
+less a state vector is converted toStateVector.
+Hence, multiple tasks can be simulated with mul-
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 18
+
+tiple GPUs simultaneously. Listing.9 shows ex-
+ample codes for GPU computing.
+1 from qulacs import StateVectorGpu ,
+S t a t e V e c t o r
+2 from qulacs . gate import H , CNOT
+3
+4 # Create a state vector within the 0 - th
+GPU .
+5 n = 10
+6 gpu_id = 0
+7 state = S t a t e V e c t o r G p u (n , gpu_id )
+8
+9 # Apply Hadamard and CNOT gates to
+S t a t e V e c t o r on GPU
+10 H (0) . u p d a t e _ q u a n t u m _ s t a t e ( state )
+11 CNOT (0 ,1) . u p d a t e _ q u a n t u m _ s t a t e ( state )
+12
+13 # Load the state vector on GPU to main
+RAM
+14 s ta te _c pu = S t a t e V e c t o r ( n )
+15 s ta te _c pu . load ( state )
+16
+17 # Get the state vector as numpy array
+18 n u m p y _ a r r a y = state . g e t _ v e c t o r ()
+Listing 11: An example Python program that creates
+and manipulates quantum states within a GPU.
+6 Numerical performance
+Here, we compare the simulation times for sev-
+eral computing tasks with Qulacs using vari-
+ous types of settings. For the benchmark, we
+use Qulacs 0.2.0 with Python 3.8.5 on Ubuntu
+20.04.1 LTS. Qulacs is is compiled with GNU
+Compiler Collection (GCC) 9.3.0 and with the
+options: -O2 -mtune=native -march=native
+-mfpmath=both. Benchmarks are conducted us-
+ing a workstation with two CPUs and a processor
+name of Intel(R) Xeon(R) Platinum 8276 CPU
+@ 2.20 GHz, which has 28 physical cores. Thus,
+there are 56 physical cores in total. The cache
+size of each CPU is 39,424 KB. GPU benchmarks
+are performed with NVIDIA Tesla V100 SXM2
+32GB, where the driver version is 440.100 and
+the CUDA version is 10.2. Since CUDA 10.2 is
+not compatible with GCC 9.3.0, binaries for GPU
+benchmarks are compiled with GCC 8.4.0. The
+following benchmarks are performed with Python
+unless speciﬁed otherwise. To evaluate the execu-
+tion times of Python functions, we use pytest [7]
+with the default settings and use the minimum
+execution time for several runs. For C++ func-
+tions, we measure time with thestd::chrono li-
+brary. We repeat functions until the sum of times
+is 1 second or a function is executed103 times.
+Thenwetakeuseaveragetimeforthebenchmark.
+6.1 Performance of basic gates
+First, we compare the times for applying basic
+gates via Python interfaces. Figure2 shows the
+time to apply gates as a function of the number
+of total qubits. The post-ﬁx of legends such as
+Q1 represents the number of target qubits. Note
+that the time of the sparse matrix gate depends
+on the number of non-zero elements. We choose a
+matrix such that the top leftmost element is unity
+and the others are zero. All computational times
+grow exponentially with the number of qubits.
+When the number of qubits is small, the times for
+applying each quantum gate converge to a certain
+value, which is because of the overhead for calling
+C++ functions from Python. This overhead is
+evaluated in Sec.6.3.
+The times for dense matrix gates also grow ac-
+cording to the number of target qubitsm. Note
+that the times form = 1, 2 are much faster than
+those for m ≥3. This is because speciﬁc op-
+timization is performed for dense matrix gates
+with m = 1 , 2. They show almost the same
+values since the bottleneck in their simulation
+times is not due to arithmetic-operation costs but
+memory-operation costs, which are independent
+of the number of target qubits.
+As expected, the times for diagonal matrix
+gates, Pauli rotation gates, and Permutation
+gates are independent of the number of target
+qubitsm. Note that the time for diagonal matrix
+gate withm = 1 is much faster than the otherm
+since speciﬁc optimization is performed for diago-
+nal matrix gates withm = 1. Thus, diagonal ma-
+trix gates should be used instead of dense matrix
+gates when the number of target qubits is large.
+Note that the times for permutation gates are
+much slower because a given reversible Boolean
+function is a Python function and its execution
+time has a large overhead compared with a func-
+tion written in C++ language. Using the Qulacs
+asaC++libraryshouldenhancetheperformance
+of permutation gates.
+For sparse gates, the simulation time decreases
+according to the number of gates, as expected.
+Although the computational costs of controlled
+gates (i.e., Pauli-X, CNOT, TOFFOLI, and CC-
+CNOT where CCCNOT is a bit-ﬂip gate con-
+trolled by three qubits) should decrease as the
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 19
+
+5 10 15 20 25
+# of qubits
+10 6
+10 5
+10 4
+10 3
+10 2
+10 1
+100
+101
+Time [sec]
+X
+CNOT
+TOFFOLI
+CCCNOT
+DenseMatrix1Q
+DenseMatrix2Q
+DenseMatrix3Q
+DenseMatrix4Q
+DiagonalMatrix1Q
+DiagonalMatrix2Q
+DiagonalMatrix3Q
+DiagonalMatrix4Q
+SparseMatrix1Q
+SparseMatrix2Q
+SparseMatrix3Q
+SparseMatrix4Q
+Permutation1Q
+Permutation2Q
+Permutation3Q
+Permutation4Q
+PauliRotation1Q
+PauliRotation2Q
+PauliRotation3Q
+PauliRotation4Q
+Figure 2: Times for applying basic gates are plotted as a function of the total number of qubits.
+The post-ﬁx such as 1Q represents the number of target qubits. CCCNOT means a Pauli-X
+gate controlled by three qubits.
+5 10 15 20 25
+# of qubits
+10 6
+10 5
+10 4
+10 3
+10 2
+10 1
+100
+Time [sec]
+DenseMatrix1Q
+CPTP1Q
+Instrument1Q
+Probabilistic1Q
+Figure 3: Times for applying general quantum maps are plotted as a function of the total number
+of qubits.
+number of control qubits increases, they do not
+show a clear scaling. This is because Pauli-X and
+CNOT gates have SIMD optimized functions and
+because the bottleneck of their computing times
+is due to the memory-operation cost rather than
+the arithmetic-operation cost. Note that there
+are jumps at 17 and 22 qubits in the plots of con-
+trolled gates. This is because the memory size
+of the state vector exceeds the cache size, which
+causes discontinuous changes of the bandwidth
+for memory operations.
+6.2 Performance of general quantum maps
+Next, we compare the simulation times for dense
+matrix gates with general single-qubit quantum
+maps: CPTP-map, instrument, and probabilistic
+gates. We choose a quantum map such that one
+of two dense matrix gates is chosen with a prob-
+ability of 0.5 as a benchmark target of a CPTP-
+map and probabilistic gates. We also choose the
+Z-basis measurement as that of an instrument.
+Figure3 shows the benchmark results. The prob-
+abilistic map has a similar performance to the
+dense matrix gate since it only requires overhead
+to randomly draw a gate whose probability is
+known in advance. On the other hand, CPTP-
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 20
+
+map and instrument are about 10 times slower.
+This is because they must not only calculate the
+probabilities of the Kraus operators but also al-
+locate and release a temporal buﬀer to compute
+them.
+6.3 Overhead due to a function call from
+Python
+While Qulacs is written in C++ language, its
+functions can be called from Python. However,
+there is an overhead for calling a C++ function
+from Python. In the case of small quantum cir-
+cuits, this overhead is not negligible. To eval-
+uate this overhead, we compare the times for
+Qulacs with the Python interfaces to those for
+Qulacs without the Python interfaces. Figure4
+shows the results. Although we made eﬀorts to
+minimize the overhead due to Python interfaces,
+Qulacs still consumes about 0.3µs to call C++
+functions from Python. This overhead is not neg-
+ligible when the number of qubits is below 10.
+Thus, using Qulacs as a C++ library should in-
+crease the speed up to about seven times when
+the number of qubits is small.
+6.4 Speed-up by SIMD, OpenMP, and GPU
+We then evaluate performance improvement us-
+ing the SIMD optimization, multi-threading with
+OpenMP, and GPU acceleration. We test
+the following settings: single-thread without
+SIMD, single-thread with SIMD, multi-thread
+with SIMD, and computing on a single GPU. Fig-
+ure5 shows the times for applying dense matrix
+gates with several numbers of target qubits. The
+SIMD variants are always faster than the exe-
+cution times without SIMD optimization. The
+OpenMP variant shows better performance when
+the number of qubits is greater than about 14
+for m = 1, 2 and about 10 form = 3, 4. Note
+thatsincemulti-threadingincreasestheoverhead,
+and this overhead is not negligible in the case of
+a small number of qubits, Qulacs automatically
+uses the function without OpenMP in such cases.
+This is because the times for the OpenMP variant
+changes at a certain point. The GPU variants sig-
+niﬁcantly improve the computing time when the
+number of qubits is large, but it requires about
+10 µs overhead.
+6.5 Parallelization eﬃciency
+We discuss the parallelization eﬃciency of multi-
+threading with OpenMP. Figure6 shows the ex-
+ecution time relative to the execution time of
+single-thread run with its standard error. We de-
+note this ratio as parallelization eﬃciency, which
+becomes equal to the number of threads in the
+case of the linear speed-up. This ideal line is
+plottedasblacklinesintheﬁgure. Sincetheover-
+head of parallelization becomes dominant whenn
+is small, Qulacs automatically disables the multi-
+threading whenn is smaller than about 13. Thus,
+we performed benchmark fromn = 15 ton = 25.
+While we show the case of two-qubit gates, its
+behavior is almost the same as the case of single-
+qubit gates. Note that this evaluation is per-
+formed on the two CPUs workstation, each of
+which has 28 physical core, resulting in 56 phys-
+ical cores in total. We vary the number of avail-
+able threads from 1 to 56 withOMP_NUM_THREADS.
+When the number of qubits is n = 15 , the
+parallelization eﬃciency saturates around thread
+numbert = 10, and then decreases as the number
+of threads increases due to the overhead of par-
+allelization. As the number of qubits increases,
+the granularity of the arithmetic and memory
+operations becomes coarser, and the paralleliza-
+tion eﬃciency improves gradually. Then, the per-
+formance trend drastically changes at n = 22 ,
+where the performance improves beyond the lin-
+ear speed-up. This can be explained with the size
+of cache and state vector; Our benchmark ma-
+chine has two CPUs and each CPU has 40 MB
+L3 cache, and the size of the state vector is
+67 MB at n = 22 , respectively. Thus, this is
+an exceptional situation where the whole state
+vector can reside in the L3 cache when we use
+two or more threads, assuming thread N goes
+to CPU N %2 (OMP_PLACES=socket). Thus, in
+this situation, the eﬀective bandwidth is super-
+linearly increased compared to the single-thread
+case. While the amount of speed-up depends on
+the index of quantum gates, we always observed
+super-linear speed-up atn = 22 due to this rea-
+son. To validate this explanation, we also per-
+formed the evaluation withOMP_PLACES=cores;
+OMP_PROC_BIND=close. These environment vari-
+ables force CPUs to use a single CPU until the
+number of threads is below the number of physi-
+cal cores per CPU, and use two CPUs the number
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 21
+
+5 10 15 20 25
+# of qubits
+10 7
+10 6
+10 5
+10 4
+10 3
+10 2
+10 1
+100
+Time [sec]
+Python DenseMatrix1Q
+Python DenseMatrix2Q
+Python DenseMatrix3Q
+Python DenseMatrix4Q
+CPP DenseMatrix1Q
+CPP DenseMatrix2Q
+CPP DenseMatrix3Q
+CPP DenseMatrix4Q
+Figure 4: Times of function calls for applying dense matrix gates via python and C++ are
+compared.
+5 10 15 20 25
+# of qubits
+10 6
+10 5
+10 4
+10 3
+10 2
+10 1
+100
+Time [sec]
+SingleThread NoSIMD DenseMatrix1Q
+SingleThread NoSIMD DenseMatrix2Q
+SingleThread NoSIMD DenseMatrix3Q
+SingleThread NoSIMD DenseMatrix4Q
+SingleThread SIMD DenseMatrix1Q
+SingleThread SIMD DenseMatrix2Q
+SingleThread SIMD DenseMatrix3Q
+SingleThread SIMD DenseMatrix4Q
+MultiThread SIMD DenseMatrix1Q
+MultiThread SIMD DenseMatrix2Q
+MultiThread SIMD DenseMatrix3Q
+MultiThread SIMD DenseMatrix4Q
+GPU DenseMatrix1Q
+GPU DenseMatrix2Q
+GPU DenseMatrix3Q
+GPU DenseMatrix4Q
+Figure 5: Times for applying dense matrix gates with several optimization settings are plotted
+as a function of the total number of qubits.
+of threads exceeds it. Figure7 shows the perfor-
+mance with these options. We see that there is no
+improvement beyond the linear speed-up with a
+single CPU, and the performance drastically im-
+proves fromt > 28, which allows using the two
+CPUs. This behavior agrees with our explana-
+tion.
+When the number of qubits becomes larger
+thann = 22, the parallelization eﬃciency quickly
+reduces again. This is because the whole state
+vector cannot be stored in the cache in this re-
+gion, andcommunication between the main RAM
+and CPUs is required. This reduces the eﬀective
+bandwidth and the memory operation costs be-
+come dominant in the execution time. Since the
+multi-threading improves mainly the arithmetic
+operation costs, the advantage of parallelization
+becomes small.
+6.6 Circuit optimization
+We evaluate the performance of two circuit opti-
+mizationstrategies. Here, wechoosethefollowing
+random quantum circuits for the benchmark. An
+n-qubit random quantum circuit consists ofnlay-
+ers. Ineachlayer, threerandomrotations( RZ, RX,
+RZ) act on each qubit, and controlled-Z gates are
+applied to each neighboring qubit. Whether the
+starting index of the controlled-Z gates is even or
+odd depends on the index of the layer. Finally,
+three random rotations act on each qubit. List-
+ing.12 shows the source code to generate random
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 22
+
+0 10 20 30 40 50
+# of threads
+0
+10
+20
+30
+40
+50
+60
+70Parallelization efficiency (ratio to single thread)
+linear speedup
+DenseMatrix2Q n=15
+DenseMatrix2Q n=16
+DenseMatrix2Q n=17
+DenseMatrix2Q n=18
+DenseMatrix2Q n=19
+DenseMatrix2Q n=20
+DenseMatrix2Q n=21
+DenseMatrix2Q n=22
+DenseMatrix2Q n=23
+DenseMatrix2Q n=24
+DenseMatrix2Q n=25
+Figure 6: Times for applying dense matrix gates with several numbers of gates are plotted as a
+function of the total number of threads.
+0 10 20 30 40 50
+# of threads
+0
+10
+20
+30
+40
+50
+60Parallelization efficiency (ratio to single thread)
+linear speedup
+DenseMatrix2Q n=15
+DenseMatrix2Q n=16
+DenseMatrix2Q n=17
+DenseMatrix2Q n=18
+DenseMatrix2Q n=19
+DenseMatrix2Q n=20
+DenseMatrix2Q n=21
+DenseMatrix2Q n=22
+DenseMatrix2Q n=23
+DenseMatrix2Q n=24
+DenseMatrix2Q n=25
+Figure 7: Times for applying dense matrix gates with several numbers of gates are plotted as a
+function of the total number of threads, where the setting of thread aﬃnity is changed.
+circuits.
+1 import numpy as np
+2 from qulacs import Q u a n t u m C i r c u i t
+3 from qulacs . gate import RX , RZ , CZ
+4 def g e n e r a t e _ r a n d o m _ c i r c u i t ( nqubits : int
+, depth : int ) -> Q u a n t u m C i r c u i t :
+5 qc = Q u a n t u m C i r c u i t ( nqubits )
+6 for l a y e r _ c o u n t in range ( depth +1) :
+7 for index in range ( nqubits ) :
+8 angle1 = np . random . rand () * np . pi *2
+9 angle2 = np . random . rand () * np . pi *2
+10 angle3 = np . random . rand () * np . pi *2
+11 qc . add_gate ( RZ ( index , angle1 ) )
+12 qc . add_gate ( RX ( index , angle2 ) )
+13 qc . add_gate ( RZ ( index , angle3 ) )
+14 if l a y e r _ c o u n t == depth :
+15 break
+16 for index in range ( l a y e r _ c o n u t %2 ,
+nqubits -1 , 2) :
+17 qc . add_gate ( CZ ( index , index +1) )
+18 return qc
+Listing 12: An Python program that generates random
+quantum circuits for our benchmark.
+We simulate these circuits by enabling SIMD op-
+timizations and disabling OpenMP. We choose
+a block size of two for the heavy optimizations.
+Figure8 shows the simulation times for these cir-
+cuits, where the solid and dashed lines exclude
+and include the circuit optimization time, respec-
+tively. When the circuit optimization time is ig-
+nored, the performance of the heavy optimization
+is slightly better than that of the light optimiza-
+tion. However, when the optimization time is in-
+cluded in the computing time, there is no advan-
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 23
+
+4 6 8 10 12 14 16 18 20
+# of qubits
+10 6
+10 5
+10 4
+10 3
+10 2
+10 1
+100
+Time [sec]
+No Optimization
+Light Optimization (+opt_time)
+Light Optimization
+Heavy Optimization (+ opt time)
+Heavy Optimization 
+Figure 8: Times for simulating random quantum circuits are plotted with several strategies of
+quantum circuit optimization. "+ opt time" in legend represents that its plot includes a time for
+circuit optimization.
+4 6 8 10 12 14 16 18 20
+# of qubits
+10 5
+10 4
+10 3
+10 2
+10 1
+Time [sec]
+No Optimization
+Light Optimization (+opt_time)
+Light Optimization
+Heavy Optimization (+ opt time)
+Heavy Optimization 
+Figure 9: Times for simulating random quantum circuits dominated by commutative gates are
+plotted with several strategies of quantum circuit optimization.
+tage in the heavy optimization. Thus, the light
+optimization (or no optimization) is more suit-
+able in cases when a merged circuit is used only
+a few times.
+Since the heavy optimization looks for pairs
+of quantum gates that can be merged consider-
+ing commutation relations of gates, it is eﬀec-
+tive when there are many commutative gates in
+quantum circuits. When the three rotations (RZ,
+RX, RZ) are replaced with a single rotationRZ, all
+gates in quantum circuits become commutative in
+theZ-basis. In such a case, quantum circuits can
+be compressed to a constant depth by considering
+commutation relations. Figure9 shows the simu-
+lation times for these circuits. As expected, the
+heavy optimization is eﬀective in this case even if
+the optimization time is taken into account.
+7 Comparison with existing simulators
+In this section, we compare the performance of
+Qulacs with that of existing libraries under the
+settings of single-thread, multi-thread, and with
+GPUacceleration. Wecreateabenchmarkframe-
+work based on Ref.[63], of which the benchmark
+codes are reviewed by contributors of each li-
+brary. This repository chooses the following ran-
+dom quantum circuits for the benchmark: Sup-
+pose we generate n-qubit random circuits. A
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 24
+
+layer with randomRZ, RX, RZ rotations on each
+qubit is named a rotation layer. A layer with
+CNOT gates acting on thei-th qubit as a target
+qubit and (i + 1 mod n)-th qubit as a control
+qubit for (0≤i<n ) is named a CNOT layer. In
+a random circuit, a rotation layer and a CNOT
+layer are alternately repeated ten times, and a
+rotation layer follows it. Note that the ﬁrstRZ
+rotations for all the qubits in the ﬁrst rotation
+layer and the lastRZ rotations in the last rotation
+layer are eliminated since they are meaningless if
+a quantum state is prepared in|0⟩⊗n and mea-
+sured in the Pauli-Z basis. See Refs.[63, 64] for
+source codes for circuit generation. The bench-
+marks with CPU are performed with a worksta-
+tion with two CPUs and a processor name of In-
+tel(R)Xeon(R)CPUE5-2687Wv4@3.00GHzon
+CentOS 7.2.1511. This workstation has 24 phys-
+ical cores in total. The benchmarks with GPU
+are performed with two CPUs and a processor
+name of Intel(R) Xeon(R) Silver 4108 CPU @
+1.80 GHz and with Tesla V100 PCIe 32GB on
+CentOS7.7.1908. Thebenchmarksareperformed
+with double precision, i.e., each complex number
+is represented with 128 bits. Qulacs is compiled
+with the same options as those used in Sec.6.
+Versions of quantum circuit simulators and re-
+lated libraries for CPU and GPU benchmarks are
+listed in Table.2 and Table.3, respectively. All
+the simulators are installed with the latest stable
+versions as of November 2020. In benchmarks, a
+time for simulating a circuit to obtain the ﬁnal
+state vector is evaluated, and a time for creating
+quantum circuits is not included. If an evaluated
+simulator oﬀers the option of enabling circuit op-
+timizations, we plot times both with and without
+quantum circuit optimization to discuss the ad-
+vantage of acceleration by circuit optimization.
+Our benchmark codes can be found at Ref.[64].
+While we carefully make the comparison fair,
+it is non-trivial to compare all the libraries in the
+exactly same conditions since they are developed
+with diﬀerent purposes and designs. To clarify
+benchmark settings, here we describe several
+notes on how we install or evaluate simulators.
+Qiskit [14] is a large software development kit,
+and Qiskit Aer is a component of Qiskit that im-
+plements fast simulation of quantum circuits. We
+used a backend named StatevectorSimulator
+for the benchmark since it is expected to be the
+fastest for simulating typical random circuits
+Library Version
+GCC 9.2.0
+Python 3.7.9
+Julia 1.5.2
+NumPy 1.19.2
+MKL 2020.2
+TensoFlow 2.3.1
+Intel-QS [25, 26] see main text
+ProjectQ [29] 0.5.1
+PyQuEST-cﬃ [30] 3.2.3.1
+Qibo [34] 0.1.2
+Qiskit [14] 0.23.1
+Qiskit Aer [14] 0.7.1
+Qiskit Terra [14] 0.16.1
+Qulacs 0.2.0
+qxelarator [27] 0.3.0
+Yao [32] 0.6.3
+Table 2: A list of libraries and versions for CPU bench-
+mark
+among the implemented simulators. In the
+default setting, we need to compile quantum
+circuits with qiskit.compiler.transpile and
+qiskit.compiler.assemble to create a job
+to call a core function of Qiskit Aer. A core
+function of Qiskit Aer is executed by submitting
+the compiled job to a thread pool. However,
+the overheads for these processes are sometimes
+longer than the time for simulation itself when
+the number of qubits is small. Thus, we elim-
+inate the times for these processes from the
+benchmark and directly evaluate an execution
+time of a core function. Qiskit Aer performs
+circuit optimization similar to our technique,
+which is called gate fusion in Qiskit Aer. In the
+following discussion for Qiskit, we plot execution
+times with and without gate fusion, which can
+be switched via ﬂagenable_fusion. We note
+that execution times of qiskit.execute are
+longer than plotted ones. Intel-QS [25], which
+is also known as qHiPSTER, is a C++ library
+that has two oﬃcial repositories in GitHub. In
+the benchmark, actively maintained one [65]
+is used. In this repository, Intel-QS does not
+have stable release, so we installed the latest
+master branch of which the latest commit hash is
+b625e1fb09c5aa3c146cb7129a2a29cdb6ff186a.
+Intel-QS is compiled with GCC and with SIMD
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 25
+
+Library Version
+GCC 7.3.0
+Python 3.7.9
+Julia 1.5.2
+NumPy 1.19.2
+MKL 2020.2
+NVIDIA driver 440.33.01
+CUDA 10.2
+Qiskit [14] 0.23.1
+Qiskit Aer [14] 0.7.1
+Qiskit Aer GPU [14] 0.7.1
+Qiskit Terra [14] 0.16.1
+Qulacs 0.2.0
+Yao [32] 0.6.3
+Table 3: A list of libraries and versions for GPU bench-
+mark
+optimization, i.e., compiled with the options
+CXX=g++ and IqsNative=ON. While Intel-QS
+is a C++ library, we use Intel-QS via python
+interface for a fair comparison. QuEST [30]
+is a C++ library of which the python inter-
+faces are provided by another project named
+PyQuEST-cﬃ. While QuEST itself provides
+acceleration by parallelization and GPU, we skip
+the benchmark of QuEST with multi-thread and
+GPU acceleration since we cannot enable them
+via the python interfaces. ProjectQ [29] raises
+errors to users when there is no measurement in
+circuits, which may cause an additional overhead
+in benchmarks. While we expect this overhead
+is constant, we note that an execution time
+of ProjectQ may be faster than plotted when
+quantum circuits have measurements. Qibo [34]
+is a library that supports GPU acceleration using
+TensorFlow, and we expect its performance de-
+pends on that of TensorFlow. However, since the
+latest TensorFlow is not compatible with CUDA
+10.2, we skip the GPU benchmark of Qibo. In
+addition, since we installed TensorFlow withpip
+commands, TensorFlow does not support AVX2
+extension. Thus, the performance of Qibo in the
+CPU benchmark would be a few times faster
+than plotted ones by installing TensorFlow from
+the source. QX Simulator [27] is used with its
+python interface named qxelerator, which accepts
+a ﬁle with QASM-format [56] strings as an input,
+we generate a benchmark circuit, convert it to a
+QASM string, save it as a ﬁle, load it with qxel-
+erator, and evaluated a time for simulation, i.e.,
+a time for executing qxelerator.QX.execute
+function. Since QCGPU and qsim only support
+simulation with single precision, we did not
+perform the benchmarks for them. For all the
+benchmark libraries, their execution times may
+vary depending on the structure of quantum
+circuits for benchmarks, library versions, compil-
+ers, the status of the CPU and GPU, simulation
+environment, etc. In particular, while execution
+times for single-thread simulation are stable,
+those for multi-thread and GPU ﬂuctuate by
+a few percent each time we run a benchmark
+script. Thus, it should be noted that a few
+percent diﬀerence in multi-thread and GPU
+benchmarks are meaningless. It should be also
+noted that several libraries among the above such
+as Intel-QS, QuEST, QX Simulator, and Pro-
+jectQ support quantum circuit simulation with
+distributed computing and are not necessarily
+optimized for the single-node performance.
+First, we perform benchmarking with a sin-
+gle thread simulation with CPU. Figure10 shows
+the results. For Qulacs and Qiskit, the perfor-
+manceofthemwithandwithoutcircuitoptimiza-
+tion is plotted as a bold line and broken line, re-
+spectively. Qulacs without optimization is faster
+than that with optimization when the number of
+qubits is small. On the other hand, Qulacs with
+optimization becomes faster than Qulacs without
+optimizationwhenthenumberofqubitsisgreater
+than 7 since the time for circuit optimization
+becomes negligible compared to the simulation
+time. Asfarasweknow, Qiskitwithoptimization
+and Yao utilize the structure of quantum circuits
+to improve the performance, and thus their per-
+formance overcomes that of Qulacs without cir-
+cuit optimization. Since Qiskit without optimiza-
+tion is slower than Qulacs without optimization
+but they are comparable with optimization, we
+guess circuit optimization by Qiskit is more time-
+consuming but near-optimal than that by Qulacs.
+Second, we perform benchmarking with multi-
+thread computing. Figure11 shows the results.
+Due to a small overhead of Qulacs, its execution
+time is the fastest when the number of qubits
+is small. When the number of qubits becomes
+large, several libraries without circuit optimiza-
+tion achieve almost the same performance. When
+multi-threading is enabled, an execution time is
+determined by memory operations rather than
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 26
+
+5 10 15 20 25
+# of qubits
+10 5
+10 4
+10 3
+10 2
+10 1
+100
+101
+102
+Time [sec]
+Qulacs
+Qulacs with opt
+Yao
+Qiskit
+Qiskit with opt
+ProjectQ
+PyQuEST-cffi
+Qibo
+Intel-QS
+qxelerator
+Figure 10: Times for simulating random quantum circuits with a single thread using several
+libraries.
+5 10 15 20 25
+# of qubits
+10 5
+10 4
+10 3
+10 2
+10 1
+100
+101
+Time [sec]
+Qulacs
+Qulacs with opt
+Qiskit
+Qiskit with opt
+ProjectQ
+Qibo
+Intel-QS
+qxelerator
+Figure 11: Times for simulating random quantum circuits with parallelization using several
+libraries.
+arithmetic operations. Since the number of mem-
+ory operations is almost independent of the de-
+tail of implementation, it is natural that times
+of several libraries converge to a certain value.
+When we compare the performance of libraries
+with circuit optimization, Qulacs with optimiza-
+tion shows better performance than that with-
+out optimization above 9 qubits. Since Qiskit
+is expected to perform near-optimal circuit opti-
+mization, Qiskit shows better performance than
+Qulacs when the number of qubits is larger than
+21. Note that there is a small bump around 14
+qubits in the plot of Qiskit, which happens be-
+cause Qiskit enables multi-thread when the num-
+ber of qubits is more than 14 qubits in the default
+setting, thus the times of Qiskit around 14 qubits
+can be slightly faster by optimization of settings.
+Finally, we perform the benchmark with GPU
+acceleration. Figure12 shows the results. In the
+GPU benchmarking, Qulacs is also one of the
+fastestlibraries. IntheGPUsimulation, theover-
+head due to circuit optimization becomes neg-
+ligible since there is a larger overhead due to
+GPU function calls. Therefore, the performance
+of Qulacs with circuit optimization is always bet-
+ter than that without circuit optimization. Since
+times for circuit optimization is negligible, we can
+furtherimprovetheperformanceofQulacsbyuti-
+lizing the heavy optimization. As far as we tried,
+the heavy optimization with the block size of four
+is optimal. The performance with the heavy op-
+timization is plotted in the ﬁgure with the leg-
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 27
+
+5 10 15 20 25
+# of qubits
+10 3
+10 2
+10 1
+100
+Time [sec]
+Qulacs
+Qulacs with opt
+Qulacs with heavy opt
+Yao
+Qiskit
+Qiskit with opt
+Figure 12: Times for simulating random quantum circuits with GPU acceleration using several
+libraries.
+end "Qulacs with heavy opt". The performance
+of Qulacs with the heavy optimization overcomes
+that with the light optimization above 19 qubits.
+Note that the time for Qulacs with the heavy op-
+timization at n = 4 is signiﬁcantly faster than
+the other number of qubits. This is because a
+circuit is merged to a single quantum gate by an
+optimizer and a GPU function is called at once.
+In conclusion, Qulacs is one of the fastest sim-
+ulators among existing libraries in several regions
+that are vital for researches. In particular, Qulacs
+shows signiﬁcant speed-up when the number of
+qubits is small, which is essential for exploring
+the possibilities of quantum computing.
+8 Conclusion and Outlook
+Here, we introduced Qulacs, which is a fast and
+versatile simulator. First, we showed the ba-
+sic concept and intended usages of Qulacs. Sec-
+ond, we explained the library structure and pro-
+vided several examples. We optimized the up-
+date functions of Qulacs according to the prop-
+erties of gate matrices. We then utilized addi-
+tional optimization techniques such as SIMD op-
+timization, multi-threading with OpenMP, GPU
+acceleration, and circuit optimization for numeri-
+cal speed-up. We also showed concrete simulation
+times for several quantum gates and evaluated
+speed-up by optimization techniques. Finally, we
+compared the performance of Qulacs with that of
+the existing libraries. With the benchmarks, we
+showed our simulator has advantages in several
+scenarios. Although Qulacs focuses on support-
+ing fundamental operations, we can use Qulacs to
+explore simulations with many layers using it as a
+backend of other libraries, for example, Cirq [13]
+and OpenFermion [54].
+When quantum circuits are constructed only
+with eﬃciently simulatable quantum gates such
+as Cliﬀord gates [66, 67] or matchgates [68–70],
+these circuits are eﬃciently simulated via special-
+ized algorithms. We plan to implement these al-
+gorithms and support faster simulations of quan-
+tum circuits in the future.
+Acknowledgment
+Yasunari Suzuki, Yoshiaki Kawase, Yuria Hiraga,
+Yuya Masumura, Masahiro Nakadai, and Keisuke
+Fujii are the core contributors of Qulacs. Ten-
+nin Yan, Yohei Ibe, Toru Kawakubo, Hirotsugu
+Yamashita, Hikari Yoshimura, Jiabao Chen, and
+Youyuan Zhang have made signiﬁcant eﬀorts to
+maintain manuals, repositories, and web sites.
+Ken M. Nakanishi, Kosuke Mitarai, Yuya O.
+Nakagawa, Shiro Tamiya, Takahiro Yamamoto,
+Ryosuke Imai, and Akihiro Hayashi provided
+many essential comments and directions for im-
+proving the performance and usability of Qulacs.
+Yasunari Suzuki would like to thank Tyson
+Jones for the fruitful discussion on parallel and
+distributed computing, Xiu-Zhe Luo for the vital
+comments on vectorization, and Shinya Morino
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 28
+
+for the advice on GPU acceleration. We would
+also like to thank all the contributors and users
+of Qulacs for supporting this project.
+This work is supported by PRESTO, JST,
+Grant No.JPMJPR1916; ERATO, JST, Grant
+No.JPMJER1601; MEXT Q-LEAP Grant
+No.JPMXS0120319794, JPMXS0118068682, and
+JPMXS0120319794.
+A C++ example codes
+To show Qulacs can be used as a C++ library
+in almost the same way as Python, we show the
+example codes of Qulacs in the C++ language.
+Listing.13 shows an example procedure to cre-
+ate, modify, update, and release quantum states
+using quantum gates. This program outputs a
+message shown in Listing.14. As you can see,
+the names and design of API are almost the same
+as the python library, and we can use Qulacs as
+a C++ library with small diﬀerence, e.g., com-
+plex matrices are supplied using Eigen instead of
+NumPy, users have a responsibility to release al-
+located state vector, and so on. For more detailed
+examples, see the online manual of Qulacs [3].
+1 # include < vector >
+2 # include < complex >
+3 # include < Eigen / Core >
+4 # include < cppsim / state . hpp >
+5 # include < cppsim / g a t e _ m a t r i x . hpp >
+6 # include < cppsim / g a t e _ f a c t o r y . hpp >
+7
+8 int main () {
+9 unsigned int n um _q ub it = 2;
+10
+11 // create state vector
+12 Q u a n t u m S t a t e * state = new Q u a n t u m S t a t e
+( n um _q ub it ) ;
+13 state - > s e t _ c o m p u t a t i o n a l _ b a s i s (2) ;
+14 Q u a n t u m S t a t e * su b_ st at e = state - > copy
+() ;
+15
+16 std :: vector < std :: complex < double > >
+values = {0.5 , 0.5 , 0.5 , -0.5};
+17 state - > load ( values ) ;
+18 state - > load ( su b_ st at e ) ;
+19 state - > s e t _ H a a r _ r a n d o m _ s t a t e (42) ;
+20
+21 Eigen :: M at ri xX cd g a t e _ m a t r i x (4 ,4) ;
+22 g a t e _ m a t r i x <<
+23 1 , 0 , 0 , 0 ,
+24 0 , 1 , 0 , 0 ,
+25 0 , 0 , 0 , 1 ,
+26 0 , 0 , 1 , 0;
+27 Q u a n t u m G a t e B a s e * d e n s e _ g a t e = gate ::
+D e n s e M a t r i x ({0 , 1} , g a t e _ m a t r i x ) ;
+28 dense_gate - > u p d a t e _ q u a n t u m _ s t a t e ( state
+) ;
+29
+30 Q u a n t u m G a t e B a s e * s wa p_ ga te = gate ::
+SWAP (0 ,1) ;
+31 swap_gate - > u p d a t e _ q u a n t u m _ s t a t e ( state )
+;
+32 std :: cout << d e n s e _ g a t e << std :: endl ;
+33 std :: cout << sw ap _g at e << std :: endl ;
+34 std :: cout << state << std :: endl ;
+35
+36 delete d e n s e _ g a t e ;
+37 delete sw ap _g at e ;
+38 delete state ;
+39 delete su b_ st at e ;
+40 }
+Listing 13: An example C++ program that initializes
+quantum states.
+1 *** gate info ***
+2 * gate name : D e n s e M a t r i x
+3 * target :
+4 0 : commute
+5 1 : commute
+6 * control :
+7 * Pauli : no
+8 * Clifford : no
+9 * Gaussian : no
+10 * P a r a m e t r i c : no
+11 * Diagonal : no
+12 * Matrix
+13 (1 ,0) (0 ,0) (0 ,0) (0 ,0)
+14 (0 ,0) (1 ,0) (0 ,0) (0 ,0)
+15 (0 ,0) (0 ,0) (0 ,0) (1 ,0)
+16 (0 ,0) (0 ,0) (1 ,0) (0 ,0)
+17
+18 *** gate info ***
+19 * gate name : SWAP
+20 * target :
+21 0 : commute
+22 1 : commute
+23 * control :
+24 * Pauli : no
+25 * Clifford : yes
+26 * Gaussian : no
+27 * P a r a m e t r i c : no
+28 * Diagonal : no
+29
+30 *** Quantum State ***
+31 * Qubit Count : 2
+32 * D im en si on : 4
+33 * State vector :
+34 ( 0 . 3 4 3 4 5 3 , 0 . 4 1 8 2 8 5 )
+35 ( -0.287486 , -0.663243)
+36 (0.309688 , -0.266554)
+37 ( -0.0511105 , -0.122348)
+Listing 14: An output message of the program shown in
+Listing.13
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 29
+
+References
+[1] Frank Arute, Kunal Arya, Ryan Bab-
+bush, Dave Bacon, Joseph C Bardin, Rami
+Barends, Rupak Biswas, Sergio Boixo, Fer-
+nando GSL Brandao, David A Buell, et al.
+Quantum supremacy using a programmable
+superconducting processor. Nature, 574
+(7779):505–510, 2019. DOI: 10.1038/s41586-
+019-1666-5.
+[2] Laird Egan, Dripto M Debroy, Crystal
+Noel, Andrew Risinger, Daiwei Zhu, De-
+bopriyo Biswas, Michael Newman, Muyuan
+Li, Kenneth R Brown, Marko Cetina,
+et al. Fault-tolerant operation of a quan-
+tum error-correction code. arXiv preprint
+arXiv:2009.11482, 2020.
+[3] Qulacs website. https://github.com/
+qulacs/qulacs, 2018.
+[4] GaëlGuennebaud, BenoîtJacob, etal. Eigen
+v3. http://eigen.tuxfamily.org, 2010.
+[5] Wenzel Jakob, Jason Rhinelander, and Dean
+Moldovan. pybind11 – seamless operabil-
+ity between c++11 and python. https:
+//github.com/pybind/pybind11, 2017.
+[6] GoogleTest. https://github.com/google/
+googletest, 2019.
+[7] Holger Krekel, Bruno Oliveira, Ronny
+Pfannschmidt, Floris Bruynooghe, Brianna
+Laugher, and Florian Bruhin. pytest
+x.y. https://github.com/pytest-dev/
+pytest, 2004.
+[8] Sergio Boixo, Sergei V Isakov, Vadim N
+Smelyanskiy, and Hartmut Neven. Simula-
+tion of low-depth quantum circuits as com-
+plex undirected graphical models. arXiv
+preprint arXiv:1712.05384, 2017.
+[9] Igor L Markov and Yaoyun Shi. Simu-
+lating quantum computation by contract-
+ing tensor networks. SIAM Journal on
+Computing, 38(3):963–981, 2008. DOI:
+10.1137/050644756. URL https://doi.
+org/10.1137/050644756.
+[10] Igor L Markov, Aneeqa Fatima, Sergei V
+Isakov, and Sergio Boixo. Quantum
+supremacy is both closer and farther than it
+appears. arXiv preprint arXiv:1807.10749,
+2018.
+[11] Sergey Bravyi and David Gosset. Im-
+proved classical simulation of quantum
+circuits dominated by cliﬀord gates.Phys.
+Rev. Lett., 116:250501, Jun 2016. DOI:
+10.1103/PhysRevLett.116.250501. URL
+https://link.aps.org/doi/10.1103/
+PhysRevLett.116.250501.
+[12] Sergey Bravyi, Dan Browne, Padraic Calpin,
+Earl Campbell, David Gosset, and Mark
+Howard. Simulation of quantum cir-
+cuits by low-rank stabilizer decompositions.
+Quantum, 3:181, September 2019. ISSN
+2521-327X. DOI: 10.22331/q-2019-09-02-
+181. URL https://doi.org/10.22331/
+q-2019-09-02-181.
+[13] Quantum AI team and collaborators. Cirq,
+October 2020. URL https://doi.org/10.
+5281/zenodo.4062499.
+[14] Héctor Abraham et al. Qiskit: An open-
+source framework for quantum computing,
+2019. URL https://doi.org/10.5281/
+zenodo.2562110.
+[15] Robert S Smith, Michael J Curtis, and
+William J Zeng. A practical quantum in-
+struction set architecture. arXiv preprint
+arXiv:1608.03355, 2016.
+[16] Ville Bergholm, Josh Izaac, Maria Schuld,
+Christian Gogolin, Carsten Blank, Keri
+McKiernan, and Nathan Killoran. Pen-
+nylane: Automatic diﬀerentiation of hy-
+brid quantum-classical computations.arXiv
+preprint arXiv:1811.04968, 2018.
+[17] Krysta Svore, Alan Geller, Matthias Troyer,
+John Azariah, Christopher Granade, Bet-
+tina Heim, Vadym Kliuchnikov, Mariia
+Mykhailova, Andres Paz, and Martin Roet-
+teler. Q#: Enabling scalable quantum
+computing and development with a high-
+level dsl. RWDSL2018, New York, NY,
+USA, 2018. Association for Computing Ma-
+chinery. ISBN 9781450363556. DOI:
+10.1145/3183895.3183901. URL https://
+doi.org/10.1145/3183895.3183901.
+[18] Benjamin Villalonga, Sergio Boixo, Bron
+Nelson, Christopher Henze, Eleanor Rief-
+fel, Rupak Biswas, and Salvatore Mandrà.
+A ﬂexible high-performance simulator for
+verifying and benchmarking quantum cir-
+cuits implemented on real hardware. npj
+Quantum Information, 5(1):86, Oct 2019.
+ISSN 2056-6387. DOI: 10.1038/s41534-019-
+0196-1. URL https://doi.org/10.1038/
+s41534-019-0196-1.
+[19] Chase Roberts, Ashley Milsted, Martin
+Ganahl, AdamZalcman, BruceFontaine, Yi-
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 30
+
+jian Zou, Jack Hidary, Guifre Vidal, and Ste-
+fan Leichenauer. Tensornetwork: A library
+for physics and machine learning. arXiv
+preprint arXiv:1905.01330, 2019.
+[20] Matthew Fishman, Steven R White, and
+E Miles Stoudenmire. The ITensor Software
+Library for Tensor Network Calculations.
+arXiv preprint arXiv:2007.14822, 2020.
+[21] Benjamin Villalonga, Dmitry Lyakh, Ser-
+gio Boixo, Hartmut Neven, Travis S Hum-
+ble, Rupak Biswas, Eleanor G Rieﬀel, Alan
+Ho, and Salvatore Mandrà. Establishing
+the quantum supremacy frontier with a
+281 pﬂop/s simulation. Quantum Science
+and Technology, 5(3):034003, 2020. DOI:
+10.1088/2058-9565/ab7eeb. URL https://
+doi.org/10.1088/2058-9565/ab7eeb.
+[22] Koen De Raedt, Kristel Michielsen,
+Hans De Raedt, Binh Trieu, Guido
+Arnold, Marcus Richter, Th Lippert,
+Hiroshi Watanabe, and Nobuyasu Ito.
+Massively parallel quantum computer
+simulator. Computer Physics Commu-
+nications, 176(2):121–136, 2007. DOI:
+10.1016/j.cpc.2006.08.007. URL https:
+//doi.org/10.1016/j.cpc.2006.08.007.
+[23] Hans De Raedt, Fengping Jin, Dennis
+Willsch, Madita Willsch, Naoki Yosh-
+ioka, Nobuyasu Ito, Shengjun Yuan, and
+Kristel Michielsen. Massively paral-
+lel quantum computer simulator, eleven
+years later. Computer Physics Com-
+munications, 237:47–61, 2019. DOI:
+10.1016/j.cpc.2018.11.005. URL https://
+doi.org/10.1016/j.cpc.2018.11.005.
+[24] Thomas Häner and Damian S Steiger. 0.5
+petabyte simulation of a 45-qubit quan-
+tum circuit. In Proceedings of the In-
+ternational Conference for High Perfor-
+mance Computing, Networking, Storage
+and Analysis, pages 1–10, 2017. DOI:
+10.1145/3126908.3126947. URL https://
+doi.org/10.1145/3126908.3126947.
+[25] Gian Giacomo Guerreschi, Justin
+Hogaboam, Fabio Baruﬀa, and Nico-
+las PD Sawaya. Intel Quantum Simulator:
+A cloud-ready high-performance simulator
+of quantum circuits. Quantum Science
+and Technology, 5(3):034007, 2020. DOI:
+10.1088/2058-9565/ab8505. URL https:
+//doi.org/10.1088/2058-9565/ab8505.
+[26] Mikhail Smelyanskiy, Nicolas PD Sawaya,
+and Alán Aspuru-Guzik. qHiPSTER:
+The quantum high performance soft-
+ware testing environment. arXiv preprint
+arXiv:1601.07195, 2016.
+[27] Nader Khammassi, Imran Ashraf, Xiang Fu,
+Carmen G Almudever, and Koen Bertels.
+QX: A high-performance quantum computer
+simulation platform. InDesign, Automation
+& Test in Europe Conference & Exhibition
+(DATE), 2017, pages 464–469. IEEE, 2017.
+DOI: 10.23919/DATE.2017.7927034. URL
+https://doi.org/10.23919/DATE.2017.
+7927034.
+[28] Nader Khammassi, Imran Ashraf, J v
+Someren, Razvan Nane, AM Krol, M Adri-
+aanRol, LLao, KoenBertels, andCarmenG
+Almudever. OpenQL: A portable quantum
+programming framework for quantum accel-
+erators. arXiv preprint arXiv:2005.13283,
+2020.
+[29] Damian S Steiger, Thomas Häner, and
+Matthias Troyer. ProjectQ: an open source
+software framework for quantum comput-
+ing. Quantum, 2:49, 2018. DOI: 10.22331/q-
+2018-01-31-49. URL https://doi.org/10.
+22331/q-2018-01-31-49.
+[30] Tyson Jones, Anna Brown, Ian Bush,
+and Simon C Benjamin. QuEST and
+High Performance Simulation of Quan-
+tum Computers. Scientiﬁc reports, 9(1):
+1–11, 2019. DOI: 10.1038/s41598-019-
+47174-9. URL https://doi.org/10.1038/
+s41598-019-47174-9.
+[31] Quantum AI team and collaborators. qsim,
+September 2020. URL https://doi.org/
+10.5281/zenodo.4023103.
+[32] Xiu-Zhe Luo, Jin-Guo Liu, Pan Zhang,
+and Lei Wang. Yao.jl: Extensible, Eﬃ-
+cient Framework for Quantum Algorithm
+Design. Quantum, 4:341, October 2020.
+ISSN 2521-327X. DOI: 10.22331/q-2020-10-
+11-341. URL https://doi.org/10.22331/
+q-2020-10-11-341.
+[33] Adam Kelly. Simulating quantum com-
+puters using OpenCL. arXiv preprint
+arXiv:1805.00988, 2018.
+[34] Stavros Efthymiou, Sergi Ramos-Calderer,
+Carlos Bravo-Prieto, Adrián Pérez-Salinas,
+Diego García-Martín, Artur Garcia-Saez,
+José Ignacio Latorre, and Stefano Carrazza.
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 31
+
+Qibo: a framework for quantum simulation
+with hardware acceleration. arXiv preprint
+arXiv:2009.01845, 2020. DOI: 10.5281/zen-
+odo.3997194. URL https://doi.org/10.
+5281/zenodo.3997194.
+[35] Alberto Peruzzo, Jarrod McClean, Peter
+Shadbolt, Man-Hong Yung, Xiao-Qi Zhou,
+Peter J Love, Alán Aspuru-Guzik, and
+Jeremy L O’brien. A variational eigenvalue
+solver on a photonic quantum processor.Na-
+ture communications, 5:4213, 2014. DOI:
+10.1038/ncomms5213. URL https://doi.
+org/10.1038/ncomms5213.
+[36] Seth Lloyd. Universal quantum simu-
+lators. Science, pages 1073–1078, 1996.
+DOI: 10.1126/science.273.5278.1073. URL
+https://doi.org/10.1126/science.273.
+5278.1073.
+[37] Suguru Endo, Iori Kurata, and Yuya O
+Nakagawa. Calculation of the green’s
+function on near-term quantum comput-
+ers. Physical Review Research , 2(3):
+033281, 2020. DOI: 10.1103/PhysRevRe-
+search.2.033281. URL https://doi.org/
+10.1103/PhysRevResearch.2.033281.
+[38] Kosuke Mitarai, Yuya O Nakagawa, and
+Wataru Mizukami. Theory of analytical en-
+ergy derivatives for the variational quantum
+eigensolver. Physical Review Research, 2(1):
+013129, 2020. DOI: 10.1103/PhysRevRe-
+search.2.013129. URL https://doi.org/
+10.1103/PhysRevResearch.2.013129.
+[39] Kosuke Mitarai, Tennin Yan, and Keisuke
+Fujii. Generalization of the output of a
+variational quantum eigensolver by param-
+eter interpolation with a low-depth ansatz.
+Phys. Rev. Applied, 11:044087, Apr 2019.
+DOI: 10.1103/PhysRevApplied.11.044087.
+URL https://link.aps.org/doi/10.
+1103/PhysRevApplied.11.044087.
+[40] Yuta Matsuzawa and Yuki Kurashige.
+Jastrow-type decomposition in quantum
+chemistry for low-depth quantum circuits.
+Journal of Chemical Theory and Com-
+putation, 16(2):944–952, 2020. DOI:
+10.1021/acs.jctc.9b00963. URL https://
+doi.org/10.1021/acs.jctc.9b00963.
+[41] Hiroki Kawai and Yuya O. Nakagawa.
+Predicting excited states from ground state
+wavefunction by supervised quantum ma-
+chine learning. Machine Learning: Science
+and Technology, 1(4):045027, oct 2020.
+DOI: 10.1088/2632-2153/aba183. URL
+https://doi.org/10.1088%2F2632-2153%
+2Faba183.
+[42] Jakob Kottmann, Mario Krenn, Thi Ha
+Kyaw, Sumner Alperin-Lea, and Alán
+Aspuru-Guzik. Quantum computer-aided
+design of quantum optics hardware.Quan-
+tum Science and Technology, 2021. DOI:
+10.1088/2058-9565/abfc94. URL https://
+doi.org/10.1088/2058-9565/abfc94.
+[43] Yasunari Suzuki, Suguru Endo, and Yuuki
+Tokunaga. Quantum error mitigation for
+fault-tolerant quantum computing. arXiv
+preprint arXiv:2010.03887, 2020.
+[44] Cirq-Qulacs. https://github.com/
+qulacs/cirq-qulacs, 2019.
+[45] Seyon Sivarajah, Silas Dilkes, Alexander
+Cowtan, WillSimmons, AlecEdgington, and
+Ross Duncan. t|ket⟩: A retargetable com-
+piler for NISQ devices. Quantum Science
+and Technology, 2020. DOI: 10.1088/2058-
+9565/ab8e92. URL https://doi.org/10.
+1088/2058-9565/ab8e92.
+[46] Orquestra. https://orquestra.io/, 2020.
+[47] Jakob S. Kottmann and Sumner Alperin-
+Lea, Teresa Tamayo-Mendoza, Alba
+Cervera-Lierta, Cyrille Lavigne, Tzu-Ching
+Yen, Vladyslav Verteletskyi, Abhinav
+Anand, Matthias Degroote, Maha Kesebi,
+and Alán Aspuru-Guzik. tequila: A
+generalized development library for novel
+quantum algorithms. https://github.
+com/aspuru-guzik-group/tequila, 2020.
+[48] Peter W Shor. Polynomial-time algo-
+rithms for prime factorization and dis-
+crete logarithms on a quantum computer.
+SIAM review, 41(2):303–332, 1999. DOI:
+10.1137/S0097539795293172. URL https:
+//doi.org/10.1137/S0097539795293172.
+[49] Craig Gidney and Martin Ekerå. How to
+factor 2048 bit rsa integers in 8 hours us-
+ing 20 million noisy qubits. Quantum, 5:
+433, 2021. DOI: 10.22331/q-2021-04-15-
+433. URL https://doi.org/10.22331/
+q-2021-04-15-433.
+[50] Ian D Kivlichan, Craig Gidney, Dominic W
+Berry, Nathan Wiebe, Jarrod McClean, Wei
+Sun, Zhang Jiang, Nicholas Rubin, Austin
+Fowler, Alán Aspuru-Guzik, et al. Im-
+proved fault-tolerant quantum simulation
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 32
+
+of condensed-phase correlated electrons via
+trotterization. Quantum, 4:296, 2020. DOI:
+10.22331/q-2020-07-16-296. URL https://
+doi.org/10.22331/q-2020-07-16-296.
+[51] Aram W Harrow, Avinatan Hassidim, and
+Seth Lloyd. Quantum algorithm for linear
+systems of equations.Physical review letters,
+103(15):150502, 2009. DOI: 10.1103/Phys-
+RevLett.103.150502. URL https://doi.
+org/10.1103/PhysRevLett.103.150502.
+[52] Austin G Fowler, Matteo Mariantoni,
+John M Martinis, and Andrew N Cleland.
+Surface codes: Towards practical large-scale
+quantum computation. Physical Review A,
+86(3):032324, 2012. DOI: 10.1103/Phys-
+RevA.86.032324. URL https://link.aps.
+org/doi/10.1103/PhysRevA.86.032324.
+[53] Sergio Boixo, Sergei V Isakov, Vadim N
+Smelyanskiy, Ryan Babbush, Nan Ding,
+Zhang Jiang, Michael J Bremner, John M
+Martinis, and Hartmut Neven. Char-
+acterizing quantum supremacy in near-
+term devices. Nature Physics , 14(6):
+595–600, 2018. DOI: 10.1038/s41567-018-
+0124-x. URL https://doi.org/10.1038/
+s41567-018-0124-x.
+[54] Jarrod McClean, Nicholas Rubin, Kevin
+Sung, Ian David Kivlichan, Xavier Bonet-
+Monroig, Yudong Cao, Chengyu Dai,
+Eric Schuyler Fried, Craig Gidney, Bren-
+dan Gimby, et al. OpenFermion: the
+electronic structure package for quan-
+tum computers. Quantum Science and
+Technology, 2020. DOI: 10.1088/2058-
+9565/ab8ebc. URL https://doi.org/10.
+1088/2058-9565/ab8ebc.
+[55] Michael A. Nielsen and Isaac L. Chuang.
+Quantum Computation and Quantum Infor-
+mation: 10th Anniversary Edition . Cam-
+bridge University Press, 2010. DOI:
+10.1017/CBO9780511976667. URL https:
+//doi.org/10.1017/CBO9780511976667.
+[56] Andrew W Cross, Lev S Bishop, John A
+Smolin, and Jay M Gambetta. Open quan-
+tum assembly language. arXiv preprint
+arXiv:1707.03429, 2017.
+[57] Shiro Tamiya and Yuya O Nakagawa. Cal-
+culating nonadiabatic couplings and Berry’s
+phase by variational quantum eigensolvers.
+arXiv preprint arXiv:2003.01706 , 2020.
+DOI: 10.1103/PhysRevResearch.3.023244.
+URL https://doi.org/10.1103/
+PhysRevResearch.3.023244.
+[58] Yohei Ibe, Yuya O Nakagawa, Takahiro
+Yamamoto, Kosuke Mitarai, Qi Gao, and
+Takao Kobayashi. Calculating transition
+amplitudes by variational quantum eigen-
+solvers. arXiv preprint arXiv:2002.11724,
+2020.
+[59] Pascual Jordan and Eugene P Wigner.
+About the pauli exclusion princi-
+ple. Z. Phys , 47(631):14–75, 1928.
+DOI: 10.1007/BF01331938. URL
+https://doi.org/10.1007/BF01331938.
+[60] Sergey B Bravyi and Alexei Yu Kitaev.
+Fermionic quantum computation. Annals
+of Physics, 298(1):210–226, 2002. DOI:
+10.1006/aphy.2002.6254. URL https://
+doi.org/10.1006/aphy.2002.6254.
+[61] Intel Intrinsics Guide. https://software.
+intel.com/sites/landingpage/
+IntrinsicsGuide/, 2020.
+[62] OpenMP Speciﬁcations. https://www.
+openmp.org/specifications/, 2020.
+[63] quantum-benchmarks. https://github.
+com/Roger-luo/quantum-benchmarks,
+2020.
+[64] Benchmark codes of this paper will be up-
+loaded to. https://github.com/qulacs/
+benchmark-qulacs, 2020.
+[65] Intel-QS repository .https://github.com/
+iqusoft/intel-qs, 2020.
+[66] Daniel Gottesman. The heisenberg represen-
+tationofquantumcomputers. arXiv preprint
+quant-ph/9807006, 1998.
+[67] Scott Aaronson and Daniel Gottesman.
+Improved simulation of stabilizer circuits.
+Physical Review A, 70(5):052328, 2004. DOI:
+10.1103/PhysRevA.70.052328. URL https:
+//10.1103/PhysRevA.70.052328.
+[68] Leslie G Valiant. Quantum circuits that
+can be simulated classically in polyno-
+mial time. SIAM Journal on Com-
+puting, 31(4):1229–1254, 2002. DOI:
+10.1137/S0097539700377025. URL https:
+//doi.org/10.1137/S0097539700377025.
+[69] Barbara M Terhal and David P DiVincenzo.
+Classical simulation of noninteracting-
+fermion quantum circuits. Physical Review
+A, 65(3):032325, 2002. DOI: 10.1103/Phys-
+RevA.65.032325. URL https://doi.org/
+10.1103/PhysRevA.65.032325.
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 33
+
+[70] Emanuel Knill. Fermionic linear optics
+and matchgates. arXiv preprint quant-
+ph/0108033, 2001.
+Accepted in Quantum 2021-07-26, click title to verify. Published under CC-BY 4.0. 34
