@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "concept": "concept_3",
+  "generation": 2,
+  "evaluator_valid": true,
+  "blocking_concerns": [],
+  "verdict": "valid_with_nonblocking_cli_robustness_findings",
+  "independent_agent_review": true,
+  "author_staging_audit_reused_as_evidence": false,
+  "reviewed_at_utc": "2026-08-28T11:52:23.987884+00:00",
+  "target_sha256": "b9f166df0bb7597c695b05eb7d831f457f68f0c0311f6e5be0184d832b5211e3",
+  "validator_sha256": "c4745244b9690514e905ef936f195d364c6bdc1234a64edd2536f5939346a729",
+  "planted_sha256": "3873167af04f3895564f4c5d4a8b7489490add35d2d805d09bef3b22e7a09090",
+  "frozen_at_utc": "2026-08-28T10:59:16.185366+00:00",
+  "physics": {
+    "independent_method": "dense native-integer lag sums; separate unordered full-direction pairs with doubled off-diagonal contributions",
+    "grader_arithmetic_reused": false,
+    "floating_point_used": false,
+    "lags_exactly_checked": 4096,
+    "directed_bins_exactly_checked": 8192,
+    "angular_bins_exactly_checked": 4097,
+    "full_nonzero_ordered_pairs": 2359296,
+    "counts": {
+      "0": 3328,
+      "1": 512,
+      "2": 256
+    },
+    "integer_energy_sum": 1024,
+    "integer_square_sum": 1536,
+    "correlation_sum": 1048576,
+    "lag_2048": 222,
+    "directed_numerator_sum": 4194304,
+    "angular_numerator_sum": 4194304,
+    "full_denominator": 4194304,
+    "directed_mass": "c[d % 4096] / 2097152",
+    "endpoint_mass_each": "3/4096",
+    "interior_mass": "c[b % 4096] / 1048576",
+    "energy_normalization": "1",
+    "directed_normalization": "1",
+    "angular_normalization": "1",
+    "masslessness_and_momentum": "Exact symbolic: p_d=E_d*u_d, u_(d+4096)=-u_d, E_(d+4096)=E_d."
+  },
+  "planted_report": {
+    "core_score": 1.0,
+    "worst_family_score": 1.0,
+    "runtime_score": 1.0,
+    "resource_score": 1.0,
+    "valid": true,
+    "passed": true,
+    "reason": "exact full-domain EEC witness",
+    "submission_bytes": 28711,
+    "max_submission_bytes": 131072,
+    "solver_runtime_observed": false,
+    "configuration_error": false,
+    "family_scores": {
+      "lags_0_1023": 1.0,
+      "lags_1024_2047": 1.0,
+      "lags_2048_3071": 1.0,
+      "lags_3072_4095": 1.0
+    },
+    "matched_lags": 4096,
+    "mismatched_lags": 0,
+    "l1_error": 0,
+    "squared_error": 0,
+    "max_abs_error": 0,
+    "eec_l1_error": 0.0,
+    "runtime_seconds": 0.1202163010602817,
+    "target_sha256": "b9f166df0bb7597c695b05eb7d831f457f68f0c0311f6e5be0184d832b5211e3",
+    "generation": 2
+  },
+  "validation": {
+    "public_private_source_identical": true,
+    "public_private_target_identical": true,
+    "artifact_probe_count": 74,
+    "artifact_probes_all_expected": true,
+    "public_private_report_discrepancies": 0,
+    "cli_probe_count": 14,
+    "single_lag_plus_minus_one_checks": 8192,
+    "all_lag_mismatch_check": true,
+    "exact_eec_l1_diagnostic_crosscheck": true,
+    "structural_counts_spacing_constraints_exact": true,
+    "false_acceptance_or_tolerance_bypass_found": false,
+    "unknown_acceptance_constraints_found": [],
+    "task_infeasibility_evidence_found": false,
+    "integer_negative_zero": "Accepted as JSON integer value zero; harmless semantic normalization, not a numeric tolerance."
+  },
+  "findings": [
+    {
+      "id": "CLI_SYMLINK_LOOP_REPORT",
+      "severity": "low",
+      "blocking": false,
+      "locations": [
+        "evaluator/evaluate.py:55",
+        "participant/check.py:162"
+      ],
+      "summary": "With --report, a self-referential design.json symlink raises uncaught RuntimeError in Path.resolve before artifact validation; exit 1, no failure JSON. Without --report it rejects normally.",
+      "impact": "Ordinary-invalid reporting robustness discrepancy, not an acceptance or exactness bypass. Main should treat nonzero/missing report as failure.",
+      "recommendation": "Catch path-resolution failures and emit ordinary invalid-artifact JSON; never accept a failed evaluator process."
+    },
+    {
+      "id": "CLI_HARDLINK_REPORT_ALIAS",
+      "severity": "low",
+      "blocking": false,
+      "locations": [
+        "evaluator/evaluate.py:55",
+        "evaluator/evaluate.py:61",
+        "participant/check.py:162",
+        "participant/check.py:167"
+      ],
+      "summary": "The report overwrite guard compares resolved path strings, not file identity. A report path hardlinked to design.json overwrites that artifact after successful grading.",
+      "impact": "Requires control of the report destination or its inode. It does not turn a mismatching artifact into an exact witness; output-path integrity concern only.",
+      "recommendation": "Keep reports in trusted separate directories and reject same-inode report/artifact aliases."
+    }
+  ],
+  "limitations": [
+    "Hardness, tournament outcomes, and the one-hour external attempt budget are not independently assessed here.",
+    "Evaluator/private-target/report-directory isolation must be enforced by the main runner; same-user permissions are not isolation.",
+    "Frozen hashes and generation provenance were checked, but pre-attempt chronological integrity is not independently established from attempts.",
+    "No race-condition stress test or unbounded fuzzing was performed; report-path findings are bounded local reproductions."
+  ],
+  "scope": {
+    "active_attempts_read_or_interacted_with": false,
+    "attempts_or_champions_read": false,
+    "subagents_launched": 0,
+    "web_research_performed": false,
+    "solver_runs": 0,
+    "author_staging_code_executed": false,
+    "existing_participant_evaluator_hashes_unchanged": true,
+    "writes_confined_to": "adversary/independent_generation_2_review",
+    "python_bytecode_writes_disabled": true
+  },
+  "evidence": [
+    "audit.py",
+    "physics.json",
+    "planted.private.json",
+    "artifact_probes.json",
+    "cli_probes.json",
+    "protected_file_hashes.json"
+  ],
+  "runtime_seconds": 38.38887189200614
+}
