@@ -1,0 +1,1660 @@
+export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1; cd /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/a_semidefinite_program_solver_for_the_conformal_bootstrap__1502_02033/concept_2/attempts/v_2; sed -n '120,245p' ../../participant/workspace/guard.py
+python ../../participant/baseline/search.py --output baseline_witness.json --trials 100 > baseline_run.json &
+cat baseline_run.json; date -u; command -v apply_patch
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: investigate.py
++import os
++for variable in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS'):
++    os.environ[variable] = '1'
++import sys
++import json
++import time
++from fractions import Fraction
++from pathlib import Path
++import numpy as np
++from numpy.polynomial import chebyshev as cheb
++sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'participant' / 'workspace'))
++sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'participant' / 'workspace'))
++import guard
++from baseline_search import ROTATION_NUMERATORS
++
++OUTPUT = Path(__file__).resolve().parent
++QUANTUM = 40_000_000_000
++
++def package(spectral, point, direction=None):
++    integers = np.rint(spectral * QUANTUM).astype(np.int64)
++    for degree, matrix in enumerate(integers):
++        matrix[3, 3] = (QUANTUM if degree == 0 else 0) - sum(int(matrix[index, index]) for index in range(3))
++    numerators = np.array([ROTATION_NUMERATORS @ matrix @ ROTATION_NUMERATORS.T for matrix in integers], dtype=np.int64)
++    if direction is None:
++        direction = ROTATION_NUMERATORS[:, 0] / 5
++    return {
++        'schema_version': 1,
++        'denominator': 25 * QUANTUM,
++        'coefficients': numerators.tolist(),
++        'x': str(Fraction(float(point)).limit_denominator(10**10)),
++        'vector': [str(Fraction(float(entry)).limit_denominator(10**10)) for entry in direction],
++    }
++
++def unpack(document):
++    return np.asarray(document['coefficients'], dtype=float) / document['denominator']
++
++def describe(document, full=True):
++    coefficients = unpack(document)
++    point = float(Fraction(document['x']))
++    matrix = guard.evaluate_matrices(coefficients, [point])[0]
++    print('point', point, 'eigs', np.linalg.eigvalsh(matrix), flush=True)
++    start = time.perf_counter()
++    candidates = guard.determinant_candidates(coefficients)
++    print('roots', len(candidates), 'near', sorted(candidates, key=lambda value: abs(value-point))[:10], 'time', time.perf_counter()-start, flush=True)
++    if full:
++        print(json.dumps(guard.screen_all(coefficients)), flush=True)
++    return candidates
++
++def simple(point=.432145, depth=1.1e-7, plateau=1e-8, tail=0):
++    center = 2*point-1
++    spectral = np.zeros((25 if tail else 3, 4, 4))
++    square = cheb.chebmul([-center, 1], [-center, 1]) * .3
++    square[0] -= depth
++    spectral[:3, 0, 0] = square
++    spectral[0, 1, 1] = plateau
++    spectral[0, 2, 2] = .3
++    spectral[1, 2, 2] = .01
++    if tail:
++        spectral[-1, 0, 0] = tail
++    return package(spectral, point)
++
++if __name__ == '__main__':
++    for tail in [0, 2.5e-11, 1e-10, 1e-9, 1e-8]:
++        print('TAIL', tail)
++        describe(simple(tail=tail))
+*** End Patch
+PATCH
+
+python investigate.py > investigate.log &
+cat investigate.log
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: gram_search.py
++from investigate import *
++import argparse
++from collections import Counter
++
++def gram_candidate(random, mode=0):
++    point = random.uniform(.0501, .9499)
++    center = 2*point-1
++    order = int(random.choice([5, 7, 9, 11, 12]))
++    leading = random.uniform(.15, .45)
++    first = np.zeros(order+1)
++    first[-1] = leading
++    first[0] = -cheb.chebval(center, first)
++    height = 10**random.uniform(-2.2, -1.4)
++    depth = 1.05e-7
++    positive = depth * 10**random.uniform(.2, 2)
++    plateau = depth * random.uniform(1.01, 3)
++    spectral = np.zeros((2*order+1, 4, 4))
++    spectral[:len(cheb.chebmul(first, first)), 0, 0] = cheb.chebmul(first, first)
++    spectral[:len(first), 0, 1] = height*first
++    spectral[:len(first), 1, 0] = height*first
++    spectral[0, 1, 1] = height**2+positive
++    spectral[0, 2, 2] = plateau
++    envelope = cheb.chebmul([-center, 1], [-center, 1]) * 10**random.uniform(-4, -.5)
++    spectral[:3, 0, 0] += envelope
++    spectral[0, 0, 0] -= depth
++    if mode:
++        spectral[:3, 2, 2] += cheb.chebmul([-random.uniform(-.8,.8),1], [-random.uniform(-.8,.8),1])*depth
++    document = package(spectral, point)
++    return document, dict(point=point, order=order, leading=leading, height=height, depth=depth, positive=positive, plateau=plateau, envelope=envelope.tolist())
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--trials', type=int, default=1000)
++    parser.add_argument('--seed', type=int, default=777)
++    arguments = parser.parse_args()
++    random = np.random.default_rng(arguments.seed)
++    stages = Counter()
++    best = -1e99
++    start = time.time()
++    for trial in range(arguments.trials):
++        document, parameters = gram_candidate(random)
++        coefficients = unpack(document)
++        matrix = guard.evaluate_matrices(coefficients, [parameters['point']])[0]
++        if min(np.diag(matrix)) < .02 or min(np.linalg.det(matrix[np.ix_(pair,pair)]) for pair in __import__('itertools').combinations(range(4),2)) < 1e-5:
++            stages['invalid_principal'] += 1
++            continue
++        reports = guard.screen_all(coefficients)
++        count = sum(report['accepted'] for report in reports)
++        rank = count + 1e5*min(report.get('minimum_seen', -1) for report in reports)
++        for report in reports:
++            stages[report.get('last_stage','failure')] += 1
++        if rank > best:
++            best = rank
++            Path('gram_best.json').write_text(json.dumps(document))
++            print('BEST', trial, parameters, reports, flush=True)
++        if count == 3:
++            break
++        if trial % 100 == 0:
++            print('PROGRESS', trial, dict(stages), time.time()-start, flush=True)
++    print('DONE', dict(stages), time.time()-start, flush=True)
++
++if __name__ == '__main__':
++    main()
+*** End Patch
+PATCH
+
+python gram_search.py --trials 10000 > gram_search.log &
+tail -n 5 gram_search.log; date -u; jobs
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: gram_search.py
+@@
+-    document = package(spectral, point)
++    spectral = spectral[:, [0, 2, 1, 3]][:, :, [0, 2, 1, 3]]
++    document = package(spectral, point)
+*** End Patch
+PATCH
+
+python gram_search.py --trials 10000 > gram_search.log &
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: validate.py
++import argparse
++import itertools
++import json
++import re
++from fractions import Fraction
++from pathlib import Path
++
++def evaluate(coefficients, denominator, point):
++    coordinate = 2*point-1
++    basis = [Fraction(1), coordinate]
++    for degree in range(2, len(coefficients)):
++        basis.append(2*coordinate*basis[-1]-basis[-2])
++    return [[sum(Fraction(matrix[row][column], denominator)*basis[degree] for degree, matrix in enumerate(coefficients)) for column in range(4)] for row in range(4)]
++
++def product(left, right):
++    return [[sum(left[row][inner]*right[inner][column] for inner in range(4)) for column in range(4)] for row in range(4)]
++
++def rational(value):
++    assert isinstance(value, str)
++    parsed = Fraction(value)
++    assert str(parsed) == value
++    assert abs(parsed.numerator) <= 10**12 and parsed.denominator <= 10**12
++    return parsed
++
++def validate(path):
++    raw = Path(path).read_bytes()
++    assert len(raw) <= 65536
++    document = json.loads(raw)
++    assert set(document) == {'schema_version', 'denominator', 'coefficients', 'x', 'vector'}
++    assert type(document['schema_version']) is int and document['schema_version'] == 1
++    denominator = document['denominator']
++    assert type(denominator) is int and 1 <= denominator <= 10**12
++    coefficients = document['coefficients']
++    assert isinstance(coefficients, list) and 3 <= len(coefficients) <= 25
++    for degree, matrix in enumerate(coefficients):
++        assert isinstance(matrix, list) and len(matrix) == 4
++        assert all(isinstance(row, list) and len(row) == 4 for row in matrix)
++        for row in range(4):
++            for column in range(4):
++                assert type(matrix[row][column]) is int
++                assert abs(matrix[row][column]) <= denominator
++                assert matrix[row][column] == matrix[column][row]
++        assert sum(matrix[index][index] for index in range(4)) == (denominator if degree == 0 else 0)
++    assert any(entry for row in coefficients[-1] for entry in row)
++    row_bounds = [sum(abs(matrix[row][column]) for matrix in coefficients for column in range(4)) for row in range(4)]
++    assert max(row_bounds) <= 4*denominator
++    point = rational(document['x'])
++    assert Fraction(1, 20) <= point <= Fraction(19, 20)
++    assert isinstance(document['vector'], list) and len(document['vector']) == 4
++    vector = [rational(value) for value in document['vector']]
++    norm = sum(value**2 for value in vector)
++    assert all(abs(value) <= 1 for value in vector)
++    assert Fraction(1, 4) <= norm <= 4
++    assert all(value**2 >= norm/100 for value in vector)
++    matrix = evaluate(coefficients, denominator, point)
++    diagonal_min = min(matrix[index][index] for index in range(4))
++    principal_min = min(matrix[left][left]*matrix[right][right]-matrix[left][right]**2 for left,right in itertools.combinations(range(4), 2))
++    assert diagonal_min >= Fraction(1, 50), float(diagonal_min)
++    assert principal_min >= Fraction(1, 100000), float(principal_min)
++    first = evaluate(coefficients, denominator, Fraction(1, 4))
++    second = evaluate(coefficients, denominator, Fraction(3, 4))
++    forward = product(first, second)
++    reverse = product(second, first)
++    commutator = sum((forward[row][column]-reverse[row][column])**2 for row in range(4) for column in range(4))
++    assert commutator >= Fraction(1, 10**8), float(commutator)
++    quotient = sum(vector[row]*matrix[row][column]*vector[column] for row in range(4) for column in range(4))/norm
++    result = dict(valid=True, evidence_valid=quotient <= -Fraction(1, 10**7), quotient=str(quotient), quotient_float=float(quotient), diagonal_min=float(diagonal_min), principal_two_min=float(principal_min), commutator_squared=float(commutator), row_bounds=[value/denominator for value in row_bounds], degree=len(coefficients)-1, bytes=len(raw))
++    return result
++
++if __name__ == '__main__':
++    parser = argparse.ArgumentParser()
++    parser.add_argument('witness')
++    arguments = parser.parse_args()
++    print(json.dumps(validate(arguments.witness), indent=2))
+*** End Patch
+PATCH
+
+tail -n 10 gram_search.log
+tail -n 3 gram_search.log; date -u
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: dense_search.py
++from investigate import *
++from collections import Counter
++import argparse
++import itertools
++
++def dense_candidate(random):
++    point = random.uniform(.0501, .9499)
++    center = 2*point-1
++    order = int(random.choice([6, 8, 10, 12]))
++    first = random.normal(size=order+1)
++    first /= np.linalg.norm(first)
++    first *= random.uniform(.12, .32)
++    first[0] -= cheb.chebval(center, first)
++    second = random.normal(size=order+1)
++    second /= np.linalg.norm(second)
++    second *= random.uniform(.05, .2)
++    second[0] -= cheb.chebval(center, second)
++    height = 10**random.uniform(-1.87, -1.35)
++    third = random.normal(size=order+1)
++    third /= np.linalg.norm(third)
++    third *= random.uniform(.005, .15)
++    third[0] += height-cheb.chebval(center, third)
++    depth = 1.03e-7
++    positive = depth * 10**random.uniform(.0, 2)
++    plateau = depth * random.uniform(1.01, 8)
++    vectors = [first, second, third]
++    spectral = np.zeros((2*order+1, 4, 4))
++    for row in range(3):
++        for column in range(row, 3):
++            polynomial = cheb.chebmul(vectors[row], vectors[column])
++            spectral[:len(polynomial), row, column] = polynomial
++            spectral[:, column, row] = spectral[:, row, column]
++    envelope_scale = 10**random.uniform(-5, -1)
++    envelope = cheb.chebmul([-center, 1], [-center, 1]) * envelope_scale
++    spectral[:3, 0, 0] += envelope
++    spectral[0, 0, 0] -= depth
++    spectral[0, 1, 1] += plateau
++    spectral[0, 2, 2] += positive
++    document = package(spectral, point)
++    return document, dict(point=point, order=order, height=height, positive=positive, plateau=plateau, envelope_scale=envelope_scale)
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--trials', type=int, default=10000)
++    parser.add_argument('--seed', type=int, default=3359)
++    arguments = parser.parse_args()
++    random = np.random.default_rng(arguments.seed)
++    stages = Counter()
++    best = -1e99
++    start = time.time()
++    meshes = np.unique(np.concatenate([guard._mesh(profile) for profile in guard.PROFILES]))
++    for trial in range(arguments.trials):
++        document, parameters = dense_candidate(random)
++        coefficients = unpack(document)
++        matrix = guard.evaluate_matrices(coefficients, [parameters['point']])[0]
++        if min(np.diag(matrix)) < .02 or min(np.linalg.det(matrix[np.ix_(pair,pair)]) for pair in itertools.combinations(range(4),2)) < 1e-5 or max(np.sum(np.abs(coefficients),axis=(0,2))) > 4 or np.max(np.abs(coefficients)) > 1:
++            stages['invalid'] += 1
++            continue
++        meshmin = np.linalg.eigvalsh(guard.evaluate_matrices(coefficients, meshes))[:,0].min()
++        if meshmin < -guard.NEGATIVE_TOLERANCE:
++            stages['mesh'] += 1
++            continue
++        candidates = guard.determinant_candidates(coefficients)
++        minimum = np.linalg.eigvalsh(guard.evaluate_matrices(coefficients, candidates))[:,0].min()
++        stages['determinants'] += 1
++        if minimum > best:
++            best = minimum
++            Path('dense_best.json').write_text(json.dumps(document))
++            print('BEST', trial, minimum, parameters, flush=True)
++        if minimum >= -guard.NEGATIVE_TOLERANCE:
++            reports = guard.screen_all(coefficients)
++            count = sum(report['accepted'] for report in reports)
++            print('ESCAPE', trial, parameters, reports, flush=True)
++            Path(f'dense_escape_{trial}.json').write_text(json.dumps(document))
++            if count == 3:
++                Path('witness.json').write_text(json.dumps(document))
++                break
++        if trial % 100 == 0:
++            print('PROGRESS', trial, dict(stages), time.time()-start, flush=True)
++    print('DONE', dict(stages), time.time()-start, flush=True)
++
++if __name__ == '__main__':
++    main()
+*** End Patch
+PATCH
+
+python dense_search.py --trials 20000 > dense_search.log &
+tail -n 12 dense_search.log; tail -n 3 gram_search.log; date -u
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: diagnose.py
++from investigate import *
++import itertools
++import argparse
++
++def candidates_by_minor(coefficients):
++    for size in range(1,5):
++        for subset in itertools.combinations(range(4), size):
++            determinant = np.zeros(size*(len(coefficients)-1)+1)
++            for permutation in itertools.permutations(range(size)):
++                inversions = sum(permutation[left]>permutation[right] for left in range(size) for right in range(left+1,size))
++                polynomial = np.array([1.0])
++                for row,column in enumerate(permutation):
++                    polynomial = cheb.chebmul(polynomial, coefficients[:,subset[row],subset[column]])
++                determinant[:len(polynomial)] += (-1 if inversions % 2 else 1)*polynomial
++            yield subset, determinant
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('witness')
++    arguments = parser.parse_args()
++    document = json.loads(Path(arguments.witness).read_text())
++    coefficients = unpack(document)
++    point = float(Fraction(document['x']))
++    matrix = guard.evaluate_matrices(coefficients,[point])[0]
++    print('point',point,'eigs', np.linalg.eigvalsh(matrix))
++    for subset, polynomial in candidates_by_minor(coefficients):
++        for stage, original in [('roots',polynomial),('stationary',cheb.chebder(polynomial))]:
++            candidates = guard._root_projections(original)
++            if len(candidates):
++                eigenvalues = np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,candidates))[:,0]
++                nearest = candidates[np.argmin(abs(candidates-point))]
++                print(subset, stage, 'near',nearest,'distance',nearest-point,'min',eigenvalues.min(),'pval',cheb.chebval(2*point-1,polynomial),'exact',np.linalg.det(matrix[np.ix_(subset,subset)]), 'coeffmax',abs(polynomial).max())
++    print(json.dumps(guard.screen_all(coefficients)))
++
++if __name__ == '__main__':
++    main()
+*** End Patch
+PATCH
+
+python diagnose.py dense_best.json > dense_diagnose.log; cat dense_diagnose.log
+python - <<'PY'
+from investigate import *
+points=np.unique(np.concatenate([guard._mesh(profile) for profile in guard.PROFILES])); widths=np.diff(points); eligible=np.where((points[:-1]>.05)&(points[1:]<.95))[0]; top=eligible[np.argsort(widths[eligible])[-30:]]
+for index in top[::-1]: print((points[index]+points[index+1])/2,widths[index])
+PY
+
+tail -n 8 dense_search.log; tail -n 2 gram_search.log
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: local_geometry.py
++from investigate import *
++import itertools
++
++random = np.random.default_rng(81726)
++best = 0
++rotation = ROTATION_NUMERATORS/5
++for trial in range(200000):
++    if trial % 10 == 0:
++        rotation, triangular = np.linalg.qr(random.normal(size=(4,4)))
++    if min(rotation[:,0]**2) < .01:
++        continue
++    first, second, third = rotation[:,:3].T
++    plateau = max(first**-2*second**2)*random.uniform(1.001,3)
++    positive = 10**random.uniform(-1,2)
++    slope = random.uniform(-2,2)*np.sqrt(plateau)
++    determinant_curve = positive*(plateau-slope**2)
++    if determinant_curve <= 0:
++        continue
++    width = np.sqrt(plateau/determinant_curve)
++    curvature = positive*(second-slope*first)**2+(plateau-slope*slope)*third**2
++    centers = (plateau*first-slope*second)*third/curvature
++    score = min(abs(centers))/width
++    if score > best:
++        best = score
++        print('BEST',trial, score, plateau, positive, slope, centers, width, rotation.tolist(),flush=True)
++        Path('geometry_best.json').write_text(json.dumps(dict(score=score, plateau=plateau, positive=positive, slope=slope, centers=centers.tolist(), width=width, rotation=rotation.tolist())))
++print('DONE',best)
+*** End Patch
+PATCH
+
+python local_geometry.py > geometry.log &
+tail -n 3 geometry.log; date -u
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: geometry_fixed.py
++from investigate import *
++from scipy.optimize import differential_evolution
++
++rotation = ROTATION_NUMERATORS / 5
++first, second, third = rotation[:,:3].T
++
++def objective(parameters):
++    plateau, positive, slope = parameters
++    determinant_curve = positive*(plateau-slope**2)
++    if determinant_curve <= 0:
++        return 1000
++    width = np.sqrt(plateau/determinant_curve)
++    curvature = positive*(second-slope*first)**2+(plateau-slope*slope)*third**2
++    centers = (plateau*first-slope*second)*third/curvature
++    return -min(abs(centers))/width
++
++result = differential_evolution(objective, [(4.01,100),(.01,100),(-9.99,9.99)],popsize=30,maxiter=500,tol=1e-10,seed=9840)
++print(result.fun,result.x)
+*** End Patch
+PATCH
+
+python geometry_fixed.py > geometry_fixed.log &
+cat geometry_fixed.log; date -u
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: quartic_search.py
++from investigate import *
++from collections import Counter
++import argparse
++import itertools
++
++MESHES = np.unique(np.concatenate([guard._mesh(profile) for profile in guard.PROFILES]))
++WIDTHS = np.diff(MESHES)
++ELIGIBLE = np.where((MESHES[:-1]>.05)&(MESHES[1:]<.95))[0]
++TOP = ELIGIBLE[np.argsort(WIDTHS[ELIGIBLE])[-70:]]
++
++def quartic_candidate(random):
++    location = int(random.choice(TOP))
++    point = (MESHES[location]+MESHES[location+1])/2 + random.uniform(-.1,.1)*WIDTHS[location]
++    center = 2*point-1
++    order = 6
++    first = random.normal(size=order+1)
++    first /= np.linalg.norm(first)
++    first *= random.uniform(.008, .018)
++    first[0] -= cheb.chebval(center, first)
++    depth = 1.03e-7
++    parameter = random.uniform(2, 15)
++    divisor = random.uniform(.5, 8)
++    skew = random.uniform(-8,8)*np.sqrt(depth)
++    first_square = cheb.chebmul(first, first)
++    second = first_square.copy()
++    second[:len(first)] += skew*first
++    second[0] -= parameter*depth
++    second /= np.sqrt(divisor*depth)
++    height = random.uniform(.0133,.025)
++    third = random.normal(size=7)
++    third /= np.linalg.norm(third)
++    third *= random.uniform(.05,.2)
++    third[0] += height-cheb.chebval(center,third)
++    plateau = 10**random.uniform(-9,-6)
++    coupling = random.uniform(-.6,.6)
++    envelope_scale = 10**random.uniform(-5,-2)
++    spectral = np.zeros((25,4,4))
++    spectral[:len(first_square),0,0] = first_square
++    spectral[:3,0,0] += envelope_scale*cheb.chebmul([-center,1],[-center,1])
++    spectral[0,0,0] -= depth
++    spectral[:,1,1] = cheb.chebmul(second,second)
++    spectral[0,1,1] += plateau
++    third_square = cheb.chebmul(third,third)
++    spectral[:len(third_square),2,2] = third_square
++    spectral[0,2,2] += 1e-6
++    mixed = coupling*cheb.chebmul(first,second)
++    spectral[:len(mixed),0,1] = mixed
++    spectral[:,1,0] = spectral[:,0,1]
++    document = package(spectral,point)
++    return document,dict(point=point,height=height,parameter=parameter,divisor=divisor,skew=skew,plateau=plateau,coupling=coupling,envelope_scale=envelope_scale)
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--trials', type=int, default=20000)
++    parser.add_argument('--seed', type=int, default=291845)
++    arguments = parser.parse_args()
++    random = np.random.default_rng(arguments.seed)
++    stages = Counter()
++    best = -1e99
++    start = time.time()
++    for trial in range(arguments.trials):
++        document, parameters = quartic_candidate(random)
++        coefficients = unpack(document)
++        matrix = guard.evaluate_matrices(coefficients,[parameters['point']])[0]
++        if min(np.diag(matrix)) < .02 or min(np.linalg.det(matrix[np.ix_(pair,pair)]) for pair in itertools.combinations(range(4),2)) < 1e-5 or max(np.sum(np.abs(coefficients),axis=(0,2))) > 4 or np.max(np.abs(coefficients)) > 1:
++            stages['invalid'] += 1
++            continue
++        meshmin = np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,MESHES))[:,0].min()
++        if meshmin < -guard.NEGATIVE_TOLERANCE:
++            stages['mesh'] += 1
++            continue
++        candidates = guard.determinant_candidates(coefficients)
++        minimum = np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,candidates))[:,0].min()
++        stages['determinants'] += 1
++        if minimum > best:
++            best = minimum
++            Path('quartic_best.json').write_text(json.dumps(document))
++            print('BEST',trial,minimum,parameters,flush=True)
++        if minimum >= -guard.NEGATIVE_TOLERANCE:
++            reports = guard.screen_all(coefficients)
++            count = sum(report['accepted'] for report in reports)
++            print('ESCAPE',trial,parameters,reports,flush=True)
++            Path(f'quartic_escape_{trial}.json').write_text(json.dumps(document))
++            if count == 3:
++                Path('witness.json').write_text(json.dumps(document))
++                break
++        if trial % 100 == 0:
++            print('PROGRESS',trial,dict(stages),time.time()-start,flush=True)
++    print('DONE',dict(stages),time.time()-start,flush=True)
++
++if __name__ == '__main__':
++    main()
+*** End Patch
+PATCH
+
+python quartic_search.py --trials 30000 > quartic_search.log &
+python - <<'PY'
+from geometry_fixed import *
+for maximum in [5,8,12,20,40]:
+ result = differential_evolution(objective,[(4.0001,maximum),(.001,100),(-6,6)],popsize=20,maxiter=150,seed=9831)
+ print(maximum,result.fun,result.x,flush=True)
+PY
+
+tail -n 8 quartic_search.log; date -u
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: optimize_geometry.py
++from investigate import *
++from scipy.optimize import differential_evolution
++import itertools
++
++PAIRS = list(itertools.combinations(range(4),2))
++
++def details(parameters):
++    rotation = np.eye(4)
++    for angle, (first, second) in zip(parameters[:6], PAIRS):
++        cosine = np.cos(angle)
++        sine = np.sin(angle)
++        copied = rotation[:,[first,second]].copy()
++        rotation[:,first] = cosine*copied[:,0]-sine*copied[:,1]
++        rotation[:,second] = sine*copied[:,0]+cosine*copied[:,1]
++    first, second, third, fourth = rotation.T
++    plateau = np.exp(parameters[6])
++    positive = np.exp(parameters[7])
++    slope = parameters[8]*np.sqrt(plateau)
++    width = np.sqrt(plateau/(positive*(plateau-slope**2)))
++    curvature = positive*(second-slope*first)**2+(plateau-slope*slope)*third**2
++    centers = (plateau*first-slope*second)*third/curvature
++    ratio = min(abs(centers))/width
++    minor = min((third[left]*fourth[right]-third[right]*fourth[left])**2 for left,right in PAIRS)
++    return rotation, plateau, positive, slope, width, centers, ratio, minor
++
++def objective(parameters):
++    rotation, plateau, positive, slope, width, centers, ratio, minor = details(parameters)
++    penalty = 100*max(0, .011-min(rotation[:,0]**2)) + 100*max(0,.021-min(rotation[:,3]**2)) + 50*max(0,.025-minor)
++    penalty += 10*max(0,max(rotation[:,1]**2-plateau*rotation[:,0]**2))
++    return -ratio+penalty
++
++if __name__ == '__main__':
++    for maximum in [8, 16, 32]:
++        result = differential_evolution(objective,[(-np.pi,np.pi)]*6+[(0,np.log(maximum)),(-3,4),(-.95,.95)],popsize=20,maxiter=1000,seed=8223+maximum,workers=1,polish=False)
++        rotation,plateau,positive,slope,width,centers,ratio,minor = details(result.x)
++        record = dict(plateau=plateau,positive=positive,slope=slope,width=width,centers=centers.tolist(),ratio=ratio,minor=minor,rotation=rotation.tolist(),score=float(result.fun))
++        Path(f'geometry_optimized_{maximum}.json').write_text(json.dumps(record))
++        print(maximum,record,flush=True)
+*** End Patch
+PATCH
+
+python optimize_geometry.py > optimize_geometry.log &
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: local_quartic.py
++from investigate import *
++from numpy.polynomial import polynomial as poly
++
++def local_score(parameter, divisor, skew, plateau, coupling):
++    first = np.array([-1.,0,1.])
++    factor = np.array([-parameter,skew,1.])/np.sqrt(divisor)
++    second = poly.polymul(factor,factor)
++    second[0] += plateau
++    mixed = np.concatenate(([0],coupling*factor))
++    candidates=[]
++    for row in range(4):
++        left,right = ROTATION_NUMERATORS[row,:2]/5
++        determinant = poly.polyadd(left*left*second,right*right*first)
++        determinant = poly.polyadd(determinant,-2*left*right*mixed)
++        candidates.extend(poly.polyroots(determinant).real)
++        candidates.extend(poly.polyroots(poly.polyder(determinant)).real)
++    candidates=np.array(candidates)
++    low=poly.polyval(candidates,first)
++    high=poly.polyval(candidates,second)
++    cross=poly.polyval(candidates,mixed)
++    eigenvalues=(low+high-np.sqrt((low-high)**2+4*cross**2))/2
++    return eigenvalues.min(),parameter*parameter/divisor+plateau
++
++if __name__ == '__main__':
++    random=np.random.default_rng(5271)
++    best=-1e10
++    records=[]
++    for trial in range(50000):
++        parameter=random.uniform(2,40)
++        divisor=10**random.uniform(-.3,2)
++        skew=random.uniform(-20,20)
++        plateau=10**random.uniform(-3,1)
++        coupling=random.uniform(-.8,.8)
++        if parameter*parameter/divisor+plateau<4.01:
++            continue
++        minimum,center=local_score(parameter,divisor,skew,plateau,coupling)
++        if minimum>=0:
++            records.append(dict(parameter=parameter,divisor=divisor,skew=skew,plateau=plateau,coupling=coupling,minimum=minimum,center=center))
++        score=minimum-.005*center
++        if score>best:
++            best=score
++            print('BEST',trial,score,minimum,center,parameter,divisor,skew,plateau,coupling,flush=True)
++    records.sort(key=lambda record:record['center'])
++    Path('local_quartic_good.json').write_text(json.dumps(records))
++    print('DONE',len(records),flush=True)
+*** End Patch
+PATCH
+
+python local_quartic.py > local_quartic.log &
+tail -n 4 optimize_geometry.log; tail -n 6 local_quartic.log; tail -n 3 quartic_search.log; date -u
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: investigate.py
+@@
+ def unpack(document):
+@@
+     return np.asarray(document['coefficients'], dtype=float) / document['denominator']
++
++def package_rotated(spectral, point, rotation):
++    spectral = spectral.copy()
++    spectral[:,3,3] = -np.trace(spectral[:,:3,:3],axis1=1,axis2=2)
++    spectral[0,3,3] += 1
++    coefficients = rotation @ spectral @ rotation.T
++    integers = np.rint(coefficients*10**12).astype(np.int64)
++    for degree, matrix in enumerate(integers):
++        matrix[3,3] = (10**12 if degree == 0 else 0)-sum(int(matrix[index,index]) for index in range(3))
++        for row in range(4):
++            for column in range(row):
++                matrix[row,column] = matrix[column,row]
++    return dict(schema_version=1,denominator=10**12,coefficients=integers.tolist(),x=str(Fraction(float(point)).limit_denominator(10**10)),vector=[str(Fraction(float(entry)).limit_denominator(10**10)) for entry in rotation[:,0]])
+*** Add File: highgram_search.py
++from investigate import *
++from quartic_search import MESHES, WIDTHS, TOP
++from collections import Counter
++import argparse
++import itertools
++
++CHECK_POINTS = np.linspace(0,1,1001)
++CHECK_COORDS = 2*CHECK_POINTS-1
++GEOMETRY = json.loads(Path('geometry_optimized_8.json').read_text())
++
++def highgram_candidate(random):
++    location = int(random.choice(TOP[-35:]))
++    point = (MESHES[location]+MESHES[location+1])/2 + random.uniform(-.08,.08)*WIDTHS[location]
++    center = 2*point-1
++    order = 12
++    height = np.sqrt(1.06e-5/GEOMETRY['minor'])
++    first = random.normal(size=order+1)
++    first[0] -= cheb.chebval(center,first)
++    second = random.normal(size=order+1)
++    target_slope = GEOMETRY['slope']*cheb.chebval(center,cheb.chebder(first))
++    second[1] += target_slope-cheb.chebval(center,cheb.chebder(second))
++    second[0] -= cheb.chebval(center,second)
++    third = random.normal(size=order+1)*random.uniform(.1,1)
++    third[0] -= cheb.chebval(center,third)
++    vectors = np.array([first,second,third])
++    values = np.array([cheb.chebval(CHECK_COORDS,polynomial) for polynomial in vectors])
++    maximum = np.max(np.sum(values*values,axis=0))
++    vectors *= random.uniform(.75,.96)/np.sqrt(maximum)
++    vectors[2,0] += height
++    width = height*GEOMETRY['width']/abs(2*cheb.chebval(center,cheb.chebder(vectors[0])))
++    if width > .48*WIDTHS[location]:
++        return None, None
++    depth = 1.02e-7
++    spectral = np.zeros((25,4,4))
++    for row in range(3):
++        for column in range(row,3):
++            spectral[:,row,column] = cheb.chebmul(vectors[row],vectors[column])
++            spectral[:,column,row] = spectral[:,row,column]
++    spectral[:3,0,0] += 10**random.uniform(-4.5,-3.5)*cheb.chebmul([-center,1],[-center,1])
++    spectral[0,0,0] -= depth
++    spectral[0,1,1] += depth*GEOMETRY['plateau']
++    spectral[0,2,2] += depth*GEOMETRY['positive']
++    rotation = np.array(GEOMETRY['rotation'])
++    document = package_rotated(spectral,point,rotation)
++    return document,dict(point=point,height=height,width=width)
++
++def main():
++    parser=argparse.ArgumentParser()
++    parser.add_argument('--trials',type=int,default=50000)
++    parser.add_argument('--seed',type=int,default=16471)
++    arguments=parser.parse_args()
++    random=np.random.default_rng(arguments.seed)
++    stages=Counter()
++    best=-1e99
++    start=time.time()
++    for trial in range(arguments.trials):
++        document,parameters=highgram_candidate(random)
++        if document is None:
++            stages['wide']+=1
++            continue
++        coefficients=unpack(document)
++        if max(np.sum(np.abs(coefficients),axis=(0,2)))>4 or np.max(np.abs(coefficients))>1:
++            stages['scale']+=1
++            continue
++        meshmin=np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,MESHES))[:,0].min()
++        if meshmin < -guard.NEGATIVE_TOLERANCE:
++            stages['mesh']+=1
++            continue
++        candidates=guard.determinant_candidates(coefficients)
++        minimum=np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,candidates))[:,0].min()
++        stages['determinants']+=1
++        if minimum>best:
++            best=minimum
++            Path('highgram_best.json').write_text(json.dumps(document))
++            print('BEST',trial,minimum,parameters,flush=True)
++        if minimum>=-guard.NEGATIVE_TOLERANCE:
++            reports=guard.screen_all(coefficients)
++            count=sum(report['accepted'] for report in reports)
++            print('ESCAPE',trial,parameters,reports,flush=True)
++            Path(f'highgram_escape_{trial}.json').write_text(json.dumps(document))
++            if count==3:
++                Path('witness.json').write_text(json.dumps(document))
++                break
++        if trial%100==0:
++            print('PROGRESS',trial,dict(stages),time.time()-start,flush=True)
++    print('DONE',dict(stages),time.time()-start,flush=True)
++
++if __name__=='__main__':
++    main()
+*** End Patch
+PATCH
+
+python highgram_search.py --trials 50000 > highgram_search.log &
+tail -n 5 highgram_search.log; tail -n 3 local_quartic.log; date -u
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: highgram_search.py
+@@
+-    order = 12
++    order = int(random.choice([8,10,11,12]))
+@@
+     first = random.normal(size=order+1)
++    derivatives = cheb.chebval(center,cheb.chebder(np.eye(order+1),axis=0))
++    first += random.uniform(.5,2)*derivatives/np.linalg.norm(derivatives)
+@@
+-    second[1] += target_slope-cheb.chebval(center,cheb.chebder(second))
++    second += (target_slope-cheb.chebval(center,cheb.chebder(second)))*derivatives/np.dot(derivatives,derivatives)
+@@
+-    third = random.normal(size=order+1)*random.uniform(.1,1)
++    third = random.normal(size=order+1)*random.uniform(.1,1)
+@@
+-            spectral[:,row,column] = cheb.chebmul(vectors[row],vectors[column])
++            polynomial = cheb.chebmul(vectors[row],vectors[column])
++            spectral[:len(polynomial),row,column] = polynomial
+@@
+     document = package_rotated(spectral,point,rotation)
++    if order<12:
++        integers = document['coefficients']
++        scale = int(random.choice([1,10,100]))
++        for row in range(4):
++            for column in range(row,4):
++                value = int(random.integers(-scale,scale+1))
++                integers[-1][row][column] = value
++                integers[-1][column][row] = value
++        integers[-1][3][3] = -sum(integers[-1][index][index] for index in range(3))
+*** End Patch
+PATCH
+
+python highgram_search.py --trials 100000 --seed 19832 > highgram_tail.log &
+python - <<'PY'
+from investigate import *
+records=json.loads(Path('local_quartic_good.json').read_text())
+print(records[:5])
+PY
+
+python diagnose.py highgram_best.json > highgram_diagnose.log; tail -n 10 highgram_diagnose.log
+tail -n 10 highgram_tail.log; date -u; jobs
+rg BEST highgram_tail.log | tail -n 5; python validate.py highgram_best.json | head -n 12
+grep BEST highgram_tail.log | tail -n 4
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: filter_search.py
++from investigate import *
++from highgram_search import MESHES,WIDTHS,TOP,GEOMETRY
++from scipy.optimize import brentq
++from collections import Counter
++import argparse
++
++def append_filter(coefficients, direction):
++    projected = np.outer(coefficients @ direction,direction)
++    result = np.zeros((len(coefficients)+1,4))
++    result[:-1] = coefficients-projected
++    result[1:] += projected
++    return result
++
++def filter_candidate(random):
++    location = int(random.choice(TOP[-35:]))
++    point = (MESHES[location]+MESHES[location+1])/2+random.uniform(-.08,.08)*WIDTHS[location]
++    center = 2*point-1
++    phase = np.arccos(center)
++    unit = np.exp(1j*phase)
++    initial = random.normal(size=4)
++    initial /= np.linalg.norm(initial)
++    factors = initial[None,:]
++    order = int(random.choice([12,16,20,22]))
++    for index in range(order-1):
++        direction = random.normal(size=4)
++        direction /= np.linalg.norm(direction)
++        factors = append_filter(factors,direction)
++    value = (unit**np.arange(len(factors)))@factors
++    covariance = np.outer(value.real,value.real)+np.outer(value.imag,value.imag)
++    eigenvalues,eigenvectors = np.linalg.eigh(covariance)
++    plane = eigenvectors[:,-2:]
++    coordinates = plane.T@value
++    area = np.imag(coordinates[0]*np.conj(coordinates[1]))
++    ratio = -2*np.cos(phase)*area/(np.sin(phase)*(eigenvalues[-2]-eigenvalues[-1]))
++    if abs(ratio)>=1:
++        return None,None,'phase'
++    angle = .5*np.arcsin(ratio)
++    height_squared = 1.07e-5/GEOMETRY['minor']
++    def minor_angle(offset):
++        direction = plane@np.array([np.cos(angle+offset),np.sin(angle+offset)])
++        transformed = value+(unit-1)*direction*np.dot(direction,value)
++        gram = np.array([[np.dot(transformed.real,transformed.real),np.dot(transformed.real,transformed.imag)],[np.dot(transformed.real,transformed.imag),np.dot(transformed.imag,transformed.imag)]])
++        return np.linalg.eigvalsh(gram)[0]-height_squared
++    if minor_angle(0)>0 or minor_angle(.3)<0:
++        return None,None,'phase'
++    offset = brentq(minor_angle,0,.3,xtol=1e-13)
++    direction = plane@np.array([np.cos(angle+offset),np.sin(angle+offset)])
++    factors = append_filter(factors,direction)
++    matrices = np.zeros((len(factors),4,4))
++    matrices[0] = factors.T@factors
++    for degree in range(1,len(factors)):
++        product = factors[:-degree].T@factors[degree:]
++        matrices[degree] = product+product.T
++    value = guard.evaluate_matrices(matrices,[point])[0]
++    eigenvalues,eigenvectors = np.linalg.eigh(value)
++    derivative = guard.evaluate_matrices(2*cheb.chebder(matrices,axis=0),[point])[0]
++    null = eigenvectors[:,:2]
++    projected = null.T@derivative@eigenvectors[:,2]
++    if np.linalg.norm(projected)<1e-10:
++        return None,None,'slope'
++    projected /= np.linalg.norm(projected)
++    basis = eigenvectors.copy()
++    basis[:,0] = null@projected
++    basis[:,1] = null@np.array([-projected[1],projected[0]])
++    width = eigenvalues[2]*GEOMETRY['width']/abs(basis[:,0]@derivative@basis[:,2])
++    if width>.49*WIDTHS[location]:
++        return None,None,'wide'
++    spectral = basis.T@matrices@basis
++    depth = 1.02e-7
++    envelope = 10**random.uniform(-5,-3)*cheb.chebmul([-center,1],[-center,1])
++    additions = np.zeros((3,4,4))
++    additions[:,0,0] = envelope
++    additions[0,0,0] -= depth
++    additions[0,1,1] = depth*GEOMETRY['plateau']
++    additions[0,2,2] = depth*GEOMETRY['positive']
++    scale = -np.trace(additions,axis1=1,axis2=2)
++    scale[0] += 1
++    scaled = np.zeros((len(spectral)+2,4,4))
++    for row in range(4):
++        for column in range(4):
++            scaled[:,row,column] = cheb.chebmul(scale,spectral[:,row,column])
++    scaled[:3] += additions
++    document = package_rotated(scaled,point,np.array(GEOMETRY['rotation']))
++    return document,dict(point=point,width=width,order=order),'okay'
++
++def main():
++    parser=argparse.ArgumentParser()
++    parser.add_argument('--trials',type=int,default=50000)
++    parser.add_argument('--seed',type=int,default=78925)
++    arguments=parser.parse_args()
++    random=np.random.default_rng(arguments.seed)
++    stages=Counter()
++    best=-1e99
++    start=time.time()
++    for trial in range(arguments.trials):
++        document,parameters,stage=filter_candidate(random)
++        if document is None:
++            stages[stage]+=1
++            continue
++        coefficients=unpack(document)
++        if max(np.sum(np.abs(coefficients),axis=(0,2)))>4 or np.max(np.abs(coefficients))>1:
++            stages['scale']+=1
++            continue
++        meshmin=np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,MESHES))[:,0].min()
++        if meshmin < -guard.NEGATIVE_TOLERANCE:
++            stages['mesh']+=1
++            continue
++        candidates=guard.determinant_candidates(coefficients)
++        minimum=np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,candidates))[:,0].min()
++        stages['determinants']+=1
++        if minimum>best:
++            best=minimum
++            Path('filter_best.json').write_text(json.dumps(document))
++            print('BEST',trial,minimum,parameters,flush=True)
++        if minimum>=-guard.NEGATIVE_TOLERANCE:
++            reports=guard.screen_all(coefficients)
++            count=sum(report['accepted'] for report in reports)
++            print('ESCAPE',trial,parameters,reports,flush=True)
++            Path(f'filter_escape_{trial}.json').write_text(json.dumps(document))
++            if count==3:
++                Path('witness.json').write_text(json.dumps(document))
++                break
++        if trial%100==0:
++            print('PROGRESS',trial,dict(stages),time.time()-start,flush=True)
++    print('DONE',dict(stages),time.time()-start,flush=True)
++
++if __name__=='__main__':
++    main()
+*** End Patch
+PATCH
+
+python filter_search.py --trials 30000 > filter_search.log &
+head -n 3 filter_search.log; tail -n 2 highgram_tail.log
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: filter_search.py
+@@
+-    ratio = -2*np.cos(phase)*area/(np.sin(phase)*(eigenvalues[-2]-eigenvalues[-1]))
++    ratio = -2*np.cos(phase)*area/(np.sin(phase)*(eigenvalues[-1]-eigenvalues[-2]))
+*** End Patch
+PATCH
+
+python filter_search.py --trials 30000 --seed 78926 > filter_search2.log &
+head -n 6 filter_search2.log; tail -n 6 filter_search2.log; tail -n 2 highgram_tail.log; date -u
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: noise_search.py
++from investigate import *
++import itertools
++import argparse
++
++PERMUTATIONS = list(itertools.permutations(range(4)))
++SIGNS = [(-1 if sum(permutation[left]>permutation[right] for left in range(4) for right in range(left+1,4))%2 else 1) for permutation in PERMUTATIONS]
++
++def full_polynomial(coefficients):
++    determinant = np.zeros(4*(len(coefficients)-1)+1,dtype=coefficients.dtype)
++    for permutation,sign in zip(PERMUTATIONS,SIGNS):
++        polynomial = np.array([1.0],dtype=coefficients.dtype)
++        for row,column in enumerate(permutation):
++            polynomial = cheb.chebmul(polynomial,coefficients[:,row,column])
++        determinant[:len(polynomial)] += sign*polynomial
++    return determinant
++
++def score(coefficients):
++    polynomial = full_polynomial(coefficients)
++    candidates = np.concatenate((guard._root_projections(polynomial),guard._root_projections(cheb.chebder(polynomial))))
++    candidates = np.clip(np.concatenate((candidates,candidates-2e-7,candidates+2e-7)),0,1)
++    minimum = np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,candidates))[:,0].min()
++    return minimum
++
++def main():
++    parser=argparse.ArgumentParser()
++    parser.add_argument('base')
++    parser.add_argument('--trials',type=int,default=10000)
++    parser.add_argument('--seed',type=int,default=835123)
++    arguments=parser.parse_args()
++    document=json.loads(Path(arguments.base).read_text())
++    original=np.array(document['coefficients'],dtype=np.int64)
++    random=np.random.default_rng(arguments.seed)
++    best=-1e99
++    point=float(Fraction(document['x']))
++    start=time.time()
++    for trial in range(arguments.trials):
++        integers=original.copy()
++        noise=random.integers(-10,11,size=integers.shape)
++        noise=np.triu(noise)
++        noise=noise+noise.transpose(0,2,1)
++        for degree,matrix in enumerate(noise):
++            matrix[3,3]=-sum(int(matrix[index,index]) for index in range(3))
++        integers+=noise
++        coefficients=integers/document['denominator']
++        minimum=score(coefficients)
++        if minimum>best:
++            best=minimum
++            document['coefficients']=integers.tolist()
++            Path('noise_best.json').write_text(json.dumps(document))
++            print('BEST',trial,minimum,time.time()-start,flush=True)
++        if minimum>=-guard.NEGATIVE_TOLERANCE:
++            document['coefficients']=integers.tolist()
++            reports=guard.screen_all(coefficients)
++            print('ESCAPE',trial,reports,flush=True)
++            Path(f'noise_escape_{trial}.json').write_text(json.dumps(document))
++            if all(report['accepted'] for report in reports):
++                Path('witness.json').write_text(json.dumps(document))
++                break
++        if trial%1000==0:
++            print('PROGRESS',trial,best,time.time()-start,flush=True)
++    print('DONE',best,time.time()-start,flush=True)
++
++if __name__=='__main__':
++    main()
+*** End Patch
+PATCH
+
+python noise_search.py highgram_best.json --trials 10000 > noise_search.log &
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: optimize_product.py
++from optimize_geometry import *
++
++def target(parameters):
++    rotation,plateau,positive,slope,width,centers,ratio,minor = details(parameters)
++    penalty = 1000*max(0,.011-min(rotation[:,0]**2))+1000*max(0,.021-min(rotation[:,3]**2))
++    penalty += 100*max(0,max(rotation[:,1]**2-plateau*rotation[:,0]**2))
++    penalty += 100*max(0,1.05-ratio)
++    return np.log(plateau/max(minor,1e-10))+penalty
++
++if __name__=='__main__':
++    result=differential_evolution(target,[(-np.pi,np.pi)]*6+[(0,np.log(30)),(-3,4),(-.95,.95)],popsize=25,maxiter=1200,seed=31195,workers=1,polish=False)
++    rotation,plateau,positive,slope,width,centers,ratio,minor=details(result.x)
++    record=dict(plateau=plateau,positive=positive,slope=slope,width=width,centers=centers.tolist(),ratio=ratio,minor=minor,rotation=rotation.tolist(),score=float(result.fun))
++    Path('geometry_product.json').write_text(json.dumps(record))
++    print(record,flush=True)
+*** Update File: filter_search.py
+@@
+     order = int(random.choice([12,16,20,22]))
++    anchor = random.normal(size=(2,4))
++    anchor /= np.linalg.norm(anchor,axis=1)[:,None]
+     for index in range(order-1):
+-        direction = random.normal(size=4)
++        direction = random.normal(size=4)*.2 + anchor[index*2//order]
+*** End Patch
+PATCH
+
+python optimize_product.py > optimize_product.log &
+python filter_search.py --trials 30000 --seed 78927 > filter_search3.log &
+tail -n 5 noise_search.log; head -n 6 filter_search3.log; date -u
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: filter_search.py
+@@
+-    location = int(random.choice(TOP[-35:]))
++    location = int(random.choice(TOP[-5:]))
+*** End Patch
+PATCH
+
+python filter_search.py --trials 30000 --seed 78928 > filter_search4.log &
+cat optimize_product.log; tail -n 6 filter_search4.log; tail -n 2 filter_search3.log; date -u
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: highgram_search.py
+@@
+-GEOMETRY = json.loads(Path('geometry_optimized_8.json').read_text())
++GEOMETRY = json.loads(Path(os.environ.get('GEOMETRY_FILE','geometry_optimized_8.json')).read_text())
+*** End Patch
+PATCH
+
+GEOMETRY_FILE=geometry_product.json python highgram_search.py --trials 100000 --seed 56862 > highgram_product.log &
+GEOMETRY_FILE=geometry_product.json python filter_search.py --trials 50000 --seed 995719 > filter_product.log &
+tail -n 6 highgram_product.log; tail -n 6 filter_product.log; date -u; jobs
+grep BEST highgram_product.log | tail -n 4; grep BEST filter_product.log | tail -n 4; python - <<'PY'
+from pathlib import Path
+Path('witness.json').write_text(Path('highgram_best.json').read_text())
+PY
+
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: congruence_search.py
++from investigate import *
++from quartic_search import MESHES,WIDTHS,TOP
++from collections import Counter
++import argparse
++import itertools
++
++def congruence_candidate(random):
++    location=int(random.choice(TOP[-40:]))
++    point=(MESHES[location]+MESHES[location+1])/2+random.uniform(-.08,.08)*WIDTHS[location]
++    center=2*point-1
++    depth=1.02e-7
++    small=depth*10**random.uniform(.7,4)
++    large=max(10**random.uniform(-3.7,-1.3),4.1*small)
++    pivot=np.sqrt(small*large)
++    height=np.sqrt(small+large-2*pivot)
++    order=12
++    derivatives=cheb.chebval(center,cheb.chebder(np.eye(order+1),axis=0))
++    polynomials=random.normal(size=(3,order+1))
++    for polynomial in polynomials:
++        polynomial+=random.uniform(-2,2)*derivatives/np.linalg.norm(derivatives)
++        polynomial[0]-=cheb.chebval(center,polynomial)
++    values=np.array([cheb.chebval(np.linspace(-1,1,1001),polynomial) for polynomial in polynomials])
++    polynomials*=random.uniform(.65,.95)/np.sqrt(np.max(np.sum(values*values,axis=0)))
++    polynomials[2,0]+=height
++    first,second,third=polynomials
++    spectral=np.zeros((25,4,4))
++    spectral[:,0,0]=cheb.chebmul(first,first)+cheb.chebmul(second,second)
++    spectral[:13,0,1]=np.sqrt(pivot)*first
++    spectral[:,0,1]+=cheb.chebmul(second,third)
++    spectral[:,1,0]=spectral[:,0,1]
++    spectral[:13,0,2]=np.sqrt(pivot)*second
++    spectral[:,2,0]=spectral[:,0,2]
++    spectral[:,1,1]=cheb.chebmul(third,third)
++    spectral[0,1,1]+=pivot
++    spectral[:13,1,2]=np.sqrt(pivot)*third
++    spectral[:,2,1]=spectral[:,1,2]
++    spectral[0,2,2]=pivot
++    envelope=10**random.uniform(-5,-2)*cheb.chebmul([-center,1],[-center,1])
++    spectral[:3,0,0]+=envelope
++    spectral[0,0,0]-=depth
++    at_point=np.array([[pivot+height*height,np.sqrt(pivot)*height],[np.sqrt(pivot)*height,pivot]])
++    _,vectors=np.linalg.eigh(at_point)
++    basis=np.eye(4)
++    basis[1:3,1:3]=vectors
++    spectral=basis.T@spectral@basis
++    document=package(spectral,point)
++    return document,dict(point=point,small=small,large=large,pivot=pivot)
++
++def main():
++    parser=argparse.ArgumentParser()
++    parser.add_argument('--trials',type=int,default=50000)
++    parser.add_argument('--seed',type=int,default=57312)
++    arguments=parser.parse_args()
++    random=np.random.default_rng(arguments.seed)
++    stages=Counter()
++    best=-1e99
++    start=time.time()
++    for trial in range(arguments.trials):
++        document,parameters=congruence_candidate(random)
++        coefficients=unpack(document)
++        if max(np.sum(np.abs(coefficients),axis=(0,2)))>4 or np.max(np.abs(coefficients))>1:
++            stages['scale']+=1
++            continue
++        meshmin=np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,MESHES))[:,0].min()
++        if meshmin < -guard.NEGATIVE_TOLERANCE:
++            stages['mesh']+=1
++            continue
++        candidates=guard.determinant_candidates(coefficients)
++        minimum=np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,candidates))[:,0].min()
++        stages['determinants']+=1
++        if minimum>best:
++            best=minimum
++            Path('congruence_best.json').write_text(json.dumps(document))
++            print('BEST',trial,minimum,parameters,flush=True)
++        if minimum>=-guard.NEGATIVE_TOLERANCE:
++            reports=guard.screen_all(coefficients)
++            count=sum(report['accepted'] for report in reports)
++            print('ESCAPE',trial,parameters,reports,flush=True)
++            Path(f'congruence_escape_{trial}.json').write_text(json.dumps(document))
++            if count==3:
++                Path('witness.json').write_text(json.dumps(document))
++                break
++        if trial%100==0:
++            print('PROGRESS',trial,dict(stages),time.time()-start,flush=True)
++    print('DONE',dict(stages),time.time()-start,flush=True)
++
++if __name__=='__main__':
++    main()
+*** End Patch
+PATCH
+
+python congruence_search.py --trials 50000 > congruence_search.log &
+date -u; tail -n 3 congruence_search.log; grep BEST filter_product.log | tail -n 3; grep BEST highgram_product.log | tail -n 3; jobs
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: optimize_filter.py
++from investigate import *
++from scipy.optimize import minimize_scalar,differential_evolution
++from quartic_search import MESHES
++
++GEOMETRY=json.loads(Path('geometry_product.json').read_text())
++ROTATION=np.array(GEOMETRY['rotation'])
++DOCUMENT=json.loads(Path('filter_best.json').read_text())
++BASE=unpack(DOCUMENT)
++BASE_POINT=float(Fraction(DOCUMENT['x']))
++DEPTH=1.02e-7
++SPECTRAL=ROTATION.T@BASE@ROTATION
++CHECK=np.linspace(.03,.97,19)
++VALUES=guard.evaluate_matrices(SPECTRAL,CHECK)
++
++def residual(logarithm):
++    scale=np.exp(logarithm)
++    corrections=np.zeros((len(CHECK),4,4))
++    corrections[:,0,0]=scale*(2*(CHECK-BASE_POINT))**2-DEPTH
++    corrections[:,1,1]=DEPTH*GEOMETRY['plateau']
++    corrections[:,2,2]=DEPTH*GEOMETRY['positive']
++    values=np.linalg.eigvalsh(VALUES-corrections)
++    return np.sum(values[:,:2]**2)
++
++FIT=minimize_scalar(residual,bounds=(np.log(1e-5),np.log(1e-3)),method='bounded',options={'xatol':1e-13})
++ENVELOPE=np.exp(FIT.x)
++NODES=np.cos(np.pi*(np.arange(101)+.5)/101)
++POINTS=(NODES+1)/2
++VALUES=guard.evaluate_matrices(SPECTRAL,POINTS)
++CORRECTIONS=np.zeros_like(VALUES)
++CORRECTIONS[:,0,0]=ENVELOPE*(2*(POINTS-BASE_POINT))**2-DEPTH
++CORRECTIONS[:,1,1]=DEPTH*GEOMETRY['plateau']
++CORRECTIONS[:,2,2]=DEPTH*GEOMETRY['positive']
++SCALES=1-np.trace(CORRECTIONS,axis1=1,axis2=2)
++BACKGROUND=cheb.chebfit(NODES,((VALUES-CORRECTIONS)/SCALES[:,None,None]).reshape(101,16),len(BASE)-3).reshape(len(BASE)-2,4,4)
++BACKGROUND=(BACKGROUND+BACKGROUND.transpose(0,2,1))/2
++Path('optimized_background.json').write_text(json.dumps(dict(coefficients=BACKGROUND.tolist(),point=BASE_POINT,envelope=ENVELOPE,residual=float(FIT.fun))))
++print('RECONSTRUCT',BASE_POINT,ENVELOPE,FIT.fun,flush=True)
++BEST=-1e99
++COUNT=0
++START=time.time()
++
++def objective(parameters):
++    global BEST,COUNT
++    COUNT+=1
++    point,angle,log_plateau,log_positive,log_envelope=parameters
++    matrix=guard.evaluate_matrices(BACKGROUND,[point])[0]
++    eigenvalues,basis=np.linalg.eigh(matrix)
++    null=basis[:,:2].copy()
++    derivative=guard.evaluate_matrices(2*cheb.chebder(BACKGROUND,axis=0),[point])[0]
++    direction=null.T@derivative@basis[:,2]
++    direction/=np.linalg.norm(direction)
++    perpendicular=np.array([-direction[1],direction[0]])
++    basis[:,0]=null@(np.cos(angle)*direction+np.sin(angle)*perpendicular)
++    basis[:,1]=null@(-np.sin(angle)*direction+np.cos(angle)*perpendicular)
++    spectral=basis.T@BACKGROUND@basis
++    additions=np.zeros((3,4,4))
++    center=2*point-1
++    additions[:,0,0]=np.exp(log_envelope)*cheb.chebmul([-center,1],[-center,1])
++    additions[0,0,0]-=DEPTH
++    additions[0,1,1]=DEPTH*np.exp(log_plateau)
++    additions[0,2,2]=DEPTH*np.exp(log_positive)
++    scaling=-np.trace(additions,axis1=1,axis2=2)
++    scaling[0]+=1
++    coefficients=np.zeros((len(spectral)+2,4,4))
++    for row in range(4):
++        for column in range(4):
++            coefficients[:,row,column]=cheb.chebmul(scaling,spectral[:,row,column])
++    coefficients[:3]+=additions
++    document=package_rotated(coefficients,point,ROTATION)
++    coefficients=unpack(document)
++    matrix=guard.evaluate_matrices(coefficients,[point])[0]
++    pairs=[(left,right) for left in range(4) for right in range(left+1,4)]
++    principal=min(matrix[left,left]*matrix[right,right]-matrix[left,right]**2 for left,right in pairs)
++    rowbound=max(np.sum(np.abs(coefficients),axis=(0,2)))
++    if principal<1.00001e-5 or min(np.diag(matrix))<.02000001 or rowbound>4 or eigenvalues[0]<-1e-9:
++        return 2+max(0,1-principal/1e-5)+max(0,rowbound-4)
++    meshmin=np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,MESHES))[:,0].min()
++    if meshmin < -DEPTH:
++        return -meshmin/DEPTH
++    candidates=guard.determinant_candidates(coefficients)
++    minimum=min(meshmin,np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,candidates))[:,0].min())
++    if minimum>BEST:
++        BEST=minimum
++        Path('opt_filter_best.json').write_text(json.dumps(document))
++        print('BEST',COUNT,minimum,parameters.tolist(),time.time()-START,flush=True)
++    if minimum>=-guard.NEGATIVE_TOLERANCE:
++        reports=guard.screen_all(coefficients)
++        print('ESCAPE',COUNT,reports,flush=True)
++        Path(f'opt_filter_escape_{COUNT}.json').write_text(json.dumps(document))
++        if all(report['accepted'] for report in reports):
++            Path('witness.json').write_text(json.dumps(document))
++            raise SystemExit(0)
++    if COUNT%500==0:
++        print('PROGRESS',COUNT,BEST,time.time()-START,flush=True)
++    return -minimum/DEPTH
++
++if __name__=='__main__':
++    location=np.searchsorted(MESHES,BASE_POINT)
++    bounds=[(MESHES[location-1]+1e-5,MESHES[location]-1e-5),(-1.5,1.5),(np.log(2),np.log(100)),(np.log(.05),np.log(100)),(np.log(1e-6),np.log(.1))]
++    result=differential_evolution(objective,bounds,popsize=15,maxiter=150,tol=1e-6,seed=737127,polish=False,x0=[BASE_POINT,0,np.log(GEOMETRY['plateau']),np.log(GEOMETRY['positive']),np.log(ENVELOPE)])
++    print('DONE',result.fun,result.x.tolist(),flush=True)
+*** End Patch
+PATCH
+
+python optimize_filter.py > optimize_filter.log &
+date -u; head -n 8 optimize_filter.log; tail -n 3 congruence_search.log; tail -n 2 highgram_product.log; tail -n 2 filter_product.log; ls -lh witness.json
+python noise_search.py filter_best.json --trials 10000 --seed 72186 > noise_filter.log &
+python diagnose.py filter_best.json > filter_diagnose.log; tail -n 5 filter_diagnose.log
+tail -n 10 optimize_filter.log; tail -n 8 noise_filter.log; date -u; tail -n 3 congruence_search.log
+python diagnose.py opt_filter_best.json > opt_diagnose.log; tail -n 11 opt_diagnose.log
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: optimize_filter.py
+@@
+ START=time.time()
++EXTRA=os.environ.get('EXTRA_MODE')=='1'
++PREFIX='extra_filter' if EXTRA else 'opt_filter'
+@@
+-    point,angle,log_plateau,log_positive,log_envelope=parameters
++    point,angle,log_plateau,log_positive,log_envelope=parameters[:5]
+@@
+     additions[0,2,2]=DEPTH*np.exp(log_positive)
++    if EXTRA:
++        linear=2*parameters[5]*np.sqrt(DEPTH*np.exp(log_envelope))
++        additions[:2,0,0]+=linear*np.array([-center,1])
++        for coordinate,slope in [(1,parameters[6]),(2,parameters[7])]:
++            constant=np.sqrt(additions[0,coordinate,coordinate])
++            additions[:,coordinate,coordinate]=cheb.chebmul([constant-slope*center,slope],[constant-slope*center,slope])
+@@
+-        Path('opt_filter_best.json').write_text(json.dumps(document))
++        Path(f'{PREFIX}_best.json').write_text(json.dumps(document))
++        Path(f'{PREFIX}_parameters.json').write_text(json.dumps(parameters.tolist()))
+@@
+-        Path(f'opt_filter_escape_{COUNT}.json').write_text(json.dumps(document))
++        Path(f'{PREFIX}_escape_{COUNT}.json').write_text(json.dumps(document))
+@@
+-    result=differential_evolution(objective,bounds,popsize=15,maxiter=150,tol=1e-6,seed=737127,polish=False,x0=[BASE_POINT,0,np.log(GEOMETRY['plateau']),np.log(GEOMETRY['positive']),np.log(ENVELOPE)])
++    initial=[BASE_POINT,0,np.log(GEOMETRY['plateau']),np.log(GEOMETRY['positive']),np.log(ENVELOPE)]
++    if EXTRA:
++        bounds += [(-3,3),(-.2,.2),(-.2,.2)]
++        initial += [0,0,0]
++    result=differential_evolution(objective,bounds,popsize=12,maxiter=120,tol=1e-6,seed=737128 if EXTRA else 737127,polish=False,x0=initial)
+*** End Patch
+PATCH
+
+EXTRA_MODE=1 python optimize_filter.py > extra_filter.log &
+date -u; tail -n 5 extra_filter.log; tail -n 5 optimize_filter.log; tail -n 2 filter_product.log; jobs
+python diagnose.py extra_filter_best.json > extra_diagnose.log; tail -n 11 extra_diagnose.log
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: optimize_filter.py
+@@
+ EXTRA=os.environ.get('EXTRA_MODE')=='1'
+-PREFIX='extra_filter' if EXTRA else 'opt_filter'
++ROTATE=os.environ.get('ROTATE_MODE')=='1'
++PREFIX='rotate_filter' if ROTATE else ('extra_filter' if EXTRA else 'opt_filter')
+@@
+-    document=package_rotated(coefficients,point,ROTATION)
++    rotation=ROTATION.copy()
++    if ROTATE:
++        for rotation_angle,(left,right) in zip(parameters[8:],[(0,1),(0,2),(1,2)]):
++            copied=rotation[:,[left,right]].copy()
++            rotation[:,left]=np.cos(rotation_angle)*copied[:,0]-np.sin(rotation_angle)*copied[:,1]
++            rotation[:,right]=np.sin(rotation_angle)*copied[:,0]+np.cos(rotation_angle)*copied[:,1]
++    if min(rotation[:,0]**2)<.010001:
++        return 3
++    document=package_rotated(coefficients,point,rotation)
+@@
+     if EXTRA:
+         bounds += [(-3,3),(-.2,.2),(-.2,.2)]
+         initial += [0,0,0]
+-    result=differential_evolution(objective,bounds,popsize=12,maxiter=120,tol=1e-6,seed=737128 if EXTRA else 737127,polish=False,x0=initial)
++    if ROTATE:
++        bounds += [(-.5,.5)]*3
++        initial=json.loads(Path('extra_filter_parameters.json').read_text())+[0,0,0]
++    result=differential_evolution(objective,bounds,popsize=12,maxiter=100 if ROTATE else 120,tol=1e-6,seed=737129 if ROTATE else (737128 if EXTRA else 737127),polish=False,x0=initial)
+*** End Patch
+PATCH
+
+EXTRA_MODE=1 ROTATE_MODE=1 python optimize_filter.py > rotate_filter.log &
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: finalize.py
++from investigate import *
++from validate import validate
++
++def main():
++    candidates=sorted(set(Path('.').glob('*_best.json'))|set(Path('.').glob('*_escape_*.json'))|{Path('witness.json'),Path('baseline_witness.json')})
++    records=[]
++    best=None
++    for path in candidates:
++        try:
++            document=json.loads(path.read_text())
++            validation=validate(path)
++            if not validation['evidence_valid']:
++                continue
++            coefficients=unpack(document)
++            reports=guard.screen_all(coefficients)
++            accepted=sum(report['accepted'] for report in reports)
++            points=np.unique(np.concatenate([guard._mesh(profile) for profile in guard.PROFILES]+[guard.determinant_candidates(coefficients)]))
++            shared_minimum=float(np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,points))[:,0].min())
++            rank=(accepted,shared_minimum)
++            record=dict(source=str(path),profiles_accepted=accepted,shared_and_mesh_minimum=shared_minimum,quotient=validation['quotient_float'])
++            records.append(record)
++            print(json.dumps(record),flush=True)
++            if best is None or rank>best[0]:
++                best=(rank,path,document,validation,reports)
++        except (ValueError,KeyError,AssertionError,TypeError,FileNotFoundError) as error:
++            print('SKIP',str(path),type(error).__name__,str(error)[:200],flush=True)
++    assert best is not None
++    rank,source,document,validation,reports=best
++    Path('witness.json').write_text(json.dumps(document,separators=(',',':'))+'\n')
++    validation=validate('witness.json')
++    Path('exact_validation.json').write_text(json.dumps(validation,indent=2)+'\n')
++    screening=dict(guard_version=guard.VERSION,accepted=all(report['accepted'] for report in reports),profiles=reports)
++    Path('public_guard_report.json').write_text(json.dumps(screening,indent=2)+'\n')
++    summary=dict(artifact='witness.json',source_candidate=str(source),valid=validation['valid'],evidence_valid=validation['evidence_valid'],profiles_accepted=rank[0],profiles_total=3,passed=screening['accepted'],core_score=rank[0]/3,worst_family_score=int(screening['accepted']),shared_and_mesh_minimum=rank[1],normalized_rayleigh_quotient=validation['quotient_float'])
++    Path('submission_summary.json').write_text(json.dumps(summary,indent=2)+'\n')
++    Path('candidate_comparison.json').write_text(json.dumps(records,indent=2)+'\n')
++    status='The witness passes all three public profiles.' if screening['accepted'] else f'The witness passes {rank[0]} of the three public profiles. The requested falsification was not achieved.'
++    report=f'''# Final submission
++
++## Outcome
++
++{status}
++
++`witness.json` is the final data artifact. It satisfies the algebraic contract and the exact negative-evidence threshold, as checked by `validate.py`. No claim of successful screening evasion is made unless `passed` is true in `submission_summary.json`.
++
++## Exact evidence and constraints
++
++- Degree: {validation['degree']}.
++- Common denominator: {document['denominator']}.
++- Rational witness point: `{document['x']}`.
++- Normalized Rayleigh quotient: approximately {validation['quotient_float']:.16g}; the full exact reduced fraction is in `exact_validation.json`.
++- Minimum diagonal at the witness: {validation['diagonal_min']:.16g}.
++- Minimum principal two-coordinate determinant: {validation['principal_two_min']:.16g}.
++- Squared commutator Frobenius norm: {validation['commutator_squared']:.16g}.
++- Largest coefficient row-sum bound: {max(validation['row_bounds']):.16g}, below four.
++- Artifact size: {validation['bytes']} bytes.
++
++## Reproduction
++
++From this output directory:
++
++```sh
++OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python validate.py witness.json
++OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 python ../../participant/workspace/guard.py witness.json
++```
++
++`public_guard_report.json` contains the unmodified public screen's profile reports. `submission_summary.json` records the outcome without treating admissibility as success. `candidate_comparison.json` records the final comparison of admissible saved candidates.
++
++## Investigation and scratch work
++
++All search code and generated data are local to this output directory; participant assets were used read-only. The searches use single-threaded BLAS and the public guard imported from the participant assets.
++
++The investigation covers the supplied coupled-branch baseline, sparse and dense low-rank Gram constructions, optimized local coordinate geometries, quartic branch clustering, paraunitary-filter rank-two polynomial matrices, unimodular congruences, bounded coefficient perturbations, and differential-evolution refinements of filter constructions. The `*_search.py`, `optimize_*.py`, and `*.log` files retain these experiments. `diagnose.py` separates candidate locations by principal minor. `finalize.py` selects the best saved admissible candidate by profiles accepted, then by the worst value across the shared candidates and all fixed meshes.
++
++Final candidate source: `{source}`.
++'''
++    Path('REPORT.md').write_text(report)
++    print('FINAL',json.dumps(summary),flush=True)
++
++if __name__=='__main__':
++    main()
+*** End Patch
+PATCH
+
+python finalize.py > finalization.log
+date -u; tail -n 3 finalization.log; tail -n 5 extra_filter.log; tail -n 3 rotate_filter.log; tail -n 2 optimize_filter.log
+kill 114; jobs; tail -n 2 highgram_product.log
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: optimize_filter.py
+@@
+ ROTATE=os.environ.get('ROTATE_MODE')=='1'
+-PREFIX='rotate_filter' if ROTATE else ('extra_filter' if EXTRA else 'opt_filter')
++FOURTH=os.environ.get('FOURTH_MODE')=='1'
++PREFIX='fourth_filter' if FOURTH else ('rotate_filter' if ROTATE else ('extra_filter' if EXTRA else 'opt_filter'))
+@@
+         for coordinate,slope in [(1,parameters[6]),(2,parameters[7])]:
+@@
+             additions[:,coordinate,coordinate]=cheb.chebmul([constant-slope*center,slope],[constant-slope*center,slope])
++    if FOURTH:
++        constant=np.exp(parameters[11]/2)
++        slope=parameters[12]
++        additions[:,3,3]=cheb.chebmul([constant-slope*center,slope],[constant-slope*center,slope])
+@@
+-        for rotation_angle,(left,right) in zip(parameters[8:],[(0,1),(0,2),(1,2)]):
++        for rotation_angle,(left,right) in zip(parameters[8:11],[(0,1),(0,2),(1,2)]):
+@@
+     if ROTATE:
+@@
+         initial=json.loads(Path('extra_filter_parameters.json').read_text())+[0,0,0]
+-    result=differential_evolution(objective,bounds,popsize=12,maxiter=100 if ROTATE else 120,tol=1e-6,seed=737129 if ROTATE else (737128 if EXTRA else 737127),polish=False,x0=initial)
++    if FOURTH:
++        bounds += [(-18,-3),(-.3,.3)]
++        initial += [-18,0]
++    result=differential_evolution(objective,bounds,popsize=10 if FOURTH else 12,maxiter=90 if ROTATE else 120,tol=1e-6,seed=737130 if FOURTH else (737129 if ROTATE else (737128 if EXTRA else 737127)),polish=False,x0=initial)
+*** End Patch
+PATCH
+
+EXTRA_MODE=1 ROTATE_MODE=1 FOURTH_MODE=1 python optimize_filter.py > fourth_filter.log &
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: mix_search.py
++from investigate import *
++from quartic_search import MESHES
++import argparse
++
++def main():
++    parser=argparse.ArgumentParser()
++    parser.add_argument('base')
++    parser.add_argument('--trials',type=int,default=5000)
++    arguments=parser.parse_args()
++    document=json.loads(Path(arguments.base).read_text())
++    original=unpack(document)
++    assert len(original)<=23
++    point=float(Fraction(document['x']))
++    coordinate=2*point-1
++    square=cheb.chebmul([-coordinate,1],[-coordinate,1])
++    vector=np.array([float(Fraction(value)) for value in document['vector']])
++    vector/=np.linalg.norm(vector)
++    random=np.random.default_rng(796531)
++    best=-1e99
++    start=time.time()
++    for trial in range(arguments.trials):
++        if trial%3==0:
++            projector=(np.eye(4)-np.outer(vector,vector))/3
++        else:
++            directions=random.normal(size=(4,int(random.integers(1,5))))
++            directions-=random.uniform(0,1)*np.outer(vector,vector@directions)
++            projector=directions@directions.T
++            projector/=np.trace(projector)
++        strength=10**random.uniform(-4,np.log10(.95/(1+abs(coordinate))**2))
++        scaling=-strength*square
++        scaling[0]+=1
++        coefficients=np.zeros((len(original)+2,4,4))
++        for row in range(4):
++            for column in range(4):
++                coefficients[:,row,column]=cheb.chebmul(scaling,original[:,row,column])
++        coefficients[:3]+=strength*square[:,None,None]*projector
++        candidate=package_rotated(coefficients,point,np.eye(4))
++        candidate['vector']=document['vector']
++        coefficients=unpack(candidate)
++        if max(np.sum(np.abs(coefficients),axis=(0,2)))>4:
++            continue
++        candidates=guard.determinant_candidates(coefficients)
++        points=np.concatenate((MESHES,candidates))
++        minimum=np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,points))[:,0].min()
++        if minimum>best:
++            best=minimum
++            Path('mix_best.json').write_text(json.dumps(candidate))
++            print('BEST',trial,minimum,strength,time.time()-start,flush=True)
++        if minimum>=-guard.NEGATIVE_TOLERANCE:
++            reports=guard.screen_all(coefficients)
++            print('ESCAPE',trial,reports,flush=True)
++            Path(f'mix_escape_{trial}.json').write_text(json.dumps(candidate))
++            if all(report['accepted'] for report in reports):
++                Path('witness.json').write_text(json.dumps(candidate))
++                return
++        if trial%500==0:
++            print('PROGRESS',trial,best,time.time()-start,flush=True)
++    print('DONE',best,time.time()-start,flush=True)
++
++if __name__=='__main__':
++    main()
+*** End Patch
+PATCH
+
+python mix_search.py extra_filter_best.json --trials 5000 > mix_search.log &
+date -u; tail -n 6 mix_search.log; tail -n 5 fourth_filter.log; tail -n 5 rotate_filter.log; tail -n 3 extra_filter.log; jobs
+date -u; tail -n 3 extra_filter.log; tail -n 3 fourth_filter.log; tail -n 3 mix_search.log; du -sh .; sleep 60; date -u; tail -n 3 extra_filter.log; tail -n 3 fourth_filter.log
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: camouflage_search.py
++from investigate import *
++from quartic_search import MESHES
++
++def main():
++    data=json.loads(Path('optimized_background.json').read_text())
++    background=np.array(data['coefficients'])
++    point=data['point']
++    center=2*point-1
++    geometry=json.loads(Path('geometry_product.json').read_text())
++    rotation=np.array(geometry['rotation'])
++    square=cheb.chebmul([-center,1],[-center,1])
++    quartic=cheb.chebmul(square,square)
++    depth=1.02e-7
++    additions=np.zeros((5,4,4))
++    additions[:3,0,0]=data['envelope']*square
++    additions[0,0,0]-=depth
++    additions[0,1,1]=depth*geometry['plateau']
++    additions[0,2,2]=depth*geometry['positive']
++    random=np.random.default_rng(9271753)
++    best=-1e99
++    start=time.time()
++    for trial in range(3000):
++        directions=random.normal(size=(4,int(random.integers(1,5))))
++        projector=directions@directions.T
++        projector/=np.trace(projector)
++        strength=random.uniform(.0001,.9/(1+abs(center))**4)
++        correction=additions+strength*quartic[:,None,None]*projector
++        scaling=-np.trace(correction,axis1=1,axis2=2)
++        scaling[0]+=1
++        coefficients=np.zeros((len(background)+4,4,4))
++        for row in range(4):
++            for column in range(4):
++                coefficients[:,row,column]=cheb.chebmul(scaling,background[:,row,column])
++        coefficients[:5]+=correction
++        document=package_rotated(coefficients,point,rotation)
++        coefficients=unpack(document)
++        if max(np.sum(np.abs(coefficients),axis=(0,2)))>4:
++            continue
++        candidates=guard.determinant_candidates(coefficients)
++        points=np.concatenate((MESHES,candidates))
++        minimum=np.linalg.eigvalsh(guard.evaluate_matrices(coefficients,points))[:,0].min()
++        if minimum>best:
++            best=minimum
++            Path('camouflage_best.json').write_text(json.dumps(document))
++            print('BEST',trial,minimum,strength,time.time()-start,flush=True)
++        if minimum>=-guard.NEGATIVE_TOLERANCE:
++            reports=guard.screen_all(coefficients)
++            print('ESCAPE',trial,reports,flush=True)
++            Path(f'camouflage_escape_{trial}.json').write_text(json.dumps(document))
++            if all(report['accepted'] for report in reports):
++                Path('witness.json').write_text(json.dumps(document))
++                return
++        if trial%500==0:
++            print('PROGRESS',trial,best,time.time()-start,flush=True)
++    print('DONE',best,time.time()-start,flush=True)
++
++if __name__=='__main__':
++    main()
+*** End Patch
+PATCH
+
+python camouflage_search.py > camouflage_search.log &
+date -u; tail -n 3 rotate_filter.log; tail -n 3 fourth_filter.log; tail -n 3 mix_search.log; tail -n 3 camouflage_search.log; jobs; sleep 60; date -u; tail -n 3 camouflage_search.log
+apply_patch <<'PATCH'
+*** Begin Patch
+*** Update File: finalize.py
+@@
+     rank,source,document,validation,reports=best
+-    Path('witness.json').write_text(json.dumps(document,separators=(',',':'))+'\n')
+-    validation=validate('witness.json')
++    simplified=dict(document)
++    simplified['x']=str(Fraction(document['x']).limit_denominator(10**6))
++    simplified['vector']=[str(Fraction(value).limit_denominator(10000)) for value in document['vector']]
++    Path('witness.json').write_text(json.dumps(simplified,separators=(',',':'))+'\n')
++    try:
++        validation=validate('witness.json')
++        assert validation['evidence_valid']
++        document=simplified
++    except (ValueError,AssertionError):
++        Path('witness.json').write_text(json.dumps(document,separators=(',',':'))+'\n')
++        validation=validate('witness.json')
+*** End Patch
+PATCH
+
+date -u; jobs; tail -n 2 rotate_filter.log; tail -n 2 fourth_filter.log; tail -n 2 mix_search.log; tail -n 2 camouflage_search.log
+wait 196
+python finalize.py > finalization.log
+python ../../participant/workspace/guard.py witness.json > guard_cli.json
+python validate.py witness.json > exact_validation_cli.json
+python - <<'PY'
+import json
+from pathlib import Path
+summary=json.loads(Path('submission_summary.json').read_text())
+assert json.loads(Path('guard_cli.json').read_text())==json.loads(Path('public_guard_report.json').read_text())
+assert json.loads(Path('exact_validation_cli.json').read_text())==json.loads(Path('exact_validation.json').read_text())
+print(json.dumps(summary,indent=2))
+print('Independent CLI reports match.')
+PY
+
+sha256sum witness.json > witness.sha256
+HISTFILE="$PWD/shell_history"; history -w
