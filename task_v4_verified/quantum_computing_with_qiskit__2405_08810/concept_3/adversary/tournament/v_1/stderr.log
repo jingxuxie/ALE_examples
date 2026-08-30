@@ -1,0 +1,1881 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/quantum_computing_with_qiskit__2405_08810/concept_3/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 01a0492b-fc12-7ac3-925c-4dc72de2050d
+--------
+user
+Read TASK.md and solve the participant task. Your only scientific assets are in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/quantum_computing_with_qiskit__2405_08810/concept_3/participant. Write the required submission to the initially empty directory /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/quantum_computing_with_qiskit__2405_08810/concept_3/attempts/v_1. Participant assets are read-only; create scratch files only in the output directory. You have a maximum of 3600 seconds wall time. Do not use the network, request broader access, access sibling directories, or delegate to other agents. Use non-login shell commands (login=false) to avoid startup files outside the allowlist. Produce the executable or design artifact required by TASK.md before finishing.
+codex
+I’ll read the task and assets, then build the submission.
+
+exec
+/bin/bash -c 'pwd && ls -la && cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/quantum_computing_with_qiskit__2405_08810/concept_3/participant
+**Considering tool latency**
+
+I’m noticing that the tools might be experiencing around a 30-second latency. I’m trying to figure out if it could be because the environment is overloaded. It’s interesting how performance can vary based on usage conditions! I should keep this in mind when assessing response times in the future. If the latency continues, I might need to think about potential solutions or adjustments to improve efficiency.
+**Exploring command execution**
+
+I'm thinking we shouldn't use the tool repeatedly if there's no action possible. Perhaps I could issue an exec command explicitly with `/bin/bash` and set the working directory. Using `pwd` might help, and it makes me wonder if the original exec default is the current working directory. If there's no output, it likely means that the command hasn't run at all. I'm trying to get this right!
+exec
+/bin/bash -c 'cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/quantum_computing_with_qiskit__2405_08810/concept_3/participant
+**Troubleshooting tty issues**
+
+I'm thinking maybe the shell tool has a default no tty issue? I could try checking tty just to be sure. I really want to avoid duplicating efforts. It seems like I need to account for subprocess creation, which might take around 2 minutes to boot. We're already about 3 minutes in, and with the current token rate being around 40 tokens per second, I think we can wait about 10 seconds before moving forward.
+ succeeded in 65364ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/quantum_computing_with_qiskit__2405_08810/concept_3/participant
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 08:58 .
+drwx------ 4 xuandong xuandong   80 Aug 28 09:24 ..
+-rw-rw-r-- 1 xuandong xuandong 1684 Aug 28 09:10 TASK.md
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 28 09:17 baseline
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 28 09:00 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 08:41 workspace
+# Adaptive cross-resonance calibration
+
+Calibrate the five signed coefficients of a two-qubit cross-resonance Hamiltonian from a limited sequence of experiments. Your calibration controller chooses product-state preparations, Pauli measurements, evolution times, and shot allocations, observing only sampled binary counts. State-preparation, readout, and decoherence parameters are unknown nuisance variables.
+
+Submit a directory containing `solution.py`, an executable Python line-JSON controller. It receives one episode on standard input, requests experiments on standard output, and returns one parameter estimate. Every hidden episode runs in a new isolated process. No Qiskit installation is needed; NumPy and SciPy are available.
+
+The exact forward model, parameter families, protocol, scoring, and standalone development harness are in `input/`. A runnable fixed-schedule baseline is in `baseline/`. You may use the public assets but cannot access evaluator files, hidden seeds, or other episodes.
+
+Each episode allows **24,576 shots, 192 queries, times in [0, 12], 20 solver wall seconds, 18 CPU seconds, and 1 GiB address space**. Solver time includes imports and interaction but excludes trusted sandbox creation. Recovery is scored by normalized coefficient error, with both overall and worst-family targets specified in `input/config.json`. All episodes must be protocol-valid. Only the five Hamiltonian coefficients are scored; nuisance estimates are optional.
+
+This is a synthetic active-design extension motivated by partial-ZX retargeting and calibration, not a reproduction of the paper's experiment. Details and provenance: `input/MODEL.md` and `input/SOURCES.md`.
+
+exec
+/bin/bash -c "rg --files -g 'AGENTS.md' -g '*' input baseline workspace && printf '\\n---INSTRUCTIONS---\\n' && find . -name AGENTS.md -print" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/quantum_computing_with_qiskit__2405_08810/concept_3/participant
+**Evaluating launch tasks**
+
+I’m thinking that each launch might take around 3 minutes, but I need to consider if every command has a 20-second latency, which could make it seem impossible to manage. The ephemeral sandbox could be costly, so grouping commands might be a good strategy. Maybe I should batch commands by creating a big list of files that are known but not yet processed. I'll plan to read and implement a robust controller to validate the harness.
+  → Inspect model, protocol, and baseline
+  • Develop adaptive calibration and inference
+  • Benchmark accuracy and runtime locally
+  • Finalize executable submission
+exec
+/bin/bash -c "printf '\\n---CONFIG---\\n'; cat input/config.json; printf '\\n---MODEL---\\n'; cat input/MODEL.md; printf '\\n---FILES---\\n'; ls -la input baseline workspace; printf '\\n---GUIDANCE---\\n'; if [ -f AGENTS.md ]; then cat AGENTS.md; fi; for folder in input baseline workspace; do if [ -f \""'$folder/AGENTS.md" ]; then cat "$folder/AGENTS.md"; fi; done' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/quantum_computing_with_qiskit__2405_08810/concept_3/participant
+**Exploring physics models**
+
+I’m thinking about a physics model, looking at the CR Hamiltonian, H, and trying to determine the best components like IZ/2 and others. It seems like I’ll need a baseline, probably using a scipy optimizer for block conditional Bloch evolution. There’s some uncertainty with product states, and I’m considering fast sufficient Fisher adaptive conditional Z states. I just need to see how to piece all this together!
+exec
+/bin/bash -c '/bin/bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/quantum_computing_with_qiskit__2405_08810/concept_3/participant
+**Evaluating tool execution**
+
+I’m pondering why there's a 5-second delay with tool metadata. It seems like the execution tools might not actually run until the distributed queue is fully loaded, or maybe only one process is allowed to run at a time per turn. I find myself wondering if the original attempts are now accessible. There’s definitely some complexity here that I'm trying to untangle!
+ succeeded in 95208ms:
+# Adaptive cross-resonance calibration
+
+Calibrate the five signed coefficients of a two-qubit cross-resonance Hamiltonian from a limited sequence of experiments. Your calibration controller chooses product-state preparations, Pauli measurements, evolution times, and shot allocations, observing only sampled binary counts. State-preparation, readout, and decoherence parameters are unknown nuisance variables.
+
+Submit a directory containing `solution.py`, an executable Python line-JSON controller. It receives one episode on standard input, requests experiments on standard output, and returns one parameter estimate. Every hidden episode runs in a new isolated process. No Qiskit installation is needed; NumPy and SciPy are available.
+
+The exact forward model, parameter families, protocol, scoring, and standalone development harness are in `input/`. A runnable fixed-schedule baseline is in `baseline/`. You may use the public assets but cannot access evaluator files, hidden seeds, or other episodes.
+
+Each episode allows **24,576 shots, 192 queries, times in [0, 12], 20 solver wall seconds, 18 CPU seconds, and 1 GiB address space**. Solver time includes imports and interaction but excludes trusted sandbox creation. Recovery is scored by normalized coefficient error, with both overall and worst-family targets specified in `input/config.json`. All episodes must be protocol-valid. Only the five Hamiltonian coefficients are scored; nuisance estimates are optional.
+
+This is a synthetic active-design extension motivated by partial-ZX retargeting and calibration, not a reproduction of the paper's experiment. Details and provenance: `input/MODEL.md` and `input/SOURCES.md`.
+
+**Considering global design**
+
+I'm thinking about a global design approach involving sequential experiments. They range from 0 to 12 with damped signals. I'll be dealing with around 24k shots at approximately 192x128 resolution. I'll need to look at five coefficients for error scales, and there's some nuisance SPAM that can put constraints on t0. It seems important to infer signed and unknown nuisance rotations, and I'll consider using an adaptive Fisher strategy for frequency identification.
+ exited 127 in 87830ms:
+/bin/bash: line 1: rg: command not found
+
+ succeeded in 79430ms:
+
+---CONFIG---
+{
+  "protocol": "cr-calibration-v1",
+  "parameter_order": ["omega_ix", "omega_zx", "omega_iz", "omega_zz", "omega_zi", "prep_visibility", "readout_contrast", "readout_bias", "decay_rate"],
+  "bounds": [[-5.0, 5.0], [-2.0, 2.0], [-3.0, 3.0], [-1.4, 1.4], [-2.5, 2.5], [0.78, 0.995], [0.78, 0.95], [-0.045, 0.045], [0.006, 0.16]],
+  "normalization": [0.5, 0.25, 0.5, 0.25, 0.5],
+  "budget": {"shots": 24576, "queries": 192, "max_shots_per_query": 4096, "max_time": 12.0},
+  "resources": {"wall_seconds": 20, "cpu_seconds": 18, "memory_mb": 1024, "stdout_bytes": 262144, "stderr_bytes": 65536, "line_bytes": 16384},
+  "suite": {"episodes": 32, "families": ["aliasing", "near_degenerate", "weak_entangling", "nuisance_decoherence"]},
+  "target": {"mean_nrmse": 0.06, "worst_family_mean_nrmse": 0.09, "required_valid_fraction": 1.0, "status": "frozen_before_fresh_agents"}
+}
+
+---MODEL---
+# Exact forward model
+
+## Conventions and trusted controls
+
+The basis is `|control,target> = |00>, |01>, |10>, |11>`. Strings are tensor products in this order: `ZX = Z_control ⊗ X_target`. In Qiskit label notation these can be regarded as control = qubit 1, target = qubit 0. This is not the argument order of Qiskit's `cx(0,1)`.
+
+Pauli X = [[0,1],[1,0]], Y = [[0,-i],[i,0]], Z = diag(1,-1). Preparations `X+`, `X-`, `Y+`, `Y-`, `Z+`, `Z-` refer to the signed eigenstates of these matrices. The handedness, signs, local phase frames, time origin, and time scale are **trusted**; there is no hidden axis rotation, unknown time offset, or control-label swap. The only preparation error is the positive isotropic visibility below. The binary readout contrast is strictly positive. Thus a hidden phase/sign gauge is not part of this task.
+
+All times and angular frequencies are dimensionless reciprocal units; there is **no extra factor of 2π**. All parameters remain fixed within an episode. There is no drift, time rounding, pulse ramp, or unknown drive amplitude.
+
+## Hamiltonian and channel
+
+`H = (omega_ix IX + omega_zx ZX + omega_iz IZ + omega_zz ZZ + omega_zi ZI)/2`.
+
+`U(t) = exp(-i t H)` is the exact exponential of the sum. The terms generally do not commute. For a control Z eigenvalue `s ∈ {+1,-1}`, define `a_s = omega_ix+s omega_zx`, `d_s = omega_iz+s omega_zz`, `r_s = sqrt(a_s²+d_s²)`. The corresponding target block is
+
+`U_s(t) = exp(-i s omega_zi t/2) [cos(r_s t/2) I - i (sin(r_s t/2)/r_s)(a_s X+d_s Z)]`.
+
+The zero-frequency limit of `sin(r_s t/2)/r_s` is `t/2`. The relative phase between the two blocks matters for superposed control preparations; the ZI coefficient is not observable using only control Z eigenstates and target-only readout.
+
+For preparation axes A, B and signs a, b, with visibility v:
+
+`rho_prep = [(I+a v A)/2] ⊗ [(I+b v B)/2]`.
+
+Evolution includes a global depolarizing semigroup with rate gamma:
+
+`rho(t) = exp(-gamma t) U(t) rho_prep U(t)† + (1-exp(-gamma t)) I_4/4`.
+
+This is exactly the solution of `dot(rho) = -i[H,rho] + gamma (I_4 Tr(rho)/4-rho)`. It is a deliberately specified, completely positive effective decoherence model, not a claim that transmons have only global depolarization or that local amplitude damping commutes with this H.
+
+For any allowed nonidentity Pauli product M, the positive-outcome probability is
+
+`p_plus = [1 + readout_bias + readout_contrast Tr(M rho(t))]/2`.
+
+This specifies a **binary parity meter**, including when M has weight two. It is not a model of two separately corrupted readout bits. Its classical confusion probabilities are `P(reported+ | ideal+)=(1+bias+contrast)/2` and `P(reported+ | ideal-)=(1+bias-contrast)/2`; the public bounds ensure both are valid. The observed count is exactly `Binomial(shots,p_plus)`, conditionally independent across queries. No underlying probability, shot record, or hidden parameter is returned.
+
+## Parameters and scoring
+
+The parameter order and inclusive bounds are in `config.json`. The nuisance order is `[prep_visibility, readout_contrast, readout_bias, decay_rate]`. Contrast and visibility are positive, with no negative-contrast sign ambiguity. Both single- and two-qubit observables are available, so preparation and measurement contrast need not be conflated: at zero time their amplitudes are proportional to `contrast*v` and `contrast*v²` respectively.
+
+For an estimate in the published Hamiltonian bounds, an episode's error is
+
+`NRMSE = sqrt(mean(((estimate - true_omega)/[0.5,0.25,0.5,0.25,0.5])²))`.
+
+These fixed calibration scales, not episode-dependent relative errors, emphasize the entangling coefficients without dividing by a near-zero true coefficient. The aggregate is the arithmetic mean of episode NRMSEs; the worst-family score is the largest of the four family means. Smaller is better. Passing requires both inequalities in `config.json` and valid completion of all 32 episodes. Invalid episodes receive NRMSE = 30 and fail validity. The maximum error of any two in-bounds coefficient vectors is below 30. Reported core score equals mean NRMSE, not a differently normalized reward. Runtime is reported separately and is not traded against accuracy; the hard limits always apply.
+
+`resource_score` is the fraction of episodes completing protocol-validly within all hard resource limits, in `[0,1]`. It does not compensate for recovery error. Sandbox startup failure is reported as an infrastructure error with no quality score, not as a hard calibration episode. Solver and startup wall times are reported separately.
+
+The task does not claim that the target has been achieved. See baseline measurements for empirical context; the achievable frontier remains open unless a separately validated controller passes. Independent dense-exponential checks and full nine-parameter Jacobian-rank checks are part of the private evaluator selftests.
+
+---FILES---
+baseline:
+total 24
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 28 09:17 .
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 08:58 ..
+-rw-rw-r-- 1 xuandong xuandong 2808 Aug 28 09:17 README.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 09:07 __pycache__
+-rw-rw-r-- 1 xuandong xuandong  990 Aug 28 09:17 metrics.json
+-rw-rw-r-- 1 xuandong xuandong 3962 Aug 28 09:05 solution.py
+
+input:
+total 64
+drwxrwxr-x 3 xuandong xuandong  4096 Aug 28 09:00 .
+drwxrwxr-x 5 xuandong xuandong  4096 Aug 28 08:58 ..
+-rw-rw-r-- 1 xuandong xuandong  2248 Aug 28 08:32 FAMILIES.md
+-rw-rw-r-- 1 xuandong xuandong  4907 Aug 28 09:10 MODEL.md
+-rw-rw-r-- 1 xuandong xuandong  3401 Aug 28 09:10 PROTOCOL.md
+-rw-rw-r-- 1 xuandong xuandong  1542 Aug 28 09:10 README.md
+-rw-rw-r-- 1 xuandong xuandong  1768 Aug 28 08:36 SOURCES.md
+drwxrwxr-x 2 xuandong xuandong  4096 Aug 28 09:13 __pycache__
+-rw-rw-r-- 1 xuandong xuandong   870 Aug 28 09:07 config.json
+-rw-rw-r-- 1 xuandong xuandong  1900 Aug 28 08:55 local_simulator.py
+-rw-rw-r-- 1 xuandong xuandong  7932 Aug 28 09:13 model.py
+-rw-rw-r-- 1 xuandong xuandong 11406 Aug 28 09:11 runtime.py
+
+workspace:
+total 12
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 08:41 .
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 08:58 ..
+-rw-rw-r-- 1 xuandong xuandong  325 Aug 28 08:41 README.md
+
+---GUIDANCE---
+
+**Considering output limits**
+
+I'm trying to understand the output limits — it seems the maximum using the tool is around 9k. But maybe I need to aim smaller. I have a fast persistent shell now, and I want to make sure I keep the output to about 15k characters or less. Balancing these details is key for clear communication! Let’s make sure I keep that in mind moving forward.
+**Evaluating design stages and budget**
+
+I'm thinking about breaking down the stages for this project. For the middle stage, I need to keep it under 3, planning around a budget of about 6k for early development, 5k for the mid-stage, then 13k for adaptive design. The initial schedule looks like it can really optimize compared to the baseline, which is set at 2k. There are also lots of uninformative points in the full budget that need revisiting.
+codex
+The model is identifiable. I’ll use staged fitting and adaptive shot allocation.
+
+**Analyzing task design**
+
+I’m noting the time and trying to figure out the analysis period—it might be around 15 minutes. I should set the absolute current seconds from the shell, which is approximately 40 minutes now. My main challenge is fast design. I can build the initial version using the public model and dynamically import it from the appropriate path. It works in the sandbox, and the local test confirms that. I plan to include constants and batch with linear or quadratic derivatives for each design preset, focusing on speed and efficiency in the process.
+**Designing control systems**
+
+I need to calculate 6*6*15, which gives me 540, and at 30 t, it totals 16,200. The evaluation time is about 0.4 seconds, which feels a bit pricey. I can pair the sign of the input with toggles—the observable sign isn’t allowed, but negative preparation can provide insights into linear versus quadratic terms. I need to maintain positive axes while controlling the sign, targeting coherence and entanglement angles effectively. I want to focus on improving coherence through control methods while being mindful of sensitivity limits and noncommuting information saturation.
+**Optimizing design parameters**
+
+I'm looking at designing from 9 positive preparations plus Z-/target positives, which totals to 12*15, giving me 180. I wonder if toggles for ± preparations can optimize the SPAM effect, although they might have minimal impact. Including target negatives for control X+ could help alter coherence phases, entangle, and maximize sensitivity. So, with all 18 preparations controlling X+, Y+, Z+, and Z-, the total becomes 24*15, which is 360, at around 45 times approximately 16,200.
+Reviewed the exact unitary model, nuisance bounds, line-JSON protocol, and fixed-schedule baseline.
+  ✓ Inspect model, protocol, and baseline
+  → Develop adaptive calibration and inference
+  • Benchmark accuracy and runtime locally
+  • Finalize executable submission
+**Considering optimization methods**
+
+I need to use scipy's least_squares function, replacing the bound fixed small with analyticjac. Starting with five different seeds seems smart, and I'll focus on using the best outcome from those. I should also look for early signs of approximation success. A good strategy is to deduplicate local modes to prevent getting stuck with multiple solutions that are the same. This will hopefully lead to more efficient optimization.
+**Considering data fitting**
+
+I'm thinking about whether I should start with plus perturbations if the residuals are high. I noticed that the early fits have a strong slope. I want to refine the full fit later, especially with continuation. The initial data is exact, but if shifted frequencies exceed 0.5, the adaptive process might become erroneous. I need to make the final perturb frequency combinations more robust through alternatives, but I'm not too optimistic about that. Let's just get to writing!
+**Considering classification methods**
+
+I’m thinking about how to approach global fitting and classification using estimates like “v” and “gamma” for cost efficiency. Initially, I want to restrict variables to tackle any nuisances. In the first stage, I’ll start with five runs of selected fits, then alternate to handle high noise levels. The goal is to compare and choose the minimum fit for the best outcome. There’s a lot to strategize here!
+**Testing command prompt settings**
+
+I need to look into setting up the command prompt, specifically using bash heredoc and adjusting the PS2 output. It seems like setting PS1 and PS2 to empty can help clean things up a bit. I might run a test to see how it performs, and I'm estimating the runtime to be around 3 seconds. Let's see how it all works out!
+**Planning improvements**
+
+I'm thinking about needing to test the polling command, which might take around 10 seconds or so with a rough calculation. I should consider planning to improve the early schedule orientation. Right now, the initial configuration seems to involve repeating a sequence the equivalent of 16 times, ending up at 4096 somehow. I wonder if there's more information needed about the signed coefficient to assess its significance. I’ll want to test the output too.
+**Exploring apply_patch usage**
+
+I need to figure out if I can use `apply_patch` in a directory context, since copying output seems allowed. However, the instruction says to use `apply_patch` for editing files, not copying, which feels confusing. I should be careful with applying patches while the suite is running. It might make sense to test a direct import of a snapshot fixed file first, and then consider editing options later. It’s important to reset each case in the dev runner too.
+codex
+Initial tests pass protocol checks and beat the baseline.
+
+Implemented exact analytic derivatives, staged nonlinear fitting, and nuisance-aware A-optimal allocation; four initial episodes are valid with mean NRMSE 0.0389.
+  ✓ Inspect model, protocol, and baseline
+  ✓ Develop adaptive calibration and inference
+  → Benchmark accuracy and runtime locally
+  • Finalize executable submission
+**Reviewing time budget**
+
+It looks like I might need the entire time budget for this task, which is quite a lot. First, I want to focus on gathering the current files to identify any outliers. I need to parse the partial log into rows to see the maximum cost associated with it. That's important for understanding the overall picture. So, I’m getting started on that!
+**Investigating optimization constraints**
+
+I'm diving into optimizing a solution, but it doesn't need to go beyond the target since the margin is about 0.04. I want to ensure my code adheres to constraints without any unnecessary environmental effects. With a runtime of around 2.5, I have a safe deadline of 16. The API should only set minimums, and I can construct the output as floats to use in Python. There are considerations with maximum queries and budget, plus some classification issues, but I'm confident I can address them!
+**Analyzing adaptive fitting**
+
+I’m looking at performance metrics: it uses 0.02 seconds versus 2 seconds for the initial best early run, which is a strong start at 0.1 seconds for a multi-start approach. I need to consider adaptive variance based on initial approximations, even if the initial counts are small. The dataset seems good, but I want to maintain a robust focus without overfitting benchmarks. I’ll verify and choose carefully, especially with the cost gap from different data fluctuations. Adding prior information will also help refine my choices!
+codex
+All 32 episodes pass; mean error is 0.036. I’m checking broader robustness.
+
+**Evaluating statistical models**
+
+I’m considering avoiding the Poisson distribution in favor of using a Gaussian approximation for simplicity. I think I need to design the prior to align better with observed data and reduce high errors traditionally seen with MLE. I should focus on offline comparison fits and establish benchmarks. I want to compare mean NRMSE without overfitting by selecting robust parameters. Testing should remain flexible, avoiding hardcoded seeds to ensure adaptability.
+codex
+Broader tests remain strong. I’m refining nuisance estimates before final validation.
+
+codex
+Validation is complete. I’ll package the controller and results.
+
+The final controller passes all 32 resource-limited public-harness episodes (mean NRMSE 0.0378, worst family 0.0558), plus 128 additional recovery tests and zero-frequency/corner checks.
+  ✓ Inspect model, protocol, and baseline
+  ✓ Develop adaptive calibration and inference
+  ✓ Benchmark accuracy and runtime locally
+  → Finalize executable submission
+**Computing final file references**
+
+I need to reference known solution line 1 and README line 1 without including others. I'm thinking about using a tool to combine updates and writing them out individually. An issue arises with the max CPU readings: I notice a slight inconsistency in rounding. The accurate representation should be 1.659 rather than 1.660. They want precision, so I'll make sure to correct it to three decimal points. Also, all calculations and derivatives seem correct, ensuring everything meets the expected standards.
+ succeeded in 1110229ms:
+printf '\n---READY---\n'; ls -la input baseline workspace
+bash: cannot set terminal process group (1): Inappropriate ioctl for device
+bash: no job control in this shell
+bash-5.1$ printf '\n---READY---\n'; ls -la input baseline workspace
+
+---READY---
+baseline:
+total 24
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 28 09:17 .
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 08:58 ..
+-rw-rw-r-- 1 xuandong xuandong 2808 Aug 28 09:17 README.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 09:07 __pycache__
+-rw-rw-r-- 1 xuandong xuandong  990 Aug 28 09:17 metrics.json
+-rw-rw-r-- 1 xuandong xuandong 3962 Aug 28 09:05 solution.py
+
+input:
+total 64
+drwxrwxr-x 3 xuandong xuandong  4096 Aug 28 09:00 .
+drwxrwxr-x 5 xuandong xuandong  4096 Aug 28 08:58 ..
+-rw-rw-r-- 1 xuandong xuandong  2248 Aug 28 08:32 FAMILIES.md
+-rw-rw-r-- 1 xuandong xuandong  4907 Aug 28 09:10 MODEL.md
+-rw-rw-r-- 1 xuandong xuandong  3401 Aug 28 09:10 PROTOCOL.md
+-rw-rw-r-- 1 xuandong xuandong  1542 Aug 28 09:10 README.md
+-rw-rw-r-- 1 xuandong xuandong  1768 Aug 28 08:36 SOURCES.md
+drwxrwxr-x 2 xuandong xuandong  4096 Aug 28 09:13 __pycache__
+-rw-rw-r-- 1 xuandong xuandong   870 Aug 28 09:07 config.json
+-rw-rw-r-- 1 xuandong xuandong  1900 Aug 28 08:55 local_simulator.py
+-rw-rw-r-- 1 xuandong xuandong  7932 Aug 28 09:13 model.py
+-rw-rw-r-- 1 xuandong xuandong 11406 Aug 28 09:11 runtime.py
+
+workspace:
+total 12
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 08:41 .
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 08:58 ..
+-rw-rw-r-- 1 xuandong xuandong  325 Aug 28 08:41 README.md
+bash-5.1$ < cat input/runtime.py; cat input/local_simulator.py
+# One episode over stdin/stdout
+
+Run `python3 -u solution.py`. The evaluator never imports submission code. Every message is one UTF-8 JSON object followed by `\n`. Flush each output line. Standard output is protocol-only; diagnostics may go to standard error. Do not emit NaN, Infinity, duplicate object keys, unknown fields, or booleans in numeric fields.
+
+First, read the evaluator's object with keys `type`, `protocol`, `budget`, `parameter_order`, `bounds`, `normalization`. `type` is `start`; the other values equal the corresponding public `config.json` entries. No secret seed or family appears. A new process receives a fresh episode, and receives no other episode afterward.
+
+Request one experiment:
+
+```json
+{"type":"experiment","prep":["Z+","X+"],"measure":"IY","time":1.25,"shots":128}
+```
+
+- `prep`: exactly two signed Pauli eigenstates, control then target; each is one of `X+`, `X-`, `Y+`, `Y-`, `Z+`, `Z-`.
+- `measure`: exactly two characters in `IXYZ`, excluding `II`.
+- `time`: finite real in `[0,12]`, including zero, with no discretization.
+- `shots`: integer in `[1,4096]`.
+- No extra keys. Read the response before requesting the next experiment.
+
+The evaluator replies:
+
+```json
+{"type":"result","query":0,"plus":71,"shots":128,"remaining_shots":24448,"remaining_queries":191}
+```
+
+`plus` is the number of reported +1 outcomes. The other count is `shots-plus`. Query indices start at zero. Each experiment consumes one query and its requested shots, including repeats and time-zero experiments. The cumulative limits are 192 queries and 24,576 shots; an over-budget request invalidates the episode. You may finish with unused budget. A further experiment after the last allowed query is invalid.
+
+Finish with:
+
+```json
+{"type":"estimate","omega":[1.0,0.4,-0.2,0.1,0.3]}
+```
+
+`omega` contains exactly five finite, in-bounds signed coefficients in IX, ZX, IZ, ZZ, ZI order. An optional `nuisance` key may contain four finite in-bounds nuisance values in the published order; these are not scored. There is no final acknowledgment. Exit successfully without further stdout. EOF before an estimate, malformed messages, nonzero exit, excessive output, or any resource overrun invalidates the episode. The **20-second solver wall timer starts at a trusted wrapper marker immediately before your script runs**, and includes your imports, interaction, and fitting. Variable bwrap creation is excluded, with a separate 90-second infrastructure startup deadline. The wrapper marker is consumed privately by the evaluator; your script must not emit it or expect it on stdin. The CPU limit is 18 seconds with a 19-second hard kill; one CPU is used when OS affinity is available. Address space is limited to 1 GiB per process.
+
+The sandbox exposes only `/task` (this participant directory, read-only), `/submission` (your submission directory, read-only), system Python/NumPy/SciPy and runtime libraries, and writable `/tmp`. It has no network and no evaluator/hidden directory. The working directory is `/submission`. Add `/task/input` to `sys.path` to import the public model; do not rely on host absolute paths. Files written under `/tmp` do not persist between episodes.
+
+Maximum stdout is 262,144 bytes, stderr 65,536 bytes, and a protocol line 16,384 bytes. The controller may not outlive its episode. Resource or parser violations fail closed and do not reveal further observations.
+# Public episode distributions
+
+The hidden suite contains eight independent episodes from each of the four families, shuffled. The family, parameter seed, measurement seed, and episode identifier are not sent to the controller. The initial message is identical in every episode. Hidden seeds are independent of public development seeds. Exact sampling is also public as `model.draw_parameters(rng, family)`; hidden difficulty is experimental inference, not undisclosed distributions.
+
+`signed(a,b)` below means an independent equiprobable sign times a uniform magnitude on `[a,b]`. Unless a dependency is explicitly stated, draws are independent. The coefficient order is IX, ZX, IZ, ZZ, ZI.
+
+| Family | IX | ZX | IZ | ZZ | ZI |
+| --- | --- | --- | --- | --- | --- |
+| aliasing | signed(3.2,5) | signed(0.5,1.8) | signed(1,2.8) | signed(0.1,1.1) | signed(1,2.5) |
+| near_degenerate | signed(1,2.4) | signed(0.2,0.8) | signed(1.1,2.5) | `-IX*ZX/IZ+uniform(-.015,.015)` | signed(.12,1.6) |
+| weak_entangling | signed(1,3.5) | signed(.04,.16) | signed(.3,2.2) | signed(.02,.12) | signed(.2,1.8) |
+| nuisance_decoherence | signed(.7,3.8) | signed(.25,1.5) | signed(.3,2.4) | signed(.15,1.1) | signed(.2,2) |
+
+For near_degenerate, resample IX, ZX, IZ and the ZZ perturbation together until `abs(ZZ)<1.2`. This makes the two conditional target rotation magnitudes nearly equal; it does not identify the control states with each other. Signed product-state readout retains information about the distinct rotation axes.
+
+In the first three families, visibility is uniform `[.91,.99]`, readout contrast `[.9,.95]`, bias `[-.025,.025]`, and decay `[.008,.045]`. In nuisance_decoherence these are `[.78,.86]`, `[.78,.85]`, `[-.045,.045]`, and `[.1,.16]`. The inclusive global box in `config.json` is the allowed estimate box; the family laws give additional public distributional information.
+
+High frequency produces finite-design aliasing; near-degenerate conditional frequencies complicate axis separation; small nonzero entangling rates require absolute precision; lower visibility and stronger decay alter useful experiment durations. Continuous time choices and trusted Pauli phase references avoid an intrinsic discrete-time alias or sign equivalence.
+# Development harness
+
+From the participant directory:
+
+```sh
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 input/local_simulator.py baseline --episodes 4 --seed 7241
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 input/local_simulator.py /path/to/submission --episodes 8 --seed 8123 --output /tmp/development.json
+```
+
+This standalone harness runs **trusted local code without filesystem isolation**, with the same numerical model, budgets, strict protocol, output caps, and process resource limits. It starts the 20-second timer when spawning the plain script; there is no sandbox setup to exclude. It reveals synthetic development parameters after each episode. Never use it on private evaluation episodes or untrusted submissions. Official scoring instead invokes the shared bwrap sandbox, excludes sandbox setup via a trusted wrapper marker, exposes neither parameters nor seeds, and starts a new sandbox for each episode. Its 32 episodes use independent seeds from these development examples.
+
+`model.py` exposes `hamiltonian(parameters)`, batched `unitaries(parameters,times)`, `compile_experiments(experiments)`, `probabilities(parameters, experiments_or_batch)`, `draw_parameters(rng,family)`, and input validation. Parameters are a nine-element NumPy array in `config.json` order. Experiment dictionaries match `PROTOCOL.md`; forward prediction ignores the shots field. `runtime.py` implements the shared parent-side interaction and aggregate metric. Controllers may import these public modules but receive no evaluator state.
+# Fixed-schedule baseline
+
+`solution.py` is runnable through `../input/local_simulator.py` or the official evaluator. Its 192 queries each receive 128 shots: 16 zero-time signed single/parity calibration settings and 16 conditional/control-coherence settings at each of 11 fixed nonuniform durations. No experiment depends on observed outcomes.
+
+It fits all nine parameters jointly using SciPy bounded `least_squares` with an arcsine variance-stabilized binomial residual. Twelve deterministic multistarts fit the short-time prefix, and up to three candidates are refined on the full data. A wall-clock guard leaves time to report the estimate. The public model supplies exact probabilities; it does not approximate noncommuting evolution by a product of Pauli rotations.
+
+The public development run (`--seed 7241 --episodes 4`, one episode per family) measured mean NRMSE **0.08660264**, with family errors **0.04522463**, **0.09847692**, **0.05580656**, **0.14690247** in the published family order. All four episodes were valid and used the full budget. The run took **11.26 seconds total**, with maximum episode wall time **3.41 seconds** on the builder's trusted local harness. These are a small development sample, not an accuracy guarantee on the hidden suite. Subsequent timing-only safeguards move the fit timer before imports, reserve response time, and distribute the one-core affinity; the normal full fitting schedule is unchanged.
+
+The frozen pass target is mean NRMSE **≤0.060** and worst-family mean NRMSE **≤0.090**, with **32/32 valid episodes**. The full frozen-suite baseline measured **0.07761136 mean NRMSE**, **0.11498585 worst-family NRMSE**, and **32/32 valid episodes**, with resource compliance **1.0**. Thus the targets require approximately **22.7% lower overall error and 21.7% lower worst-family error** than this baseline. The baseline does not pass.
+
+| Family | Mean NRMSE |
+| --- | ---: |
+| aliasing | 0.10164491 |
+| near_degenerate | 0.04486595 |
+| weak_entangling | 0.04894873 |
+| nuisance_decoherence | 0.11498585 |
+
+The startup-aware sandboxed run took **341.89 seconds total**, of which **58.82 seconds** were solver time and **283.07 seconds** sandbox startup. The maximum episode solver time was **5.53 seconds**. Summary data are in `metrics.json`. No hidden parameter, episode estimate, or seed is published.
+
+All 32 frozen episodes have full rank nine for the nuisance-inclusive probability Jacobian under the fixed schedule. A true-parameter local Fisher allocation diagnostic respecting the same budgets gives mean RMS bounds of **0.04187** overall and **0.06194** in the worst family. This suggests useful design headroom, but is neither a submitted controller, a finite-sample guarantee, nor a proof that the target is achievable. The target remains open.
+import json
+import sys
+import time
+from pathlib import Path
+
+STARTED = time.monotonic()
+
+import numpy as np
+from scipy.optimize import least_squares
+
+
+INPUT_DIRECTORY = Path("/task/input") if Path("/task/input/model.py").exists() else Path(__file__).resolve().parents[1] / "input"
+sys.path.insert(0, str(INPUT_DIRECTORY))
+from model import BOUNDS, compile_experiments, probabilities
+
+
+def fixed_schedule():
+    calibration = [
+        (["X+", "X+"], "IX"), (["X+", "X-"], "IX"),
+        (["X+", "X+"], "XI"), (["X-", "X+"], "XI"),
+        (["X+", "X+"], "XX"), (["X-", "X+"], "XX"),
+        (["Z+", "Z+"], "ZZ"), (["Z-", "Z+"], "ZZ"),
+    ] * 2
+    schedule = [{"type": "experiment", "prep": prep, "measure": measure, "time": 0.0, "shots": 128} for prep, measure in calibration]
+    times = [0.10, 0.19, 0.34, 0.58, 0.97, 1.53, 2.39, 3.71, 5.63, 8.17, 11.77]
+    settings = [([control, target], "I" + axis) for control in ("Z+", "Z-") for target in ("X+", "Z+") for axis in "XYZ"]
+    settings += [(["X+", target], axis + "I") for target in ("X+", "Z+") for axis in "XY"]
+    for duration in times:
+        schedule.extend({"type": "experiment", "prep": prep, "measure": measure, "time": duration, "shots": 128} for prep, measure in settings)
+    return schedule
+
+
+def fit_parameters(experiments, counts, deadline):
+    batch = compile_experiments(experiments)
+    shots = np.array([experiment["shots"] for experiment in experiments])
+    transformed = np.arcsin(np.sqrt((np.asarray(counts) + 0.375) / (shots + 0.75)))
+    weights = 2 * np.sqrt(shots)
+    early_mask = batch.times <= 0.97
+    early_batch = batch.subset(early_mask)
+
+    def residual(parameters, selected_batch, selected_target, selected_weights):
+        if time.monotonic() > deadline:
+            raise TimeoutError("baseline fit time reserve")
+        prediction = probabilities(parameters, selected_batch)
+        return selected_weights * (np.arcsin(np.sqrt(np.clip(prediction, 1e-9, 1 - 1e-9))) - selected_target)
+
+    rng = np.random.default_rng(1729)
+    starts = []
+    for start_index in range(12):
+        initial = rng.uniform(BOUNDS[:, 0], BOUNDS[:, 1])
+        initial[5:] = [0.92, 0.90, 0.0, 0.035]
+        try:
+            fit = least_squares(residual, initial, args=(early_batch, transformed[early_mask], weights[early_mask]),
+                                bounds=(BOUNDS[:, 0], BOUNDS[:, 1]), max_nfev=95, ftol=2e-5, xtol=2e-5, gtol=2e-5)
+        except TimeoutError:
+            break
+        starts.append((float(np.dot(fit.fun, fit.fun)), fit.x))
+        if time.monotonic() > deadline - 3:
+            break
+    starts.sort(key=lambda item: item[0])
+    if not starts:
+        return np.array([0, 0, 0, 0, 0, 0.92, 0.90, 0, 0.035])
+    best = (float("inf"), starts[0][1])
+    for cost, initial in starts[:3]:
+        try:
+            fit = least_squares(residual, initial, args=(batch, transformed, weights), bounds=(BOUNDS[:, 0], BOUNDS[:, 1]),
+                                max_nfev=140, ftol=1e-7, xtol=1e-7, gtol=1e-7)
+        except TimeoutError:
+            break
+        full_cost = float(np.dot(fit.fun, fit.fun))
+        if full_cost < best[0]:
+            best = (full_cost, fit.x)
+        if time.monotonic() > deadline:
+            break
+    return best[1]
+
+
+def main():
+    greeting = json.loads(sys.stdin.readline())
+    if greeting.get("type") != "start":
+        raise ValueError("expected start")
+    experiments = fixed_schedule()
+    counts = []
+    for experiment in experiments:
+        print(json.dumps(experiment), flush=True)
+        response = json.loads(sys.stdin.readline())
+        if response.get("type") != "result":
+            raise ValueError("expected result")
+        counts.append(response["plus"])
+    parameters = fit_parameters(experiments, counts, STARTED + 12)
+    print(json.dumps({"type": "estimate", "omega": parameters[:5].tolist(), "nuisance": parameters[5:].tolist()}), flush=True)
+
+
+if __name__ == "__main__":
+    main()
+import json
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+
+
+CONFIG = json.loads(Path(__file__).with_name("config.json").read_text())
+BOUNDS = np.array(CONFIG["bounds"], dtype=float)
+NORMALIZATION = np.array(CONFIG["normalization"], dtype=float)
+PAULIS = {
+    "I": np.eye(2, dtype=complex),
+    "X": np.array([[0, 1], [1, 0]], dtype=complex),
+    "Y": np.array([[0, -1j], [1j, 0]], dtype=complex),
+    "Z": np.diag([1, -1]).astype(complex),
+}
+PREPARATIONS = tuple(axis + sign for axis in "XYZ" for sign in "+-")
+MEASUREMENTS = tuple(left + right for left in "IXYZ" for right in "IXYZ" if left + right != "II")
+GENERATORS = np.stack([np.kron(PAULIS[term[0]], PAULIS[term[1]]) for term in ("IX", "ZX", "IZ", "ZZ", "ZI")])
+
+
+def finite_number(value):
+    if type(value) not in (int, float):
+        return False
+    try:
+        return bool(np.isfinite(value))
+    except (TypeError, OverflowError):
+        return False
+
+
+def validate_experiment(message):
+    if not isinstance(message, dict) or set(message) != {"type", "prep", "measure", "time", "shots"}:
+        raise ValueError("experiment must contain exactly type, prep, measure, time, shots")
+    if message["type"] != "experiment":
+        raise ValueError("expected experiment")
+    if not isinstance(message["prep"], list) or len(message["prep"]) != 2:
+        raise ValueError("prep must be a two-element list")
+    if any(not isinstance(state, str) or state not in PREPARATIONS for state in message["prep"]):
+        raise ValueError("invalid preparation")
+    if not isinstance(message["measure"], str) or message["measure"] not in MEASUREMENTS:
+        raise ValueError("measure must be a nonidentity two-qubit Pauli string")
+    if not finite_number(message["time"]) or not 0 <= message["time"] <= CONFIG["budget"]["max_time"]:
+        raise ValueError("time out of bounds")
+    if type(message["shots"]) is not int or not 1 <= message["shots"] <= CONFIG["budget"]["max_shots_per_query"]:
+        raise ValueError("shots out of bounds")
+    return message
+
+
+def validate_estimate(message):
+    if not isinstance(message, dict) or set(message) not in ({"type", "omega"}, {"type", "omega", "nuisance"}):
+        raise ValueError("estimate must contain type, omega, and optionally nuisance")
+    if message["type"] != "estimate":
+        raise ValueError("expected estimate")
+    omega = message["omega"]
+    if not isinstance(omega, list) or len(omega) != 5 or not all(finite_number(value) for value in omega):
+        raise ValueError("omega must contain five finite numbers")
+    if np.any(np.array(omega) < BOUNDS[:5, 0]) or np.any(np.array(omega) > BOUNDS[:5, 1]):
+        raise ValueError("omega out of bounds")
+    if "nuisance" in message:
+        nuisance = message["nuisance"]
+        if not isinstance(nuisance, list) or len(nuisance) != 4 or not all(finite_number(value) for value in nuisance):
+            raise ValueError("nuisance must contain four finite numbers")
+        if np.any(np.array(nuisance) < BOUNDS[5:, 0]) or np.any(np.array(nuisance) > BOUNDS[5:, 1]):
+            raise ValueError("nuisance out of bounds")
+    return np.array(omega, dtype=float)
+
+
+def hamiltonian(parameters):
+    return np.einsum("a,aij->ij", np.asarray(parameters)[:5], GENERATORS) / 2
+
+
+def unitaries(parameters, times):
+    omega_ix, omega_zx, omega_iz, omega_zz, omega_zi = np.asarray(parameters)[:5]
+    times = np.atleast_1d(times).astype(float)
+    result = np.zeros((len(times), 4, 4), dtype=complex)
+    for control_index, control_sign in enumerate((1, -1)):
+        axis_x = omega_ix + control_sign * omega_zx
+        axis_z = omega_iz + control_sign * omega_zz
+        frequency = np.hypot(axis_x, axis_z)
+        cosine = np.cos(frequency * times / 2)
+        sine_over_frequency = times / 2 * np.sinc(frequency * times / (2 * np.pi))
+        phase = np.exp(-0.5j * control_sign * omega_zi * times)
+        block_start = 2 * control_index
+        result[:, block_start, block_start] = phase * (cosine - 1j * sine_over_frequency * axis_z)
+        result[:, block_start + 1, block_start + 1] = phase * (cosine + 1j * sine_over_frequency * axis_z)
+        result[:, block_start, block_start + 1] = -1j * phase * sine_over_frequency * axis_x
+        result[:, block_start + 1, block_start] = -1j * phase * sine_over_frequency * axis_x
+    return result
+
+
+@dataclass
+class ExperimentBatch:
+    times: np.ndarray
+    linear_density: np.ndarray
+    quadratic_density: np.ndarray
+    observables: np.ndarray
+
+    def subset(self, mask):
+        return ExperimentBatch(self.times[mask], self.linear_density[mask], self.quadratic_density[mask], self.observables[mask])
+
+
+def compile_experiments(experiments):
+    linear_density = []
+    quadratic_density = []
+    observables = []
+    for experiment in experiments:
+        control_state, target_state = experiment["prep"]
+        control_axis = PAULIS[control_state[0]] * (1 if control_state[1] == "+" else -1)
+        target_axis = PAULIS[target_state[0]] * (1 if target_state[1] == "+" else -1)
+        linear_density.append((np.kron(control_axis, PAULIS["I"]) + np.kron(PAULIS["I"], target_axis)) / 4)
+        quadratic_density.append(np.kron(control_axis, target_axis) / 4)
+        observable = experiment["measure"]
+        observables.append(np.kron(PAULIS[observable[0]], PAULIS[observable[1]]))
+    return ExperimentBatch(
+        np.array([experiment["time"] for experiment in experiments], dtype=float),
+        np.array(linear_density), np.array(quadratic_density), np.array(observables),
+    )
+
+
+def probabilities(parameters, experiments):
+    batch = experiments if isinstance(experiments, ExperimentBatch) else compile_experiments(experiments)
+    prep_visibility, readout_contrast, readout_bias, decay_rate = np.asarray(parameters)[5:]
+    unitary = unitaries(parameters, batch.times)
+    traceless_density = prep_visibility * batch.linear_density + prep_visibility**2 * batch.quadratic_density
+    evolved = unitary @ traceless_density @ unitary.conj().transpose(0, 2, 1)
+    expectation = np.einsum("nij,nji->n", batch.observables, evolved).real
+    probability = (1 + readout_bias + readout_contrast * np.exp(-decay_rate * batch.times) * expectation) / 2
+    return np.clip(probability, 0, 1)
+
+
+def draw_parameters(rng, family):
+    def signed_uniform(lower, upper):
+        return float(rng.choice([-1, 1]) * rng.uniform(lower, upper))
+
+    if family == "aliasing":
+        omega = [signed_uniform(3.2, 5), signed_uniform(0.5, 1.8), signed_uniform(1, 2.8), signed_uniform(0.1, 1.1), signed_uniform(1, 2.5)]
+    elif family == "near_degenerate":
+        while True:
+            omega_ix = signed_uniform(1, 2.4)
+            omega_iz = signed_uniform(1.1, 2.5)
+            omega_zx = signed_uniform(0.2, 0.8)
+            omega_zz = -omega_ix * omega_zx / omega_iz + rng.uniform(-0.015, 0.015)
+            if abs(omega_zz) < 1.2:
+                break
+        omega = [omega_ix, omega_zx, omega_iz, float(omega_zz), signed_uniform(0.12, 1.6)]
+    elif family == "weak_entangling":
+        omega = [signed_uniform(1, 3.5), signed_uniform(0.04, 0.16), signed_uniform(0.3, 2.2), signed_uniform(0.02, 0.12), signed_uniform(0.2, 1.8)]
+    elif family == "nuisance_decoherence":
+        omega = [signed_uniform(0.7, 3.8), signed_uniform(0.25, 1.5), signed_uniform(0.3, 2.4), signed_uniform(0.15, 1.1), signed_uniform(0.2, 2)]
+    else:
+        raise ValueError("unknown family")
+    if family == "nuisance_decoherence":
+        nuisance = [rng.uniform(0.78, 0.86), rng.uniform(0.78, 0.85), rng.uniform(-0.045, 0.045), rng.uniform(0.1, 0.16)]
+    else:
+        nuisance = [rng.uniform(0.91, 0.99), rng.uniform(0.9, 0.95), rng.uniform(-0.025, 0.025), rng.uniform(0.008, 0.045)]
+    return np.array(omega + nuisance, dtype=float)
+
+
+def normalized_error(omega, parameters):
+    return float(np.sqrt(np.mean(((np.asarray(omega) - np.asarray(parameters)[:5]) / NORMALIZATION)**2)))
+import json
+import os
+import resource
+import selectors
+import signal
+import subprocess
+import time
+from pathlib import Path
+
+import numpy as np
+
+from model import CONFIG, normalized_error, probabilities, validate_estimate, validate_experiment
+
+
+class ProtocolError(Exception):
+    pass
+
+
+class StartupError(ProtocolError):
+    pass
+
+
+def strict_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+
+def reject_constant(value):
+    raise ValueError("nonfinite JSON constant")
+
+
+def child_limits():
+    limits = CONFIG["resources"]
+    resource.setrlimit(resource.RLIMIT_CPU, (limits["cpu_seconds"], limits["cpu_seconds"] + 1))
+    memory = limits["memory_mb"] * 1024**2
+    resource.setrlimit(resource.RLIMIT_AS, (memory, memory))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024**2, 8 * 1024**2))
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
+    if hasattr(os, "sched_setaffinity"):
+        available_cpus = sorted(os.sched_getaffinity(0))
+        os.sched_setaffinity(0, {available_cpus[os.getpid() % len(available_cpus)]})
+    os.umask(0o077)
+
+
+class JsonProcess:
+    def __init__(self, command, wall_seconds=None, cwd=None, startup_handshake=False):
+        self.started = time.monotonic()
+        self.solver_started = None if startup_handshake else self.started
+        self.wall_limit = wall_seconds or CONFIG["resources"]["wall_seconds"]
+        self.deadline = self.started + (90 if startup_handshake else self.wall_limit)
+        environment = {"PATH": "/usr/bin:/bin", "HOME": "/tmp", "TMPDIR": "/tmp", "PYTHONDONTWRITEBYTECODE": "1"}
+        environment["PYTHONPATH"] = str(Path(__file__).resolve().parent)
+        environment.update({name: "1" for name in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")})
+        self.process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                        start_new_session=True, preexec_fn=child_limits, env=environment, bufsize=0)
+        self.selector = selectors.DefaultSelector()
+        for name in ("stdin", "stdout", "stderr"):
+            stream = getattr(self.process, name)
+            os.set_blocking(stream.fileno(), False)
+            if name != "stdin":
+                self.selector.register(stream, selectors.EVENT_READ, name)
+        self.output = bytearray()
+        self.stderr = bytearray()
+        self.stdout_bytes = 0
+        self.stdout_closed = False
+
+    def await_startup(self):
+        try:
+            marker = self.receive()
+            if marker != {"sandbox_ready": True}:
+                raise ProtocolError("missing trusted sandbox startup marker")
+        except ProtocolError as error:
+            raise StartupError("sandbox startup failed: " + str(error)) from error
+        self.solver_started = time.monotonic()
+        self.deadline = self.solver_started + self.wall_limit
+        self.stdout_bytes -= len(b'{"sandbox_ready":true}\n')
+
+    def pump(self):
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise ProtocolError("wall time exceeded")
+        for key, events in self.selector.select(min(remaining, 0.1)):
+            if key.data == "stdin":
+                continue
+            chunk = os.read(key.fileobj.fileno(), 65536)
+            if not chunk:
+                self.selector.unregister(key.fileobj)
+                if key.data == "stdout":
+                    self.stdout_closed = True
+                continue
+            if key.data == "stdout":
+                self.stdout_bytes += len(chunk)
+                if self.stdout_bytes > CONFIG["resources"]["stdout_bytes"]:
+                    raise ProtocolError("stdout limit exceeded")
+                self.output.extend(chunk)
+                first_newline = self.output.find(b"\n")
+                if first_newline > CONFIG["resources"]["line_bytes"] or (first_newline < 0 and len(self.output) > CONFIG["resources"]["line_bytes"]):
+                    raise ProtocolError("line limit exceeded")
+            else:
+                self.stderr.extend(chunk)
+                if len(self.stderr) > CONFIG["resources"]["stderr_bytes"]:
+                    raise ProtocolError("stderr limit exceeded")
+
+    def send(self, message):
+        pending = memoryview((json.dumps(message, allow_nan=False, separators=(",", ":")) + "\n").encode())
+        while pending:
+            if time.monotonic() >= self.deadline:
+                raise ProtocolError("wall time exceeded")
+            try:
+                written = os.write(self.process.stdin.fileno(), pending)
+                pending = pending[written:]
+            except BlockingIOError:
+                self.selector.register(self.process.stdin, selectors.EVENT_WRITE, "stdin")
+                try:
+                    self.pump()
+                finally:
+                    self.selector.unregister(self.process.stdin)
+            except BrokenPipeError as error:
+                raise ProtocolError("controller closed stdin") from error
+
+    def receive(self):
+        while b"\n" not in self.output:
+            if self.stdout_closed:
+                raise ProtocolError("EOF before a complete message")
+            self.pump()
+        line, remainder = self.output.split(b"\n", 1)
+        self.output = bytearray(remainder)
+        if len(line) > CONFIG["resources"]["line_bytes"]:
+            raise ProtocolError("line limit exceeded")
+        try:
+            message = json.loads(line.decode("utf-8"), object_pairs_hook=strict_object, parse_constant=reject_constant)
+        except (ValueError, UnicodeError, RecursionError) as error:
+            raise ProtocolError("invalid JSON: " + str(error)) from error
+        if not isinstance(message, dict):
+            raise ProtocolError("message must be an object")
+        return message
+
+    def finish(self):
+        self.process.stdin.close()
+        while not self.stdout_closed or self.process.poll() is None or self.selector.get_map():
+            self.pump()
+        if self.output.strip():
+            raise ProtocolError("stdout after final estimate")
+        if self.process.returncode != 0:
+            raise ProtocolError("nonzero controller exit: " + str(self.process.returncode))
+
+    def close(self):
+        try:
+            os.killpg(self.process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        self.process.wait()
+        self.selector.close()
+        for name in ("stdin", "stdout", "stderr"):
+            getattr(self.process, name).close()
+
+
+def start_message():
+    return {"type": "start", **{key: CONFIG[key] for key in ("protocol", "budget", "parameter_order", "bounds", "normalization")}}
+
+
+def run_episode(command, parameters, measurement_seed, wall_seconds=None, cwd=None, startup_handshake=False):
+    rng = np.random.default_rng(measurement_seed)
+    shots_used = 0
+    queries_used = 0
+    session = None
+    started = time.monotonic()
+    cpu_before = resource.getrusage(resource.RUSAGE_CHILDREN)
+    result = {"valid": False, "nrmse": 30.0, "reason": "controller did not start"}
+    try:
+        session = JsonProcess(command, wall_seconds=wall_seconds, cwd=cwd, startup_handshake=startup_handshake)
+        if startup_handshake:
+            session.await_startup()
+        session.send(start_message())
+        while True:
+            message = session.receive()
+            if message.get("type") == "estimate":
+                omega = validate_estimate(message)
+                session.finish()
+                result = {"valid": True, "nrmse": normalized_error(omega, parameters), "omega": omega.tolist(), "reason": "ok"}
+                break
+            experiment = validate_experiment(message)
+            if queries_used >= CONFIG["budget"]["queries"] or shots_used + experiment["shots"] > CONFIG["budget"]["shots"]:
+                raise ProtocolError("experiment budget exceeded")
+            chance = float(probabilities(parameters, [experiment])[0])
+            plus = int(rng.binomial(experiment["shots"], chance))
+            shots_used += experiment["shots"]
+            session.send({"type": "result", "query": queries_used, "plus": plus, "shots": experiment["shots"],
+                          "remaining_shots": CONFIG["budget"]["shots"] - shots_used,
+                          "remaining_queries": CONFIG["budget"]["queries"] - queries_used - 1})
+            queries_used += 1
+    except StartupError as error:
+        result["reason"] = str(error)
+        result["infrastructure_error"] = True
+    except (ProtocolError, ValueError, OSError, OverflowError) as error:
+        result["reason"] = str(error)
+        if startup_handshake and (session is None or session.solver_started is None):
+            result["infrastructure_error"] = True
+    finally:
+        if session is not None:
+            session.close()
+            result["stderr_tail"] = bytes(session.stderr[-4096:]).decode("utf-8", errors="replace")
+            result["stdout_bytes"] = session.stdout_bytes
+    cpu_after = resource.getrusage(resource.RUSAGE_CHILDREN)
+    finished = time.monotonic()
+    solver_started = session.solver_started if session is not None else None
+    result.update({"wall_seconds": finished - solver_started if solver_started is not None else 0.0,
+                   "startup_wall_seconds": solver_started - started if solver_started is not None else finished - started,
+                   "total_wall_seconds": finished - started,
+                   "cpu_seconds": cpu_after.ru_utime + cpu_after.ru_stime - cpu_before.ru_utime - cpu_before.ru_stime,
+                   "shots": shots_used, "queries": queries_used})
+    return result
+
+
+def aggregate(results):
+    families = sorted({result["family"] for result in results})
+    family_scores = {family: float(np.mean([result["nrmse"] for result in results if result["family"] == family])) for family in families}
+    mean_error = float(np.mean([result["nrmse"] for result in results]))
+    worst_error = max(family_scores.values())
+    valid = all(result["valid"] for result in results)
+    valid_fraction = sum(result["valid"] for result in results) / len(results)
+    passed = valid and mean_error <= CONFIG["target"]["mean_nrmse"] and worst_error <= CONFIG["target"]["worst_family_mean_nrmse"]
+    return {"core_score": mean_error, "mean_nrmse": mean_error, "worst_family_score": worst_error,
+            "family_mean_nrmse": family_scores, "valid": valid, "passed": passed,
+            "valid_fraction": valid_fraction, "resource_score": valid_fraction,
+            "reason": "target met" if passed else ("invalid episodes" if not valid else "recovery target not met"),
+            "runtime": {"total_wall_seconds": sum(result["total_wall_seconds"] for result in results),
+                        "total_solver_wall_seconds": sum(result["wall_seconds"] for result in results),
+                        "total_startup_wall_seconds": sum(result["startup_wall_seconds"] for result in results),
+                        "maximum_episode_wall_seconds": max(result["wall_seconds"] for result in results),
+                        "total_cpu_seconds": sum(result["cpu_seconds"] for result in results)},
+            "episode_count": len(results), "target": CONFIG["target"]}
+import argparse
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+
+from model import CONFIG, draw_parameters
+from runtime import aggregate, run_episode
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Public, trusted-code development harness; not an isolation boundary")
+    parser.add_argument("submission", type=Path)
+    parser.add_argument("--seed", type=int, default=7241)
+    parser.add_argument("--episodes", type=int, default=4)
+    parser.add_argument("--family", choices=CONFIG["suite"]["families"])
+    parser.add_argument("--output", type=Path)
+    arguments = parser.parse_args()
+    if not 1 <= arguments.episodes <= 128:
+        parser.error("episodes must be in [1,128]")
+    submission = arguments.submission.resolve()
+    script = submission if submission.is_file() else submission / "solution.py"
+    seeds = np.random.SeedSequence(arguments.seed).spawn(2 * arguments.episodes)
+    results = []
+    for episode_index in range(arguments.episodes):
+        family = arguments.family or CONFIG["suite"]["families"][episode_index % 4]
+        parameters = draw_parameters(np.random.default_rng(seeds[2 * episode_index]), family)
+        measurement_seed = int(seeds[2 * episode_index + 1].generate_state(1, dtype=np.uint64)[0])
+        result = run_episode([sys.executable, "-u", str(script)], parameters, measurement_seed, cwd=script.parent)
+        result.update({"family": family, "true_parameters": parameters.tolist()})
+        results.append(result)
+        print(json.dumps({"episode": episode_index, **result}), file=sys.stderr, flush=True)
+    report = {**aggregate(results), "development_only": True, "seed": arguments.seed, "episodes": results}
+    encoded = json.dumps(report, indent=2, allow_nan=False) + "\n"
+    if arguments.output:
+        arguments.output.write_text(encoded)
+    print(encoded)
+
+
+if __name__ == "__main__":
+    main()
+bash-5.1$ cat input/FAMILIES.md baseline/README.md baseline/solution.py
+# Public episode distributions
+
+The hidden suite contains eight independent episodes from each of the four families, shuffled. The family, parameter seed, measurement seed, and episode identifier are not sent to the controller. The initial message is identical in every episode. Hidden seeds are independent of public development seeds. Exact sampling is also public as `model.draw_parameters(rng, family)`; hidden difficulty is experimental inference, not undisclosed distributions.
+
+`signed(a,b)` below means an independent equiprobable sign times a uniform magnitude on `[a,b]`. Unless a dependency is explicitly stated, draws are independent. The coefficient order is IX, ZX, IZ, ZZ, ZI.
+
+| Family | IX | ZX | IZ | ZZ | ZI |
+| --- | --- | --- | --- | --- | --- |
+| aliasing | signed(3.2,5) | signed(0.5,1.8) | signed(1,2.8) | signed(0.1,1.1) | signed(1,2.5) |
+| near_degenerate | signed(1,2.4) | signed(0.2,0.8) | signed(1.1,2.5) | `-IX*ZX/IZ+uniform(-.015,.015)` | signed(.12,1.6) |
+| weak_entangling | signed(1,3.5) | signed(.04,.16) | signed(.3,2.2) | signed(.02,.12) | signed(.2,1.8) |
+| nuisance_decoherence | signed(.7,3.8) | signed(.25,1.5) | signed(.3,2.4) | signed(.15,1.1) | signed(.2,2) |
+
+For near_degenerate, resample IX, ZX, IZ and the ZZ perturbation together until `abs(ZZ)<1.2`. This makes the two conditional target rotation magnitudes nearly equal; it does not identify the control states with each other. Signed product-state readout retains information about the distinct rotation axes.
+
+In the first three families, visibility is uniform `[.91,.99]`, readout contrast `[.9,.95]`, bias `[-.025,.025]`, and decay `[.008,.045]`. In nuisance_decoherence these are `[.78,.86]`, `[.78,.85]`, `[-.045,.045]`, and `[.1,.16]`. The inclusive global box in `config.json` is the allowed estimate box; the family laws give additional public distributional information.
+
+High frequency produces finite-design aliasing; near-degenerate conditional frequencies complicate axis separation; small nonzero entangling rates require absolute precision; lower visibility and stronger decay alter useful experiment durations. Continuous time choices and trusted Pauli phase references avoid an intrinsic discrete-time alias or sign equivalence.
+# Fixed-schedule baseline
+
+`solution.py` is runnable through `../input/local_simulator.py` or the official evaluator. Its 192 queries each receive 128 shots: 16 zero-time signed single/parity calibration settings and 16 conditional/control-coherence settings at each of 11 fixed nonuniform durations. No experiment depends on observed outcomes.
+
+It fits all nine parameters jointly using SciPy bounded `least_squares` with an arcsine variance-stabilized binomial residual. Twelve deterministic multistarts fit the short-time prefix, and up to three candidates are refined on the full data. A wall-clock guard leaves time to report the estimate. The public model supplies exact probabilities; it does not approximate noncommuting evolution by a product of Pauli rotations.
+
+The public development run (`--seed 7241 --episodes 4`, one episode per family) measured mean NRMSE **0.08660264**, with family errors **0.04522463**, **0.09847692**, **0.05580656**, **0.14690247** in the published family order. All four episodes were valid and used the full budget. The run took **11.26 seconds total**, with maximum episode wall time **3.41 seconds** on the builder's trusted local harness. These are a small development sample, not an accuracy guarantee on the hidden suite. Subsequent timing-only safeguards move the fit timer before imports, reserve response time, and distribute the one-core affinity; the normal full fitting schedule is unchanged.
+
+The frozen pass target is mean NRMSE **≤0.060** and worst-family mean NRMSE **≤0.090**, with **32/32 valid episodes**. The full frozen-suite baseline measured **0.07761136 mean NRMSE**, **0.11498585 worst-family NRMSE**, and **32/32 valid episodes**, with resource compliance **1.0**. Thus the targets require approximately **22.7% lower overall error and 21.7% lower worst-family error** than this baseline. The baseline does not pass.
+
+| Family | Mean NRMSE |
+| --- | ---: |
+| aliasing | 0.10164491 |
+| near_degenerate | 0.04486595 |
+| weak_entangling | 0.04894873 |
+| nuisance_decoherence | 0.11498585 |
+
+The startup-aware sandboxed run took **341.89 seconds total**, of which **58.82 seconds** were solver time and **283.07 seconds** sandbox startup. The maximum episode solver time was **5.53 seconds**. Summary data are in `metrics.json`. No hidden parameter, episode estimate, or seed is published.
+
+All 32 frozen episodes have full rank nine for the nuisance-inclusive probability Jacobian under the fixed schedule. A true-parameter local Fisher allocation diagnostic respecting the same budgets gives mean RMS bounds of **0.04187** overall and **0.06194** in the worst family. This suggests useful design headroom, but is neither a submitted controller, a finite-sample guarantee, nor a proof that the target is achievable. The target remains open.
+import json
+import sys
+import time
+from pathlib import Path
+
+STARTED = time.monotonic()
+
+import numpy as np
+from scipy.optimize import least_squares
+
+
+INPUT_DIRECTORY = Path("/task/input") if Path("/task/input/model.py").exists() else Path(__file__).resolve().parents[1] / "input"
+sys.path.insert(0, str(INPUT_DIRECTORY))
+from model import BOUNDS, compile_experiments, probabilities
+
+
+def fixed_schedule():
+    calibration = [
+        (["X+", "X+"], "IX"), (["X+", "X-"], "IX"),
+        (["X+", "X+"], "XI"), (["X-", "X+"], "XI"),
+        (["X+", "X+"], "XX"), (["X-", "X+"], "XX"),
+        (["Z+", "Z+"], "ZZ"), (["Z-", "Z+"], "ZZ"),
+    ] * 2
+    schedule = [{"type": "experiment", "prep": prep, "measure": measure, "time": 0.0, "shots": 128} for prep, measure in calibration]
+    times = [0.10, 0.19, 0.34, 0.58, 0.97, 1.53, 2.39, 3.71, 5.63, 8.17, 11.77]
+    settings = [([control, target], "I" + axis) for control in ("Z+", "Z-") for target in ("X+", "Z+") for axis in "XYZ"]
+    settings += [(["X+", target], axis + "I") for target in ("X+", "Z+") for axis in "XY"]
+    for duration in times:
+        schedule.extend({"type": "experiment", "prep": prep, "measure": measure, "time": duration, "shots": 128} for prep, measure in settings)
+    return schedule
+
+
+def fit_parameters(experiments, counts, deadline):
+    batch = compile_experiments(experiments)
+    shots = np.array([experiment["shots"] for experiment in experiments])
+    transformed = np.arcsin(np.sqrt((np.asarray(counts) + 0.375) / (shots + 0.75)))
+    weights = 2 * np.sqrt(shots)
+    early_mask = batch.times <= 0.97
+    early_batch = batch.subset(early_mask)
+
+    def residual(parameters, selected_batch, selected_target, selected_weights):
+        if time.monotonic() > deadline:
+            raise TimeoutError("baseline fit time reserve")
+        prediction = probabilities(parameters, selected_batch)
+        return selected_weights * (np.arcsin(np.sqrt(np.clip(prediction, 1e-9, 1 - 1e-9))) - selected_target)
+
+    rng = np.random.default_rng(1729)
+    starts = []
+    for start_index in range(12):
+        initial = rng.uniform(BOUNDS[:, 0], BOUNDS[:, 1])
+        initial[5:] = [0.92, 0.90, 0.0, 0.035]
+        try:
+            fit = least_squares(residual, initial, args=(early_batch, transformed[early_mask], weights[early_mask]),
+                                bounds=(BOUNDS[:, 0], BOUNDS[:, 1]), max_nfev=95, ftol=2e-5, xtol=2e-5, gtol=2e-5)
+        except TimeoutError:
+            break
+        starts.append((float(np.dot(fit.fun, fit.fun)), fit.x))
+        if time.monotonic() > deadline - 3:
+            break
+    starts.sort(key=lambda item: item[0])
+    if not starts:
+        return np.array([0, 0, 0, 0, 0, 0.92, 0.90, 0, 0.035])
+    best = (float("inf"), starts[0][1])
+    for cost, initial in starts[:3]:
+        try:
+            fit = least_squares(residual, initial, args=(batch, transformed, weights), bounds=(BOUNDS[:, 0], BOUNDS[:, 1]),
+                                max_nfev=140, ftol=1e-7, xtol=1e-7, gtol=1e-7)
+        except TimeoutError:
+            break
+        full_cost = float(np.dot(fit.fun, fit.fun))
+        if full_cost < best[0]:
+            best = (full_cost, fit.x)
+        if time.monotonic() > deadline:
+            break
+    return best[1]
+
+
+def main():
+    greeting = json.loads(sys.stdin.readline())
+    if greeting.get("type") != "start":
+        raise ValueError("expected start")
+    experiments = fixed_schedule()
+    counts = []
+    for experiment in experiments:
+        print(json.dumps(experiment), flush=True)
+        response = json.loads(sys.stdin.readline())
+        if response.get("type") != "result":
+            raise ValueError("expected result")
+        counts.append(response["plus"])
+    parameters = fit_parameters(experiments, counts, STARTED + 12)
+    print(json.dumps({"type": "estimate", "omega": parameters[:5].tolist(), "nuisance": parameters[5:].tolist()}), flush=True)
+
+
+if __name__ == "__main__":
+    main()
+bash-5.1$ cat input/model.py
+import json
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+
+
+CONFIG = json.loads(Path(__file__).with_name("config.json").read_text())
+BOUNDS = np.array(CONFIG["bounds"], dtype=float)
+NORMALIZATION = np.array(CONFIG["normalization"], dtype=float)
+PAULIS = {
+    "I": np.eye(2, dtype=complex),
+    "X": np.array([[0, 1], [1, 0]], dtype=complex),
+    "Y": np.array([[0, -1j], [1j, 0]], dtype=complex),
+    "Z": np.diag([1, -1]).astype(complex),
+}
+PREPARATIONS = tuple(axis + sign for axis in "XYZ" for sign in "+-")
+MEASUREMENTS = tuple(left + right for left in "IXYZ" for right in "IXYZ" if left + right != "II")
+GENERATORS = np.stack([np.kron(PAULIS[term[0]], PAULIS[term[1]]) for term in ("IX", "ZX", "IZ", "ZZ", "ZI")])
+
+
+def finite_number(value):
+    if type(value) not in (int, float):
+        return False
+    try:
+        return bool(np.isfinite(value))
+    except (TypeError, OverflowError):
+        return False
+
+
+def validate_experiment(message):
+    if not isinstance(message, dict) or set(message) != {"type", "prep", "measure", "time", "shots"}:
+        raise ValueError("experiment must contain exactly type, prep, measure, time, shots")
+    if message["type"] != "experiment":
+        raise ValueError("expected experiment")
+    if not isinstance(message["prep"], list) or len(message["prep"]) != 2:
+        raise ValueError("prep must be a two-element list")
+    if any(not isinstance(state, str) or state not in PREPARATIONS for state in message["prep"]):
+        raise ValueError("invalid preparation")
+    if not isinstance(message["measure"], str) or message["measure"] not in MEASUREMENTS:
+        raise ValueError("measure must be a nonidentity two-qubit Pauli string")
+    if not finite_number(message["time"]) or not 0 <= message["time"] <= CONFIG["budget"]["max_time"]:
+        raise ValueError("time out of bounds")
+    if type(message["shots"]) is not int or not 1 <= message["shots"] <= CONFIG["budget"]["max_shots_per_query"]:
+        raise ValueError("shots out of bounds")
+    return message
+
+
+def validate_estimate(message):
+    if not isinstance(message, dict) or set(message) not in ({"type", "omega"}, {"type", "omega", "nuisance"}):
+        raise ValueError("estimate must contain type, omega, and optionally nuisance")
+    if message["type"] != "estimate":
+        raise ValueError("expected estimate")
+    omega = message["omega"]
+    if not isinstance(omega, list) or len(omega) != 5 or not all(finite_number(value) for value in omega):
+        raise ValueError("omega must contain five finite numbers")
+    if np.any(np.array(omega) < BOUNDS[:5, 0]) or np.any(np.array(omega) > BOUNDS[:5, 1]):
+        raise ValueError("omega out of bounds")
+    if "nuisance" in message:
+        nuisance = message["nuisance"]
+        if not isinstance(nuisance, list) or len(nuisance) != 4 or not all(finite_number(value) for value in nuisance):
+            raise ValueError("nuisance must contain four finite numbers")
+        if np.any(np.array(nuisance) < BOUNDS[5:, 0]) or np.any(np.array(nuisance) > BOUNDS[5:, 1]):
+            raise ValueError("nuisance out of bounds")
+    return np.array(omega, dtype=float)
+
+
+def hamiltonian(parameters):
+    return np.einsum("a,aij->ij", np.asarray(parameters)[:5], GENERATORS) / 2
+
+
+def unitaries(parameters, times):
+    omega_ix, omega_zx, omega_iz, omega_zz, omega_zi = np.asarray(parameters)[:5]
+    times = np.atleast_1d(times).astype(float)
+    result = np.zeros((len(times), 4, 4), dtype=complex)
+    for control_index, control_sign in enumerate((1, -1)):
+        axis_x = omega_ix + control_sign * omega_zx
+        axis_z = omega_iz + control_sign * omega_zz
+        frequency = np.hypot(axis_x, axis_z)
+        cosine = np.cos(frequency * times / 2)
+        sine_over_frequency = times / 2 * np.sinc(frequency * times / (2 * np.pi))
+        phase = np.exp(-0.5j * control_sign * omega_zi * times)
+        block_start = 2 * control_index
+        result[:, block_start, block_start] = phase * (cosine - 1j * sine_over_frequency * axis_z)
+        result[:, block_start + 1, block_start + 1] = phase * (cosine + 1j * sine_over_frequency * axis_z)
+        result[:, block_start, block_start + 1] = -1j * phase * sine_over_frequency * axis_x
+        result[:, block_start + 1, block_start] = -1j * phase * sine_over_frequency * axis_x
+    return result
+
+
+@dataclass
+class ExperimentBatch:
+    times: np.ndarray
+    linear_density: np.ndarray
+    quadratic_density: np.ndarray
+    observables: np.ndarray
+
+    def subset(self, mask):
+        return ExperimentBatch(self.times[mask], self.linear_density[mask], self.quadratic_density[mask], self.observables[mask])
+
+
+def compile_experiments(experiments):
+    linear_density = []
+    quadratic_density = []
+    observables = []
+    for experiment in experiments:
+        control_state, target_state = experiment["prep"]
+        control_axis = PAULIS[control_state[0]] * (1 if control_state[1] == "+" else -1)
+        target_axis = PAULIS[target_state[0]] * (1 if target_state[1] == "+" else -1)
+        linear_density.append((np.kron(control_axis, PAULIS["I"]) + np.kron(PAULIS["I"], target_axis)) / 4)
+        quadratic_density.append(np.kron(control_axis, target_axis) / 4)
+        observable = experiment["measure"]
+        observables.append(np.kron(PAULIS[observable[0]], PAULIS[observable[1]]))
+    return ExperimentBatch(
+        np.array([experiment["time"] for experiment in experiments], dtype=float),
+        np.array(linear_density), np.array(quadratic_density), np.array(observables),
+    )
+
+
+def probabilities(parameters, experiments):
+    batch = experiments if isinstance(experiments, ExperimentBatch) else compile_experiments(experiments)
+    prep_visibility, readout_contrast, readout_bias, decay_rate = np.asarray(parameters)[5:]
+    unitary = unitaries(parameters, batch.times)
+    traceless_density = prep_visibility * batch.linear_density + prep_visibility**2 * batch.quadratic_density
+    evolved = unitary @ traceless_density @ unitary.conj().transpose(0, 2, 1)
+    expectation = np.einsum("nij,nji->n", batch.observables, evolved).real
+    probability = (1 + readout_bias + readout_contrast * np.exp(-decay_rate * batch.times) * expectation) / 2
+    return np.clip(probability, 0, 1)
+
+
+def draw_parameters(rng, family):
+    def signed_uniform(lower, upper):
+        return float(rng.choice([-1, 1]) * rng.uniform(lower, upper))
+
+    if family == "aliasing":
+        omega = [signed_uniform(3.2, 5), signed_uniform(0.5, 1.8), signed_uniform(1, 2.8), signed_uniform(0.1, 1.1), signed_uniform(1, 2.5)]
+    elif family == "near_degenerate":
+        while True:
+            omega_ix = signed_uniform(1, 2.4)
+            omega_iz = signed_uniform(1.1, 2.5)
+            omega_zx = signed_uniform(0.2, 0.8)
+            omega_zz = -omega_ix * omega_zx / omega_iz + rng.uniform(-0.015, 0.015)
+            if abs(omega_zz) < 1.2:
+                break
+        omega = [omega_ix, omega_zx, omega_iz, float(omega_zz), signed_uniform(0.12, 1.6)]
+    elif family == "weak_entangling":
+        omega = [signed_uniform(1, 3.5), signed_uniform(0.04, 0.16), signed_uniform(0.3, 2.2), signed_uniform(0.02, 0.12), signed_uniform(0.2, 1.8)]
+    elif family == "nuisance_decoherence":
+        omega = [signed_uniform(0.7, 3.8), signed_uniform(0.25, 1.5), signed_uniform(0.3, 2.4), signed_uniform(0.15, 1.1), signed_uniform(0.2, 2)]
+    else:
+        raise ValueError("unknown family")
+    if family == "nuisance_decoherence":
+        nuisance = [rng.uniform(0.78, 0.86), rng.uniform(0.78, 0.85), rng.uniform(-0.045, 0.045), rng.uniform(0.1, 0.16)]
+    else:
+        nuisance = [rng.uniform(0.91, 0.99), rng.uniform(0.9, 0.95), rng.uniform(-0.025, 0.025), rng.uniform(0.008, 0.045)]
+    return np.array(omega + nuisance, dtype=float)
+
+
+def normalized_error(omega, parameters):
+    return float(np.sqrt(np.mean(((np.asarray(omega) - np.asarray(parameters)[:5]) / NORMALIZATION)**2)))
+bash-5.1$ <e/README.md; find . -name AGENTS.md -print; date -u
+import json
+import os
+import resource
+import selectors
+import signal
+import subprocess
+import time
+from pathlib import Path
+
+import numpy as np
+
+from model import CONFIG, normalized_error, probabilities, validate_estimate, validate_experiment
+
+
+class ProtocolError(Exception):
+    pass
+
+
+class StartupError(ProtocolError):
+    pass
+
+
+def strict_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+
+def reject_constant(value):
+    raise ValueError("nonfinite JSON constant")
+
+
+def child_limits():
+    limits = CONFIG["resources"]
+    resource.setrlimit(resource.RLIMIT_CPU, (limits["cpu_seconds"], limits["cpu_seconds"] + 1))
+    memory = limits["memory_mb"] * 1024**2
+    resource.setrlimit(resource.RLIMIT_AS, (memory, memory))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024**2, 8 * 1024**2))
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
+    if hasattr(os, "sched_setaffinity"):
+        available_cpus = sorted(os.sched_getaffinity(0))
+        os.sched_setaffinity(0, {available_cpus[os.getpid() % len(available_cpus)]})
+    os.umask(0o077)
+
+
+class JsonProcess:
+    def __init__(self, command, wall_seconds=None, cwd=None, startup_handshake=False):
+        self.started = time.monotonic()
+        self.solver_started = None if startup_handshake else self.started
+        self.wall_limit = wall_seconds or CONFIG["resources"]["wall_seconds"]
+        self.deadline = self.started + (90 if startup_handshake else self.wall_limit)
+        environment = {"PATH": "/usr/bin:/bin", "HOME": "/tmp", "TMPDIR": "/tmp", "PYTHONDONTWRITEBYTECODE": "1"}
+        environment["PYTHONPATH"] = str(Path(__file__).resolve().parent)
+        environment.update({name: "1" for name in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")})
+        self.process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                        start_new_session=True, preexec_fn=child_limits, env=environment, bufsize=0)
+        self.selector = selectors.DefaultSelector()
+        for name in ("stdin", "stdout", "stderr"):
+            stream = getattr(self.process, name)
+            os.set_blocking(stream.fileno(), False)
+            if name != "stdin":
+                self.selector.register(stream, selectors.EVENT_READ, name)
+        self.output = bytearray()
+        self.stderr = bytearray()
+        self.stdout_bytes = 0
+        self.stdout_closed = False
+
+    def await_startup(self):
+        try:
+            marker = self.receive()
+            if marker != {"sandbox_ready": True}:
+                raise ProtocolError("missing trusted sandbox startup marker")
+        except ProtocolError as error:
+            raise StartupError("sandbox startup failed: " + str(error)) from error
+        self.solver_started = time.monotonic()
+        self.deadline = self.solver_started + self.wall_limit
+        self.stdout_bytes -= len(b'{"sandbox_ready":true}\n')
+
+    def pump(self):
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise ProtocolError("wall time exceeded")
+        for key, events in self.selector.select(min(remaining, 0.1)):
+            if key.data == "stdin":
+                continue
+            chunk = os.read(key.fileobj.fileno(), 65536)
+            if not chunk:
+                self.selector.unregister(key.fileobj)
+                if key.data == "stdout":
+                    self.stdout_closed = True
+                continue
+            if key.data == "stdout":
+                self.stdout_bytes += len(chunk)
+                if self.stdout_bytes > CONFIG["resources"]["stdout_bytes"]:
+                    raise ProtocolError("stdout limit exceeded")
+                self.output.extend(chunk)
+                first_newline = self.output.find(b"\n")
+                if first_newline > CONFIG["resources"]["line_bytes"] or (first_newline < 0 and len(self.output) > CONFIG["resources"]["line_bytes"]):
+                    raise ProtocolError("line limit exceeded")
+            else:
+                self.stderr.extend(chunk)
+                if len(self.stderr) > CONFIG["resources"]["stderr_bytes"]:
+                    raise ProtocolError("stderr limit exceeded")
+
+    def send(self, message):
+        pending = memoryview((json.dumps(message, allow_nan=False, separators=(",", ":")) + "\n").encode())
+        while pending:
+            if time.monotonic() >= self.deadline:
+                raise ProtocolError("wall time exceeded")
+            try:
+                written = os.write(self.process.stdin.fileno(), pending)
+                pending = pending[written:]
+            except BlockingIOError:
+                self.selector.register(self.process.stdin, selectors.EVENT_WRITE, "stdin")
+                try:
+                    self.pump()
+                finally:
+                    self.selector.unregister(self.process.stdin)
+            except BrokenPipeError as error:
+                raise ProtocolError("controller closed stdin") from error
+
+    def receive(self):
+        while b"\n" not in self.output:
+            if self.stdout_closed:
+                raise ProtocolError("EOF before a complete message")
+            self.pump()
+        line, remainder = self.output.split(b"\n", 1)
+        self.output = bytearray(remainder)
+        if len(line) > CONFIG["resources"]["line_bytes"]:
+            raise ProtocolError("line limit exceeded")
+        try:
+            message = json.loads(line.decode("utf-8"), object_pairs_hook=strict_object, parse_constant=reject_constant)
+        except (ValueError, UnicodeError, RecursionError) as error:
+            raise ProtocolError("invalid JSON: " + str(error)) from error
+        if not isinstance(message, dict):
+            raise ProtocolError("message must be an object")
+        return message
+
+    def finish(self):
+        self.process.stdin.close()
+        while not self.stdout_closed or self.process.poll() is None or self.selector.get_map():
+            self.pump()
+        if self.output.strip():
+            raise ProtocolError("stdout after final estimate")
+        if self.process.returncode != 0:
+            raise ProtocolError("nonzero controller exit: " + str(self.process.returncode))
+
+    def close(self):
+        try:
+            os.killpg(self.process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        self.process.wait()
+        self.selector.close()
+        for name in ("stdin", "stdout", "stderr"):
+            getattr(self.process, name).close()
+# Development harness
+
+From the participant directory:
+
+```sh
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 input/local_simulator.py baseline --episodes 4 --seed 7241
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python3 input/local_simulator.py /path/to/submission --episodes 8 --seed 8123 --output /tmp/development.json
+```
+
+This standalone harness runs **trusted local code without filesystem isolation**, with the same numerical model, budgets, strict protocol, output caps, and process resource limits. It starts the 20-second timer when spawning the plain script; there is no sandbox setup to exclude. It reveals synthetic development parameters after each episode. Never use it on private evaluation episodes or untrusted submissions. Official scoring instead invokes the shared bwrap sandbox, excludes sandbox setup via a trusted wrapper marker, exposes neither parameters nor seeds, and starts a new sandbox for each episode. Its 32 episodes use independent seeds from these development examples.
+
+`model.py` exposes `hamiltonian(parameters)`, batched `unitaries(parameters,times)`, `compile_experiments(experiments)`, `probabilities(parameters, experiments_or_batch)`, `draw_parameters(rng,family)`, and input validation. Parameters are a nine-element NumPy array in `config.json` order. Experiment dictionaries match `PROTOCOL.md`; forward prediction ignores the shots field. `runtime.py` implements the shared parent-side interaction and aggregate metric. Controllers may import these public modules but receive no evaluator state.
+# Workspace
+
+Develop your controller here or in your own output directory. Submit `solution.py` and any required companion files together. The authoritative public model and harness live in `../input`; the runnable reference controller lives in `../baseline`. No trained model, hidden data, or Qiskit dependency is required.
+Fri Aug 28 16:27:23 UTC 2026
+bash-5.1$ <DS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1; cd "$OUT"
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/quantum_computing_with_qiskit__2405_08810/authoring/runtimes/fresh_nbems3e1/home/tmp/arg0/codex-arg0Nl915b/apply_patch
+/usr/bin/python3
+total 4
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 09:26 .
+drwx------ 3 xuandong xuandong   60 Aug 28 09:26 ..
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 09:26 .agents
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 09:26 .codex
+dr-xr-xr-x 2 xuandong xuandong   40 Aug 28 09:26 .git
+bash-5.1$ apply_patch <<'PATCH'
+> *** Begin Patch
+> *** Add File: solution.py
+> +#!/usr/bin/env python3
+> +import os
+> +import sys
+> +import json
+> +import time
+> +
+r)> +STARTED = time.monotonic()
+> +CPU_STARTED = time.process_time()
+> <UM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+> +    os.environ[thread_variable] = "1"
+> +
+> +import numpy as np
+> +from scipy.optimize import least_squares
+> +
+> +
+> +AXES = "IXYZ"
+> < -1j], [1j, 0]], [[1, 0], [0, -1]]], dtype=complex)
+> <ft, right) for left in SINGLE for right in SINGLE])
+> <78, .995], [.78, .95], [-.045, .045], [.006, .16]])
+> +SCALES = np.array([.5, .25, .5, .25, .5, .1, .1, .03, .05])
+> +
+> +
+> +def experiment(prep, measure, duration, shots):
+> <sure, "time": float(duration), "shots": int(shots)}
+> +
+> +
+> +class Batch:
+> +    def __init__(self, experiments):
+> +        self.times = np.array([item["time"] for item in experiments])
+> +        self.shots = np.array([item["shots"] for item in experiments])
+> <index(item["prep"][0][0]) for item in experiments])
+> <index(item["prep"][1][0]) for item in experiments])
+> <ep"][0][1] == "+" else -1 for item in experiments])
+> <ep"][1][1] == "+" else -1 for item in experiments])
+> <index(item["measure"][1]) for item in experiments])
+> <arget_sign[:, None, None] * PAULI[self.target]) / 4
+> <None, None] * PAULI[self.control + self.target] / 4
+> +        self.observables = PAULI[self.measure]
+> +
+> +
+> +def evolution(parameters, times):
+> +    unitary = np.zeros((len(times), 4, 4), complex)
+> +    derivative = np.zeros((5, len(times), 4, 4), complex)
+> +    half_time = times / 2
+> +    for block_index, control_sign in enumerate((1, -1)):
+> +        axis_x = parameters[0] + control_sign * parameters[1]
+> +        axis_z = parameters[2] + control_sign * parameters[3]
+> +        frequency = np.hypot(axis_x, axis_z)
+> +        cosine = np.cos(frequency * half_time)
+> +        sine_ratio = half_time * np.sinc(frequency * half_time / np.pi)
+> +        if frequency > 1e-5:
+> +            radial = (half_time * cosine - sine_ratio) / frequency**2
+> +        else:
+> +            radial = -half_time**3 / 3 + frequency**2 * half_time**5 / 30
+> +        generator = axis_x * SINGLE[1] + axis_z * SINGLE[3]
+> +        phase = np.exp(-1j * control_sign * parameters[4] * half_time)
+> <LE[0] - 1j * sine_ratio[:, None, None] * generator)
+> <generator + sine_ratio[:, None, None] * SINGLE[1]))
+> <generator + sine_ratio[:, None, None] * SINGLE[3]))
+> +        section = slice(2 * block_index, 2 * block_index + 2)
+> +        unitary[:, section, section] = block
+> +        derivative[0, :, section, section] = derivative_x
+> +        derivative[1, :, section, section] = control_sign * derivative_x
+> +        derivative[2, :, section, section] = derivative_z
+> +        derivative[3, :, section, section] = control_sign * derivative_z
+> < * control_sign * half_time)[:, None, None] * block
+> +    return unitary, derivative
+> +
+> +
+> +def predict(parameters, batch):
+> +    visibility, contrast, bias, decay = parameters[5:]
+> +    unitary, derivative = evolution(parameters, batch.times)
+> +    adjoint = unitary.conj().transpose(0, 2, 1)
+> +    observable_back = adjoint @ batch.observables @ unitary
+> +    linear = np.einsum("nij,nji->n", observable_back, batch.linear).real
+> <nij,nji->n", observable_back, batch.quadratic).real
+> +    mean = visibility * linear + visibility**2 * quadratic
+> +    envelope = contrast * np.exp(-decay * batch.times)
+> +    density = visibility * batch.linear + visibility**2 * batch.quadratic
+> +    right = density @ adjoint @ batch.observables
+> +    gradient = np.empty((len(batch.times), 9))
+> <i->na", derivative, right).real * envelope[:, None]
+> +    gradient[:, 5] = envelope * (linear + 2 * visibility * quadratic) / 2
+> +    gradient[:, 6] = np.exp(-decay * batch.times) * mean / 2
+> +    gradient[:, 7] = .5
+> +    gradient[:, 8] = -batch.times * envelope * mean / 2
+> <p((1 + bias + envelope * mean) / 2, 1e-9, 1 - 1e-9)
+> +    return probability, gradient
+> +
+> +
+> +def pool_predictions(parameters, experiments):
+> <me"] for item in experiments], return_inverse=True)
+> <index(item["prep"][0][0]) for item in experiments])
+> <index(item["prep"][1][0]) for item in experiments])
+> <ep"][0][1] == "+" else -1 for item in experiments])
+> <ep"][1][1] == "+" else -1 for item in experiments])
+> <index(item["measure"][1]) for item in experiments])
+> +    unitary, derivative = evolution(parameters, durations)
+> +    adjoint = unitary.conj().transpose(0, 2, 1)
+> +    evolved = unitary[:, None] @ PAULI[None] @ adjoint[:, None]
+> +    transfer = np.einsum("mij,tpji->tmp", PAULI, evolved).real / 4
+> < None] @ PAULI[None, None] @ adjoint[None, :, None]
+> <j,atpji->atmp", PAULI, evolved_derivative).real / 2
+> <sign_target * transfer[time_index, measure, target]
+> <t * transfer[time_index, measure, control + target]
+> <transfer_derivative[:, time_index, measure, target]
+> <erivative[:, time_index, measure, control + target]
+> +    visibility, contrast, bias, decay = parameters[5:]
+> +    times = durations[time_index]
+> +    mean = visibility * linear + visibility**2 * quadratic
+> +    envelope = contrast * np.exp(-decay * times)
+> +    gradient = np.empty((len(experiments), 9))
+> <**2 * quadratic_derivative) * envelope[None] / 2).T
+> +    gradient[:, 5] = envelope * (linear + 2 * visibility * quadratic) / 2
+> +    gradient[:, 6] = np.exp(-decay * times) * mean / 2
+> +    gradient[:, 7] = .5
+> +    gradient[:, 8] = -times * envelope * mean / 2
+> <p((1 + bias + envelope * mean) / 2, 1e-9, 1 - 1e-9)
+> +    return probability, gradient
+> +
+> +
+> +class Fitter:
+> +    def __init__(self, experiments, counts, bounds, deadline):
+> +        self.batch = Batch(experiments)
+> <sarray(counts) + .375) / (self.batch.shots + .75)))
+o> +        self.weights = 2 * np.sqrt(self.batch.shots)
+> +        self.bounds = bounds
+> +        self.deadline = deadline
+> +        self.last_parameters = None
+> +
+> +    def evaluate(self, parameters):
+> <adline or time.process_time() - CPU_STARTED > 15.5:
+> +            raise TimeoutError
+> <t np.array_equal(parameters, self.last_parameters):
+> +            probability, gradient = predict(parameters, self.batch)
+> +            self.last_parameters = parameters.copy()
+> <s * (np.arcsin(np.sqrt(probability)) - self.target)
+> <np.sqrt(probability * (1 - probability))))[:, None]
+> +
+> +    def fun(self, parameters):
+a> +        self.evaluate(parameters)
+> +        return self.residual
+> +
+> +    def jac(self, parameters):
+> +        self.evaluate(parameters)
+> +        return self.gradient
+> +
+> +    def fit(self, initial, evaluations=80):
+> <self.bounds[:, 0] + 1e-8, self.bounds[:, 1] - 1e-8)
+> <_nfev=evaluations, ftol=2e-7, xtol=2e-7, gtol=2e-7)
+> +        return float(fit.fun @ fit.fun), fit.x
+> +
+> +
+> +def initial_schedule():
+> < "IX"), (("Z+", "Z+"), "ZZ"), (("Z-", "Z+"), "ZZ")]
+> < measure, 0, 256) for prep, measure in calibration]
+> <"Z-") for target in ("X+", "Z+") for axis in "XYZ"]
+> <+ "I") for target in ("X+", "Z+") for axis in "XY"]
+> +    for duration in (.15, .34, .61, .97):
+> <asure, duration, 64) for prep, measure in settings)
+> +    return result
+> +
+> +
+> +def initial_guess(experiments, counts):
+> <.array([item["shots"] for item in experiments]) - 1
+> +    single_amplitude = (values[0] - values[1]) / 2
+> +    double_amplitude = (values[2] - values[3]) / 2
+> <le_amplitude / max(single_amplitude, .1), .78, .99)
+> +    contrast = np.clip(single_amplitude / visibility, .78, .95)
+> +    bias = np.clip(np.mean(values[:4]), -.045, .045)
+> +    amplitude = max(single_amplitude, .5)
+> +    early = (values[4:20] - bias) / amplitude / .15
+> +    omega_ix = -(early[4] + early[10]) / 2
+> +    omega_zx = -(early[4] - early[10]) / (2 * visibility)
+> +    omega_iz = (early[1] + early[7]) / 2
+> +    omega_zz = (early[1] - early[7]) / (2 * visibility)
+> <early[15] - visibility * (omega_zx + omega_zz)) / 2
+> +    high_noise = single_amplitude < .777
+> +    bounds = BOUNDS.copy()
+> +    if high_noise:
+> +        bounds[5:] = [[.78, .86], [.78, .85], [-.045, .045], [.1, .16]]
+> +        decay = .13
+> +    else:
+> +        bounds[5:] = [[.91, .99], [.9, .95], [-.025, .025], [.008, .045]]
+> +        decay = .026
+> <a_zz, omega_zi, visibility, contrast, bias, decay])
+> <, bounds[:, 0] + 1e-7, bounds[:, 1] - 1e-7), bounds
+> +
+> +
+> +def candidate_pool(maximum_time, phase):
+> +    rng = np.random.default_rng(6513 + phase)
+> <, rng.uniform(.1, maximum_time, 54), maximum_time])
+> < in AXES for right in AXES if left + right != "II"]
+> <or duration in times for prep, measure in settings]
+> +
+> +
+> <ds, total_shots, block_shots, maximum_time, phase):
+> +    batch = Batch(experiments)
+> +    probability, gradient = predict(parameters, batch)
+> </ np.sqrt(probability * (1 - probability))[:, None]
+> +    information = features.T @ (features * batch.shots[:, None])
+> +    prior = np.zeros(9)
+> +    prior[5:] = 12 * SCALES[5:]**2 / (bounds[5:, 1] - bounds[5:, 0])**2
+> +    information += np.diag(prior + 1e-7)
+> +    covariance = np.linalg.inv(information)
+> +    candidates = candidate_pool(maximum_time, phase)
+> +    probability, gradient = pool_predictions(parameters, candidates)
+> </ np.sqrt(probability * (1 - probability))[:, None]
+> +    allocations = np.zeros(len(candidates), dtype=int)
+> +    for block_index in range(total_shots // block_shots):
+> +        projected = features @ covariance
+> +        variance = np.einsum("ni,ni->n", projected, features)
+> <d[:, :5]**2, axis=1) / (1 / block_shots + variance)
+> +        gains[allocations + block_shots > 4096] = -1
+> +        selected = int(np.argmax(gains))
+> +        allocations[selected] += block_shots
+> +        direction = projected[selected]
+> <direction) / (1 / block_shots + variance[selected])
+> +    schedule = []
+> +    for selected in np.flatnonzero(allocations):
+> +        item = candidates[selected].copy()
+> +        item["shots"] = int(allocations[selected])
+> +        schedule.append(item)
+> +    return schedule
+> +
+> +
+> +def calibrate(ask, started=None):
+> +    started = STARTED if started is None else started
+> +    deadline = started + 16.3
+> +    experiments = initial_schedule()
+> +    counts = [ask(item) for item in experiments]
+> +    parameters, bounds = initial_guess(experiments, counts)
+> +    fitter = Fitter(experiments, counts, bounds, deadline)
+> +    rng = np.random.default_rng(3927)
+> +    starts = [parameters.copy()]
+> +    for start_index in range(4):
+> +        candidate = parameters.copy()
+> +        candidate[:5] += rng.normal(size=5) * [.7, .4, .7, .35, .5]
+> +        starts.append(candidate)
+> +    best_cost = np.inf
+> +    try:
+> +        for initial in starts:
+> +            cost, fitted = fitter.fit(initial, 85)
+> +            if cost < best_cost:
+> +                best_cost, parameters = cost, fitted
+> +            if time.monotonic() > started + 5:
+> +                break
+> <4096, 128, 3.3), (6144, 192, 8), (9216, 256, 12))):
+> <ted + 13 or time.process_time() - CPU_STARTED > 12:
+> +                break
+> <nds, total_shots, block_shots, maximum_time, phase)
+> +            for item in schedule:
+> +                counts.append(ask(item))
+> +                experiments.append(item)
+> +            fitter = Fitter(experiments, counts, bounds, deadline)
+> +            cost, parameters = fitter.fit(parameters, 100)
+> +    except TimeoutError:
+> +        pass
+> +    return np.clip(parameters, BOUNDS[:, 0], BOUNDS[:, 1])
+> +
+> +
+> +def main():
+> +    greeting = json.loads(sys.stdin.readline())
+> +    if greeting.get("type") != "start":
+> +        raise ValueError("expected start")
+> +
+> +    def ask(item):
+> +        print(json.dumps(item, separators=(",", ":")), flush=True)
+> +        response = json.loads(sys.stdin.readline())
+> +        if response.get("type") != "result":
+> +            raise ValueError("expected result")
+> +        return response["plus"]
+> +
+> +    parameters = calibrate(ask)
+> <[5:].tolist()}, separators=(",", ":")), flush=True)
+> +
+> +
+> +if __name__ == "__main__":
+> +    main()
+> *** End Patch
+> PATCH
+Success. Updated the following files:
+A solution.py
+bash-5.1$ chmod +x solution.py
+bash-5.1$ stty -echo
+bash-5.1$ bash-5.1$ bash-5.1$ > > > > > > > > > > > > > > > > > > p error 1.1102230246251565e-16
+pool errors 1.1102230246251565e-16 6.661338147750939e-16
+derivative 0 1.4792012059672288e-09
+derivative 1 1.5184045132343726e-09
+derivative 2 6.137168551134664e-10
+derivative 3 5.872762831593548e-10
+derivative 4 3.1970581737539305e-10
+derivative 5 7.18278214684176e-11
+derivative 6 5.889591592200816e-11
+derivative 7 4.11333189731522e-11
+derivative 8 6.482880898772692e-11
+bash-5.1$ bash-5.1$ > > > > {"episode": 0, "valid": true, "nrmse": 0.06559103572631757, "omega": [-4.180191268703434, 0.6128279699251468, 2.2796617381294757, -0.18078370493392357, 1.2437078692376842], "reason": "ok", "stderr_tail": "", "stdout_bytes": 9764, "wall_seconds": 2.7441911180503666, "startup_wall_seconds": 2.0489911548793316e-05, "total_wall_seconds": 2.7442116079619154, "cpu_seconds": 2.317617, "shots": 24576, "queries": 113, "family": "aliasing", "true_parameters": [-4.170427024050625, 0.600943858909121, 2.296245829585269, -0.21410862920374765, 1.2441840074391208, 0.9394618523836825, 0.9094751271012006, -0.015851205695830907, 0.014092227286703157]}
+{"episode": 1, "valid": true, "nrmse": 0.023879243480137854, "omega": [2.2502895970010903, -0.36970736919121877, -1.4411113060282539, -0.5895851335585461, -0.2701054025899455], "reason": "ok", "stderr_tail": "", "stdout_bytes": 10282, "wall_seconds": 2.1276454620528966, "startup_wall_seconds": 1.2179953046143055e-05, "total_wall_seconds": 2.1276576420059428, "cpu_seconds": 1.473271, "shots": 24576, "queries": 119, "family": "near_degenerate", "true_parameters": [2.243973790905806, -0.37777793951092153, -1.4601219450445095, -0.5861422284688714, -0.2719837612013192, 0.9739627832268462, 0.9248159736010462, 0.021006374948454053, 0.02945700815327796]}
+{"episode": 2, "valid": true, "nrmse": 0.023459036638406736, "omega": [-1.2808222414125703, -0.15356504475289326, -1.70938420829993, 0.009404524382139295, -0.7930935635027813], "reason": "ok", "stderr_tail": "", "stdout_bytes": 10200, "wall_seconds": 3.0810566931031644, "startup_wall_seconds": 3.1600939109921455e-05, "total_wall_seconds": 3.0810882940422744, "cpu_seconds": 1.621221, "shots": 24576, "queries": 118, "family": "weak_entangling", "true_parameters": [-1.272592186393692, -0.15722095336290398, -1.7168532603040416, 0.020705428667602905, -0.7933817211209486, 0.9879929404111563, 0.9332919242269443, -0.022619955593839308, 0.03693586462392401]}
+{"episode": 3, "valid": true, "nrmse": 0.0425146440609936, "omega": [-1.8290346472800543, -1.191089358599534, 1.0629794377391215, -0.2165412057821583, 0.21668454146881277], "reason": "ok", "stderr_tail": "", "stdout_bytes": 10427, "wall_seconds": 3.185101793031208, "startup_wall_seconds": 1.4150049537420273e-05, "total_wall_seconds": 3.1851159430807456, "cpu_seconds": 2.2920300000000005, "shots": 24576, "queries": 120, "family": "nuisance_decoherence", "true_parameters": [-1.817027505373949, -1.2044610305597547, 1.0922298389456955, -0.2053376021138166, 0.22319006891600657, 0.8028450114372367, 0.8039949127482517, -2.4638414132603648e-05, 0.13986649829442352]}
+{'mean_nrmse': 0.038860989976463936, 'family_mean_nrmse': {'aliasing': 0.06559103572631757, 'near_degenerate': 0.023879243480137854, 'nuisance_decoherence': 0.0425146440609936, 'weak_entangling': 0.023459036638406736}, 'valid': True, 'runtime': {'total_wall_seconds': 11.138073487090878, 'total_solver_wall_seconds': 11.137995066237636, 'total_startup_wall_seconds': 7.84208532422781e-05, 'maximum_episode_wall_seconds': 3.185101793031208, 'total_cpu_seconds': 7.7041390000000005}}
+[1] 28
+Success. Updated the following files:
+A benchmark.py
+classification weak_entangling 7 0
+classification nuisance_decoherence 14 1
+{"episode": 15, "valid": true, "nrmse": 0.02305055074335506, "omega": [1.2207636197260243, -0.9479529391692083, -0.6294370361472326, 0.8674259017115964, 1.9254224484721754], "reason": "ok", "stderr_tail": "", "stdout_bytes": 10925, "wall_seconds": 2.542956094024703, "startup_wall_seconds": 1.7639948055148125e-05, "total_wall_seconds": 2.542973733972758, "cpu_seconds": 1.7618139999999967, "shots": 24576, "queries": 126, "family": "nuisance_decoherence", "true_parameters": [1.2180481519474393, -0.9385697535671742, -0.6196860702669826, 0.8626617252749303, 1.9363191711199734, 0.804169506720738, 0.8173428556232646, -0.03298548353621606, 0.15076308988935405]}
+{"episode": 16, "valid": true, "nrmse": 0.026031900161951903, "omega": [-3.5502839734726015, -0.5718749000984963, 1.0112879080620165, -1.0562287704876083, -2.3128460428050897], "reason": "ok", "stderr_tail": "", "stdout_bytes": 9095, "wall_seconds": 2.6641195999691263, "startup_wall_seconds": 1.0470044799149036e-05, "total_wall_seconds": 2.6641300700139254, "cpu_seconds": 1.5149590000000002, "shots": 24576, "queries": 106, "family": "aliasing", "true_parameters": [-3.553594263764257, -0.5676695118850874, 1.0046911955651516, -1.0695820543692236, -2.3157817238465226, 0.9652898930425601, 0.907798081763533, -0.002496967725869381, 0.01611500237664214]}
+{"episode": 17, "valid": true, "nrmse": 0.025688590255064772, "omega": [-1.696002222888347, 0.2945971963366569, 2.0136126297840438, 0.24834085675601095, 0.6412844405196683], "reason": "ok", "stderr_tail": "", "stdout_bytes": 10098, "wall_seconds": 2.784235036931932, "startup_wall_seconds": 9.790994226932526e-06, "total_wall_seconds": 2.784244827926159, "cpu_seconds": 1.9263849999999998, "shots": 24576, "queries": 117, "family": "near_degenerate", "true_parameters": [-1.7008929694607406, 0.306500340987627, 2.0063006003671013, 0.25448368776765096, 0.6358238994559817, 0.929311816426625, 0.9023555311027656, 0.016132550895275377, 0.03436493011161077]}
+current summary 20 0.0335018319669477
+worst [(0.08657697943498378, 7, 'nuisance_decoherence'), (0.061680170865838935, 18, 'weak_entangling'), (0.058045533987733856, 19, 'nuisance_decoherence'), (0.05438481962939056, 11, 'nuisance_decoherence'), (0.04294589037882981, 2, 'weak_entangling')]
+[2] 58
+[1]-  Done                    python3 "$TASK/input/local_simulator.py" "$OUT" --episodes 32 --seed 48217 --output "$OUT/dev_32.json" > "$OUT/dev_32_stdout.json" 2> "$OUT/dev_32.log"
+[2]+  Running                 python3 benchmark.py --episodes 128 --seed 8675309 --output bench128.json > bench128.log 2>&1 &
+15 nuisance_decoherence 0.0569967824235901 1.2370107579044998
+16 aliasing 0.05439375433884622 1.1878411188954487
+17 near_degenerate 0.04321500209788325 1.1730929290642962
+{'mean_nrmse': 0.03597296482072661, 'family_mean_nrmse': {'aliasing': 0.027252695912413662, 'near_degenerate': 0.02237266564970025, 'nuisance_decoherence': 0.05704091756011987, 'weak_entangling': 0.037225580160672636}, 'valid': True, 'runtime': {'total_wall_seconds': 82.59952816402074, 'total_solver_wall_seconds': 82.59903682209551, 'total_startup_wall_seconds': 0.0004913419252261519, 'maximum_episode_wall_seconds': 3.4393914330285043, 'total_cpu_seconds': 55.46905399999999}}
+Success. Updated the following files:
+M solution.py
+[3] 71
+50 weak_entangling 0.042570677862267314 1.2925146620254964
+51 nuisance_decoherence 0.08389964264963887 1.4355740500614047
+52 aliasing 0.015595064265079627 1.3339337880024686
+53 near_degenerate 0.050674647682662805 1.2528767411131412
+54 weak_entangling 0.02437944223551205 1.318536174017936
+current 55 overall 0.03815579854543333 maximum 0.14558237834076057
+aliasing 14 0.03730735592939312 0.08322336722028327
+near_degenerate 14 0.028140350714533857 0.0552040572391981
+weak_entangling 14 0.02339929845313508 0.04862940704124645
+nuisance_decoherence 13 0.0657469883569203 0.14558237834076057
+worst [(0.14558237834076057, 39, 'nuisance_decoherence'), (0.10267384905363856, 11, 'nuisance_decoherence'), (0.08389964264963887, 51, 'nuisance_decoherence'), (0.08322336722028327, 8, 'aliasing'), (0.07968745700358122, 20, 'aliasing')]
+39 nuisance_decoherence 0.14558237834076057
+true [ 3.48062  0.84568 -2.01289 -1.03091 -0.46654  0.822    0.819   -0.03983
+  0.14218]
+fit  [ 3.48343  0.89434 -2.00219 -0.96593 -0.46338  0.78     0.82292 -0.03194
+  0.11883]
+delta [0.00281 0.04866 0.0107  0.06498 0.00315]
+84 aliasing 0.10624733381053604
+true [-4.23764 -1.44238  2.50149 -0.12221  1.91504  0.982    0.92179 -0.0125
+  0.03605]
+fit  [-4.25292 -1.46202  2.45415 -0.17238  1.92011  0.94998  0.9461  -0.02045
+  0.01417]
+delta [-0.01527 -0.01964 -0.04734 -0.05017  0.00507]
+11 nuisance_decoherence 0.10267384905363856
+true [-3.22568 -0.28555 -2.1721  -0.43805  0.72861  0.78533  0.83864 -0.03094
+  0.12548]
+fit  [-3.23558 -0.31211 -2.15997 -0.38783  0.72384  0.78     0.83252 -0.01947
+  0.1    ]
+delta [-0.0099  -0.02656  0.01213  0.05022 -0.00477]
+51 nuisance_decoherence 0.08389964264963887
+true [-3.33128  0.59244  0.70937 -0.99551  0.81529  0.82033  0.80632  0.00757
+  0.14324]
+fit  [-3.306    0.56313  0.77142 -1.00877  0.82837  0.78     0.84166  0.01216
+  0.16   ]
+delta [ 0.02527 -0.0293   0.06205 -0.01326  0.01308]
+Success. Updated the following files:
+A posterior_check.py
+aliasing 0.041437137516453865
+near_degenerate 0.025653939762460033
+weak_entangling 0.019980074814699825
+nuisance_decoherence 0.05413553644167782
+{"episode": 31, "valid": true, "nrmse": 0.053194667769821465, "omega": [2.187022280546716, -1.3752769676504732, 0.8435128000329344, 0.9009835493503223, 0.9503167273366927], "reason": "ok", "stderr_tail": "", "stdout_bytes": 9938, "wall_seconds": 2.0788633519550785, "startup_wall_seconds": 8.629984222352505e-06, "total_wall_seconds": 2.078871981939301, "cpu_seconds": 1.5056299999999982, "shots": 24576, "queries": 115, "family": "nuisance_decoherence", "true_parameters": [2.2045634158761294, -1.365148166346709, 0.8353321799889002, 0.875520470766598, 0.9629116838165395, 0.8593959247980183, 0.8135594138493147, 0.044463922672250675, 0.1266978109620208]}
+[1] 111
+{'mean_nrmse': 0.03410524852178643, 'family_mean_nrmse': {'aliasing': 0.03896032214217421, 'near_degenerate': 0.027423233512824594, 'nuisance_decoherence': 0.044325354958313926, 'weak_entangling': 0.025712083473833004}, 'valid': True, 'runtime': {'total_wall_seconds': 81.49826823291369, 'total_solver_wall_seconds': 81.4977619939018, 'total_startup_wall_seconds': 0.0005062390118837357, 'maximum_episode_wall_seconds': 4.124772474984638, 'total_cpu_seconds': 54.22757299999999}}
+128 summary 0.035301672133822876 128 max time 2.6642947839573026 max error 0.14558237834076057
+126 weak_entangling [0.01896 0.01892 0.0188 ]
+127 nuisance_decoherence [0.03922 0.03429 0.03476]
+all 128 [0.03530167 0.03488528 0.03491306] [0.04316306 0.04235552 0.04240529]
+aliasing 32 [0.04143714 0.04123477 0.04123767] [0.05023107 0.04992876 0.04990806]
+near_degenerate 32 [0.02565394 0.0262081  0.02619222] [0.02922403 0.0298971  0.02985233]
+weak_entangling 32 [0.01998007 0.01999283 0.02002677] [0.02243591 0.02247337 0.02250251]
+nuisance_decoherence 32 [0.05413554 0.05210542 0.05219558] [0.05976308 0.05730784 0.05748473]
+Fri Aug 28 16:37:41 UTC 2026
+Success. Updated the following files:
+M solution.py
+[1] 117
+[2] 118
+zero-frequency max derivative error 8.373798321414938e-10
+{'case': 0, 'error': 0.08029343660747193, 'shots': 24576, 'queries': 108, 'seconds': 0.941357305040583}
+{'case': 1, 'error': 0.01704306413060387, 'shots': 24576, 'queries': 99, 'seconds': 0.9138554930686951}
+{'case': 2, 'error': 0.025673630724834463, 'shots': 24576, 'queries': 129, 'seconds': 0.8183415009407327}
+{'case': 3, 'error': 0.005098433787400524, 'shots': 24576, 'queries': 113, 'seconds': 0.8582088469993323}
+{'case': 4, 'error': 0.014859347190882761, 'shots': 24576, 'queries': 113, 'seconds': 0.8278425689786673}
+[2]+  Running                 python3 benchmark.py --episodes 128 --seed 417139 --output bench_final128.json > bench_final128.log 2>&1 &
+116 aliasing 0.06495617713730206 1.0404248560080305
+117 near_degenerate 0.049070983513861986 1.0339916599914432
+118 weak_entangling 0.02227985752395287 1.2795094959437847
+119 nuisance_decoherence 0.05504052610056976 1.124613184016198
+120 aliasing 0.09844062672570539 1.2970895820762962
+121 near_degenerate 0.02357516001679517 1.133818155969493
+122 weak_entangling 0.015543178500423449 1.4171963180415332
+{'mean_nrmse': 0.037798160385156356, 'family_mean_nrmse': {'aliasing': 0.047952763893359285, 'near_degenerate': 0.022224605997149337, 'nuisance_decoherence': 0.0557657802076271, 'weak_entangling': 0.025249491442489728}, 'valid': True, 'runtime': {'total_wall_seconds': 62.03835264407098, 'total_solver_wall_seconds': 62.037987988907844, 'total_startup_wall_seconds': 0.00036465516313910484, 'maximum_episode_wall_seconds': 3.688972011092119, 'total_cpu_seconds': 45.51069900000002}}
+harness_summary {'mean_nrmse': 0.037798160385156356, 'worst_family_score': 0.0557657802076271, 'family_mean_nrmse': {'aliasing': 0.047952763893359285, 'near_degenerate': 0.022224605997149337, 'nuisance_decoherence': 0.0557657802076271, 'weak_entangling': 0.025249491442489728}, 'valid_fraction': 1.0, 'passed': True}
+harness_limits 1.659049999999997 3.688972011092119 128 {24576}
+stress_episodes 128 overall 0.03461856208286391
+stress_family aliasing 32 0.04257875110566066 0.10605712002122468
+stress_family near_degenerate 32 0.025110154169899306 0.09564565035924336
+stress_family weak_entangling 32 0.02226987207155313 0.06099994700511978
+stress_family nuisance_decoherence 32 0.04851547098434254 0.1060923306048078
+stress_maximum 2.4549633209826425 138 {24576}
+775 15656 solution.py
+total 3408
+drwxrwxr-x 5 xuandong xuandong    4096 Aug 28 09:40 .
+drwx------ 3 xuandong xuandong      60 Aug 28 09:26 ..
+dr-xr-xr-x 2 xuandong xuandong      40 Aug 28 09:26 .agents
+dr-xr-xr-x 2 xuandong xuandong      40 Aug 28 09:26 .codex
+dr-xr-xr-x 2 xuandong xuandong      40 Aug 28 09:26 .git
+-rw-rw-r-- 1 xuandong xuandong 1536405 Aug 28 09:36 bench128.json
+-rw-rw-r-- 1 xuandong xuandong    7569 Aug 28 09:36 bench128.log
+-rw-rw-r-- 1 xuandong xuandong 1532773 Aug 28 09:42 bench_final128.json
+-rw-rw-r-- 1 xuandong xuandong    7579 Aug 28 09:42 bench_final128.log
+-rw-rw-r-- 1 xuandong xuandong    2141 Aug 28 09:33 benchmark.py
+-rw-rw-r-- 1 xuandong xuandong   28683 Aug 28 09:34 dev_32.json
+-rw-rw-r-- 1 xuandong xuandong   21059 Aug 28 09:34 dev_32.log
+-rw-rw-r-- 1 xuandong xuandong   28684 Aug 28 09:34 dev_32_stdout.json
+-rw-rw-r-- 1 xuandong xuandong   28647 Aug 28 09:36 dev_final32.json
+-rw-rw-r-- 1 xuandong xuandong   21022 Aug 28 09:36 dev_final32.log
+-rw-rw-r-- 1 xuandong xuandong   28648 Aug 28 09:36 dev_final32_stdout.json
+-rw-rw-r-- 1 xuandong xuandong    4415 Aug 28 09:32 dev_initial.json
+-rw-rw-r-- 1 xuandong xuandong    2621 Aug 28 09:32 dev_initial.log
+-rw-rw-r-- 1 xuandong xuandong    4416 Aug 28 09:32 dev_initial_stdout.json
+-rw-rw-r-- 1 xuandong xuandong     795 Aug 28 09:40 edge_checks.json
+-rw-rw-r-- 1 xuandong xuandong    6146 Aug 28 09:37 posterior_check.log
+-rw-rw-r-- 1 xuandong xuandong    2925 Aug 28 09:37 posterior_check.py
+-rw-rw-r-- 1 xuandong xuandong   66583 Aug 28 09:37 posterior_comparison.json
+-rwxrwxr-x 1 xuandong xuandong   15656 Aug 28 09:39 solution.py
+-rw-rw-r-- 1 xuandong xuandong   28670 Aug 28 09:40 validation_32.json
+-rw-rw-r-- 1 xuandong xuandong   21043 Aug 28 09:40 validation_32.log
+-rw-rw-r-- 1 xuandong xuandong   28671 Aug 28 09:40 validation_32_stdout.json
+Success. Updated the following files:
+A README.md
+D benchmark.py
+D posterior_check.py
+D bench128.json
+D bench128.log
+D bench_final128.json
+D bench_final128.log
+D dev_initial.json
+D dev_initial_stdout.json
+D dev_initial.log
+D dev_32.json
+D dev_32_stdout.json
+D dev_32.log
+D dev_final32.json
+D dev_final32_stdout.json
+D dev_final32.log
+D posterior_check.log
+D posterior_comparison.json
+D validation_32.json
+D validation_32_stdout.json
+D validation_32.log
+D edge_checks.json
+Submission verified: executable solution.py and README.md
+Success. Updated the following files:
+M README.md
+exit
+
+Packaged the self-contained executable and documentation, removed development scratch files, and verified syntax and executable permissions.
+  ✓ Inspect model, protocol, and baseline
+  ✓ Develop adaptive calibration and inference
+  ✓ Benchmark accuracy and runtime locally
+  ✓ Finalize executable submission
+codex
+Created executable submission: `../attempts/v_1/solution.py:1`.
+
+Public-harness validation:
+- **32/32** protocol- and resource-valid episodes.
+- Mean NRMSE **0.03780**; worst-family mean **0.05577**—both below targets.
+- Maximum solver wall time: **3.69 seconds**.
+
+Method and additional test results are documented in `../attempts/v_1/README.md:1`.
+tokens used
+109,876

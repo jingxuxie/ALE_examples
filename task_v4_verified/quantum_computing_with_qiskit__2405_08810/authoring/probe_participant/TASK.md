@@ -1,0 +1,1 @@
+Infrastructure check only. Run one shell command that reports Python, NumPy, and SciPy versions, writes probe.json to the requested output directory, and verifies that ../sources and ../../concept_1/evaluator cannot be listed or read. Do not investigate any scientific task.
