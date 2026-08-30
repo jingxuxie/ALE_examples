@@ -1,0 +1,15 @@
+# Private launch audit
+
+Nine release tests pass. All 1,952 accepted cases have full-space eigenpair residual below 1.5e−15 in the synthetic energy unit, reference probability at least 0.85, minimum single-replacement gap at least 0.8, and absolute omitted tail at least 1.5e−4. Both tail signs occur in every split. A separately constructed pair-occupation matrix and independent full-spectrum diagonalization agree with the generator. Stored full subset expansions on 56 stratified audit cases telescope to the full correlation; nonnegligible alternating orders occur in at least a quarter of that audit set.
+
+Validation is a separately seeded, independent 384-case split, with no ID or exact feature fingerprint overlap with training or test. Families 4 and 5 occur in neither labeled split. Hidden test cases have random independent cryptographic IDs and contain exactly the public feature schema, without full correlations, targets, transfer magnitudes or seed material. Public caches are removed. The generator's callable solver handles independent samples, not fixed hidden labels.
+
+## Information sufficiency, not a passing solution
+
+The latent transfer structure is restricted deliberately. Each singleton CAS depends on its own positive source amplitude and the known occupied profile/diagonal data; virtual-edge magnitudes do not enter. After fixing source amplitudes, each pair CAS depends on its own virtual-edge magnitude, not other edges. Explicit transfer signs remove an arbitrary sign-flux ambiguity. Thus the singleton/pair observation Jacobian with respect to these magnitudes is block triangular. Private finite-difference tests find nonzero singleton slopes and nonzero sign-consistent pair slopes at three magnitudes spanning the allowed edge interval on stratified samples. Triple observations supply additional constraints. This is evidence for local identifiability, not a proof of global inverse uniqueness for every draw, a trained inverse solver, or a known passing solution.
+
+The challenge remains nonlinear inference and unseen-family generalization. The validation-selected public baseline is strong enough to rule out a zero-tail or trivial family-mean solution, but fails the preregistered absolute limits substantially. Targets were not adjusted after observing its hidden scores. Their attainability remains unknown; possible-open status is retained.
+
+## Launch and integrity
+
+Only participant assets should reach the fresh process. Static evaluation rejects malformed shapes, object arrays, nonfinite values, duplicate/unknown IDs and extra keys, and accepts arbitrary correct ID order. It imports no participant modules and does not deserialize estimators. Frozen hashes cover data, truth, baseline and evaluation code. The baseline required only experimental-HGB import compatibility with installed scikit-learn; this prelaunch amendment is recorded with old/new hashes, without changing criteria or data. No fresh agents or optional expensive portfolio were run.

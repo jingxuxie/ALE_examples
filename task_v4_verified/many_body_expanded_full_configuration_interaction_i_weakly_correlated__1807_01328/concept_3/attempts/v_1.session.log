@@ -1,0 +1,751 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/many_body_expanded_full_configuration_interaction_i_weakly_correlated__1807_01328/concept_3/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 01a047f0-0950-7e03-8f71-d671c9f0bc60
+--------
+user
+Read TASK.md and the supplied participant assets. Complete the participant task autonomously within one hour. Use only the supplied assets and allowed system runtime. Write final artifacts and all scratch work into /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/many_body_expanded_full_configuration_interaction_i_weakly_correlated__1807_01328/concept_3/attempts/v_1. The participant directory is read-only. Follow the executable/artifact interface in TASK.md. Do not access siblings, private data, other attempts or network. Before substantial work, confirm your output directory is writable, numpy/scipy import, and the participant assets are readable. Hidden evaluator artifacts are intentionally unavailable.
+codex
+I’ll read the task and check the required environment first.
+
+exec
+/bin/bash -lc "pwd; ls -la; if [ -f AGENTS.md ]; then cat AGENTS.md; fi; cat TASK.md; printf '\\n--- Output and runtime checks ---\\n'; OUT=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/many_body_expanded_full_configuration_interaction_i_weakly_correlated__1807_01328/concept_3/attempts/v_1; test -d \""'$OUT" && test -w "$OUT" && touch "$OUT/.write_check" && rm "$OUT/.write_check" && echo '"'Output directory: writable'; python -c \"import numpy, scipy; print('numpy', numpy.__version__); print('scipy', scipy.__version__)\"; printf '\\n--- Participant file inventory ---\\n'; rg --files -g '"'!__pycache__/**'"' -g '"'!*.pyc'"' ." in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/many_body_expanded_full_configuration_interaction_i_weakly_correlated__1807_01328/concept_3/participant
+exec
+/bin/bash -c "pwd; ls -la; if [ -f AGENTS.md ]; then cat AGENTS.md; fi; cat TASK.md; printf '\\n--- Output and runtime checks ---\\n'; OUT=/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/many_body_expanded_full_configuration_interaction_i_weakly_correlated__1807_01328/concept_3/attempts/v_1; test -d \""'$OUT" && test -w "$OUT" && touch "$OUT/.write_check" && rm "$OUT/.write_check" && echo '"'Output directory: writable'; python -c \"import numpy, scipy; print('numpy', numpy.__version__); print('scipy', scipy.__version__)\"; printf '\\n--- Participant file inventory ---\\n'; rg --files -g '"'!__pycache__/**'"' -g '"'!*.pyc'"' ." in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/many_body_expanded_full_configuration_interaction_i_weakly_correlated__1807_01328/concept_3/participant
+exec
+/bin/bash -c '/bin/echo probe' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/many_body_expanded_full_configuration_interaction_i_weakly_correlated__1807_01328/concept_3/attempts/v_1
+**Investigating command issues**
+
+I’m trying to figure out why certain commands, like PTY or python, aren't producing output. It seems like there might be permission issues with the sandbox execution service. I wonder if the commands are hanging during validation or due to reading the current working directory (cwd). Maybe the issue is related to the mounted filesystem or permissions for sibling read instructions. I need to confirm if reading the cwd is allowed and whether I should check the use of a TTY.
+exec
+/usr/bin/sh -c "printf 'runtime ready\\n'" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/many_body_expanded_full_configuration_interaction_i_weakly_correlated__1807_01328/concept_3/attempts/v_1
+ succeeded in 71084ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/many_body_expanded_full_configuration_interaction_i_weakly_correlated__1807_01328/concept_3/participant
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 03:32 .
+drwx------ 4 xuandong xuandong   80 Aug 28 03:42 ..
+-rw-rw-r-- 1 xuandong xuandong 1952 Aug 28 03:32 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 03:32 baseline
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 28 02:52 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 03:32 workspace
+# Predict the missing virtual-orbital correlation tail
+
+**Mission.** Infer the signed, fourth-and-higher-order virtual-orbital MBE correlation-energy tail from CAS results through third order and affordable descriptors. These are simulated weakly correlated, pair-conserving Hamiltonians—not ab initio molecules or unrestricted electronic FCI.
+
+**Assets.** `input/workspace/data/` contains 1,280 labeled training cases, 384 labeled validation cases, and 288 fixed unlabeled test cases. Two of six test families have no supplied labels. Model/distribution documentation, an independent synthetic generator, and a validation-selected tree/boosting/ridge baseline are provided in `input/workspace/`.
+
+**Interface.** Submit `predictions.npz` with exactly `ids: U32[288]` and `tail: float[288]`. Match every test ID once; order is arbitrary. Predict the signed tail in synthetic Eh, not the total energy. Evaluation reads arrays only and never executes your code. See `SCHEMA.md` for the full contract.
+
+**Baseline.** From `input/workspace`, run `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -B baseline/predict.py --output /path/to/writable/output/predictions.npz --report /path/to/writable/output/baseline_report.json`. The top-level `baseline/run.py` wrapper provides the same baseline; see its README.
+
+**Objective.** Test RMSE ≤ 3e-5 synthetic Eh and worst-family RMSE ≤ 6e-5, with at least 35% and 25% improvement over the frozen baseline, respectively. All four conditions apply. Exact effective limits are in `data/baseline_reference.json`.
+
+**Resources.** NumPy, SciPy, and scikit-learn are installed; no downloads. You have a one-hour construction window. There is no hidden-score API during construction. Static evaluation does not attest offline CPU or RAM usage. Independent synthetic training examples are allowed. Private labels, seeds and evaluator files are off limits. No known passing solution is supplied; this may remain open.
+
+--- Output and runtime checks ---
+Output directory: writable
+numpy 1.21.5
+scipy 1.8.0
+
+--- Participant file inventory ---
+./TASK.md
+./input/workspace/baseline/predict.py
+./input/workspace/baseline/features.py
+./input/workspace/generator.py
+./input/workspace/data/baseline_reference.json
+./input/workspace/data/validation.npz
+./input/workspace/data/train.npz
+./input/workspace/data/manifest.json
+./input/workspace/data/test_features.npz
+./input/workspace/MODEL.md
+./input/workspace/SCHEMA.md
+./baseline/run.py
+./baseline/README.md
+./workspace/README.md
+
+**Evaluating command execution timing**
+
+I'm considering the execution of commands in relation to system resources. It seems like when there’s no command being spawned, output doesn't stream until the wrapper starts. I feel like it might be essential to clarify what happens during this waiting period, especially if everything's pending at step 0. It looks like no further calls are needed until a wait of 30 seconds occurs. There's definitely a lot to unpack here!
+ exited 1 in 34499ms:
+^C
+ succeeded in 75745ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/many_body_expanded_full_configuration_interaction_i_weakly_correlated__1807_01328/concept_3/participant
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 03:32 .
+drwx------ 4 xuandong xuandong   80 Aug 28 03:42 ..
+-rw-rw-r-- 1 xuandong xuandong 1952 Aug 28 03:32 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 03:32 baseline
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 28 02:52 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 03:32 workspace
+# Predict the missing virtual-orbital correlation tail
+
+**Mission.** Infer the signed, fourth-and-higher-order virtual-orbital MBE correlation-energy tail from CAS results through third order and affordable descriptors. These are simulated weakly correlated, pair-conserving Hamiltonians—not ab initio molecules or unrestricted electronic FCI.
+
+**Assets.** `input/workspace/data/` contains 1,280 labeled training cases, 384 labeled validation cases, and 288 fixed unlabeled test cases. Two of six test families have no supplied labels. Model/distribution documentation, an independent synthetic generator, and a validation-selected tree/boosting/ridge baseline are provided in `input/workspace/`.
+
+**Interface.** Submit `predictions.npz` with exactly `ids: U32[288]` and `tail: float[288]`. Match every test ID once; order is arbitrary. Predict the signed tail in synthetic Eh, not the total energy. Evaluation reads arrays only and never executes your code. See `SCHEMA.md` for the full contract.
+
+**Baseline.** From `input/workspace`, run `OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -B baseline/predict.py --output /path/to/writable/output/predictions.npz --report /path/to/writable/output/baseline_report.json`. The top-level `baseline/run.py` wrapper provides the same baseline; see its README.
+
+**Objective.** Test RMSE ≤ 3e-5 synthetic Eh and worst-family RMSE ≤ 6e-5, with at least 35% and 25% improvement over the frozen baseline, respectively. All four conditions apply. Exact effective limits are in `data/baseline_reference.json`.
+
+**Resources.** NumPy, SciPy, and scikit-learn are installed; no downloads. You have a one-hour construction window. There is no hidden-score API during construction. Static evaluation does not attest offline CPU or RAM usage. Independent synthetic training examples are allowed. Private labels, seeds and evaluator files are off limits. No known passing solution is supplied; this may remain open.
+
+--- Output and runtime checks ---
+Output directory: writable
+numpy 1.21.5
+scipy 1.8.0
+
+--- Participant file inventory ---
+./input/workspace/baseline/predict.py
+./input/workspace/baseline/features.py
+./input/workspace/generator.py
+./input/workspace/data/baseline_reference.json
+./input/workspace/data/validation.npz
+./input/workspace/data/train.npz
+./input/workspace/data/manifest.json
+./input/workspace/data/test_features.npz
+./input/workspace/MODEL.md
+./input/workspace/SCHEMA.md
+./baseline/run.py
+./baseline/README.md
+./TASK.md
+./workspace/README.md
+
+**Planning tasks and outputs**
+
+I’ve got to focus on making all outputs readable before finalizing anything. I need to check the initial command session; it looks like it’s still running. I think that might finish in about 4 minutes. I should get started on planning my science tasks, but it seems no agents are authorized for that right now. My top priority is reading through the necessary documents immediately. Let's keep things organized!
+codex
+The output is writable; NumPy/SciPy import successfully. I’ll inspect the data contract and generator next.
+
+  → Inspect data, generator, and baseline
+  • Develop physics-informed tail prediction
+  • Validate and refine candidate models
+  • Write and verify final predictions
+exec
+/bin/bash -c "printf '\\n--- Scoped instructions ---\\n'; rg --files -g AGENTS.md -g '"'!__pycache__/**'"' .; printf '\\n--- Model ---\\n'; cat input/workspace/MODEL.md; printf '\\n--- Schema ---\\n'; cat input/workspace/SCHEMA.md; printf '\\n--- Manifest and limits ---\\n'; cat input/workspace/data/manifest.json input/workspace/data/baseline_reference.json; printf '\\n--- Generator ---\\n'; sed -n '1,260p' input/workspace/generator.py; printf '\\n--- Baseline and wrapper docs ---\\n'; cat baseline/README.md workspace/README.md; sed -n '1,260p' input/workspace/baseline/predict.py; sed -n '1,280p' input/workspace/baseline/features.py" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/many_body_expanded_full_configuration_interaction_i_weakly_correlated__1807_01328/concept_3/participant
+ succeeded in 69696ms:
+probe
+
+**Considering command execution**
+
+I'm pondering whether each exec startup takes approximately 2 minutes. I might need to check the date using a command next. There could be potential delays in the shell command due to the heavy load on the infrastructure since all exec commands are resource-intensive. It makes me wonder if I should keep sessions persistent. There may be a way to start a single tty shell and feed multiple commands to avoid repeated startup delays.
+exec
+/bin/bash -c '/bin/bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/many_body_expanded_full_configuration_interaction_i_weakly_correlated__1807_01328/concept_3/attempts/v_1
+**Analyzing scratch outputs**
+
+I think I need to ensure that all scratch data is included in the output, and possibly use Python to write and read the cache from the root directory. I’m considering using NumPy for this, but I’m unsure about how to handle the baseline—should I use the -B option? Also, I wonder if the analysis might involve generators that don’t completely represent the Hamiltonian. I should look into whether CAS descriptors can help reconstruct the Hamiltonian. I guess I just need to inspect further!
+**Analyzing input echo buffering**
+
+I’m considering input echo buffering and how I need tools with a latency of about 5 seconds, which feels a bit inefficient. But I can still think through the problem. There are 288 cases, each with maybe 12 maximum pair states. If I’m looking at around 1001 CAS, full diagonalization could potentially help me reconstruct the matrix from a low-order subset of energies and known pair amplitudes. I’ll need to gather some assets for this.
+**Evaluating function timing**
+
+I'm considering that it’s only been 50 seconds since the pipeline started, which typically takes about 120 seconds each time. I think we should stop if it’s repeating. With 60 minutes to work with, we have plenty of time if the persistence function is doing its job. But I’m also wondering if the wait function actually yields a minimum time for things to settle down.
+ succeeded in 103485ms:
+
+--- Scoped instructions ---
+
+--- Model ---
+# Synthetic pair-conserving model
+
+This benchmark uses the virtual-orbital many-body expansion idea, not molecular integrals, the paper's numerical results, or full spin-orbital electronic FCI. “Exact” means exact diagonalization **within this seniority-zero pair space**. Basis states occupy O of O+V spatial orbitals with pairs; the maximum dimension is binomial(12,3) = 220.
+
+With pair occupation N_p∈{0,1} and pair creation P_p†, the real symmetric Hamiltonian is
+
+`H = Σ_p e_p N_p + Σ_{p<q} U_pq N_p N_q + Σ_{p<q} t_pq (P_p† P_q + P_q† P_p)`.
+
+Pair transfers have the displayed sign, without extra determinant-order signs, and conserve pair number. Diagonal e and U are public; the complete transfer matrix is **not**. There are no unknown three-body or higher-body Hamiltonian terms. Occupied–occupied transfers vanish. Occupied–virtual transfers are `t_iv = −u_i a_v`, with public positive normalized profile u and unknown positive amplitudes a_v. Virtual–virtual signs are public; magnitudes are not. Constrained latent structure and explicit signs avoid arbitrary invisible high-body terms or unobserved sign fluxes. Inferring missing magnitudes or their collective effect is part of the challenge; no high-order correction formula is supplied.
+
+The reference occupies the first O orbitals. CAS subset S retains all O occupied orbitals plus virtuals in S, with O pairs. Its correlation is `C(S) = ground_energy(H_S) − reference_energy`, C(empty)=0. Connected increments satisfy `Δ(S) = C(S) − Σ_{nonempty T proper subset of S} Δ(T)`. The target is the sum of increments of order ≥4, equivalently full correlation minus the provided order-≤3 sum. This defines a label, not an extrapolation ansatz.
+
+## Distribution
+
+`generator.py` is the executable specification. Release sizes O∈{2,3}, V∈{6,7,8,9} are stratified. Occupied onsite energies are sorted Uniform(−0.35,−0.08); virtual energies are sorted Uniform(0.85,1.8) times a shared Uniform(0.85,1.35) scale. Symmetric density interactions average two Uniform(0,0.055) draws, with zero diagonal. Occupied profiles normalize independent Uniform(0.65,1.35) values.
+
+Virtual positions are sorted Uniform(0,1), divided at the median into two groups. Occupied–virtual amplitudes multiply a Uniform(0.105,0.245) scale by independent lognormal(0,0.18) factors, clipped to [0.07,0.30]. Virtual–virtual magnitudes multiply a Uniform(0.055,0.15) scale, a family envelope, and independent lognormal(0,0.15) factors, clipped to [0.012,0.28]. A range parameter r is Uniform(0.20,0.65). Lognormal parameters describe the underlying normal. Finally all virtual-indexed arrays receive a common random permutation.
+
+For distance d and same-group indicator g:
+
+| Family | Transfer sign | Magnitude envelope |
+| --- | --- | --- |
+| coherent | negative | 1 |
+| repulsive | positive | 1 |
+| screened | negative | 0.25 + 1.10 exp(−d/r) |
+| frustrated | negative if g, positive otherwise | 1 if g, 0.75 otherwise |
+| mixed_range | negative if d<0.35, positive otherwise | 0.45 + exp(−d/r) |
+| bottleneck | negative if g, positive otherwise | 1.35 if g, 0.25 otherwise |
+
+Accept only full-ground-state reference probability ≥0.85, all single-replacement diagonal gaps ≥0.80, and |tail|≥1.5e−4. This **explicit label-conditioned curation** removes negligible targets and strongly mixed states. The task is conditional on those criteria, not an unbiased sample of all pair Hamiltonians. It contains sign-coherent and cancellation-dominated expansions; increments need not form a geometric sequence. Synthetic Eh is a numerical scale, not a chemical-accuracy claim.
+
+## Independent training and baseline
+
+You may use `sample_hamiltonian`, `low_order_features`, `label`, and `accepted_sample` with your own NumPy RNG to generate independent data, including in the two unlabeled families. None contains release seeds, fixed IDs, hidden Hamiltonians, or hidden targets. Full energies are affordable for **newly generated Hamiltonians**; test features omit the transfer amplitudes needed to call a full solver directly.
+
+The baseline computes permutation-invariant low-order statistics, diagonal descriptors and increment-graph moments. It compares ExtraTrees (700 trees), histogram gradient boosting (600 steps), and quadratic RidgeCV on validation, then refits the winner on both labeled splits. Public seeds initialize models only. No fitted estimator is loaded by the evaluator. Physics-informed inference or justified extrapolation is welcome; no passing solution or convergence guarantee is provided.
+
+--- Schema ---
+# Data and submission schema
+
+All archives use NumPy NPZ, `allow_pickle=False`, no object arrays, and row-aligned samples. Train has 1,280 rows, validation 384, and `test_features.npz` 288. The latter contains **no labels**. IDs are independent random 128-bit hexadecimal tokens, not seeds or parameter encodings.
+
+Let N be the row count, O = `n_pairs` (2 or 3), and V = `n_virtual` (6–9). Occupied indices are 0…O−1; virtual indices O…O+V−1. Padding is zero. Virtual order is independently randomized. Every energy is in `synthetic_Eh`.
+
+| Key | Shape / dtype | Meaning |
+| --- | --- | --- |
+| `ids` | (N,) U32 | Stable opaque IDs |
+| `n_pairs`, `n_virtual`, `family` | (N,) int8 | Sizes and family code |
+| `onsite` | (N,12) float64 | Diagonal pair energies, not single-electron energies |
+| `density` | (N,12,12) float64 | Symmetric pair-density interactions, zero diagonal |
+| `occupied_profile` | (N,3) float64 | Positive unit-norm occupied-source profile; not transfer magnitudes |
+| `positions` | (N,9) float64 | Virtual geometry in [0,1] |
+| `groups` | (N,9) int8 | Binary virtual groups |
+| `pair_sign` | (N,36) int8 | Known virtual–virtual transfer signs ±1; zero padding |
+| `diagonal_gaps` | (N,3,9) float64 | Reference-to-single-pair-replacement diagonal energy costs |
+| `reference_energy` | (N,) float64 | Occupied-reference energy |
+| `cas1`, `inc1` | (N,9) float64 | Singleton CAS correlation energies = first increments |
+| `cas2`, `inc2` | (N,36) float64 | Pair CAS correlation energies and connected increments |
+| `cas3`, `inc3` | (N,84) float64 | Triple CAS correlation energies and connected increments |
+| `truncated_correlation` | (N,) float64 | Sum of connected increments through order three |
+| `tail` | (N,) float64 | **Train/validation only:** full correlation minus truncated correlation |
+
+Pair slots follow `list(itertools.combinations(range(9), 2))`; triple slots use combinations of size 3. A slot is present exactly when its largest index is less than V. Valid slots are **not necessarily a contiguous prefix**. CAS arrays are correlation energies relative to the same reference, never absolute eigenvalues. Increments use subset inclusion–exclusion and may have either sign.
+
+Family codes: 0 coherent, 1 repulsive, 2 screened, 3 frustrated, 4 mixed_range, 5 bottleneck. Train and validation contain only 0–3, balanced over family × pair count × virtual count. Test has 48 cases per family, including entirely held-out 4 and 5. Cases are independent Hamiltonians, not repeated observations of a parent. Generating independent examples from any family is allowed.
+
+## Submission
+
+Use `np.savez_compressed("predictions.npz", ids=test["ids"], tail=prediction.astype(np.float64))`. Exactly these two keys are permitted. IDs must be Unicode U32; predictions float32 or float64. Both shapes must be (288,). Duplicates, unknown/missing IDs, nonfinite/complex/integer predictions, objects, extra keys, malformed archives and symlinks are invalid. Limit: 8 MiB compressed and uncompressed. Magnitudes above 1e6 are invalid to prevent overflow. Ordering is arbitrary; the evaluator aligns by ID.
+
+## Scoring
+
+`core_score` is RMSE of the signed tail. `worst_family_score` is the largest of six separate family RMSEs. Pass requires core ≤ min(3e−5, 0.65 × baseline_core) **and** worst family ≤ min(6e−5, 0.75 × baseline_worst). Lower is better. MAE, 95th-percentile and maximum absolute error are secondary diagnostics only. Reports include `valid`, `passed`, `reason`, evaluator runtime and peak RSS. Participant training time is not inferable from a static file and is null, not zero.
+
+No row-level hidden errors or labels are returned. Visible test features are intentional: this is fixed-set hidden prediction, not an online Hamiltonian oracle. `manifest.json` records public file hashes; `baseline_reference.json` records aggregate frozen baseline scores and effective limits.
+
+--- Manifest and limits ---
+{
+  "schema": "pair_tail_d_v1",
+  "counts": {
+    "train": 1280,
+    "validation": 384,
+    "test": 288
+  },
+  "files": {
+    "test_features.npz": "ad764e30b6fb65041e9ec7a212a364a0c793733774bfbfa0c14c27caabbd1da7",
+    "train.npz": "f78550e05c463097d9a20dfe318cae4b3fffc32606f08d628365e638cb155a68",
+    "validation.npz": "6f192f878d07e53b721c34245fda89fdbd3e1a8c3a6c005337a6d56ccf2c7bbc"
+  },
+  "id_policy": "independent cryptographic 128-bit tokens; not seed-derived",
+  "labeled_families": [
+    "coherent",
+    "repulsive",
+    "screened",
+    "frustrated"
+  ],
+  "hidden_only_families": [
+    "mixed_range",
+    "bottleneck"
+  ]
+}
+{
+  "version": "pair_tail_d_v1",
+  "baseline_core_score": 0.0006710884639293459,
+  "baseline_worst_family_score": 0.0014260650099003438,
+  "effective_core_limit": 3e-05,
+  "effective_worst_family_limit": 6e-05,
+  "lower_is_better": true,
+  "unit": "synthetic_Eh"
+}
+
+--- Generator ---
+"""Public synthetic distribution and exact small seniority-zero calculations."""
+
+from dataclasses import dataclass
+from functools import lru_cache
+from itertools import combinations
+
+import numpy as np
+from scipy.linalg import eigh
+
+
+FAMILIES = (
+    "coherent", "repulsive", "screened", "frustrated", "mixed_range", "bottleneck"
+)
+MAX_OCCUPIED = 3
+MAX_VIRTUAL = 9
+MAX_ORBITALS = 12
+PAIR_INDEX = np.asarray(list(combinations(range(MAX_VIRTUAL), 2)), dtype=np.int16)
+TRIPLE_INDEX = np.asarray(list(combinations(range(MAX_VIRTUAL), 3)), dtype=np.int16)
+EDGE_BOUND = 0.28
+
+
+@dataclass
+class Hamiltonian:
+    n_pairs: int
+    n_virtual: int
+    family: int
+    onsite: np.ndarray
+    density: np.ndarray
+    hopping: np.ndarray
+    occupied_profile: np.ndarray
+    positions: np.ndarray
+    groups: np.ndarray
+
+
+@lru_cache(maxsize=None)
+def basis(n_orbitals, n_pairs):
+    states = np.asarray(list(combinations(range(n_orbitals), n_pairs)), dtype=int)
+    occupancy = np.zeros((len(states), n_orbitals), dtype=float)
+    occupancy[np.arange(len(states))[:, None], states] = 1.0
+    lookup = {tuple(state): index for index, state in enumerate(states)}
+    rows, columns, sources, destinations = [], [], [], []
+    for row, state in enumerate(states):
+        occupied = set(state)
+        for source in state:
+            for destination in range(n_orbitals):
+                if destination in occupied:
+                    continue
+                moved = tuple(sorted((occupied - {source}) | {destination}))
+                column = lookup[moved]
+                if row < column:
+                    rows.append(row)
+                    columns.append(column)
+                    sources.append(source)
+                    destinations.append(destination)
+    return occupancy, tuple(np.asarray(values, dtype=int) for values in
+                            (rows, columns, sources, destinations))
+
+
+def matrix(model, virtual_subset=None):
+    if virtual_subset is None:
+        virtual_subset = tuple(range(model.n_virtual))
+    active = np.asarray(list(range(model.n_pairs)) +
+                        [model.n_pairs + value for value in virtual_subset])
+    occupancy, edges = basis(len(active), model.n_pairs)
+    onsite = model.onsite[active]
+    density = model.density[np.ix_(active, active)]
+    diagonal = occupancy @ onsite + 0.5 * np.sum((occupancy @ density) * occupancy, axis=1)
+    result = np.diag(diagonal)
+    rows, columns, sources, destinations = edges
+    transfers = model.hopping[active[sources], active[destinations]]
+    result[rows, columns] = transfers
+    result[columns, rows] = transfers
+    return result
+
+
+def ground(model, virtual_subset=None, vectors=False):
+    hamiltonian = matrix(model, virtual_subset)
+    if vectors:
+        energies, eigenvectors = eigh(hamiltonian, subset_by_index=(0, 0),
+                                     check_finite=False, driver="evr")
+        vector = eigenvectors[:, 0]
+        residual = np.linalg.norm(hamiltonian @ vector - energies[0] * vector)
+        return float(energies[0]), float(vector[0] ** 2), float(residual)
+    return float(eigh(hamiltonian, subset_by_index=(0, 0), eigvals_only=True,
+                      check_finite=False, driver="evr")[0])
+
+
+def sample_hamiltonian(rng, n_pairs=None, n_virtual=None, family=None):
+    n_pairs = int(rng.integers(2, 4) if n_pairs is None else n_pairs)
+    n_virtual = int(rng.integers(6, 10) if n_virtual is None else n_virtual)
+    family = int(rng.integers(len(FAMILIES)) if family is None else family)
+    if n_pairs not in (2, 3) or not 6 <= n_virtual <= 9 or not 0 <= family < 6:
+        raise ValueError("Unsupported size or family")
+    size = n_pairs + n_virtual
+    occupied = np.sort(rng.uniform(-0.35, -0.08, size=n_pairs))
+    energy_scale = rng.uniform(0.85, 1.35)
+    virtual = np.sort(rng.uniform(0.85, 1.8, size=n_virtual)) * energy_scale
+    onsite = np.concatenate((occupied, virtual))
+    density = rng.uniform(0.0, 0.055, size=(size, size))
+    density = (density + density.T) / 2.0
+    np.fill_diagonal(density, 0.0)
+    profile = rng.uniform(0.65, 1.35, size=n_pairs)
+    profile /= np.linalg.norm(profile)
+    positions = np.sort(rng.uniform(0.0, 1.0, size=n_virtual))
+    groups = (positions > np.median(positions)).astype(np.int8)
+    amplitude = rng.uniform(0.105, 0.245)
+    source_amplitudes = np.clip(amplitude * rng.lognormal(0.0, 0.18, n_virtual), 0.07, 0.30)
+    hopping = np.zeros((size, size))
+    hopping[:n_pairs, n_pairs:] = -profile[:, None] * source_amplitudes[None, :]
+    hopping[n_pairs:, :n_pairs] = hopping[:n_pairs, n_pairs:].T
+    edge_scale = rng.uniform(0.055, 0.15)
+    range_scale = rng.uniform(0.20, 0.65)
+    for first, second in combinations(range(n_virtual), 2):
+        distance = abs(positions[first] - positions[second])
+        same_group = groups[first] == groups[second]
+        sign = -1.0
+        envelope = 1.0
+        if family == 1:
+            sign = 1.0
+        elif family == 2:
+            envelope = 0.25 + 1.10 * np.exp(-distance / range_scale)
+        elif family == 3:
+            sign = -1.0 if same_group else 1.0
+            envelope = 1.0 if same_group else 0.75
+        elif family == 4:
+            sign = -1.0 if distance < 0.35 else 1.0
+            envelope = 0.45 + np.exp(-distance / range_scale)
+        elif family == 5:
+            sign = -1.0 if same_group else 1.0
+            envelope = 1.35 if same_group else 0.25
+        magnitude = np.clip(edge_scale * envelope * rng.lognormal(0.0, 0.15), 0.012, EDGE_BOUND)
+        hopping[n_pairs + first, n_pairs + second] = sign * magnitude
+        hopping[n_pairs + second, n_pairs + first] = sign * magnitude
+    permutation = rng.permutation(n_virtual)
+    orbital_order = np.concatenate((np.arange(n_pairs), n_pairs + permutation))
+    return Hamiltonian(n_pairs, n_virtual, family, onsite[orbital_order],
+                       density[np.ix_(orbital_order, orbital_order)],
+                       hopping[np.ix_(orbital_order, orbital_order)], profile,
+                       positions[permutation], groups[permutation])
+
+
+def low_order_features(model):
+    reference = ground(model, ())
+    singleton = np.zeros(MAX_VIRTUAL)
+    pair_energy = np.zeros(len(PAIR_INDEX))
+    triple_energy = np.zeros(len(TRIPLE_INDEX))
+    pair_increment = np.zeros_like(pair_energy)
+    triple_increment = np.zeros_like(triple_energy)
+    pair_lookup = {}
+    for virtual in range(model.n_virtual):
+        singleton[virtual] = ground(model, (virtual,)) - reference
+    for index, (first, second) in enumerate(PAIR_INDEX):
+        if second >= model.n_virtual:
+            continue
+        pair_energy[index] = ground(model, (int(first), int(second))) - reference
+        pair_increment[index] = pair_energy[index] - singleton[first] - singleton[second]
+        pair_lookup[(first, second)] = pair_increment[index]
+    for index, triple in enumerate(TRIPLE_INDEX):
+        if triple[-1] >= model.n_virtual:
+            continue
+        triple_energy[index] = ground(model, tuple(int(value) for value in triple)) - reference
+        triple_increment[index] = (triple_energy[index] - singleton[triple].sum() -
+                                   sum(pair_lookup[pair] for pair in combinations(triple, 2)))
+    onsite = np.zeros(MAX_ORBITALS)
+    onsite[:len(model.onsite)] = model.onsite
+    density = np.zeros((MAX_ORBITALS, MAX_ORBITALS))
+    density[:len(model.onsite), :len(model.onsite)] = model.density
+    profile = np.zeros(MAX_OCCUPIED)
+    profile[:model.n_pairs] = model.occupied_profile
+    positions = np.zeros(MAX_VIRTUAL)
+    positions[:model.n_virtual] = model.positions
+    groups = np.zeros(MAX_VIRTUAL, dtype=np.int8)
+    groups[:model.n_virtual] = model.groups
+    pair_sign = np.zeros(len(PAIR_INDEX), dtype=np.int8)
+    for index, (first, second) in enumerate(PAIR_INDEX):
+        if second < model.n_virtual:
+            pair_sign[index] = np.sign(model.hopping[model.n_pairs + first, model.n_pairs + second])
+    gaps = np.zeros((MAX_OCCUPIED, MAX_VIRTUAL))
+    for occupied in range(model.n_pairs):
+        spectators = [other for other in range(model.n_pairs) if other != occupied]
+        for virtual in range(model.n_virtual):
+            destination = model.n_pairs + virtual
+            gaps[occupied, virtual] = (model.onsite[destination] - model.onsite[occupied] +
+                                      sum(model.density[destination, other] -
+                                          model.density[occupied, other] for other in spectators))
+    return {
+        "n_pairs": np.int8(model.n_pairs), "n_virtual": np.int8(model.n_virtual),
+        "family": np.int8(model.family), "onsite": onsite, "density": density,
+        "occupied_profile": profile, "positions": positions, "groups": groups,
+        "pair_sign": pair_sign, "diagonal_gaps": gaps,
+        "reference_energy": np.float64(reference), "cas1": singleton,
+        "cas2": pair_energy, "cas3": triple_energy, "inc1": singleton.copy(),
+        "inc2": pair_increment, "inc3": triple_increment,
+        "truncated_correlation": np.float64(singleton.sum() + pair_increment.sum() + triple_increment.sum()),
+    }
+
+
+def label(model, features=None):
+    features = low_order_features(model) if features is None else features
+    energy, reference_weight, residual = ground(model, vectors=True)
+    correlation = energy - features["reference_energy"]
+    return {"tail": float(correlation - features["truncated_correlation"]),
+            "correlation": float(correlation), "reference_weight": reference_weight,
+            "residual": residual}
+
+
+def accepted_sample(rng, n_pairs, n_virtual, family):
+    for rejection_count in range(10000):
+        model = sample_hamiltonian(rng, n_pairs, n_virtual, family)
+        features = low_order_features(model)
+        truth = label(model, features)
+        if (truth["reference_weight"] >= 0.85 and abs(truth["tail"]) >= 1.5e-4 and
+                np.min(features["diagonal_gaps"][:n_pairs, :n_virtual]) >= 0.80):
+            return model, features, truth, rejection_count
+    raise RuntimeError("Rejection sampler exhausted")
+
+
+def full_order_sums(model):
+    reference = ground(model, ())
+    increments = {0: 0.0}
+    sums = np.zeros(model.n_virtual + 1)
+    for order in range(1, model.n_virtual + 1):
+        for subset in combinations(range(model.n_virtual), order):
+            mask = sum(1 << virtual for virtual in subset)
+            increment = ground(model, subset) - reference
+            submask = (mask - 1) & mask
+            while submask:
+                increment -= increments[submask]
+                submask = (submask - 1) & mask
+            increments[mask] = increment
+            sums[order] += increment
+    return sums
+
+--- Baseline and wrapper docs ---
+# Public baseline entry point
+
+`run.py` executes the unchanged canonical baseline at `../input/workspace/baseline/predict.py`. It uses the canonical supplied datasets by default and works independently of the current directory.
+
+From any directory, substitute the mounted participant path and a writable output directory:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -B /path/to/participant/baseline/run.py --output /path/to/writable/output/predictions.npz --report /path/to/writable/output/baseline_report.json
+```
+
+`--output` is required. If `--report` is omitted, the report is written as `baseline_report.json` beside the predictions, never by default inside participant assets. Optional `--data` selects another compatible data directory. No model, selection rule, scientific target, or dataset is changed by this wrapper.
+# Workspace entry point
+
+The canonical workspace remains at `../input/workspace/`; files and datasets are not duplicated here. Read its `SCHEMA.md` and `MODEL.md`, use `data/` for the fixed datasets, and use `generator.py` for independent synthetic examples.
+
+Treat participant assets as read-only. Write predictions, reports and other construction artifacts into your own writable output directory. The compatibility baseline entry point is `../baseline/run.py`; its README gives a command with explicit writable outputs.
+"""Select a nontrivial regressor on validation and write static predictions."""
+
+import argparse
+import json
+import resource
+import time
+from pathlib import Path
+
+import numpy as np
+try:
+    from sklearn.experimental import enable_hist_gradient_boosting
+except ImportError:
+    pass
+from sklearn.ensemble import ExtraTreesRegressor, HistGradientBoostingRegressor
+from sklearn.linear_model import RidgeCV
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from threadpoolctl import threadpool_limits
+
+from features import featurize, metrics
+
+
+def candidates():
+    return {
+        "extra_trees": ExtraTreesRegressor(n_estimators=700, max_features=.90,
+                                            min_samples_leaf=1, random_state=1041, n_jobs=2),
+        "hist_gradient_boosting": HistGradientBoostingRegressor(
+            max_iter=600, max_leaf_nodes=15, learning_rate=.045,
+            l2_regularization=1.0, early_stopping=False, random_state=1042),
+        "quadratic_ridge": make_pipeline(StandardScaler(),
+                                          PolynomialFeatures(degree=2, include_bias=False),
+                                          StandardScaler(),
+                                          RidgeCV(alphas=np.logspace(-3, 3, 13))),
+    }
+
+
+def model_input(name, features):
+    return features[:, :13] if name == "quadratic_ridge" else features
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data", type=Path, default=Path(__file__).resolve().parents[1] / "data")
+    parser.add_argument("--output", type=Path, default=Path("predictions.npz"))
+    parser.add_argument("--report", type=Path, default=Path("baseline_report.json"))
+    args = parser.parse_args()
+    started = time.perf_counter()
+    with np.load(args.data / "train.npz", allow_pickle=False) as archive:
+        train = dict(archive)
+    with np.load(args.data / "validation.npz", allow_pickle=False) as archive:
+        validation = dict(archive)
+    with np.load(args.data / "test_features.npz", allow_pickle=False) as archive:
+        test = dict(archive)
+    with threadpool_limits(limits=1):
+        train_features, train_scale = featurize(train)
+        validation_features, validation_scale = featurize(validation)
+        test_features, test_scale = featurize(test)
+        reports = {}
+        models = candidates()
+        for name, model in models.items():
+            model.fit(model_input(name, train_features), train["tail"] / train_scale)
+            prediction = model.predict(model_input(name, validation_features)) * validation_scale
+            reports[name] = metrics(validation["tail"], prediction, validation["family"])
+            print(name, json.dumps(reports[name]), flush=True)
+        selected = min(reports, key=lambda name: reports[name]["core_score"])
+        model = models[selected]
+        combined_features = np.concatenate((train_features, validation_features))
+        combined_target = np.concatenate((train["tail"] / train_scale,
+                                          validation["tail"] / validation_scale))
+        model.fit(model_input(selected, combined_features), combined_target)
+        prediction = model.predict(model_input(selected, test_features)) * test_scale
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(args.output, ids=test["ids"], tail=prediction.astype(np.float64))
+    report = {"selected": selected, "selection": "minimum validation RMSE; refit train+validation",
+              "validation": reports, "runtime_seconds": time.perf_counter() - started,
+              "peak_rss_mib": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024,
+              "seed_role": "public model random states only; not dataset seeds",
+              "prediction_rows": len(prediction)}
+    args.report.parent.mkdir(parents=True, exist_ok=True)
+    args.report.write_text(json.dumps(report, indent=2) + "\n")
+    print(json.dumps(report), flush=True)
+
+
+if __name__ == "__main__":
+    main()
+"""Permutation-invariant low-order and diagonal descriptors, without labels."""
+
+from itertools import combinations
+
+import numpy as np
+
+
+PAIRS = np.asarray(list(combinations(range(9), 2)), dtype=int)
+TRIPLES = np.asarray(list(combinations(range(9), 3)), dtype=int)
+
+
+def statistics(values):
+    values = np.asarray(values, dtype=float).ravel()
+    return [values.mean(), values.std(), values.min(), values.max(), values.sum(),
+            np.abs(values).sum(), np.linalg.norm(values), *np.quantile(values, [.1, .25, .5, .75, .9])]
+
+
+def featurize(data):
+    rows, scales = [], []
+    for row in range(len(data["ids"])):
+        n_virtual = int(data["n_virtual"][row])
+        n_pairs = int(data["n_pairs"][row])
+        pair_mask = PAIRS[:, 1] < n_virtual
+        triple_mask = TRIPLES[:, 2] < n_virtual
+        first = data["inc1"][row, :n_virtual]
+        second = data["inc2"][row, pair_mask]
+        third = data["inc3"][row, triple_mask]
+        gaps = data["diagonal_gaps"][row, :n_pairs, :n_virtual]
+        energy_scale = float(gaps.mean())
+        signs = data["pair_sign"][row, pair_mask]
+        sums = np.asarray([first.sum(), second.sum(), third.sum()])
+        absolute = np.asarray([np.abs(values).sum() for values in (first, second, third)])
+        target_scale = max(absolute[2], 1e-5)
+        scales.append(target_scale)
+        ratio_second = sums[1] / max(absolute[0], 1e-12)
+        ratio_third = sums[2] / max(absolute[1], 1e-12)
+        descriptors = [n_pairs, n_virtual, energy_scale, *sums / energy_scale,
+                       *absolute / energy_scale, ratio_second, ratio_third,
+                       sums[2] / target_scale, (n_virtual - 3) / max(n_virtual - 2, 1),
+                       *np.eye(6)[int(data["family"][row])]]
+        for values in (first / energy_scale, second / energy_scale, third / energy_scale,
+                       gaps / energy_scale, signs,
+                       data["occupied_profile"][row, :n_pairs],
+                       data["density"][row, :n_pairs + n_virtual, :n_pairs + n_virtual] / energy_scale):
+            descriptors.extend(statistics(values))
+        pair_graph = np.zeros((n_virtual, n_virtual))
+        sign_graph = np.zeros_like(pair_graph)
+        for index, (left, right) in enumerate(PAIRS[pair_mask]):
+            normalization = np.sqrt(abs(first[left] * first[right])) + 1e-12
+            pair_graph[left, right] = second[index] / normalization
+            pair_graph[right, left] = pair_graph[left, right]
+            sign_graph[left, right] = signs[index]
+            sign_graph[right, left] = signs[index]
+        triple_strength = np.zeros(n_virtual)
+        for increment, triple in zip(third, TRIPLES[triple_mask]):
+            triple_strength[triple] += increment
+        for graph in (pair_graph, sign_graph / n_virtual):
+            eigenvalues = np.linalg.eigvalsh(graph)
+            descriptors.extend(statistics(eigenvalues))
+            descriptors.extend(statistics(graph.sum(axis=1)))
+            descriptors.extend([np.sum(eigenvalues ** power) for power in (3, 4, 5, 6)])
+            descriptors.extend([first @ np.linalg.matrix_power(graph, power) @ first /
+                                (energy_scale ** 2) for power in (1, 2, 3)])
+        descriptors.extend(statistics(triple_strength / target_scale))
+        descriptors.extend(statistics(first / gaps.mean(axis=0)))
+        rows.append(descriptors)
+    return np.asarray(rows), np.asarray(scales)
+
+
+def rmse(target, prediction):
+    return float(np.sqrt(np.mean(np.square(target - prediction))))
+
+
+def metrics(target, prediction, family):
+    errors = target - prediction
+    per_family = {str(int(value)): rmse(target[family == value], prediction[family == value])
+                  for value in np.unique(family)}
+    return {"core_score": rmse(target, prediction),
+            "worst_family_score": max(per_family.values()),
+            "family_rmse": per_family, "mae": float(np.abs(errors).mean()),
+            "p95_absolute_error": float(np.quantile(np.abs(errors), .95)),
+            "max_absolute_error": float(np.abs(errors).max())}
+
+**Preparing for quick validation**
+
+I believe I can finish the plan in less than 10 minutes. I need to read the entire sample to check for amplitude signs and any details on the baseline in the bottom documents. The user might be asking about participant assets, which I’ve already reviewed, though the baseline was truncated it should still be sufficient. I'll need to validate that the NPZ file is readable and check everything thoroughly.
+codex
+Singleton and pair CAS energies may recover the missing transfers. I’ll test that reconstruction.
+
+The public Hamiltonian has only singleton amplitudes and pair-transfer magnitudes missing; low-order CAS energies can potentially determine them directly, avoiding extrapolation.
+  ✓ Inspect data, generator, and baseline
+  → Develop physics-informed tail prediction
+  • Validate and refine candidate models
+  • Write and verify final predictions
+**Evaluating concavity and roots**
+
+I'm considering how concavity affects the number of roots for ground. If it's concave, I can conclude there are at most two roots. All eigenvalues for CAS2 are connected to the target variable, and the negative t is monotonic, implying a unique scenario. As for positive roots, they can branch out, but I need to keep that in mind while analyzing. Let's solidify these connections further!
+codex
+I’ll implement transfer reconstruction and check every supplied triple.
+
+**Checking patch success**
+
+I need to ensure that the echo function underwent a huge truncation, but it looks like the patch worked, so that’s a relief! I won't reread the whole thing, but it seems fine. I should definitely check the log after a second or so to confirm everything is as it should be. There’s always a little uncertainty with these processes, but I like to stay on top of things for accuracy!
+**Planning validation steps**
+
+I've basically wrapped everything up in 6 minutes, and I need to avoid overworking. My goal now is to complete full training scoring and solve the test, alongside independent synthetic validation and output documentation. There are 50 minutes left, and I don't have to use it all. I want to ensure I validate edge bounds and confirm no ambiguity in the nroots. Testing is likely to begin soon, so I’ll get everything running, including training and validation.
+codex
+Validation RMSE is 3.8e-15 Eh. I’ll check all families and produce test predictions.
+
+Analytic singleton inversion plus bounded pair-spectrum inversion reproduces all 384 validation targets to numerical precision; triple CAS energies independently confirm the recovered transfers.
+  ✓ Inspect data, generator, and baseline
+  ✓ Develop physics-informed tail prediction
+  → Validate and refine candidate models
+  • Write and verify final predictions
+**Improving diagnostics for triangles**
+
+I need to enhance the diagnostics for all triangles. The costs for the root branch aren’t necessary, but the risk branch is resolved, so I’ll note missing tests. I can log counts of ambiguous potentials. If some roots have finite tolerance, I should consider using scipy for eigenvalues, though those are already tested. I’ll also want to address synthetic lower errors and establish a baseline objective. It seems we need to ensure the math aligns with the true inbound for clarity in our reporting.
+codex
+All-family synthetic checks pass. Test reconstruction matches every supplied CAS energy within 2e-15 Eh.
+
+Reconstructed all labeled and test Hamiltonians; 96 independent generated cases cover all six families and recover both transfers and tails to numerical precision. Final predictions are written; checking the strict archive contract next.
+  ✓ Inspect data, generator, and baseline
+  ✓ Develop physics-informed tail prediction
+  ✓ Validate and refine candidate models
+  → Write and verify final predictions
+Verified the final archive has exactly ids: U32[288] and tail: float64[288], complete unique test-ID coverage, finite values, valid sizes, and unchanged public-input hashes. All reconstruction and independent synthetic checks pass.
+  ✓ Inspect data, generator, and baseline
+  ✓ Develop physics-informed tail prediction
+  ✓ Validate and refine candidate models
+  ✓ Write and verify final predictions
+codex
+Created `../attempts/v_1/predictions.npz` with all 288 test predictions; the archive passes every submission-format check.
+
+- Reconstructed the Hamiltonians directly from public CAS energies.
+- Validation RMSE: **3.78e-15 Eh**.
+- Independent synthetic RMSE across all six families: **4.19e-15 Eh**.
+- Test CAS reconstruction residual: at most **2.00e-15 Eh**.
+
+Source scripts, method documentation, and verification reports are saved alongside the artifact. Hidden test labels were not accessed.
+tokens used
+56,213
+Created `../attempts/v_1/predictions.npz` with all 288 test predictions; the archive passes every submission-format check.
+
+- Reconstructed the Hamiltonians directly from public CAS energies.
+- Validation RMSE: **3.78e-15 Eh**.
+- Independent synthetic RMSE across all six families: **4.19e-15 Eh**.
+- Test CAS reconstruction residual: at most **2.00e-15 Eh**.
+
+Source scripts, method documentation, and verification reports are saved alongside the artifact. Hidden test labels were not accessed.
