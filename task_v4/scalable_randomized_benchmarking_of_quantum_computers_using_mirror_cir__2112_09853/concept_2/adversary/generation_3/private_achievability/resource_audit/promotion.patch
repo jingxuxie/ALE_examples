@@ -1,0 +1,621 @@
+*** Begin Patch
+*** Update File: evaluator/evaluate.py
+@@
+ import json
+ import os
+ from pathlib import Path
++import shutil
++import subprocess
+ import sys
+ import tempfile
+ import time
++import uuid
+ 
+ os.environ["OPENBLAS_NUM_THREADS"] = "1"
+ os.environ["OMP_NUM_THREADS"] = "1"
+@@
+ 
+ ROOT = Path(__file__).resolve().parents[1]
+ HIDDEN = Path(__file__).resolve().parent / "hidden"
++
++
++def kernel_accounting_parent_available():
++    try:
++        memberships = Path("/proc/self/cgroup").read_text().splitlines()
++        relative = next(line[3:] for line in memberships if line.startswith("0::"))
++        parent = Path("/sys/fs/cgroup") / relative.lstrip("/")
++        return (parent.stat().st_uid == os.getuid() and os.access(parent, os.W_OK)
++                and os.access(parent / "cgroup.procs", os.W_OK))
++    except (OSError, StopIteration):
++        return False
++
++
++def bootstrap_user_service():
++    if os.environ.get("ALE_MRB_CGROUP_BOOTSTRAPPED") == "1":
++        raise ValueError("cgroup_service_bootstrap_did_not_provide_writable_accounting")
++    runner = shutil.which("systemd-run")
++    runtime = Path("/run/user") / str(os.getuid())
++    if runner is None or not (runtime / "bus").exists():
++        raise ValueError("cgroup_v2_accounting_requires_writable_user_service_and_user_bus")
++    environment = dict(os.environ, XDG_RUNTIME_DIR=str(runtime),
++                       DBUS_SESSION_BUS_ADDRESS="unix:path=" + str(runtime / "bus"))
++    command = [runner, "--user", "--wait", "--pipe", "--quiet", "--collect",
++               "--unit=ale-mrb-evaluator-" + uuid.uuid4().hex, "--property=TasksMax=infinity",
++               "--working-directory=" + str(Path.cwd()), "--setenv=ALE_MRB_CGROUP_BOOTSTRAPPED=1",
++               sys.executable, "-B", str(Path(__file__).resolve())] + sys.argv[1:]
++    result = subprocess.run(command, env=environment)
++    if result.returncode != 0:
++        raise ValueError("cgroup_user_service_failed_with_exit_" + str(result.returncode))
++    return result.returncode
++
++
++def emit_report(report, report_path):
++    text = json.dumps(report, indent=2, allow_nan=False) + "\n"
++    if report_path:
++        Path(report_path).write_text(text)
++    print(text, end="")
+ 
+ 
+ def verify_integrity():
+@@
+                 fingerprint = hashlib.sha256(json.dumps(episode.targets, separators=(",", ":")).encode()).hexdigest()
+                 if fingerprint != specification["targets_sha256"]:
+                     raise ValueError("fixed_target_reproduction_failure")
+-                record = run_episode(episode, command, snapshot, temporary / (str(case_index) + ".stderr"))
++                record = run_episode(episode, command, snapshot, temporary / (str(case_index) + ".stderr"), isolation=isolation)
+                 record.update(episode_id=specification["id"], family=specification["family"], qubits=episode.grid.qubits)
+                 records.append(record)
+             if tree_hash(snapshot) != submission_hash:
+@@
+     arguments = parser.parse_args()
+     if arguments.isolation == "audit" and not arguments.allow_unsafe_local:
+         parser.error("audit mode requires --allow-unsafe-local and can never pass")
++    if not arguments.self_check and not arguments.submission:
++        parser.error("--submission is required unless --self-check")
++    if arguments.isolation == "bwrap" and not kernel_accounting_parent_available():
++        try:
++            verify_integrity()
++            result = bootstrap_user_service()
++        except (OSError, ValueError) as exception:
++            emit_report({"valid": False, "passed": False, "accuracy_passed": False,
++                         "core_score": 0., "average_family_score": 0., "worst_family_score": 0.,
++                         "runtime_resource_score": 0., "isolation": arguments.isolation,
++                         "reason": str(exception)[:300]}, arguments.report)
++            return
++        raise SystemExit(result)
+     if arguments.self_check:
+         from hidden.selfcheck import self_check
+         report = self_check(arguments.isolation)
+@@
+         if not arguments.submission:
+             parser.error("--submission is required unless --self-check")
+         report = evaluate(arguments.submission, arguments.policy, arguments.isolation)
+-    text = json.dumps(report, indent=2, allow_nan=False) + "\n"
+-    if arguments.report:
+-        Path(arguments.report).write_text(text)
+-    print(text, end="")
++    emit_report(report, arguments.report)
+ 
+ 
+ if __name__ == "__main__":
+*** Add File: evaluator/hidden/cgroup_accounting.py
++import os
++from pathlib import Path
++import time
++import uuid
++
++
++class EpisodeCgroup:
++    def __init__(self):
++        entries = Path("/proc/self/cgroup").read_text().splitlines()
++        unified = [line[3:] for line in entries if line.startswith("0::")]
++        if len(unified) != 1:
++            raise OSError("cgroup_v2_accounting_unavailable")
++        self.parent = Path("/sys/fs/cgroup") / unified[0].lstrip("/")
++        if (self.parent.stat().st_uid != os.getuid() or not os.access(self.parent, os.W_OK)
++                or not os.access(self.parent / "cgroup.procs", os.W_OK)):
++            raise OSError("cgroup_v2_accounting_requires_writable_user_service")
++        self.directory = self.parent / ("ale-mrb-episode-" + uuid.uuid4().hex)
++        self.directory.mkdir()
++        self.descriptors = {}
++        self.result = None
++        try:
++            for name, flags in (("cpu.stat", os.O_RDONLY), ("cgroup.events", os.O_RDONLY), ("cgroup.kill", os.O_WRONLY)):
++                self.descriptors[name] = os.open(self.directory / name, flags | os.O_CLOEXEC)
++            self.before = self.read_stats("cpu.stat")
++        except BaseException:
++            for descriptor in self.descriptors.values():
++                os.close(descriptor)
++            self.directory.rmdir()
++            raise
++
++    def read_stats(self, name):
++        text = os.pread(self.descriptors[name], 16384, 0).decode()
++        return {key: int(value) for key, value in (line.split() for line in text.splitlines())}
++
++    def join_self(self):
++        with (self.directory / "cgroup.procs").open("w") as handle:
++            handle.write(str(os.getpid()))
++
++    def finish(self):
++        if self.result is not None:
++            return self.result
++        assert self.directory.parent == self.parent
++        assert self.directory.name.startswith("ale-mrb-episode-")
++        os.write(self.descriptors["cgroup.kill"], b"1")
++        deadline = time.monotonic() + 5
++        while self.read_stats("cgroup.events")["populated"]:
++            if time.monotonic() >= deadline:
++                raise OSError("owned_episode_cgroup_did_not_empty")
++            time.sleep(.005)
++        after = self.read_stats("cpu.stat")
++        self.result = dict(source="cgroup_v2_cpu.stat", cpu_seconds=(after["usage_usec"] - self.before["usage_usec"]) / 1e6,
++                           initial_cpu_stat=self.before, final_cpu_stat=after,
++                           parent_cgroup=str(self.parent), owned_episode_cgroup=str(self.directory),
++                           populated_after_cleanup=0)
++        for descriptor in self.descriptors.values():
++            os.close(descriptor)
++        self.descriptors.clear()
++        descendants = [path for path in self.directory.rglob("*") if path.is_dir()]
++        for directory in sorted(descendants, key=lambda path: len(path.parts), reverse=True):
++            directory.rmdir()
++        self.directory.rmdir()
++        self.result["owned_episode_cgroup_removed"] = not self.directory.exists()
++        return self.result
+*** Update File: evaluator/hidden/selfcheck.py
+@@
+         snapshot_submission(submission, snapshot, "policy.py")
+         command = launch_command(snapshot, "policy.py", isolation)
+         current = Episode(812, "local_clusters", (4, 4))
+-        record = run_episode(current, command, snapshot, directory / "valid.stderr")
++        record = run_episode(current, command, snapshot, directory / "valid.stderr", isolation=isolation)
+         check("subprocess_handshake_and_clean_exit", record["valid"])
+         check("isolated_numpy_scipy_blas_lapack_smoke", record["valid"])
+         check("public_greeting_has_no_private_state", not any(key in current.hello() for key in
+@@
+             snapshot_submission(submission, oracle_snapshot, "policy.py")
+             oracle_record = run_episode(Episode(814, "distant_pairs", (4, 4)),
+                                         launch_command(oracle_snapshot, "policy.py", isolation),
+-                                        oracle_snapshot, directory / "oracle.stderr")
++                                        oracle_snapshot, directory / "oracle.stderr", isolation=isolation)
+             check("hidden_path_parent_proc_and_module_denied", oracle_record["valid"])
+         failures = {
+             "malformed_json_process": "import sys\nsys.stdin.readline()\nprint('broken',flush=True)\n",
+@@
+             snapshot_submission(submission, failure_snapshot, "policy.py")
+             failure_record = run_episode(Episode(817, "local_clusters", (4, 4)),
+                                          launch_command(failure_snapshot, "policy.py", isolation),
+-                                         failure_snapshot, directory / (name + ".stderr"))
++                                         failure_snapshot, directory / (name + ".stderr"), isolation=isolation)
+             check(name, not failure_record["valid"] and failure_record["shots_used"] == 0)
+     record.update(family="local_clusters", normalized_mse=0.0, valid=True)
+     check("audit_mode_never_certifies", not aggregate([record], isolated=False)["passed"])
+*** Update File: evaluator/hidden/transport.py
+@@
+ import subprocess
+ import sys
+ import time
++
++if __package__:
++    from .cgroup_accounting import EpisodeCgroup
++else:
++    from cgroup_accounting import EpisodeCgroup
+ 
+ 
+ class SessionError(ValueError):
+@@
+     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+ 
+ 
+-def run_episode(episode, command, directory, stderr_path, wall_seconds=90, transcript_path=None):
++def run_episode(episode, command, directory, stderr_path, wall_seconds=90, transcript_path=None, isolation="bwrap"):
+     started = time.monotonic()
+     deadline = started + wall_seconds
+     usage_before = resource.getrusage(resource.RUSAGE_CHILDREN)
+@@
+                    "MKL_NUM_THREADS": "1", "NUMEXPR_NUM_THREADS": "1",
+                    "PYTHONDONTWRITEBYTECODE": "1"}
+     process = None
++    episode_cgroup = None
++    accounting = None
+     record = {"valid": False, "reason": "not_started", "shots_used": 0, "experiments": 0}
+     transcript = hashlib.sha256()
+     transcript_handle = open(transcript_path, "w") if transcript_path else None
+@@
+             transcript_handle.write(line + "\n")
+ 
+     try:
++        if isolation not in ("audit", "bwrap"):
++            raise SessionError("unknown_isolation")
++        if isolation == "bwrap":
++            episode_cgroup = EpisodeCgroup()
++
++        def grouped_limits():
++            if episode_cgroup is not None:
++                episode_cgroup.join_self()
++            child_limits()
++
+         with open(stderr_path, "wb") as stderr_file:
+             process = subprocess.Popen(command, cwd=directory, stdin=subprocess.PIPE,
+                                        stdout=subprocess.PIPE, stderr=stderr_file, env=environment,
+-                                       start_new_session=True, preexec_fn=child_limits, bufsize=0)
++                                       start_new_session=True, preexec_fn=grouped_limits, bufsize=0)
+             os.set_blocking(process.stdin.fileno(), False)
+             os.set_blocking(process.stdout.fileno(), False)
+             buffered = bytearray()
+@@
+             subprocess.SubprocessError, OverflowError) as exception:
+         record["reason"] = str(exception)[:240] or type(exception).__name__
+     finally:
++        if episode_cgroup is not None:
++            try:
++                accounting = episode_cgroup.finish()
++            except OSError as exception:
++                record.update(valid=False, reason="cgroup_accounting_cleanup_failed: " + str(exception)[:160])
+         if process is not None:
++            if episode_cgroup is None:
++                try:
++                    os.killpg(process.pid, signal.SIGKILL)
++                except ProcessLookupError:
++                    pass
+             try:
+-                os.killpg(process.pid, signal.SIGKILL)
+-            except ProcessLookupError:
+-                pass
+-            process.wait()
++                process.wait(timeout=5)
++            except subprocess.TimeoutExpired:
++                process.kill()
++                process.wait(timeout=5)
++                record.update(valid=False, reason="cgroup_accounting_process_cleanup_failed")
+             for stream in (process.stdin, process.stdout):
+                 if stream and not stream.closed:
+                     stream.close()
+         if transcript_handle:
+             transcript_handle.close()
+     usage_after = resource.getrusage(resource.RUSAGE_CHILDREN)
++    rusage_cpu = usage_after.ru_utime + usage_after.ru_stime - usage_before.ru_utime - usage_before.ru_stime
++    if isolation == "audit":
++        accounting = {"source": "unsafe_audit_RUSAGE_CHILDREN_inexact", "cpu_seconds": rusage_cpu,
++                      "certified": False, "warning": "Descendant CPU may be omitted; audit mode never certifies."}
+     record.update(shots_used=episode.shots_used, experiments=episode.experiments,
+                   wall_seconds=time.monotonic() - started,
+-                  cpu_seconds=usage_after.ru_utime + usage_after.ru_stime -
+-                              usage_before.ru_utime - usage_before.ru_stime,
++                  cpu_seconds=accounting["cpu_seconds"] if accounting is not None else 0.,
++                  launcher_rusage_cpu_seconds=rusage_cpu,
++                  process_isolation=isolation,
+                   peak_rss_kib=usage_after.ru_maxrss,
++                  peak_rss_source="launcher_RUSAGE_CHILDREN_not_aggregate_memory",
++                  cpu_accounting=accounting,
+                   transcript_sha256=transcript.hexdigest())
++    if accounting is None and record["valid"]:
++        record.update(valid=False, reason="missing_kernel_cpu_accounting")
++    if record["wall_seconds"] > wall_seconds:
++        record.update(valid=False, reason="wall_time_limit")
+     if record["cpu_seconds"] > 60.25:
+         record.update(valid=False, reason="aggregate_cpu_limit")
+     return record
+@@
+     average = sum(value["score"] for value in family_results.values()) / max(1, len(family_results))
+     worst = min((value["score"] for value in family_results.values()), default=0.0)
+     valid = bool(records) and all(record["valid"] for record in records)
++    kernel_isolated = bool(isolated) and all(
++        record.get("process_isolation") == "bwrap" and
++        (record.get("cpu_accounting") or {}).get("source") == "cgroup_v2_cpu.stat"
++        for record in records)
+     accuracy_passed = valid and average >= 0.5 and worst >= 1.0 / 2.5625
+     reason = "fixed_targets_met" if accuracy_passed else "accuracy_target_not_met"
+     if not valid:
+         reason = "invalid_episode: " + next((record["reason"] for record in records if not record["valid"]), "no_episodes")
+-    elif not isolated:
++    elif not kernel_isolated:
+         reason = "uncertified_audit_only_run; " + reason
+     utilization = max((max(record["shots_used"] / 2000, record["experiments"] / 768,
+                            record["wall_seconds"] / 90, record["cpu_seconds"] / 60)
+                        for record in records), default=0.0)
+-    return {"valid": valid, "passed": accuracy_passed and isolated, "accuracy_passed": accuracy_passed,
++    return {"valid": valid, "passed": accuracy_passed and kernel_isolated, "accuracy_passed": accuracy_passed,
+             "reason": reason, "core_score": average, "average_family_score": average,
+             "worst_family_score": worst, "families": family_results,
+             "runtime_resource_score": max(0.0, 1.0 - 0.5 * min(1.0, utilization)) if valid else 0.0,
+*** Update File: participant/TASK.md
+@@
+ worst family score to be at least **0.3902439024390244**, and every episode to be
+ valid and isolated. The hidden suite has one episode of each graph size in each
+ family. Limits per episode: 90 seconds wall time and 60 seconds aggregate CPU.
++Official CPU accounting uses a parent-controlled kernel cgroup covering all
++policy processes and threads; local audit development never certifies a pass.
+ Each process has a 1536 MiB address-space limit and a 64-file-descriptor limit.
+ Stderr is capped at 256 KiB; every writable regular file, including scratch
+ files, also has a 256 KiB size limit. Each policy stdout JSON line is limited
+*** Update File: participant/workspace/API.md
+@@
+ ## Runtime resources
+ 
+ Each episode allows 90 seconds wall time, including startup and teardown, and
+-60 seconds aggregate measured child CPU time, with a 0.25-second accounting
+-tolerance. Each process has a 1536 MiB address-space limit (`RLIMIT_AS`) and a
++60 seconds aggregate kernel-accounted CPU time, with a 0.25-second accounting
++tolerance. Official evaluation counts user and system CPU across the isolated
++process tree, including threads, exited workers, and auto-reaped descendants,
++using a parent-controlled cgroup v2 `cpu.stat` counter. The policy cannot access
++the counter descriptors, host cgroup filesystem, or user-service bus. The parent
++cleans up only its own episode group, waits until it is empty, then reads the
++final counter. Existing per-process `RLIMIT_CPU` soft/hard limits remain 60/61
++seconds; they do not replace the aggregate limit.
++
++Each process has a 1536 MiB address-space limit (`RLIMIT_AS`) and a
+ 64-file-descriptor limit (`RLIMIT_NOFILE`), including its standard streams.
+ Memory is limited per process, not as an aggregate process-group allocation.
++Reported launcher peak RSS is diagnostic, not aggregate memory accounting.
++
++Official `bwrap` evaluation requires writable cgroup v2 accounting and fails
++closed without it. The trusted evaluator CLI automatically re-executes once
++in a transient user-owned systemd service when its current cgroup is not
++writable. This requires the host's user-service bus and `systemd-run`; no
++downloads or policy-side service privileges are needed. No CPU quota, memory
++group limit, or new policy process-count restriction is introduced.
+ 
+ Every writable regular file has a maximum size of **256 KiB (262,144 bytes)**
+ under `RLIMIT_FSIZE`. This applies to scratch files in `/tmp`, not only to
+@@
+ `4x4`, `4x5`, `5x5`, `all`. Family choices are the four names or `all`. A public
+ episode's seed is `seed + 1009*family_index + 53*shape_index`, with indices in
+ the orders given in `input/limits.json`. Public runs expose their seeds; official
+-ones do not. Development defaults to an unaudited local subprocess;
+-`--isolation bwrap` exercises filesystem isolation. Its report is never an
++ones do not. Development defaults to an unaudited local subprocess that remains
++usable without a cgroup filesystem or user-service bus. Audit mode labels
++`RUSAGE_CHILDREN` CPU diagnostics as inexact because descendant usage can be
++missed, and cannot certify even a perfect prediction score. `--isolation bwrap`
++exercises filesystem isolation and strict kernel CPU accounting when launched
++from a suitable trusted host user service. A development report is never an
+ official pass. Public model instances expose `log_rate`, `error_rate`,
+ `contrast`, `targets`, and coefficients for debugging, not in official pipes.
+ 
+*** Add File: participant/workspace/cgroup_accounting.py
++import os
++from pathlib import Path
++import time
++import uuid
++
++
++class EpisodeCgroup:
++    def __init__(self):
++        entries = Path("/proc/self/cgroup").read_text().splitlines()
++        unified = [line[3:] for line in entries if line.startswith("0::")]
++        if len(unified) != 1:
++            raise OSError("cgroup_v2_accounting_unavailable")
++        self.parent = Path("/sys/fs/cgroup") / unified[0].lstrip("/")
++        if (self.parent.stat().st_uid != os.getuid() or not os.access(self.parent, os.W_OK)
++                or not os.access(self.parent / "cgroup.procs", os.W_OK)):
++            raise OSError("cgroup_v2_accounting_requires_writable_user_service")
++        self.directory = self.parent / ("ale-mrb-episode-" + uuid.uuid4().hex)
++        self.directory.mkdir()
++        self.descriptors = {}
++        self.result = None
++        try:
++            for name, flags in (("cpu.stat", os.O_RDONLY), ("cgroup.events", os.O_RDONLY), ("cgroup.kill", os.O_WRONLY)):
++                self.descriptors[name] = os.open(self.directory / name, flags | os.O_CLOEXEC)
++            self.before = self.read_stats("cpu.stat")
++        except BaseException:
++            for descriptor in self.descriptors.values():
++                os.close(descriptor)
++            self.directory.rmdir()
++            raise
++
++    def read_stats(self, name):
++        text = os.pread(self.descriptors[name], 16384, 0).decode()
++        return {key: int(value) for key, value in (line.split() for line in text.splitlines())}
++
++    def join_self(self):
++        with (self.directory / "cgroup.procs").open("w") as handle:
++            handle.write(str(os.getpid()))
++
++    def finish(self):
++        if self.result is not None:
++            return self.result
++        assert self.directory.parent == self.parent
++        assert self.directory.name.startswith("ale-mrb-episode-")
++        os.write(self.descriptors["cgroup.kill"], b"1")
++        deadline = time.monotonic() + 5
++        while self.read_stats("cgroup.events")["populated"]:
++            if time.monotonic() >= deadline:
++                raise OSError("owned_episode_cgroup_did_not_empty")
++            time.sleep(.005)
++        after = self.read_stats("cpu.stat")
++        self.result = dict(source="cgroup_v2_cpu.stat", cpu_seconds=(after["usage_usec"] - self.before["usage_usec"]) / 1e6,
++                           initial_cpu_stat=self.before, final_cpu_stat=after,
++                           parent_cgroup=str(self.parent), owned_episode_cgroup=str(self.directory),
++                           populated_after_cleanup=0)
++        for descriptor in self.descriptors.values():
++            os.close(descriptor)
++        self.descriptors.clear()
++        descendants = [path for path in self.directory.rglob("*") if path.is_dir()]
++        for directory in sorted(descendants, key=lambda path: len(path.parts), reverse=True):
++            directory.rmdir()
++        self.directory.rmdir()
++        self.result["owned_episode_cgroup_removed"] = not self.directory.exists()
++        return self.result
+*** Update File: participant/workspace/develop.py
+@@
+             for shape_index, shape in enumerate(shapes):
+                 seed = arguments.seed + 1009 * FAMILIES.index(family) + 53 * SHAPES.index(shape)
+                 episode = Episode(seed, family, shape)
+-                record = run_episode(episode, command, snapshot, directory / "stderr.txt")
++                record = run_episode(episode, command, snapshot, directory / "stderr.txt", isolation=arguments.isolation)
+                 record.update(family=family, qubits=episode.grid.qubits, public_seed=seed)
+                 records.append(record)
+         report = aggregate(records, isolated=False)
+*** Update File: participant/workspace/transport.py
+@@
+ import subprocess
+ import sys
+ import time
++
++if __package__:
++    from .cgroup_accounting import EpisodeCgroup
++else:
++    from cgroup_accounting import EpisodeCgroup
+ 
+ 
+ class SessionError(ValueError):
+@@
+     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+ 
+ 
+-def run_episode(episode, command, directory, stderr_path, wall_seconds=90, transcript_path=None):
++def run_episode(episode, command, directory, stderr_path, wall_seconds=90, transcript_path=None, isolation="bwrap"):
+     started = time.monotonic()
+     deadline = started + wall_seconds
+     usage_before = resource.getrusage(resource.RUSAGE_CHILDREN)
+@@
+                    "MKL_NUM_THREADS": "1", "NUMEXPR_NUM_THREADS": "1",
+                    "PYTHONDONTWRITEBYTECODE": "1"}
+     process = None
++    episode_cgroup = None
++    accounting = None
+     record = {"valid": False, "reason": "not_started", "shots_used": 0, "experiments": 0}
+     transcript = hashlib.sha256()
+     transcript_handle = open(transcript_path, "w") if transcript_path else None
+@@
+             transcript_handle.write(line + "\n")
+ 
+     try:
++        if isolation not in ("audit", "bwrap"):
++            raise SessionError("unknown_isolation")
++        if isolation == "bwrap":
++            episode_cgroup = EpisodeCgroup()
++
++        def grouped_limits():
++            if episode_cgroup is not None:
++                episode_cgroup.join_self()
++            child_limits()
++
+         with open(stderr_path, "wb") as stderr_file:
+             process = subprocess.Popen(command, cwd=directory, stdin=subprocess.PIPE,
+                                        stdout=subprocess.PIPE, stderr=stderr_file, env=environment,
+-                                       start_new_session=True, preexec_fn=child_limits, bufsize=0)
++                                       start_new_session=True, preexec_fn=grouped_limits, bufsize=0)
+             os.set_blocking(process.stdin.fileno(), False)
+             os.set_blocking(process.stdout.fileno(), False)
+             buffered = bytearray()
+@@
+             subprocess.SubprocessError, OverflowError) as exception:
+         record["reason"] = str(exception)[:240] or type(exception).__name__
+     finally:
++        if episode_cgroup is not None:
++            try:
++                accounting = episode_cgroup.finish()
++            except OSError as exception:
++                record.update(valid=False, reason="cgroup_accounting_cleanup_failed: " + str(exception)[:160])
+         if process is not None:
++            if episode_cgroup is None:
++                try:
++                    os.killpg(process.pid, signal.SIGKILL)
++                except ProcessLookupError:
++                    pass
+             try:
+-                os.killpg(process.pid, signal.SIGKILL)
+-            except ProcessLookupError:
+-                pass
+-            process.wait()
++                process.wait(timeout=5)
++            except subprocess.TimeoutExpired:
++                process.kill()
++                process.wait(timeout=5)
++                record.update(valid=False, reason="cgroup_accounting_process_cleanup_failed")
+             for stream in (process.stdin, process.stdout):
+                 if stream and not stream.closed:
+                     stream.close()
+         if transcript_handle:
+             transcript_handle.close()
+     usage_after = resource.getrusage(resource.RUSAGE_CHILDREN)
++    rusage_cpu = usage_after.ru_utime + usage_after.ru_stime - usage_before.ru_utime - usage_before.ru_stime
++    if isolation == "audit":
++        accounting = {"source": "unsafe_audit_RUSAGE_CHILDREN_inexact", "cpu_seconds": rusage_cpu,
++                      "certified": False, "warning": "Descendant CPU may be omitted; audit mode never certifies."}
+     record.update(shots_used=episode.shots_used, experiments=episode.experiments,
+                   wall_seconds=time.monotonic() - started,
+-                  cpu_seconds=usage_after.ru_utime + usage_after.ru_stime -
+-                              usage_before.ru_utime - usage_before.ru_stime,
++                  cpu_seconds=accounting["cpu_seconds"] if accounting is not None else 0.,
++                  launcher_rusage_cpu_seconds=rusage_cpu,
++                  process_isolation=isolation,
+                   peak_rss_kib=usage_after.ru_maxrss,
++                  peak_rss_source="launcher_RUSAGE_CHILDREN_not_aggregate_memory",
++                  cpu_accounting=accounting,
+                   transcript_sha256=transcript.hexdigest())
++    if accounting is None and record["valid"]:
++        record.update(valid=False, reason="missing_kernel_cpu_accounting")
++    if record["wall_seconds"] > wall_seconds:
++        record.update(valid=False, reason="wall_time_limit")
+     if record["cpu_seconds"] > 60.25:
+         record.update(valid=False, reason="aggregate_cpu_limit")
+     return record
+@@
+     average = sum(value["score"] for value in family_results.values()) / max(1, len(family_results))
+     worst = min((value["score"] for value in family_results.values()), default=0.0)
+     valid = bool(records) and all(record["valid"] for record in records)
++    kernel_isolated = bool(isolated) and all(
++        record.get("process_isolation") == "bwrap" and
++        (record.get("cpu_accounting") or {}).get("source") == "cgroup_v2_cpu.stat"
++        for record in records)
+     accuracy_passed = valid and average >= 0.5 and worst >= 1.0 / 2.5625
+     reason = "fixed_targets_met" if accuracy_passed else "accuracy_target_not_met"
+     if not valid:
+         reason = "invalid_episode: " + next((record["reason"] for record in records if not record["valid"]), "no_episodes")
+-    elif not isolated:
++    elif not kernel_isolated:
+         reason = "uncertified_audit_only_run; " + reason
+     utilization = max((max(record["shots_used"] / 2000, record["experiments"] / 768,
+                            record["wall_seconds"] / 90, record["cpu_seconds"] / 60)
+                        for record in records), default=0.0)
+-    return {"valid": valid, "passed": accuracy_passed and isolated, "accuracy_passed": accuracy_passed,
++    return {"valid": valid, "passed": accuracy_passed and kernel_isolated, "accuracy_passed": accuracy_passed,
+             "reason": reason, "core_score": average, "average_family_score": average,
+             "worst_family_score": worst, "families": family_results,
+             "runtime_resource_score": max(0.0, 1.0 - 0.5 * min(1.0, utilization)) if valid else 0.0,
+*** Update File: evaluator/hidden/manifest.json
+@@
+ {
++  "cpu_accounting_correction": {
++    "audit_development": "Top-level public imports remain supported. Unsafe audit mode needs no cgroup filesystem or bus, labels RUSAGE_CHILDREN as inexact, and cannot certify even a perfect score.",
++    "cause": "Bubblewrap monitor exit bypassed its PID1 wait chain; RUSAGE_CHILDREN omitted policy CPU. The earlier separate CPU check mocked rusage, and the 56 checks contained no real aggregate CPU test.",
++    "kind": "Infrastructure correction, not a task generation or hardness ratchet.",
++    "prepared_utc": "2026-08-28T18:50:31.325824+00:00",
++    "previous_manifest_sha256": "35ede7981b1fbe3beb7aff3e09fa4c0cd5ea4de05a293814b7823d2d1175fd72",
++    "repair": "Trusted parent-controlled per-episode cgroup v2 cpu.stat accounting; protected parent-only descriptors; owned-group kill, empty check, final counter and removal. Official bwrap fails closed; trusted CLI can bootstrap once into a user systemd service.",
++    "unchanged": "Generation 3, 2000 shots, quality targets, physical law, priors, hidden seeds, target fingerprints, baseline/policy artifacts, 60 CPU seconds plus existing .25 accounting tolerance, 90 wall seconds, and existing per-process limits."
++  },
+   "documentation_clarification": "Existing RLIMIT_FSIZE=262144 per writable regular file and RLIMIT_NOFILE=64 per process are explicitly documented; stdout line direction/size clarified. No enforcement, model, seed, target, budget, baseline or resource-limit changes.",
+   "documentation_clarification_utc": "2026-08-28T17:48:16.654070+00:00",
+   "files": {
+-    "evaluator/evaluate.py": "227d9c1338ab0e5e46375d1e91eaf01a09af15d6423a6b2b6a435a5cbd52361b",
++    "evaluator/evaluate.py": "1ed0af98a2ca9d48c33f37bbf2d7f2ab3ee6bcf70c4eb889b0901a277664c772",
+     "evaluator/hidden/benchmark.json": "1050d3ac9ed09e87ccb63e67b7a4ec4ff7b71aecb8bbb4c6b5f8248455f7d290",
++    "evaluator/hidden/cgroup_accounting.py": "a6b904c29986014e9673fa70856fe7a3d3ec652c8d75772ed62ef71d44859adf",
+     "evaluator/hidden/freeze.py": "9075f9b13966c5aa7bf9c419de1549155fc0b0c2bc78e848767aaf2d2f2190cd",
+     "evaluator/hidden/model.py": "f64202be850dc47b201293d71760e825bb8717142e667cf2147e5e2087f08c2d",
+-    "evaluator/hidden/selfcheck.py": "bdafe1048639462e01291fd1b60c130e694d12b23fc1ad505cc4db86c10132da",
+-    "evaluator/hidden/transport.py": "b20aa5d8546f170344b474f3983eb0ac5f35c1a38b16986aebf1e0e58c96629c",
+-    "participant/TASK.md": "411b9ad1c8343339518a2a78f72027c096d86ed081cb96a3535ce92094f977bd",
++    "evaluator/hidden/selfcheck.py": "4db6c75515e121e55b785056557f7f277afaed356d01f0edcf2d40a5a91efa18",
++    "evaluator/hidden/transport.py": "e80fb294b786cf26bdc0b0f8a6e425ddb4ae5b73fb37d224253eafb9bd17418a",
++    "participant/TASK.md": "68ce6eb2572846044e59f7cfb6b2976865a49d64afaaf483dd78c2664ca3b12f",
+     "participant/baseline/policy.py": "bbae5d2b67477d3512ce6978a54dc5e273f91199c7f82a7b56dc00c2430eb788",
+     "participant/input/limits.json": "1e85027a3e02ca1e6b56e2d93b8e64c0d781aea702f37e821f6c895b5fa67b0b",
+-    "participant/workspace/API.md": "11796fa96cc3610d26ee9f148bed7a6c6b9c533e834d2ff799651544d0744cbf",
++    "participant/workspace/API.md": "5d6905713ebdec3025aa20d3caf0baf1d2d5fbe94630ae1bf2364806c13d5c53",
+     "participant/workspace/MODEL.md": "b1709f703eca5389ff57576c24d88439bec9f18aef27c361016781d7f3f6c035",
+-    "participant/workspace/develop.py": "4455bb8e48bd5020e510d8dce9c7882e82cb23bf26b092501579ee1c94a471ab",
++    "participant/workspace/cgroup_accounting.py": "a6b904c29986014e9673fa70856fe7a3d3ec652c8d75772ed62ef71d44859adf",
++    "participant/workspace/develop.py": "68c913b03ee18a64ff7387ef6d35293daaa45b78c9784233155d683bdfe83c4d",
+     "participant/workspace/model.py": "f64202be850dc47b201293d71760e825bb8717142e667cf2147e5e2087f08c2d",
+-    "participant/workspace/transport.py": "b20aa5d8546f170344b474f3983eb0ac5f35c1a38b16986aebf1e0e58c96629c"
++    "participant/workspace/transport.py": "e80fb294b786cf26bdc0b0f8a6e425ddb4ae5b73fb37d224253eafb9bd17418a"
+   },
+   "frozen_utc": "2026-08-28T17:41:13.863693+00:00",
+   "generation": 3,
+*** End Patch

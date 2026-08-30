@@ -1,0 +1,41 @@
+{
+  "reviewed_date": "2026-08-28",
+  "promotion_complete": true,
+  "final_manifest_sha256": "7affbae62ca2b5e052b88be28fa714528cb3bb2c4cbd9bfd0efc08c4d7d9fced",
+  "root_cause": "Bubblewrap 0.6.1 monitor_child returns from its initial-process eventfd branch before the namespace init is necessarily waited for. This breaks the wait chain required for complete outer RUSAGE_CHILDREN accounting; the local trusted fork workload reproduces the undercount.",
+  "primary_sources": [
+    {
+      "url": "https://raw.githubusercontent.com/containers/bubblewrap/v0.6.1/bubblewrap.c",
+      "locations": "monitor_child lines 434-523; do_init lines 528-602",
+      "supports": "Eventfd exit-status propagation can return before the monitor reaches waitpid."
+    },
+    {
+      "url": "https://man7.org/linux/man-pages/man2/getrusage.2.html",
+      "locations": "DESCRIPTION, RUSAGE_CHILDREN",
+      "supports": "Further descendant usage requires intervening descendants to wait for their terminated children."
+    },
+    {
+      "url": "https://docs.kernel.org/admin-guide/cgroup-v2.html",
+      "locations": "CPU Interface Files, cpu.stat; Core Interface Files, cgroup.kill",
+      "supports": "Basic CPU counters are available independently of controller enablement. The group-kill operation covers descendant groups and handles concurrent forks."
+    }
+  ],
+  "local_proof": "runs/real_aggregate_bwrap/report.json",
+  "corrected_proof": "promoted_resources_report.json",
+  "cleanup_proof": "cleanup_audit.json",
+  "cleanup_summary": "All 69 recorded episode cgroups absent; all nine recorded transient services inactive and collected. All tracked validation commands exited. No additional stop was necessary.",
+  "guardian_not_promoted": "A wait4 guardian alone was not accepted as a complete aggregate solution because SIGCHLD ignore and SA_NOCLDWAIT permit auto-reaped workers. Real kernel-counter regressions cover these cases.",
+  "staged_cleanup_anomaly": "One staged group failed to empty within five seconds; cause unknown and failed report retained. The unchanged promoted baseline and all nine promoted resource cases subsequently completed cleanly. This is not counted as hardness.",
+  "main_final_result_as_reported_not_reread": {
+    "valid_episodes": 12,
+    "average_family_score": 0.4515334134836506,
+    "worst_family_score": 0.42114094339985453,
+    "passed": false,
+    "reason": "mean quality target missed; worst-family target met",
+    "max_cpu_seconds": 34.682046,
+    "max_wall_seconds": 69.99377,
+    "source": "Main's final handoff; this worker did not read or evaluate v3."
+  },
+  "private_search_conclusion": "The selected policy's corrected official score is 0.41068815580496776 / 0.33151134307583635, valid but not passing. No known passing 2000-shot policy from this work. Search closed; no further generations.",
+  "no_further_trusted_code_status_or_fresh_artifact_changes": true
+}
