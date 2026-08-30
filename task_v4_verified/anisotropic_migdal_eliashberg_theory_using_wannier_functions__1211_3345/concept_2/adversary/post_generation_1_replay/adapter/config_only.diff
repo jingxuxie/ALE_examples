@@ -1,0 +1,31 @@
+--- v4_frozen/search.py
++++ adapter/search.py
+@@ -14,7 +14,7 @@
+ from scipy.linalg import block_diag, null_space
+ from scipy.optimize import LinearConstraint, linprog, minimize
+ 
+-PARTICIPANT = Path("/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/anisotropic_migdal_eliashberg_theory_using_wannier_functions__1211_3345/concept_2/participant")
++PARTICIPANT = Path("/participant")
+ sys.path.insert(0, str(PARTICIPANT / "workspace"))
+ from physics import EliashbergSolver, constraint_report, load_instance
+ 
+@@ -24,8 +24,8 @@
+         self.instance = load_instance()
+         self.reference = self.instance["reference"]
+         self.config = self.instance["config"]
+-        self.edges = np.triu_indices(8, 1)
+-        incidence = np.zeros((8, len(self.edges[0])))
++        self.edges = np.triu_indices(self.reference.shape[1], 1)
++        incidence = np.zeros((self.reference.shape[1], len(self.edges[0])))
+         for edge, (first, second) in enumerate(zip(*self.edges)):
+             incidence[first, edge] = self.instance["weights"][second]
+             incidence[second, edge] = self.instance["weights"][first]
+@@ -121,7 +121,7 @@
+         return np.concatenate((*coordinates, [0.0]))
+ 
+     def optimize(self, initial, maxiter):
+-        linear_matrix = np.column_stack((block_diag(self.basis, self.basis), np.zeros(168)))
++        linear_matrix = np.column_stack((block_diag(self.basis, self.basis), np.zeros(2 * self.reference_edges.size)))
+         linear_constraint = LinearConstraint(linear_matrix, np.tile(self.lower, 2), np.tile(self.upper, 2))
+         initial[-1] = self.evaluate(initial)[0].min()
+         objective_gradient = np.zeros(len(initial))
