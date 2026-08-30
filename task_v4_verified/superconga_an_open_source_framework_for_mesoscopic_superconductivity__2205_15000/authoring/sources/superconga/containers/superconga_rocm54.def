@@ -1,0 +1,31 @@
+Bootstrap: docker
+From: ubuntu:22.04
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get -y update
+
+    # Install SuperConga dependencies.
+    apt-get install -y build-essential clang clang-tools cmake cmake-curses-gui curl g++ gcc gfortran git-all libblas-dev libboost-all-dev libfontconfig1-dev libfreeimage-dev libglfw3-dev libhdf5-dev libjsoncpp-dev liblapack-dev ninja-build pkg-config python3-pip python3-tk texlive-base texlive-latex-extra cm-super dvipng
+
+    # Install AMD dependencies. libstdc++-12-dev is supposed to solve the ROCm compilation issue of not finding cmath, but alas...
+    apt-get install -y wget libnuma-dev libstdc++-12-dev llvm
+
+    # Install ROCm.
+    cd /tmp
+    wget https://repo.radeon.com/amdgpu-install/5.4/ubuntu/focal/amdgpu-install_5.4.50400-1_all.deb
+    apt-get install -y ./amdgpu-install_5.4.50400-1_all.deb
+    amdgpu-install -y --usecase=rocm,hip,hiplibsdk --no-dkms
+    
+    # Setup Python 3.
+    cd /
+    pip3 install -r home/requirements.txt
+    update-alternatives --install /usr/bin/python python /usr/bin/python3 3
+
+%environment
+    export LC_ALL=C
+    export PATH=$PATH:/opt/rocm/bin
+    export PATH=$PATH:/opt/rocm/hip/bin
+
+%files
+    requirements.txt home/
