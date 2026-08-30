@@ -1,0 +1,142 @@
+# SPDX-FileCopyrightText: 2026 Alexander Wietek <awietek@pks.mpg.de>
+#
+# SPDX-License-Identifier: Apache-2.0
+
+set(XDIAG_TEST_SOURCES
+  math/test_binomial.cpp
+  math/test_scalar.cpp
+  math/test_vector.cpp
+  math/test_matrix.cpp
+
+  bits/test_bitops.cpp
+  bits/test_bitset.cpp
+  bits/test_bitvector.cpp
+  bits/test_bitarray.cpp
+
+  combinatorics/test_subsets.cpp
+  combinatorics/test_combinations.cpp
+  combinatorics/test_lin_table.cpp
+  combinatorics/test_bounded_multisets.cpp
+  combinatorics/test_bounded_partitions.cpp
+  combinatorics/test_schaefer_table.cpp
+  
+  basis/test_basis_onthefly.cpp
+  basis/test_basis_sublattice.cpp
+  basis/test_basis_symmetric.cpp
+  basis/test_basis_tj.cpp
+  
+  operators/test_coeff.cpp
+  operators/test_monomial.cpp
+  operators/test_op.cpp
+  operators/test_opsum.cpp
+  operators/test_valid.cpp
+
+  algebra/test_normal_order.cpp
+  algebra/test_quantum_numbers.cpp
+  algebra/test_quantum_numbers_chain.cpp
+  algebra/test_permute.cpp
+  algebra/test_symmetrize.cpp
+  algebra/test_isapprox.cpp
+  algebra/test_representation.cpp
+  algebra/algebras/test_matrix_algebra.cpp
+  algebra/algebras/test_spinhalf_implementation_algebra.cpp
+  algebra/rewrite/test_rewrite.cpp
+  algebra/utils/test_combine_matrix_ops.cpp
+ 
+  symmetries/test_permutation.cpp
+  symmetries/test_permutation_group.cpp
+  symmetries/test_representation.cpp
+  symmetries/test_representation_set.cpp
+  symmetries/test_fermi_sign.cpp
+  symmetries/action/test_site_permutation.cpp
+  symmetries/action/test_site_permutation_sublattice.cpp
+  symmetries/tables/test_representative_table.cpp
+  symmetries/tables/test_fermi_table.cpp
+
+  blocks/test_print_block.cpp
+  blocks/test_index.cpp
+  blocks/test_blocks_match.cpp
+
+  blocks/spinhalf/test_spinhalf_strategies.cpp
+  blocks/spinhalf/test_spinhalf.cpp
+  blocks/spinhalf/test_spinhalf_long.cpp
+
+  blocks/electron/test_electron_raiselower.cpp
+  blocks/electron/test_electron_apply.cpp
+  blocks/electron/test_electron_matrix.cpp
+  blocks/electron/test_electron_symmetric.cpp
+  blocks/electron/test_electron_long.cpp
+
+  blocks/tj/test_tj_kernels.cpp
+  blocks/tj/test_tj_matrix.cpp
+  blocks/tj/test_tj_apply.cpp
+  blocks/tj/test_tj_raiselower.cpp
+  blocks/tj/test_tj_symmetric.cpp
+  blocks/tj/test_tj_long.cpp
+
+  blocks/boson/test_boson.cpp
+  blocks/boson/test_boson_long.cpp
+
+  blocks/fermion/test_fermion.cpp
+  blocks/fermion/test_fermion_long.cpp
+  blocks/fermion/testcases_fermion.cpp
+
+  kernels/terms/test_non_branching_op.cpp
+  kernels/sparse/test_csr_twophase.cpp
+  
+  io/test_file_toml.cpp
+  io/test_file_h5.cpp
+
+  linalg/lanczos/test_eigvals_lanczos.cpp
+  linalg/lanczos/test_eigvals_lanczos_csr_matrix.cpp
+  linalg/lanczos/test_eigs_lanczos.cpp
+  linalg/lanczos/test_eigs_lanczos_csr_matrix.cpp
+  linalg/lanczos/test_lanczos_pro.cpp
+  linalg/arnoldi/test_arnoldi.cpp
+  linalg/gram_schmidt/test_gram_schmidt.cpp
+  linalg/test_exp_sym_v.cpp
+  linalg/test_norm_estimate.cpp
+  linalg/time_evolution/test_time_evolution.cpp
+  linalg/time_evolution/test_pade.cpp
+  linalg/lobpcg/test_lobpcg.cpp
+  linalg/test_sparse_diag.cpp
+  linalg/test_empty_algorithm.cpp
+
+  states/test_random_state.cpp
+  states/test_product_state.cpp
+  states/test_norm.cpp
+  states/test_dot.cpp
+  states/test_apply.cpp
+  states/test_state.cpp
+  states/test_expect.cpp
+  states/test_correlation_matrix.cpp
+)
+
+set(XDIAG_TESTCASES_SOURCES
+  blocks/spinhalf/testcases_spinhalf.cpp
+  blocks/tj/testcases_tj.cpp
+  blocks/electron/testcases_electron.cpp
+)
+
+set(XDIAG_TEST_DISTRIBUTED_SOURCES
+  mpi/test_cdot_distributed.cpp
+  linalg/lobpcg/test_lobpcg_distributed.cpp
+  linalg/time_evolution/test_time_evolution_distributed.cpp
+  linalg/lobpcg/test_lobpcg_distributed.cpp
+  blocks/distributed/test_spinhalf_distributed.cpp
+  blocks/distributed/test_spinhalf_distributed_apply.cpp
+  blocks/distributed/test_tj_distributed_apply.cpp
+  blocks/distributed/test_tj_distributed_raiselower.cpp
+  blocks/distributed/test_electron_distributed_apply.cpp
+  blocks/distributed/test_electron_distributed_raiselower.cpp  
+)
+
+add_executable(tests tests.cpp ${XDIAG_TEST_SOURCES} ${XDIAG_TESTCASES_SOURCES})
+target_link_libraries(tests PUBLIC ${XDIAG_LIBRARY})
+add_test(NAME XdiagTest COMMAND tests)
+
+if(XDIAG_DISTRIBUTED)
+  add_executable(tests_distributed tests_distributed.cpp ${XDIAG_TEST_DISTRIBUTED_SOURCES} ${XDIAG_TESTCASES_SOURCES})
+  target_link_libraries(tests_distributed PUBLIC ${XDIAG_LIBRARY})
+  add_test(NAME XdiagTestDistributed COMMAND tests_distributed)
+endif()

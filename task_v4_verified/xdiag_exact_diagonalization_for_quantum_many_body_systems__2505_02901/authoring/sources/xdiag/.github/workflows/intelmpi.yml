@@ -1,0 +1,64 @@
+name: Intel MPI CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+
+jobs:
+
+  linux-intel-oneapi:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Intel Apt repository
+      # Refreshing the Intel index plus every Ubuntu mirror regularly needs more
+      # than a minute on a loaded runner, which is what made this step fail at
+      # random. apt-key is deprecated and absent from newer Ubuntu, so the key
+      # goes into a keyring referenced by signed-by instead.
+      timeout-minutes: 5
+      run: |
+        wget --tries=3 --timeout=30 -O GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB \
+          https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        sudo gpg --dearmor --yes -o /usr/share/keyrings/oneapi-archive-keyring.gpg \
+          GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+        # Refresh the Intel index only. A full update also polls
+        # azure.archive.ubuntu.com, the runner's default Ubuntu mirror, which
+        # stalls often enough to hang this step past any timeout - that, not the
+        # Intel repository, is what makes this job fail at random. The runner
+        # image already carries the Ubuntu package lists needed to resolve the
+        # dependencies of the oneAPI packages.
+        sudo apt-get update \
+          -o Dir::Etc::sourcelist="sources.list.d/oneAPI.list" \
+          -o Dir::Etc::sourceparts="-" \
+          -o APT::Get::List-Cleanup="0" \
+          -o Acquire::http::Timeout=20
+
+    - name: Install Intel oneAPI compilers
+      timeout-minutes: 5
+      run: sudo apt-get install intel-oneapi-compiler-fortran intel-oneapi-compiler-dpcpp-cpp 
+
+    # optional
+    - name: Install Intel MPI and MKL
+      timeout-minutes: 5
+      run: sudo apt-get install intel-oneapi-mpi intel-oneapi-mpi-devel intel-oneapi-mkl
+
+    - name: Setup Intel oneAPI environment
+      run: |
+        source /opt/intel/oneapi/setvars.sh
+        printenv >> $GITHUB_ENV
+    - name: checkout project code
+      uses: actions/checkout@v4
+
+    - name: compile tests
+      run:  |
+        cmake -S . -B build -D XDIAG_DISTRIBUTED=On -D CMAKE_CXX_COMPILER=icpx -D BUILD_TESTING=On
+        cmake --build build
+
+    - name: run tests
+      run: |
+        mpirun -np 4 ./build/tests/tests_distributed

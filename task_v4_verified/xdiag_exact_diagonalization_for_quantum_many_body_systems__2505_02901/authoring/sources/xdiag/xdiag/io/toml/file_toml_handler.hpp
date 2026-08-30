@@ -1,0 +1,28 @@
+// SPDX-FileCopyrightText: 2025 Alexander Wietek <awietek@pks.mpg.de>
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <string>
+
+#include <extern/toml++/toml.hpp>
+#include <xdiag/utils/xdiag_api.hpp>
+
+namespace xdiag {
+
+class XDIAG_API FileTomlHandler {
+public:
+  FileTomlHandler(std::string key, toml::table &file);
+  FileTomlHandler(FileTomlHandler const &) = delete;
+  FileTomlHandler &operator=(FileTomlHandler const &) = delete;
+
+  template <class data_t> data_t as() const;
+  template <class data_t> void operator=(data_t const &data);
+
+private:
+  std::string key_;
+  toml::table &table_;
+};
+
+} // namespace xdiag

@@ -1,0 +1,40 @@
+// SPDX-FileCopyrightText: 2025 Alexander Wietek <awietek@pks.mpg.de>
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <istream>
+#include <string>
+#include <vector>
+
+#include <extern/toml++/toml.hpp>
+#include <xdiag/io/toml/file_toml_handler.hpp>
+#include <xdiag/utils/xdiag_api.hpp>
+
+namespace xdiag {
+
+class XDIAG_API FileToml {
+public:
+  FileToml() = default;
+  explicit FileToml(const char *filename);
+  explicit FileToml(std::string filename);
+  explicit FileToml(std::istream &is);
+
+  bool defined(std::string key) const;
+  FileTomlHandler operator[](std::string key);
+  void write(std::string filename, std::string mode = "w") const;
+
+  bool operator==(FileToml const &other) const;
+  bool operator!=(FileToml const &other) const;
+
+  std::vector<std::string> keys() const;
+  toml::table table() const;
+
+private:
+  toml::table table_;
+};
+
+XDIAG_API bool defined(FileToml const &fl, std::string key);
+
+} // namespace xdiag

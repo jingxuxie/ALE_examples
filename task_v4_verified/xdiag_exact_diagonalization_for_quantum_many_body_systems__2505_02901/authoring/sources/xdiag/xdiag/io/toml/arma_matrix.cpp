@@ -1,0 +1,108 @@
+// SPDX-FileCopyrightText: 2025 Alexander Wietek <awietek@pks.mpg.de>
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#include "arma_vector.hpp"
+
+#include <xdiag/io/toml/std_vector.hpp>
+#include <xdiag/io/toml/value.hpp>
+#include <xdiag/math/complex.hpp>
+#include <xdiag/utils/error.hpp>
+#include <xdiag/utils/format.hpp>
+#include <xdiag/utils/type_name.hpp>
+
+namespace xdiag::io {
+
+template <typename T> arma::Mat<T> arma_matrix(toml::node const &node) try {
+  auto array = node.as_array();
+  if (array) {
+    toml::array rows = *array;
+    std::size_t m = rows.size();
+    std::size_t n = 0;
+    if (m > 0) {
+      std::vector<T> vector;
+      for (std::size_t i = 0; i < m; ++i) {
+        auto row_entries_opt = rows[i].as_array();
+        if (row_entries_opt) {
+          toml::array row_entries = *row_entries_opt;
+          if (i == 0) {
+            n = row_entries.size();
+            vector.resize(m * n);
+          }
+          if (row_entries.size() != n) {
+            XDIAG_THROW(
+                fmt::format("Error reading TOML array to \"{}\": not all rows "
+                            "have same length",
+                            utils::get_type_name<arma::Mat<T>>()));
+          }
+
+          for (std::size_t j = 0; j < n; ++j) {
+            vector[i + m * j] = value<T>(row_entries[j]);
+          }
+
+        } else {
+          XDIAG_THROW(fmt::format(
+              "Error reading TOML array to \"{}\": Cannot parse row {}!",
+              utils::get_type_name<arma::Mat<T>>(), i));
+        }
+      } // for (int i = 0; i < m; ++i)
+      return arma::Mat<T>(vector.data(), m, n);
+    } else {
+      return arma::Mat<T>();
+    }
+  } else {
+    XDIAG_THROW(fmt::format(
+        "TOML node cannot be converted to \"{}\". Node is not an array.",
+        utils::get_type_name<arma::Mat<T>>()));
+  }
+}
+XDIAG_CATCH
+
+template arma::Mat<double> arma_matrix<double>(toml::node const &);
+template arma::Mat<complex> arma_matrix<complex>(toml::node const &);
+template arma::Mat<arma::sword> arma_matrix<arma::sword>(toml::node const &);
+template arma::Mat<arma::uword> arma_matrix<arma::uword>(toml::node const &);
+
+template <typename T> toml::array toml_array(arma::Mat<T> const &mat) try {
+  toml::array arr;
+  for (arma::uword i = 0; i < mat.n_rows; ++i) {
+    toml::array row;
+    for (arma::uword j = 0; j < mat.n_cols; ++j) {
+      row.push_back(mat(i, j));
+    }
+    arr.push_back(row);
+  }
+  return arr;
+}
+XDIAG_CATCH
+
+template <> toml::array toml_array(arma::Mat<arma::uword> const &mat) try {
+  toml::array arr;
+  for (arma::uword i = 0; i < mat.n_rows; ++i) {
+    toml::array row;
+    for (arma::uword j = 0; j < mat.n_cols; ++j) {
+      row.push_back((int64_t)mat(i, j));
+    }
+    arr.push_back(row);
+  }
+  return arr;
+}
+XDIAG_CATCH
+
+template <> toml::array toml_array(arma::Mat<complex> const &mat) try {
+  toml::array arr;
+  for (arma::uword i = 0; i < mat.n_rows; ++i) {
+    toml::array row;
+    for (arma::uword j = 0; j < mat.n_cols; ++j) {
+      row.push_back(toml::array{std::real(mat(i, j)), std::imag(mat(i, j))});
+    }
+    arr.push_back(row);
+  }
+  return arr;
+}
+XDIAG_CATCH
+
+template toml::array toml_array(arma::Mat<double> const &);
+template toml::array toml_array(arma::Mat<arma::sword> const &);
+
+} // namespace xdiag::io

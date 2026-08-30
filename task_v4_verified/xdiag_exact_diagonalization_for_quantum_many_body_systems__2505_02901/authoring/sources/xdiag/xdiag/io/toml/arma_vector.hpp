@@ -1,0 +1,15 @@
+// SPDX-FileCopyrightText: 2025 Alexander Wietek <awietek@pks.mpg.de>
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <xdiag/armadillo.hpp>
+#include <extern/toml++/toml.hpp>
+
+namespace xdiag::io {
+
+template <typename T> arma::Col<T> arma_vector(toml::node const &node);
+template <typename T> toml::array toml_array(arma::Col<T> const &value);
+
+} // namespace xdiag::io

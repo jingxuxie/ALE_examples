@@ -1,0 +1,25 @@
+name: Linux CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: install lapack
+      run: |
+        sudo apt-get install -y libblas-dev liblapack-dev
+    - name: make test
+      run: |
+        cmake -S . -B build -D BUILD_TESTING=On
+        cmake --build build
+    - name: run tests
+      run: |
+        ./build/tests/tests
