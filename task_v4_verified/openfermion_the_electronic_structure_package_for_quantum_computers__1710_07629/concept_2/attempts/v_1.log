@@ -1,0 +1,987 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 01a0497c-0bb3-7273-ad60-167f1a29d165
+--------
+user
+You are an independent participant. Read TASK.md and solve the task using only the supplied participant assets. You have a maximum of 3600 seconds of development time. The writable output directory is /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/attempts/v_1. First run `python3 workspace/audit_isolation.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/attempts/v_1` to record the access check. Write your final executable/artifact and supporting files into that output directory as specified by TASK.md. The participant directory is read-only; use the output directory for development. Work autonomously and do not request access to any other directories or the internet.
+codex
+I’ll record the access check, then read the task.
+
+exec
+/bin/bash -lc 'python3 workspace/audit_isolation.py /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/attempts/v_1' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/participant
+**Checking command output**
+
+I need to run the first command that reads the TASK after the audit, but I wonder if I should first check the initial instructions. It's possible I could look into the current command and see if I can handle the audit while waiting for the output, especially if it may take around 10 seconds. Something feels unusual about the timing. I’m just trying to keep everything on track!
+exec
+/bin/bash -lc "pwd; rg --files -g 'AGENTS.md' -g 'TASK.md' -g '"'!**/.git/**'"' .; cat TASK.md" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/participant
+ succeeded in 32431ms:
+{
+  "participant_readable": true,
+  "private_reads_denied": true,
+  "probes": [
+    {
+      "path": "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/evaluator/hidden/isolation_canary.txt",
+      "readable": false,
+      "result": "FileNotFoundError"
+    },
+    {
+      "path": "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/private/generation_canary.txt",
+      "readable": false,
+      "result": "FileNotFoundError"
+    },
+    {
+      "path": "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/status.json",
+      "readable": false,
+      "result": "FileNotFoundError"
+    }
+  ],
+  "cwd": "/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/participant"
+}
+
+exec
+/bin/bash -c "pwd; rg --files -g 'AGENTS.md' -g 'TASK.md' -g '"'!**/.git/**'"' .; cat TASK.md" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/participant
+**Considering launch efficiency**
+
+I’m thinking about whether the entire tooling setup could slow down the initial launch. It seems important to avoid duplicating tasks, since that could create unnecessary overhead when processing. I have a time limit of 3600 seconds, so polling for a long duration could be a strategy. It’s all about balancing efficiency with the tasks at hand to ensure everything runs smoothly!
+ succeeded in 28447ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/participant
+./TASK.md
+# Hardware-local Slater preparation
+
+Prepare each supplied occupied projector from its specified occupation bitstring
+using particle-number-preserving two-mode gates on the supplied hardware graph.
+Both the gate count and the parallel depth must fit the instance's hard budgets.
+The four instances have 14–18 modes and 7–9 particles on two hardware families.
+
+## Assets and interface
+
+- `input/instances.json`: targets, hardware edges, initial occupations, tolerances,
+  and resource budgets. All scored instances are supplied.
+- `input/format.md`: exact gate convention, JSON schema, and mathematical checks.
+- `workspace/simulator.py`: public simulator and development scorer.
+- `baseline/compile.py`: runnable, exact general-purpose compiler with routing;
+  its output is not expected to satisfy the resource budgets.
+
+Submit a directory containing **`solution.json`**, with one layered circuit for
+each instance. The evaluator reads this artifact; it does not execute your code.
+No ancillas, additional phases, relabelings, measurements, or unlisted gates are
+free. The hardware edges describe native **fermionic mode** operations, not a
+particular qubit encoding.
+
+The participant task tree is **read-only**. Use the writable output path supplied
+in your launch prompt, represented here by `$OUTPUT_DIR`. From this directory:
+
+```bash
+python3 baseline/compile.py --output-dir "$OUTPUT_DIR/baseline_output"
+python3 workspace/simulator.py "$OUTPUT_DIR/baseline_output" --report "$OUTPUT_DIR/report.json"
+```
+
+Python 3 and NumPy suffice for these tools; SciPy is available in the build
+environment. The development time limit is **one hour**. There is no separate
+participant-runtime score; synthesis within that limit is your choice.
+The artifact is limited to 2 MiB; larger emergency parsing limits are
+specified in the format document, not substituted for the hard circuit budgets.
+
+The main score is the fraction of instances certified accurate **and** within
+both budgets. The worst-family score prevents success on only one hardware
+family. A secondary resource score measures resource compliance of accurate
+circuits. Full success requires every instance to pass. Numerical accuracy alone
+does not earn main-score credit for an over-budget circuit.
+
+ succeeded in 21678ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/participant
+./TASK.md
+# Hardware-local Slater preparation
+
+Prepare each supplied occupied projector from its specified occupation bitstring
+using particle-number-preserving two-mode gates on the supplied hardware graph.
+Both the gate count and the parallel depth must fit the instance's hard budgets.
+The four instances have 14–18 modes and 7–9 particles on two hardware families.
+
+## Assets and interface
+
+- `input/instances.json`: targets, hardware edges, initial occupations, tolerances,
+  and resource budgets. All scored instances are supplied.
+- `input/format.md`: exact gate convention, JSON schema, and mathematical checks.
+- `workspace/simulator.py`: public simulator and development scorer.
+- `baseline/compile.py`: runnable, exact general-purpose compiler with routing;
+  its output is not expected to satisfy the resource budgets.
+
+Submit a directory containing **`solution.json`**, with one layered circuit for
+each instance. The evaluator reads this artifact; it does not execute your code.
+No ancillas, additional phases, relabelings, measurements, or unlisted gates are
+free. The hardware edges describe native **fermionic mode** operations, not a
+particular qubit encoding.
+
+The participant task tree is **read-only**. Use the writable output path supplied
+in your launch prompt, represented here by `$OUTPUT_DIR`. From this directory:
+
+```bash
+python3 baseline/compile.py --output-dir "$OUTPUT_DIR/baseline_output"
+python3 workspace/simulator.py "$OUTPUT_DIR/baseline_output" --report "$OUTPUT_DIR/report.json"
+```
+
+Python 3 and NumPy suffice for these tools; SciPy is available in the build
+environment. The development time limit is **one hour**. There is no separate
+participant-runtime score; synthesis within that limit is your choice.
+The artifact is limited to 2 MiB; larger emergency parsing limits are
+specified in the format document, not substituted for the hard circuit budgets.
+
+The main score is the fraction of instances certified accurate **and** within
+both budgets. The worst-family score prevents success on only one hardware
+family. A secondary resource score measures resource compliance of accurate
+circuits. Full success requires every instance to pass. Numerical accuracy alone
+does not earn main-score credit for an over-budget circuit.
+
+  → Inspect gate conventions and instance budgets
+  • Develop hardware-local circuit synthesis
+  • Optimize circuits within hard budgets
+  • Validate and write final artifact
+exec
+/bin/bash -c "cat input/format.md; sed -n '1,260p' baseline/compile.py; sed -n '1,260p' workspace/simulator.py; ls -la input workspace baseline; python3 - <<'PY'
+import json
+v=json.load(open('input/instances.json'))
+print(type(v))
+if isinstance(v,dict):
+ print(v.keys())
+ for k,x in v.items():
+  if k"'!='"'instances':print(k,x)
+ inst=v.get('instances',[])
+else: inst=v
+for x in inst:
+ print({k:v for k,v in x.items() if k not in ['target_projector','projector','target','occupied_orbitals']})
+ print(x.keys())
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/participant
+**Considering tool latency and optimization**
+
+I'm noticing that there's a tool latency of about a minute, which feels a bit slow. I wonder if we can think more abstractly about the situation. It seems like I need to compile Grassmann n k hardware, focusing on the paths or ladder approaches. The targets provided are likely from generated shallow circuits, designed to optimize numerical reconstruction. It’s interesting how these elements all interact!
+ succeeded in 22150ms:
+# Format and mathematical contract (version 1)
+
+## Input
+
+`instances.json` is an object with `version: 1`, `task: "local_slater_v1"`,
+and an `instances` array. Each instance has:
+
+- `id` (unique string), `family` (`ladder` or `irregular`), `n_modes`, `n_particles`;
+- `initial_occupied`: distinct zero-based mode indices, in ascending order;
+- `edges`: distinct undirected pairs of mode indices; the graph is connected;
+- `target_projector`: `real` and `imag`, each an n-by-n array of binary64 numbers;
+- `budgets`: integer `max_gates` and `max_depth`;
+- `tolerances`: `projector_frobenius: 1e-8` and `slater_infidelity: 1e-8`.
+
+The complex matrix is `P = real + 1j*imag`. It is a rank-k Hermitian occupied
+projector, to binary64 rounding. Our convention is `P[i,j] = <a_j† a_i>`.
+Equivalently it specifies the unique k-particle Slater ground state, up to global
+phase, of `H = sum_ij (I - 2P)[i,j] a_i† a_j`. No eigenvectors, orbital phases,
+preparation history, or hidden target instances are required for submission.
+
+## Output
+
+Exactly one UTF-8 JSON object in `SUBMISSION_DIR/solution.json`:
+
+```json
+{
+  "version": 1,
+  "circuits": [
+    {
+      "id": "instance_id_from_input",
+      "layers": [
+        [{"u": 0, "v": 1, "theta": 0.4, "phi": -0.2}]
+      ]
+    }
+  ]
+}
+```
+
+The example illustrates syntax only; its edge need not occur in an instance.
+Every instance must occur exactly once, in any order. Only the keys illustrated
+are allowed at each level. Duplicate object keys, booleans in numeric fields,
+nonfinite numbers, unknown IDs, extra fields, and noninteger indices are rejected.
+The artifact must be a regular file, not a symbolic link or FIFO.
+
+`layers` is chronological. Each nonempty layer contains gates acting on disjoint
+pairs. `[]` denotes an identity circuit, but empty layers inside it are forbidden.
+For every gate, `u != v` and the unordered pair must be a hardware edge. The
+**ordered** pair `(u,v)` determines the convention; reversing it is not a free
+relabelling. Angles are finite JSON numbers in the closed interval `[-pi, pi]`,
+in radians. No gate cancellation or identity removal is performed by the scorer.
+All submitted gates, including zero-angle and swap-like gates, count once. Depth
+is the number of submitted nonempty layers. The evaluator does not reschedule.
+
+The one-particle matrix of a gate, on rows/columns ordered `(u,v)`, is
+
+```text
+G(theta, phi) = [[cos(theta),             -exp(-i*phi)*sin(theta)],
+                 [exp(+i*phi)*sin(theta),  cos(theta)            ]].
+```
+
+It is identity on other modes. For occupied orbital columns `V`, apply `V <- G V`.
+Equivalently `P <- G P G†`. Gates lift to the exterior-power representation on
+fermionic Fock space; Jordan–Wigner parity for separated indices is implicit.
+This is not a bare two-qubit rotation on distant qubits. Each layer is the product
+of its disjoint gates, and `U = L_last ... L_first`. The initial orbital matrix is
+`V0 = I[:, initial_occupied]`. There are no single-mode gates, free final diagonal
+phases, free permutations, or initial-state changes. Rotating occupied orbitals
+among themselves and a global many-body phase do not change the target state.
+
+## Numerical and resource checks
+
+Let `V = U V0`, `Pout = V V†`, and `Q` be any orthonormal basis for the top-k
+eigenspace of the supplied Hermitian target. The checks are
+
+```text
+projector_error = ||Pout - Ptarget||_F                  (absolute, not divided by n)
+slater_fidelity = |det(Q† V)|^2
+slater_infidelity = 1 - slater_fidelity.
+```
+
+Fidelity is evaluated stably as the product of squared singular values of `Q† V`,
+with singular values clipped to `[0,1]` for floating-point roundoff. Both errors
+must be at most their respective tolerances. A Frobenius check prevents determinant
+roundoff from incorrectly certifying a near-but-not-exact state. The official
+verifier also checks unitarity and projector integrity; it never normalizes a
+submitted nonunitary state or accepts a participant-supplied projector or score.
+
+Each circuit is certified only if numerically accurate and
+`gates <= max_gates` **and** `depth <= max_depth`. `valid` means the complete
+artifact satisfies syntax, gate, hardware, and scheduling rules; exceeding a
+budget or missing the target makes it fail certification, not parsing.
+
+- `core_score`: mean of the four certification indicators (0, .25, .5, .75, 1).
+- `worst_family_score`: minimum family mean of those indicators.
+- Per-instance `resource_score`: zero unless both numerical checks pass;
+  otherwise `min(1, max_gates/max(1,gates), max_depth/max(1,depth))`.
+- Overall `resource_score`: mean of those per-instance resource scores. It is
+  diagnostic/secondary and cannot turn a failed certification into a pass.
+- `passed`: all instances certified. `reason`: readable explanation.
+- `runtime_score`: null. `evaluation_seconds`: unscored verifier wall time.
+
+Malformed artifacts receive zero scores, `valid: false`, `passed: false`.
+Emergency parser limits: 2 MiB UTF-8 file, 4096 layers and 4096 gates per instance.
+They permit the general compiler's diagnostic outputs; they do not relax budgets.
+The scorer's JSON includes per-instance errors, resource counts, and flags.
+Both CLIs print one JSON report, optionally save it with `--report PATH`, and exit
+0 for well-formed artifacts (including failed certificates), 2 for invalid input,
+or 3 for evaluator infrastructure failure. Reports use no NaN or Infinity.
+"""Exact occupied-frame elimination, edge routing, and ASAP scheduling."""
+
+import argparse
+from collections import deque
+import json
+import math
+from pathlib import Path
+import sys
+
+import numpy as np
+
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "workspace"))
+from simulator import apply_gate, projector
+
+
+def shortest_path(edges, start, finish, size):
+    neighbors = [[] for _ in range(size)]
+    for first, second in edges:
+        neighbors[first].append(second)
+        neighbors[second].append(first)
+    queue = deque([[start]])
+    seen = {start}
+    while queue:
+        path = queue.popleft()
+        if path[-1] == finish:
+            return path
+        for neighbor in sorted(neighbors[path[-1]]):
+            if neighbor not in seen:
+                seen.add(neighbor)
+                queue.append(path + [neighbor])
+    raise ValueError("disconnected hardware")
+
+
+def route(gate, instance):
+    path = shortest_path(instance["edges"], gate["u"], gate["v"], instance["n_modes"])
+    transport = [{"u": path[index], "v": path[index + 1], "theta": math.pi / 2, "phi": 0.0}
+                 for index in range(len(path) - 2)]
+    center = dict(gate, u=path[-2], v=path[-1])
+    restore = [dict(step, theta=-step["theta"]) for step in reversed(transport)]
+    return transport + [center] + restore
+
+
+def schedule(gates, size):
+    last_layer = [-1] * size
+    layers = []
+    for gate in gates:
+        first, second = gate["u"], gate["v"]
+        layer_index = 1 + max(last_layer[first], last_layer[second])
+        while len(layers) <= layer_index:
+            layers.append([])
+        layers[layer_index].append(gate)
+        last_layer[first] = last_layer[second] = layer_index
+    return layers
+
+
+def compile_instance(instance):
+    _, frame = np.linalg.eigh(projector(instance))
+    frame = frame[:, -instance["n_particles"]:].copy()
+    occupied = instance["initial_occupied"]
+    ordering = occupied + [mode for mode in range(instance["n_modes"]) if mode not in occupied]
+    elimination = []
+    for column, first in enumerate(occupied):
+        for second in ordering[column + 1:]:
+            upper, lower = frame[first, column], frame[second, column]
+            if abs(lower) < 2e-14:
+                continue
+            angle = math.atan2(abs(lower), abs(upper))
+            phase = float(np.angle(-lower / upper)) if abs(upper) > 1e-30 else 0.0
+            gate = {"u": first, "v": second, "theta": angle, "phi": phase}
+            apply_gate(frame, gate)
+            elimination.append(gate)
+    native = []
+    for gate in reversed(elimination):
+        native.extend(route(dict(gate, theta=-gate["theta"]), instance))
+    circuit = {"id": instance["id"], "layers": schedule(native, instance["n_modes"])}
+    diagnostic = {"id": instance["id"], "logical_gates": len(elimination),
+                  "routed_gates": len(native), "scheduled_depth": len(circuit["layers"])}
+    return circuit, diagnostic
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", type=Path, default=Path(__file__).resolve().parents[1] / "input/instances.json")
+    parser.add_argument("--output-dir", type=Path, required=True)
+    arguments = parser.parse_args()
+    instances = json.loads(arguments.input.read_text())["instances"]
+    compiled = [compile_instance(instance) for instance in instances]
+    arguments.output_dir.mkdir(parents=True, exist_ok=True)
+    solution = {"version": 1, "circuits": [result[0] for result in compiled]}
+    (arguments.output_dir / "solution.json").write_text(json.dumps(solution, indent=2, allow_nan=False) + "\n")
+    print(json.dumps({"compiler": "occupied-frame elimination with signed-swap routing",
+                      "instances": [result[1] for result in compiled]}, indent=2))
+
+
+if __name__ == "__main__":
+    main()
+"""Public row-update simulator and artifact-only development scorer."""
+
+import argparse
+import json
+import math
+import os
+from pathlib import Path
+import stat
+import time
+
+import numpy as np
+
+
+MAX_BYTES = 2 * 1024 * 1024
+MAX_GATES = 4096
+MAX_LAYERS = 4096
+
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key: " + key)
+        result[key] = value
+    return result
+
+
+def reject_constant(value):
+    raise ValueError("nonfinite JSON constant: " + value)
+
+
+def read_solution(directory):
+    path = Path(directory) / "solution.json"
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(descriptor, "rb") as stream:
+        information = os.fstat(stream.fileno())
+        if not stat.S_ISREG(information.st_mode) or information.st_size > MAX_BYTES:
+            raise ValueError("solution.json must be a regular file of at most 2 MiB")
+        payload = stream.read(MAX_BYTES + 1)
+    if len(payload) > MAX_BYTES:
+        raise ValueError("solution.json exceeds 2 MiB")
+    return json.loads(payload.decode("utf-8"), object_pairs_hook=unique_object,
+                      parse_constant=reject_constant)
+
+
+def exact_keys(value, expected, context):
+    if type(value) is not dict or set(value) != set(expected):
+        raise ValueError(context + " has incorrect fields")
+
+
+def validate_solution(solution, instances):
+    exact_keys(solution, ("version", "circuits"), "solution")
+    if type(solution["version"]) is not int or solution["version"] != 1:
+        raise ValueError("version must be integer 1")
+    circuits = solution["circuits"]
+    if type(circuits) is not list or len(circuits) != len(instances):
+        raise ValueError("one circuit per instance is required")
+    known = {instance["id"]: instance for instance in instances}
+    indexed = {}
+    for circuit in circuits:
+        exact_keys(circuit, ("id", "layers"), "circuit")
+        identifier = circuit["id"]
+        if type(identifier) is not str or identifier not in known or identifier in indexed:
+            raise ValueError("unknown or duplicate circuit id")
+        instance = known[identifier]
+        layers = circuit["layers"]
+        if type(layers) is not list or len(layers) > MAX_LAYERS:
+            raise ValueError("layers must be a list of at most 4096 layers")
+        edges = {frozenset(edge) for edge in instance["edges"]}
+        count = 0
+        for layer in layers:
+            if type(layer) is not list or not layer:
+                raise ValueError("layers must be nonempty lists")
+            count += len(layer)
+            if count > MAX_GATES:
+                raise ValueError("more than 4096 gates in a circuit")
+            used = set()
+            for gate in layer:
+                exact_keys(gate, ("u", "v", "theta", "phi"), "gate")
+                first, second = gate["u"], gate["v"]
+                if any(type(mode) is not int or not 0 <= mode < instance["n_modes"]
+                       for mode in (first, second)):
+                    raise ValueError("mode indices must be in-range integers")
+                if first == second or frozenset((first, second)) not in edges:
+                    raise ValueError("gate is not a hardware edge")
+                if first in used or second in used:
+                    raise ValueError("gates in a layer must have disjoint modes")
+                used.update((first, second))
+                for name in ("theta", "phi"):
+                    value = gate[name]
+                    if type(value) not in (int, float) or not -math.pi <= value <= math.pi:
+                        raise ValueError("angles must be finite numbers in [-pi,pi]")
+        indexed[identifier] = circuit
+    return indexed
+
+
+def projector(instance):
+    encoded = instance["target_projector"]
+    return np.asarray(encoded["real"], dtype=float) + 1j * np.asarray(encoded["imag"], dtype=float)
+
+
+def apply_gate(orbitals, gate):
+    first, second = gate["u"], gate["v"]
+    cosine, sine = math.cos(gate["theta"]), math.sin(gate["theta"])
+    phase = complex(math.cos(gate["phi"]), math.sin(gate["phi"]))
+    first_row, second_row = orbitals[first].copy(), orbitals[second].copy()
+    orbitals[first] = cosine * first_row - phase.conjugate() * sine * second_row
+    orbitals[second] = phase * sine * first_row + cosine * second_row
+
+
+def simulate(instance, circuit):
+    orbitals = np.eye(instance["n_modes"], dtype=complex)[:, instance["initial_occupied"]]
+    for layer in circuit["layers"]:
+        for gate in layer:
+            apply_gate(orbitals, gate)
+    return orbitals
+
+
+def circuit_metrics(instance, circuit):
+    orbitals = simulate(instance, circuit)
+    target = projector(instance)
+    error = float(np.linalg.norm(orbitals @ orbitals.conj().T - target, "fro"))
+    _, basis = np.linalg.eigh((target + target.conj().T) / 2)
+    basis = basis[:, -instance["n_particles"]:]
+    singular_values = np.clip(np.linalg.svd(basis.conj().T @ orbitals, compute_uv=False), 0, 1)
+    fidelity = float(np.prod(singular_values ** 2))
+    infidelity = max(0.0, 1.0 - fidelity)
+    gates = sum(map(len, circuit["layers"]))
+    depth = len(circuit["layers"])
+    accurate = (error <= instance["tolerances"]["projector_frobenius"] and
+                infidelity <= instance["tolerances"]["slater_infidelity"])
+    within = gates <= instance["budgets"]["max_gates"] and depth <= instance["budgets"]["max_depth"]
+    resource = min(1.0, instance["budgets"]["max_gates"] / max(1, gates),
+                   instance["budgets"]["max_depth"] / max(1, depth)) if accurate else 0.0
+    return {"id": instance["id"], "family": instance["family"], "gates": gates,
+            "depth": depth, "projector_error": error, "slater_fidelity": fidelity,
+            "slater_infidelity": infidelity, "accurate": bool(accurate),
+            "within_budget": bool(within), "certified": bool(accurate and within),
+            "resource_score": resource}
+
+
+def aggregate(metrics):
+    families = {}
+    for result in metrics:
+        families.setdefault(result["family"], []).append(int(result["certified"]))
+    family_scores = {name: sum(values) / len(values) for name, values in families.items()}
+    count = sum(result["certified"] for result in metrics)
+    return {"core_score": count / len(metrics), "worst_family_score": min(family_scores.values()),
+            "resource_score": sum(result["resource_score"] for result in metrics) / len(metrics),
+            "runtime_score": None, "valid": True, "passed": count == len(metrics),
+            "reason": "all instances certified" if count == len(metrics) else
+                      f"{count}/{len(metrics)} certified; inspect accuracy and budget flags",
+            "family_scores": family_scores, "instances": metrics}
+
+
+def evaluate(directory, input_path=None):
+    started = time.perf_counter()
+    source = Path(input_path) if input_path else Path(__file__).resolve().parents[1] / "input/instances.json"
+    instances = json.loads(source.read_text())["instances"]
+    try:
+        indexed = validate_solution(read_solution(directory), instances)
+        report = aggregate([circuit_metrics(instance, indexed[instance["id"]]) for instance in instances])
+    except (ValueError, OSError, UnicodeError, TypeError, RecursionError, OverflowError) as error:
+        report = {"core_score": 0.0, "worst_family_score": 0.0, "resource_score": 0.0,
+                  "runtime_score": None, "valid": False, "passed": False,
+                  "reason": str(error)[:500], "instances": []}
+    report["evaluation_seconds"] = time.perf_counter() - started
+    return report
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("submission_dir")
+    parser.add_argument("--report", type=Path)
+    arguments = parser.parse_args()
+    report = evaluate(arguments.submission_dir)
+    encoded = json.dumps(report, indent=2, allow_nan=False) + "\n"
+    if arguments.report:
+        arguments.report.parent.mkdir(parents=True, exist_ok=True)
+        arguments.report.write_text(encoded)
+    print(encoded, end="")
+    return 0 if report["valid"] else 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+baseline:
+total 12
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:35 .
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 10:35 ..
+-rw-rw-r-- 1 xuandong xuandong 3840 Aug 28 10:35 compile.py
+
+input:
+total 92
+drwxrwxr-x 2 xuandong xuandong  4096 Aug 28 10:39 .
+drwxrwxr-x 5 xuandong xuandong  4096 Aug 28 10:35 ..
+-rw-rw-r-- 1 xuandong xuandong  5450 Aug 28 10:32 format.md
+-rw-rw-r-- 1 xuandong xuandong 76503 Aug 28 10:39 instances.json
+
+workspace:
+total 24
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:34 .
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 10:35 ..
+-rw-rw-r-- 1 xuandong xuandong 1181 Aug 28 10:25 audit_isolation.py
+-rw-rw-r-- 1 xuandong xuandong 8233 Aug 28 10:34 simulator.py
+<class 'dict'>
+dict_keys(['version', 'task', 'instances'])
+version 1
+task local_slater_v1
+{'id': 'ladder_14', 'family': 'ladder', 'n_modes': 14, 'n_particles': 7, 'initial_occupied': [0, 4, 7, 8, 11, 12, 13], 'edges': [[0, 3], [0, 10], [0, 13], [1, 2], [1, 9], [1, 11], [2, 4], [2, 6], [3, 4], [3, 5], [4, 11], [5, 11], [5, 13], [6, 9], [7, 8], [7, 12], [8, 10], [8, 13], [10, 12]], 'budgets': {'max_gates': 32, 'max_depth': 10}, 'tolerances': {'projector_frobenius': 1e-08, 'slater_infidelity': 1e-08}}
+dict_keys(['id', 'family', 'n_modes', 'n_particles', 'initial_occupied', 'edges', 'target_projector', 'budgets', 'tolerances'])
+{'id': 'ladder_16', 'family': 'ladder', 'n_modes': 16, 'n_particles': 8, 'initial_occupied': [0, 2, 4, 7, 8, 9, 12, 13], 'edges': [[0, 2], [0, 7], [1, 6], [1, 8], [1, 10], [2, 14], [3, 11], [3, 12], [3, 13], [4, 12], [4, 13], [4, 15], [5, 8], [5, 10], [6, 12], [6, 15], [7, 9], [7, 14], [8, 15], [9, 11], [9, 13], [11, 14]], 'budgets': {'max_gates': 36, 'max_depth': 11}, 'tolerances': {'projector_frobenius': 1e-08, 'slater_infidelity': 1e-08}}
+dict_keys(['id', 'family', 'n_modes', 'n_particles', 'initial_occupied', 'edges', 'target_projector', 'budgets', 'tolerances'])
+{'id': 'irregular_16', 'family': 'irregular', 'n_modes': 16, 'n_particles': 8, 'initial_occupied': [1, 3, 4, 5, 9, 12, 13, 15], 'edges': [[0, 8], [0, 14], [0, 15], [1, 5], [1, 15], [2, 4], [2, 12], [2, 13], [3, 6], [3, 10], [3, 11], [4, 8], [4, 11], [5, 6], [5, 9], [6, 13], [7, 8], [7, 10], [9, 12], [10, 14], [12, 15]], 'budgets': {'max_gates': 40, 'max_depth': 12}, 'tolerances': {'projector_frobenius': 1e-08, 'slater_infidelity': 1e-08}}
+dict_keys(['id', 'family', 'n_modes', 'n_particles', 'initial_occupied', 'edges', 'target_projector', 'budgets', 'tolerances'])
+{'id': 'irregular_18', 'family': 'irregular', 'n_modes': 18, 'n_particles': 9, 'initial_occupied': [0, 2, 3, 6, 8, 10, 12, 13, 14], 'edges': [[0, 1], [0, 5], [0, 12], [1, 16], [1, 17], [2, 5], [2, 9], [2, 15], [3, 8], [3, 11], [3, 15], [4, 6], [4, 8], [4, 10], [5, 7], [6, 17], [7, 11], [8, 13], [9, 13], [9, 17], [10, 14], [11, 12], [14, 16]], 'budgets': {'max_gates': 44, 'max_depth': 13}, 'tolerances': {'projector_frobenius': 1e-08, 'slater_infidelity': 1e-08}}
+dict_keys(['id', 'family', 'n_modes', 'n_particles', 'initial_occupied', 'edges', 'target_projector', 'budgets', 'tolerances'])
+
+codex
+The budgets are below generic compilation costs; I’ll examine target structure.
+
+exec
+/bin/bash -c "cat baseline/compile.py; sed -n '80,120p' input/format.md; python3 - <<'PY'
+import numpy as np,json,time,os
+print('TIME',time.ctime(), 'CPU',os.cpu_count())
+for v in json.load(open('input/instances.json'))['instances']:
+ p=np.array(v['target_projector']['real'])+1j*np.array(v['target_projector']['imag'])
+ print('\\n',v['id'])
+ print('diag',np.round(p.diagonal().real,6))
+ print('zero counts',np.sum(abs(p)<1e-12,axis=1))
+ print('magnitudes')
+ print(np.round(abs(p),3))
+PY" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/participant
+**Calculating budget fit**
+
+I'm thinking about how to manage the budget by examining the edges in the graph with specific characteristics. It seems like if I keep the same planting topology and fixed patterns, I could fit things more effectively. But there’s a hidden generation here I need to clarify. I’ll focus on the invariants of rows across the graph edges and derive something called "gate elimination via rank," so I need to gather more stats for this.
+exec
+/bin/bash -c 'bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/openfermion_the_electronic_structure_package_for_quantum_computers__1710_07629/concept_2/attempts/v_1
+ succeeded in 36786ms:
+"""Exact occupied-frame elimination, edge routing, and ASAP scheduling."""
+
+import argparse
+from collections import deque
+import json
+import math
+from pathlib import Path
+import sys
+
+import numpy as np
+
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "workspace"))
+from simulator import apply_gate, projector
+
+
+def shortest_path(edges, start, finish, size):
+    neighbors = [[] for _ in range(size)]
+    for first, second in edges:
+        neighbors[first].append(second)
+        neighbors[second].append(first)
+    queue = deque([[start]])
+    seen = {start}
+    while queue:
+        path = queue.popleft()
+        if path[-1] == finish:
+            return path
+        for neighbor in sorted(neighbors[path[-1]]):
+            if neighbor not in seen:
+                seen.add(neighbor)
+                queue.append(path + [neighbor])
+    raise ValueError("disconnected hardware")
+
+
+def route(gate, instance):
+    path = shortest_path(instance["edges"], gate["u"], gate["v"], instance["n_modes"])
+    transport = [{"u": path[index], "v": path[index + 1], "theta": math.pi / 2, "phi": 0.0}
+                 for index in range(len(path) - 2)]
+    center = dict(gate, u=path[-2], v=path[-1])
+    restore = [dict(step, theta=-step["theta"]) for step in reversed(transport)]
+    return transport + [center] + restore
+
+
+def schedule(gates, size):
+    last_layer = [-1] * size
+    layers = []
+    for gate in gates:
+        first, second = gate["u"], gate["v"]
+        layer_index = 1 + max(last_layer[first], last_layer[second])
+        while len(layers) <= layer_index:
+            layers.append([])
+        layers[layer_index].append(gate)
+        last_layer[first] = last_layer[second] = layer_index
+    return layers
+
+
+def compile_instance(instance):
+    _, frame = np.linalg.eigh(projector(instance))
+    frame = frame[:, -instance["n_particles"]:].copy()
+    occupied = instance["initial_occupied"]
+    ordering = occupied + [mode for mode in range(instance["n_modes"]) if mode not in occupied]
+    elimination = []
+    for column, first in enumerate(occupied):
+        for second in ordering[column + 1:]:
+            upper, lower = frame[first, column], frame[second, column]
+            if abs(lower) < 2e-14:
+                continue
+            angle = math.atan2(abs(lower), abs(upper))
+            phase = float(np.angle(-lower / upper)) if abs(upper) > 1e-30 else 0.0
+            gate = {"u": first, "v": second, "theta": angle, "phi": phase}
+            apply_gate(frame, gate)
+            elimination.append(gate)
+    native = []
+    for gate in reversed(elimination):
+        native.extend(route(dict(gate, theta=-gate["theta"]), instance))
+    circuit = {"id": instance["id"], "layers": schedule(native, instance["n_modes"])}
+    diagnostic = {"id": instance["id"], "logical_gates": len(elimination),
+                  "routed_gates": len(native), "scheduled_depth": len(circuit["layers"])}
+    return circuit, diagnostic
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", type=Path, default=Path(__file__).resolve().parents[1] / "input/instances.json")
+    parser.add_argument("--output-dir", type=Path, required=True)
+    arguments = parser.parse_args()
+    instances = json.loads(arguments.input.read_text())["instances"]
+    compiled = [compile_instance(instance) for instance in instances]
+    arguments.output_dir.mkdir(parents=True, exist_ok=True)
+    solution = {"version": 1, "circuits": [result[0] for result in compiled]}
+    (arguments.output_dir / "solution.json").write_text(json.dumps(solution, indent=2, allow_nan=False) + "\n")
+    print(json.dumps({"compiler": "occupied-frame elimination with signed-swap routing",
+                      "instances": [result[1] for result in compiled]}, indent=2))
+
+
+if __name__ == "__main__":
+    main()
+
+Fidelity is evaluated stably as the product of squared singular values of `Q† V`,
+with singular values clipped to `[0,1]` for floating-point roundoff. Both errors
+must be at most their respective tolerances. A Frobenius check prevents determinant
+roundoff from incorrectly certifying a near-but-not-exact state. The official
+verifier also checks unitarity and projector integrity; it never normalizes a
+submitted nonunitary state or accepts a participant-supplied projector or score.
+
+Each circuit is certified only if numerically accurate and
+`gates <= max_gates` **and** `depth <= max_depth`. `valid` means the complete
+artifact satisfies syntax, gate, hardware, and scheduling rules; exceeding a
+budget or missing the target makes it fail certification, not parsing.
+
+- `core_score`: mean of the four certification indicators (0, .25, .5, .75, 1).
+- `worst_family_score`: minimum family mean of those indicators.
+- Per-instance `resource_score`: zero unless both numerical checks pass;
+  otherwise `min(1, max_gates/max(1,gates), max_depth/max(1,depth))`.
+- Overall `resource_score`: mean of those per-instance resource scores. It is
+  diagnostic/secondary and cannot turn a failed certification into a pass.
+- `passed`: all instances certified. `reason`: readable explanation.
+- `runtime_score`: null. `evaluation_seconds`: unscored verifier wall time.
+
+Malformed artifacts receive zero scores, `valid: false`, `passed: false`.
+Emergency parser limits: 2 MiB UTF-8 file, 4096 layers and 4096 gates per instance.
+They permit the general compiler's diagnostic outputs; they do not relax budgets.
+The scorer's JSON includes per-instance errors, resource counts, and flags.
+Both CLIs print one JSON report, optionally save it with `--report PATH`, and exit
+0 for well-formed artifacts (including failed certificates), 2 for invalid input,
+or 3 for evaluator infrastructure failure. Reports use no NaN or Infinity.
+TIME Fri Aug 28 10:51:49 2026 CPU 384
+
+ ladder_14
+diag [0.820494 0.053558 0.20387  0.462845 0.531065 0.70563  0.150062 0.735281
+ 0.577011 0.152557 0.507947 0.689129 0.871068 0.539482]
+zero counts [0 0 0 0 0 0 2 0 1 0 0 0 0 1]
+magnitudes
+[[0.82  0.075 0.108 0.122 0.064 0.019 0.079 0.174 0.069 0.057 0.147 0.105
+  0.15  0.102]
+ [0.075 0.054 0.022 0.034 0.088 0.071 0.068 0.012 0.002 0.052 0.063 0.124
+  0.061 0.007]
+ [0.108 0.022 0.204 0.039 0.175 0.124 0.114 0.021 0.008 0.138 0.136 0.207
+  0.089 0.025]
+ [0.122 0.034 0.039 0.463 0.278 0.28  0.129 0.043 0.034 0.143 0.07  0.146
+  0.097 0.004]
+ [0.064 0.088 0.175 0.278 0.531 0.125 0.184 0.022 0.12  0.177 0.092 0.095
+  0.051 0.118]
+ [0.019 0.071 0.124 0.28  0.125 0.706 0.076 0.043 0.175 0.039 0.077 0.069
+  0.027 0.204]
+ [0.079 0.068 0.114 0.129 0.184 0.076 0.15  0.009 0.    0.141 0.077 0.132
+  0.065 0.   ]
+ [0.174 0.012 0.021 0.043 0.022 0.043 0.009 0.735 0.12  0.011 0.33  0.042
+  0.148 0.113]
+ [0.069 0.002 0.008 0.034 0.12  0.175 0.    0.12  0.577 0.002 0.195 0.152
+  0.057 0.338]
+ [0.057 0.052 0.138 0.143 0.177 0.039 0.141 0.011 0.002 0.153 0.057 0.16
+  0.047 0.007]
+ [0.147 0.063 0.136 0.07  0.092 0.077 0.077 0.33  0.195 0.057 0.508 0.061
+  0.123 0.109]
+ [0.105 0.124 0.207 0.146 0.095 0.069 0.132 0.042 0.152 0.16  0.061 0.689
+  0.086 0.176]
+ [0.15  0.061 0.089 0.097 0.051 0.027 0.065 0.148 0.057 0.047 0.123 0.086
+  0.871 0.107]
+ [0.102 0.007 0.025 0.004 0.118 0.204 0.    0.113 0.338 0.007 0.109 0.176
+  0.107 0.539]]
+
+ ladder_16
+diag [0.571309 0.428064 0.848723 0.342853 0.826232 0.103594 0.160509 0.676671
+ 0.256384 0.889101 0.271164 0.513799 0.49985  0.703948 0.720995 0.186803]
+zero counts [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+magnitudes
+[[0.571 0.005 0.186 0.086 0.032 0.004 0.035 0.331 0.002 0.128 0.004 0.1
+  0.018 0.053 0.247 0.007]
+ [0.005 0.428 0.01  0.063 0.146 0.131 0.065 0.003 0.274 0.04  0.272 0.093
+  0.105 0.032 0.041 0.158]
+ [0.186 0.01  0.849 0.098 0.009 0.008 0.048 0.209 0.004 0.053 0.007 0.153
+  0.046 0.018 0.093 0.014]
+ [0.086 0.063 0.098 0.343 0.054 0.033 0.154 0.098 0.025 0.172 0.047 0.116
+  0.063 0.31  0.114 0.089]
+ [0.032 0.146 0.009 0.054 0.826 0.066 0.144 0.019 0.088 0.009 0.12  0.041
+  0.153 0.065 0.038 0.2  ]
+ [0.004 0.131 0.008 0.033 0.066 0.104 0.062 0.003 0.145 0.031 0.138 0.071
+  0.067 0.036 0.031 0.115]
+ [0.035 0.065 0.048 0.154 0.144 0.062 0.161 0.04  0.035 0.031 0.033 0.141
+  0.179 0.03  0.096 0.109]
+ [0.331 0.003 0.209 0.098 0.019 0.003 0.04  0.677 0.001 0.077 0.002 0.162
+  0.025 0.041 0.139 0.005]
+ [0.002 0.274 0.004 0.025 0.088 0.145 0.035 0.001 0.256 0.015 0.257 0.035
+  0.02  0.029 0.015 0.126]
+ [0.128 0.04  0.053 0.172 0.009 0.031 0.031 0.077 0.015 0.889 0.027 0.101
+  0.043 0.074 0.137 0.054]
+ [0.004 0.272 0.007 0.047 0.12  0.138 0.033 0.002 0.257 0.027 0.271 0.063
+  0.07  0.026 0.028 0.097]
+ [0.1   0.093 0.153 0.116 0.041 0.071 0.141 0.162 0.035 0.101 0.063 0.514
+  0.246 0.078 0.209 0.123]
+ [0.018 0.105 0.046 0.063 0.153 0.067 0.179 0.025 0.02  0.043 0.07  0.246
+  0.5   0.287 0.133 0.067]
+ [0.053 0.032 0.018 0.31  0.065 0.036 0.03  0.041 0.029 0.074 0.026 0.078
+  0.287 0.704 0.04  0.055]
+ [0.247 0.041 0.093 0.114 0.038 0.031 0.096 0.139 0.015 0.137 0.028 0.209
+  0.133 0.04  0.721 0.054]
+ [0.007 0.158 0.014 0.089 0.2   0.115 0.109 0.005 0.126 0.054 0.097 0.123
+  0.067 0.055 0.054 0.187]]
+
+ irregular_16
+diag [0.520461 0.622635 0.758278 0.498834 0.223441 0.889321 0.704236 0.186006
+ 0.340273 0.67597  0.179797 0.514087 0.680839 0.73955  0.128675 0.337597]
+zero counts [0 0 0 0 0 0 0 1 0 0 1 0 0 0 2 0]
+magnitudes
+[[0.52  0.018 0.013 0.02  0.038 0.062 0.061 0.02  0.178 0.099 0.02  0.055
+  0.109 0.013 0.213 0.37 ]
+ [0.018 0.623 0.059 0.191 0.074 0.044 0.111 0.209 0.09  0.174 0.205 0.139
+  0.156 0.085 0.002 0.009]
+ [0.013 0.059 0.758 0.054 0.075 0.036 0.041 0.032 0.113 0.203 0.032 0.208
+  0.158 0.163 0.093 0.094]
+ [0.02  0.191 0.054 0.499 0.117 0.124 0.325 0.096 0.017 0.147 0.095 0.102
+  0.071 0.135 0.012 0.037]
+ [0.038 0.074 0.075 0.117 0.223 0.026 0.047 0.032 0.181 0.111 0.031 0.187
+  0.203 0.111 0.049 0.082]
+ [0.062 0.044 0.036 0.124 0.026 0.889 0.063 0.114 0.158 0.026 0.112 0.077
+  0.03  0.058 0.026 0.097]
+ [0.061 0.111 0.041 0.325 0.047 0.063 0.704 0.136 0.128 0.009 0.133 0.069
+  0.073 0.121 0.004 0.031]
+ [0.02  0.209 0.032 0.096 0.032 0.114 0.136 0.186 0.037 0.097 0.183 0.106
+  0.062 0.073 0.    0.016]
+ [0.178 0.09  0.113 0.017 0.181 0.158 0.128 0.037 0.34  0.066 0.037 0.076
+  0.215 0.152 0.028 0.121]
+ [0.099 0.174 0.203 0.147 0.111 0.026 0.009 0.097 0.066 0.676 0.095 0.202
+  0.13  0.112 0.063 0.079]
+ [0.02  0.205 0.032 0.095 0.031 0.112 0.133 0.183 0.037 0.095 0.18  0.104
+  0.061 0.071 0.    0.016]
+ [0.055 0.139 0.208 0.102 0.187 0.077 0.069 0.106 0.076 0.202 0.104 0.514
+  0.075 0.229 0.02  0.031]
+ [0.109 0.156 0.158 0.071 0.203 0.03  0.073 0.062 0.215 0.13  0.061 0.075
+  0.681 0.035 0.137 0.087]
+ [0.013 0.085 0.163 0.135 0.111 0.058 0.121 0.073 0.152 0.112 0.071 0.229
+  0.035 0.74  0.078 0.066]
+ [0.213 0.002 0.093 0.012 0.049 0.026 0.004 0.    0.028 0.063 0.    0.02
+  0.137 0.078 0.129 0.158]
+ [0.37  0.009 0.094 0.037 0.082 0.097 0.031 0.016 0.121 0.079 0.016 0.031
+  0.087 0.066 0.158 0.338]]
+
+ irregular_18
+diag [0.49702  0.8186   0.410529 0.425457 0.631548 0.316028 0.748797 0.300372
+ 0.694115 0.661959 0.356872 0.273059 0.372824 0.869555 0.246665 0.498662
+ 0.55979  0.318148]
+zero counts [ 1  1  1  1  1  1  1  5  1  1  2 14  1  1  1  1  1  1]
+magnitudes
+[[0.497 0.108 0.158 0.002 0.018 0.13  0.071 0.314 0.002 0.103 0.015 0.
+  0.214 0.052 0.034 0.001 0.167 0.064]
+ [0.108 0.819 0.008 0.035 0.111 0.136 0.08  0.064 0.056 0.062 0.021 0.
+  0.135 0.071 0.154 0.012 0.175 0.095]
+ [0.158 0.008 0.411 0.05  0.035 0.108 0.078 0.073 0.08  0.354 0.007 0.
+  0.092 0.111 0.03  0.018 0.109 0.157]
+ [0.002 0.035 0.05  0.425 0.022 0.036 0.041 0.    0.295 0.07  0.031 0.225
+  0.001 0.049 0.024 0.285 0.054 0.085]
+ [0.018 0.111 0.035 0.022 0.632 0.035 0.123 0.026 0.035 0.017 0.348 0.
+  0.057 0.049 0.255 0.008 0.083 0.035]
+ [0.13  0.136 0.108 0.036 0.035 0.316 0.122 0.032 0.059 0.198 0.032 0.
+  0.147 0.091 0.084 0.013 0.237 0.116]
+ [0.071 0.08  0.078 0.041 0.123 0.122 0.749 0.042 0.066 0.067 0.233 0.
+  0.063 0.072 0.179 0.015 0.112 0.141]
+ [0.314 0.064 0.073 0.    0.026 0.032 0.042 0.3   0.    0.054 0.    0.
+  0.289 0.028 0.034 0.    0.06  0.083]
+ [0.002 0.056 0.08  0.295 0.035 0.059 0.066 0.    0.694 0.112 0.05  0.142
+  0.001 0.079 0.039 0.195 0.087 0.136]
+ [0.103 0.062 0.354 0.07  0.017 0.198 0.067 0.054 0.112 0.662 0.026 0.
+  0.024 0.111 0.017 0.025 0.05  0.051]
+ [0.015 0.021 0.007 0.031 0.348 0.032 0.233 0.    0.05  0.026 0.357 0.
+  0.008 0.069 0.168 0.011 0.067 0.104]
+ [0.    0.    0.    0.225 0.    0.    0.    0.    0.142 0.    0.    0.273
+  0.    0.    0.    0.357 0.    0.   ]
+ [0.214 0.135 0.092 0.001 0.057 0.147 0.063 0.289 0.001 0.024 0.008 0.
+  0.373 0.014 0.099 0.    0.127 0.149]
+ [0.052 0.071 0.111 0.049 0.049 0.091 0.072 0.028 0.079 0.111 0.069 0.
+  0.014 0.87  0.052 0.018 0.111 0.188]
+ [0.034 0.154 0.03  0.024 0.255 0.084 0.179 0.034 0.039 0.017 0.168 0.
+  0.099 0.052 0.247 0.009 0.106 0.018]
+ [0.001 0.012 0.018 0.285 0.008 0.013 0.015 0.    0.195 0.025 0.011 0.357
+  0.    0.018 0.009 0.499 0.019 0.03 ]
+ [0.167 0.175 0.109 0.054 0.083 0.237 0.112 0.06  0.087 0.05  0.067 0.
+  0.127 0.111 0.106 0.019 0.56  0.199]
+ [0.064 0.095 0.157 0.085 0.035 0.116 0.141 0.083 0.136 0.051 0.104 0.
+  0.149 0.188 0.018 0.03  0.199 0.318]]
+
+**Analyzing circuit optimization**
+
+I'm looking into optimizing circuits with various gate counts and angles. I'm considering adding rank-aware greedy matching routines, which could help recover hidden gates if the circuits aren’t too deep. The goal is to minimize diagonal entropy while constructing an inverse circuit using noncommutative methodologies.
+
+I'll focus on fitting each new gate while jointly optimizing all gates. The strategy involves selecting edges to decrease projector distance effectively. If done accurately, I think I can recover a precise sparse circuit.
+**Exploring gate insertion**
+
+I'm considering how inserting a gate at any position in a topology search could fit the planted structure. It seems like Orthogonal Matching Pursuit (OMP) could yield over 40 gates, allowing for gradual pruning or substitution. I should also inspect the target sparsity to ensure that the overall design remains efficient. This could help in managing the complexity while trying to achieve optimal configurations. Let’s see if these methods align with the goals effectively!
+**Exploring global factorization techniques**
+
+I'm looking into improving global factorization with "lightcone rank constraints." Each candidate rotation comes from the ratio cluster and diagonal eigenvectors. It seems using zeros greedily might work on pairs unrelated to original gates, which could help disentangle this shortcut circuit. I should test this approach and implement sparse_peel.py with an initial beam size of about 20. I’ll also evaluate gain against zero counts and purity, while writing within a 5000-character limit.
+  ✓ Inspect gate conventions and instance budgets
+  → Develop hardware-local circuit synthesis
+  • Optimize circuits within hard budgets
+  • Validate and write final artifact
+**Planning shell task**
+
+I’m noting the time: it’s 10:53, and my initial read was around 10:47. We’ve got about 47 minutes to work with here, so I really need to avoid wasting time! My next step is to focus on ensuring the tool reads correctly in the shell. It’s essential to keep things moving smoothly without distractions. Alright, let’s get going and make the best use of this time!
+**Evaluating routing strategies**
+
+I’m thinking about greedy roots and how they can help minimize future routing, especially in low graph degree situations. There’s this concept with beams keeping their widths, around 32, which makes me wonder about the states and possibly duplicates in the last layer. It seems like I’ll need to start with some initial computation to test this out. This all seems very technical, but I want to grasp it fully before moving on.
+codex
+I found exact low-rank structure and am testing local elimination.
+
+**Evaluating compiler strategies**
+
+At 10:55, I’m realizing we have plenty of time—about 40 minutes. I need to consider alternative plans if the local compiler exceeds budget. Maybe I could combine the local compiler gate outputs with numerical minimization to reduce count and depth. Local exact circuits could have 45 gates with a depth of 28. I wonder if I can exploit redundant gates for compression to find shorter solutions. I need to check on run latency too.
+**Evaluating project updates**
+
+It’s great that it’s only taking 13 minutes! I need to provide a reasonable update soon regarding my progress since the last commentary. I’ve got some accurate data on our budget, and it looks like my current approach of reducing gate count and depth is working to optimize things. I need to address the output to ensure we’re not going over budget, though. I’m keeping an eye on this to keep everything on track!
+codex
+Exact circuits work; I’m reducing gate count and depth.
+
+A local subspace-elimination compiler produces exact circuits; structural peeling and circuit optimization are needed to meet the tighter resource limits.
+  ✓ Inspect gate conventions and instance budgets
+  ✓ Develop hardware-local circuit synthesis
+  → Optimize circuits within hard budgets
+  • Validate and write final artifact
+**Evaluating candidate viability**
+
+I'm thinking about how to assess candidate viability scores and the count of possible edges. This could help in ranking states to avoid dead ends. It's interesting to consider how these metrics can be used to improve decision-making in various scenarios. I'm eager to explore this further and see what insights I can uncover. Let's keep refining this approach for better clarity and effectiveness!
+**Evaluating scorematroid simplification**
+
+I'm thinking about scorematroid simplification in terms of defining a "minimum number of gates lower bound." I need to consider summing each mode's light cone rank distance and exploring entanglement across graph cuts and number mixing gates. There’s a possibility that gate fitting could uncover plant sequences from strong structures after peeling frames. I should also take a closer look at viewing minor logs.
+**Analyzing graph states**
+
+I’m thinking about a calculation involving states and edges. For ladder 14, recovering 11 steps in rank matroid 100, it seems there might be an issue with all hardware edges being blocked due to existing P zeros from a false mixer diagnostic. I'm curious if a graph can have an edge candidate allowed but a zero candidate because of all wedge 2 determinants. Minor 2 may resolve this. It seems like I need to do some printing!
+**Refining query methods**
+
+I’m thinking about checking the audit file's modification time and establishing a strong method for identifying target phases. I want to consider angles like 8, 13 or 7, 12, ensuring I keep certain phase angles reasonable. The aim is to limit depth and manage weights effectively while ensuring the candidate pruning is optimal. I'll work on sorting through states while maintaining an efficient beam search, aiming to minimize unnecessary constraints and maximize useful options.
+**Exploring diagonalization**
+
+I need to allow for "matching diagonalization" and isolate two blocks as candidates from diagonal eigenvalues. It's important to consider that there’s no direct diagonal candidate, as that could lead to getting stuck before reaching the final diagonal. I’ll have to carefully evaluate the ratios of the columns to ensure everything aligns properly. Balancing these factors will help in moving forward effectively without falling into traps during the process.
+codex
+Structural searches are running; I’m also testing compact exact compilations.
+
+**Checking deadlines and progress**
+
+I have a deadline coming up at 11:49, which gives me around 34 minutes left. I’ve already spent about 25 minutes, so I’m halfway through my time. I wonder if I have 15 processes in action right now? Looking at the job numbers, it seems that one job is finished, another is running, and I might have one or two more done. I need to check if the outputs from the strong adaptors are ready.
+**Assessing the situation**
+
+I have just 30 minutes remaining, and I'm feeling a bit anxious since I haven't managed to make progress yet. I need to stop going in circles with my search and focus more efficiently. It feels hopeless, but maybe exploring the beam generic angles could be the solution? I'll also need to check the logs to see if there's anything useful there. It's a crucial moment to adjust my approach.
+**Managing project efficiency**
+
+I'm noticing that it took 4 minutes to think and write, but I have only 26 minutes left. I really need to get progress reports for what I've actually solved. There are many jobs to finish, and I should control the process carefully. We shouldn't produce lots of unrelated support files—only the final solution matters, which should be about 2 MiB in size. User sees support files as fine, so maybe combining things might help in the end?
+codex
+Some circuits are close to budget. I’m focusing on sparse layered optimization.
+
+**Implementing template**
+
+I'm focusing on using Pzeros and paramfit to create a final template from a full graph layer sparse. The goal is to implement this template quickly, aiming for no more than 150 lines. I plan to enumerate H cycles and graph colorings, along with full 6-word filters. If everything goes correctly, this might all resolve in just seconds! Let’s dive in and see if I can make this happen.
+**Planning CPU tasks**
+
+Great, it's time to collect and validate tasks related to case 1 because I need to free up CPU resources and focus on other priorities. I noticed that line 23 in `brick1_70.log` might have some data worth checking—it mentions a seed of 72, a count of 36, and a depth of 11. I should look into that to ensure everything is on track!
+codex
+One instance now meets both budgets. I’ll validate it and continue optimizing the others.
+
+**Optimizing task plan**
+
+I've got about 6 minutes and 50 seconds before 11:47. I'm thinking about the need to complete the task plan optimization when I stop. This is in progress now. I can run the public simulator for full validation when I finish collecting the data. I need to check if the report is valid, and I'll need the full metrics file, keeping the max output to 1000. Let's make sure everything is in order!
+codex
+Two instances are certified, one from each hardware family.
+
+Two instances now pass accuracy and both resource budgets. Final searches continue for the remaining two while the submission is assembled and checked.
+  ✓ Inspect gate conventions and instance budgets
+  ✓ Develop hardware-local circuit synthesis
+  → Optimize circuits within hard budgets
+  • Validate and write final artifact
+codex
+I’m freezing the best circuits and running final validation.
+
+The search produced resource-compliant circuits for two instances. Finalizing the best accurate candidates for all four and checking the submission artifact.
+  ✓ Inspect gate conventions and instance budgets
+  ✓ Develop hardware-local circuit synthesis
+  ✓ Optimize circuits within hard budgets
+  → Validate and write final artifact
