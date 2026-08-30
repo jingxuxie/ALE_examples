@@ -1,0 +1,1314 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a049a4-230f-7762-b8a4-285d1dfc72c4
+--------
+user
+You are a fresh independent participant. Read TASK.md in the current directory and solve the task. Write your final submission and any supporting files into /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/attempts/v_2. You have at most 3600 seconds (one hour) of wall-clock time. You may finish sooner when satisfied. Only the participant assets and this initially empty output directory are available; the participant directory is read-only. Do not access sibling directories, evaluator files, other attempts, or outside services. Do not spawn other model sessions. Use the provided executable interface and resource limits. Validate your work using the public assets, and leave the requested artifact even if the full target seems difficult. The final reply should briefly identify what was submitted.
+codex
+I’ll read the task and inspect the provided assets first.
+
+exec
+/bin/bash -lc 'pwd && ls -la && cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/participant
+exec
+/bin/bash -c 'pwd; ls -la; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/participant
+exec
+/usr/bin/sh -c '/bin/cat /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/participant/TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/participant
+ succeeded in 45048ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/participant
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 10:24 .
+drwx------ 4 xuandong xuandong   80 Aug 28 11:35 ..
+-rw-rw-r-- 1 xuandong xuandong 2697 Aug 28 11:27 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:24 baseline
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:24 input
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 28 10:26 workspace
+# Robust cat-state control with static Z drift
+
+Design one open-loop pulse sequence that prepares
+`GHZ+ = (|000000000000> + |111111111111>)/sqrt(2)` from `|+>^12`,
+despite static calibration uncertainty and residual local Z precession.
+Submit a **control witness**, not a
+simulator, fit, proof, or claimed fidelity.
+
+The device is a 12-cycle (one isolated heavy-hex plaquette). Use exactly
+24 alternating bond-matching layers with fixed nominal `exp(+i*pi*ZZ/4)`
+gates, each followed by two-group `Rx` kicks and an uncontrollable static-Z
+drift interval. Each site's drift angle is independently in **[-0.01,0.01]
+radians per layer**, fixed throughout the sequence. Only the 48 kick angles
+are programmable; each must lie in `[-pi, pi]`. This explicitly generalizes the
+all-bond/global-kick protocol of arXiv:2306.14887; see `input/protocol.md`
+for the schedule, symmetry rationale, and precise uncertainty model.
+
+## Assets and interface
+
+- `input/problem.json`: graph, groups, bounds, target, and calibration ranges.
+- `input/protocol.md`: exact mathematical contract and scoring rules.
+- `input/training_scenarios.json`: 31 public examples, not the full test set.
+- `workspace/simulator.py`: exact complex128 forward simulation and fidelity.
+- `baseline/run_baseline.py`: runnable, deliberately nominal-only weak baseline.
+- `baseline/pulses.json`: precomputed weak baseline and optional warm start.
+
+From the participant directory:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python baseline/run_baseline.py --output submission
+python workspace/score_public.py --submission submission
+```
+
+Submit a directory containing `pulses.json`, with exactly
+`{"schema_version": 1, "angles": [[a0,b0], ..., [a23,b23]]}`. Angles are radians.
+No adaptive controls, extra gates, measurements, postselection, adjustable ZZ
+strengths, or scenario-specific sequences are permitted.
+
+## Objective and resources
+
+Pass iff the exact GHZ fidelity is **at least 0.95 in every one of 223 frozen test
+scenarios** and the artifact is valid. The score is the minimum fidelity,
+not the mean. Tests include nominal/axis/corner calibrations, structured
+boundary stress, and held-out local bond/Z-field disorder. The public family/ranges
+are binding; passing is a finite-suite test, not a certificate for the continuum.
+
+Use Python/NumPy/SciPy or other installed local tools; no GPU, network, or
+external data are needed. Keep searches to at most four CPU threads and
+about 2 GiB of working memory. Exact checking uses only 4096 amplitudes per
+scenario. The trusted harness runs
+`python evaluator/evaluate.py --submission DIRECTORY --output JSONPATH`;
+the evaluator and its private assets are not participant inputs.
+
+ succeeded in 31044ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/participant
+total 20
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 10:24 .
+drwx------ 4 xuandong xuandong   80 Aug 28 11:35 ..
+-rw-rw-r-- 1 xuandong xuandong 2697 Aug 28 11:27 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:24 baseline
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:24 input
+drwxrwxr-x 3 xuandong xuandong 4096 Aug 28 10:26 workspace
+# Robust cat-state control with static Z drift
+
+Design one open-loop pulse sequence that prepares
+`GHZ+ = (|000000000000> + |111111111111>)/sqrt(2)` from `|+>^12`,
+despite static calibration uncertainty and residual local Z precession.
+Submit a **control witness**, not a
+simulator, fit, proof, or claimed fidelity.
+
+The device is a 12-cycle (one isolated heavy-hex plaquette). Use exactly
+24 alternating bond-matching layers with fixed nominal `exp(+i*pi*ZZ/4)`
+gates, each followed by two-group `Rx` kicks and an uncontrollable static-Z
+drift interval. Each site's drift angle is independently in **[-0.01,0.01]
+radians per layer**, fixed throughout the sequence. Only the 48 kick angles
+are programmable; each must lie in `[-pi, pi]`. This explicitly generalizes the
+all-bond/global-kick protocol of arXiv:2306.14887; see `input/protocol.md`
+for the schedule, symmetry rationale, and precise uncertainty model.
+
+## Assets and interface
+
+- `input/problem.json`: graph, groups, bounds, target, and calibration ranges.
+- `input/protocol.md`: exact mathematical contract and scoring rules.
+- `input/training_scenarios.json`: 31 public examples, not the full test set.
+- `workspace/simulator.py`: exact complex128 forward simulation and fidelity.
+- `baseline/run_baseline.py`: runnable, deliberately nominal-only weak baseline.
+- `baseline/pulses.json`: precomputed weak baseline and optional warm start.
+
+From the participant directory:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python baseline/run_baseline.py --output submission
+python workspace/score_public.py --submission submission
+```
+
+Submit a directory containing `pulses.json`, with exactly
+`{"schema_version": 1, "angles": [[a0,b0], ..., [a23,b23]]}`. Angles are radians.
+No adaptive controls, extra gates, measurements, postselection, adjustable ZZ
+strengths, or scenario-specific sequences are permitted.
+
+## Objective and resources
+
+Pass iff the exact GHZ fidelity is **at least 0.95 in every one of 223 frozen test
+scenarios** and the artifact is valid. The score is the minimum fidelity,
+not the mean. Tests include nominal/axis/corner calibrations, structured
+boundary stress, and held-out local bond/Z-field disorder. The public family/ranges
+are binding; passing is a finite-suite test, not a certificate for the continuum.
+
+Use Python/NumPy/SciPy or other installed local tools; no GPU, network, or
+external data are needed. Keep searches to at most four CPU threads and
+about 2 GiB of working memory. Exact checking uses only 4096 amplitudes per
+scenario. The trusted harness runs
+`python evaluator/evaluate.py --submission DIRECTORY --output JSONPATH`;
+the evaluator and its private assets are not participant inputs.
+
+exec
+/bin/bash -c 'echo ready' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/attempts/v_2
+exec
+/bin/bash -c 'echo ready; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/participant
+exec
+/bin/bash -c "find . -name AGENTS.md -print; cat input/protocol.md; cat input/problem.json; sed -n '1,260p' workspace/simulator.py; cat baseline/run_baseline.py; cat workspace/score_public.py; cat baseline/pulses.json; ls -l input workspace" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/participant
+  → Inspect simulator and uncertainty contract
+  • Develop robust pulse optimization
+  • Validate and submit control witness
+ succeeded in 60418ms:
+# Robust cat-state control with static Z drift
+
+Design one open-loop pulse sequence that prepares
+`GHZ+ = (|000000000000> + |111111111111>)/sqrt(2)` from `|+>^12`,
+despite static calibration uncertainty and residual local Z precession.
+Submit a **control witness**, not a
+simulator, fit, proof, or claimed fidelity.
+
+The device is a 12-cycle (one isolated heavy-hex plaquette). Use exactly
+24 alternating bond-matching layers with fixed nominal `exp(+i*pi*ZZ/4)`
+gates, each followed by two-group `Rx` kicks and an uncontrollable static-Z
+drift interval. Each site's drift angle is independently in **[-0.01,0.01]
+radians per layer**, fixed throughout the sequence. Only the 48 kick angles
+are programmable; each must lie in `[-pi, pi]`. This explicitly generalizes the
+all-bond/global-kick protocol of arXiv:2306.14887; see `input/protocol.md`
+for the schedule, symmetry rationale, and precise uncertainty model.
+
+## Assets and interface
+
+- `input/problem.json`: graph, groups, bounds, target, and calibration ranges.
+- `input/protocol.md`: exact mathematical contract and scoring rules.
+- `input/training_scenarios.json`: 31 public examples, not the full test set.
+- `workspace/simulator.py`: exact complex128 forward simulation and fidelity.
+- `baseline/run_baseline.py`: runnable, deliberately nominal-only weak baseline.
+- `baseline/pulses.json`: precomputed weak baseline and optional warm start.
+
+From the participant directory:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python baseline/run_baseline.py --output submission
+python workspace/score_public.py --submission submission
+```
+
+Submit a directory containing `pulses.json`, with exactly
+`{"schema_version": 1, "angles": [[a0,b0], ..., [a23,b23]]}`. Angles are radians.
+No adaptive controls, extra gates, measurements, postselection, adjustable ZZ
+strengths, or scenario-specific sequences are permitted.
+
+## Objective and resources
+
+Pass iff the exact GHZ fidelity is **at least 0.95 in every one of 223 frozen test
+scenarios** and the artifact is valid. The score is the minimum fidelity,
+not the mean. Tests include nominal/axis/corner calibrations, structured
+boundary stress, and held-out local bond/Z-field disorder. The public family/ranges
+are binding; passing is a finite-suite test, not a certificate for the continuum.
+
+Use Python/NumPy/SciPy or other installed local tools; no GPU, network, or
+external data are needed. Keep searches to at most four CPU threads and
+about 2 GiB of working memory. Exact checking uses only 4096 amplitudes per
+scenario. The trusted harness runs
+`python evaluator/evaluate.py --submission DIRECTORY --output JSONPATH`;
+the evaluator and its private assets are not participant inputs.
+
+**Evaluating execution duration**
+
+I’m noticing that we might have actually lost around four minutes. I'm questioning if all the execution waits are due to the sleep time exceeding 120 seconds from the security wrapper checks. It seems like stopping duplicates once a return is confirmed could help streamline things. I’m curious whether optimizing this process might improve our overall efficiency. There's definitely something here to explore further!
+ succeeded in 52299ms:
+# Binding physical and submission contract — generation 1
+
+## State, graph, controls, and chronology
+
+Sites `0,...,11` form one isolated 12-cycle heavy-hex plaquette; edge `j`
+joins `j` to `(j+1) mod 12`. Site zero is the least significant basis bit.
+The kick groups are `A={0,1,3,6,8,11}` and `B={2,4,5,7,9,10}`. Start in
+`|+>^12` and target the fixed-phase state
+`GHZ+ = (|0^12> + |1^12>)/sqrt(2)`.
+
+For zero-based layers `l=0,...,23`, apply **D_l, then K_l, then E**:
+
+```
+D_l(s) = product_{j mod 2 = l mod 2}
+         exp(+i (pi/4) [1 + c(s) + d_j(s)] Z_j Z_(j+1))
+K_l(s) = product_v exp(-i theta[l,g(v)] [1 + e_g(v)(s)] X_v / 2)
+E(s)   = product_v exp(-i delta_v(s) Z_v / 2)
+|psi_s> = E(s) K_23(s) D_23(s) ... E(s) K_0(s) D_0(s) |+>^12
+F_s = |(<0^12| + <1^12|) psi_s / sqrt(2)|^2
+```
+
+Only the 48 `theta` values are controls, each in `[-pi,pi]`. Zero kicks do
+not skip ZZ or drift. The six ZZ gates in each matching, matching schedule,
+and nominal strength are fixed. The drift interval occurs after **every**
+layer, including the last. No final correction, GHZ phase fitting,
+measurement, postselection, adaptive or scenario-specific control is allowed.
+
+## Public uncertainty family
+
+All parameters are independent and static for the entire sequence:
+
+- Group gain errors `e_A,e_B in [-0.025,0.025]`.
+- Common ZZ gain error `c in [-0.015,0.015]`.
+- Each edge residual gain `d_j in [-0.005,0.005]`.
+- Each site drift `delta_v in [-0.01,0.01]` **radians per layer**.
+
+The first three are fractional multiplicative calibration errors; delta
+is an actual Z-rotation angle, not a fractional error or kick control. The
+27 coordinates define the binding family. Common ZZ plus local residual
+can reach +/-2% total bond error. Both group kicks may coincide while their
+errors differ. There is no shot noise or decoherence.
+
+`E` defines a lumped fixed-duration residual-precession interval per layer,
+not simultaneous detuning during the idealized RX/ZZ gates. If the interval
+has duration tau, `delta_v = Delta_v * tau` for angular detuning Delta_v;
+no hardware-specific tau is assumed. Scenarios use the keys `gain_a`,
+`gain_b`, `zz_common`, `zz_local` (12 values), and
+`z_drift_radians_per_layer` (12 values). The public simulator treats an
+omitted drift field as zero for backward-compatible nominal calls; all
+published and trusted scenarios specify it explicitly.
+
+## Frozen objective
+
+Pass iff `min_s F_s >= 0.95` over **all 223 frozen scenarios**. No averaging,
+rounding tolerance, phase optimization, or normalization can hide a failure.
+The score is that minimum, not a certification of the continuous family.
+
+The suite contains 63 zero-drift calibration cases; 16 nominal-calibration
+structured/local drift cases; 64 joint coherent corner/stress cases; 16
+adversarial joint-error cases; and 64 held-out local-disorder cases. It
+includes uniform, alternating, group-correlated, half-ring, and localized
+fields, together with mixtures of calibration errors. All cases stay within
+the published family. The 31 public examples are not the whole suite.
+
+The checker uses independent complex128 gate contractions with 4096
+amplitudes, no truncation or sampling. Norm is checked in every scenario.
+Global-X parity is checked **only for zero drift**: nonzero Z drift breaks
+that symmetry and its resulting parity change is not a checker error.
+
+## Source-inspired generalization
+
+Tindall et al., *Efficient tensor network simulation of IBM's Eagle kicked
+Ising experiment*, arXiv:2306.14887v3, Eq. (1), supplies the fixed
+`exp(+i*pi*ZZ/4)` and transverse-RX gate convention. This task deliberately
+uses an isolated plaquette, alternating bond matchings, two kick groups,
+and residual local Z precession. It is a control-design generalization,
+not a reproduction of the original experiment. The matching schedule
+avoids an extra sublattice-parity obstruction of the simultaneous all-bond
+Clifford layer on this ring. The specified input must not be replaced by
+`|0>^12`.
+
+## Artifact and CLI
+
+Submit `pulses.json`: a UTF-8 JSON object with exactly `schema_version`
+(integer 1) and `angles` (24 lists of two finite numbers). The angle
+bounds are strict. Booleans, strings, nulls, duplicate keys, extra fields,
+NaN/infinity, wrong shapes, symlink artifacts, and files over 65536 bytes
+are invalid. Only JSON is read; submission code is never executed.
+
+The trusted harness runs:
+`python evaluator/evaluate.py --submission DIRECTORY --output JSONPATH`.
+Both valid and invalid results include `valid`, `passed`, `score`,
+`core_score`, `worst_family_score`, `resource_score`, `runtime`,
+`runtime_seconds`, and `reason`. Core/worst-family scores are their minimum
+fidelities, or zero for invalid artifacts. Core comprises 31 cases;
+worst-family comprises 104; held-out comprises 88. The overall score still
+requires every case, including held-out cases, to pass.
+
+`resource_score` is 1 for a valid fixed-size artifact completing exact
+checking, otherwise 0. It is not a timing bonus. Runtime is checker wall
+time, not search time. Valid results also include family/subfamily minima,
+hashes, norm errors, and the zero-drift parity-check count. Valid artifacts
+return exit code 0 even below target; malformed artifacts return code 2
+and zero scores. Trusted checker failures are not participant failures.
+Use a separate result path, not the submitted artifact itself.
+{
+  "schema_version": 1,
+  "n_qubits": 12,
+  "depth": 24,
+  "edges": [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,0]],
+  "matching_edge_indices": [[0,2,4,6,8,10],[1,3,5,7,9,11]],
+  "group_by_site": [0,0,1,0,1,1,0,1,0,1,1,0],
+  "initial_state": "plus_product",
+  "target_state": "GHZ_plus",
+  "layer_order": "ZZ_matching_then_RX_then_static_RZ",
+  "ratchet_generation": 1,
+  "matching_at_layer": "zero_based_layer_mod_2",
+  "zz_exponent_sign": 1,
+  "zz_exponent_nominal": 0.7853981633974483,
+  "rx_exponent": "-i * actual_angle * X / 2",
+  "angle_bounds": [-3.141592653589793,3.141592653589793],
+  "uncertainty": {
+    "gain_a": [-0.025,0.025],
+    "gain_b": [-0.025,0.025],
+    "zz_common": [-0.015,0.015],
+    "zz_local_each_edge": [-0.005,0.005],
+    "actual_angle": "angles[layer][group] * (1 + gain_group)",
+    "actual_zz_exponent": "pi/4 * (1 + zz_common + zz_local[edge])",
+    "time_dependence": "static for the entire sequence",
+    "z_drift_radians_per_layer_each_site": [-0.01,0.01],
+    "z_drift_exponent": "-i * z_drift_radians_per_layer[site] * Z / 2",
+    "z_drift_placement": "after every layer's RX kicks, including the final layer",
+    "z_drift_model": "fixed-duration lumped residual local precession interval per layer"
+  },
+  "pass_min_fidelity": 0.95,
+  "artifact": "pulses.json",
+  "maximum_artifact_bytes": 65536
+}
+"""Exact complex128 state vectors; site zero is the least significant bit."""
+
+import json
+from pathlib import Path
+
+import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+PROBLEM = json.loads((ROOT / "input" / "problem.json").read_text())
+N_QUBITS = PROBLEM["n_qubits"]
+DEPTH = PROBLEM["depth"]
+GROUPS = np.asarray(PROBLEM["group_by_site"])
+EDGES = PROBLEM["edges"]
+DIMENSION = 1 << N_QUBITS
+BASIS = np.arange(DIMENSION)
+SITE_SIGNS = np.asarray([1 - 2 * ((BASIS >> site) & 1) for site in range(N_QUBITS)])
+EDGE_SIGNS = np.asarray([
+    1 - 2 * (((BASIS >> first) ^ (BASIS >> second)) & 1)
+    for first, second in EDGES
+])
+
+
+def scenario(gain_a=0.0, gain_b=0.0, zz_common=0.0, zz_local=None, z_drift_radians_per_layer=None):
+    return {"gain_a": float(gain_a), "gain_b": float(gain_b),
+            "zz_common": float(zz_common),
+            "zz_local": [0.0] * len(EDGES) if zz_local is None else list(zz_local),
+            "z_drift_radians_per_layer": [0.0] * N_QUBITS if z_drift_radians_per_layer is None
+            else list(z_drift_radians_per_layer)}
+
+
+def simulate(angles, scenarios=None):
+    """Return shape (number of scenarios, 4096), with no truncation."""
+    angles = np.asarray(angles, dtype=np.float64)
+    if angles.shape != (DEPTH, 2) or not np.all(np.isfinite(angles)):
+        raise ValueError("angles must be a finite (24, 2) array")
+    if np.any(np.abs(angles) > np.pi):
+        raise ValueError("angles outside [-pi, pi]")
+    scenarios = [scenario()] if scenarios is None else list(scenarios)
+    if not scenarios:
+        raise ValueError("at least one scenario is required")
+    count = len(scenarios)
+    gains = 1 + np.asarray([[entry["gain_a"], entry["gain_b"]] for entry in scenarios])
+    edge_gains = 1 + np.asarray([
+        np.asarray(entry["zz_local"]) + entry["zz_common"] for entry in scenarios
+    ])
+    phases = [np.exp(1j * np.pi / 4 * (edge_gains[:, matching::2] @ EDGE_SIGNS[matching::2]))
+              for matching in (0, 1)]
+    detunings = np.asarray([entry.get("z_drift_radians_per_layer", [0.0] * N_QUBITS)
+                           for entry in scenarios], dtype=np.float64)
+    if detunings.shape != (count, N_QUBITS) or not np.all(np.isfinite(detunings)):
+        raise ValueError("each scenario needs 12 finite static Z drift angles")
+    if np.any(np.abs(detunings) > 0.01):
+        raise ValueError("static Z drift outside [-0.01, 0.01]")
+    drift_phases = np.exp(-0.5j * (detunings @ SITE_SIGNS))
+    states = np.full((count, DIMENSION), 1 / np.sqrt(DIMENSION), dtype=np.complex128)
+    for layer, controls in enumerate(angles):
+        states *= phases[layer % 2]
+        for site, group in enumerate(GROUPS):
+            half_angle = controls[group] * gains[:, group] / 2
+            cosine = np.cos(half_angle).reshape(count, 1, 1)
+            sine = (-1j * np.sin(half_angle)).reshape(count, 1, 1)
+            blocks = states.reshape(count, -1, 2, 1 << site)
+            lower = blocks[:, :, 0, :].copy()
+            upper = blocks[:, :, 1, :].copy()
+            blocks[:, :, 0, :] = cosine * lower + sine * upper
+            blocks[:, :, 1, :] = sine * lower + cosine * upper
+        states *= drift_phases
+    return states
+
+
+def fidelities(angles, scenarios=None):
+    states = simulate(angles, scenarios)
+    return np.abs((states[:, 0] + states[:, -1]) / np.sqrt(2)) ** 2
+
+
+def load_pulses(directory):
+    return np.asarray(json.loads((Path(directory) / "pulses.json").read_text())["angles"])
+
+
+def save_pulses(directory, angles):
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    payload = {"schema_version": 1, "angles": np.asarray(angles).tolist()}
+    (directory / "pulses.json").write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n")
+
+
+def training_scenarios():
+    return json.loads((ROOT / "input" / "training_scenarios.json").read_text())["scenarios"]
+"""A nominal-only global-kick optimizer, deliberately not robust control."""
+
+import argparse
+import json
+import os
+from pathlib import Path
+import sys
+
+for variable in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ[variable] = "1"
+
+import numpy as np
+from scipy.optimize import minimize
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "workspace"))
+from simulator import DEPTH, fidelities, save_pulses, training_scenarios
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--trials", type=int, default=32)
+    parser.add_argument("--seed", type=int, default=148873)
+    parser.add_argument("--mode", choices=("nominal", "random"), default="nominal")
+    parser.add_argument("--iterations", type=int, default=80)
+    args = parser.parse_args()
+    if not 1 <= args.trials <= 10000:
+        parser.error("trials must be in [1, 10000]")
+    generator = np.random.default_rng(args.seed)
+    scenarios = training_scenarios()
+    if args.mode == "nominal":
+        def objective(controls):
+            return -float(fidelities(np.repeat(controls[:, None], 2, axis=1))[0])
+        result = minimize(objective, generator.uniform(-np.pi, np.pi, DEPTH),
+                          method="L-BFGS-B", bounds=[(-np.pi, np.pi)] * DEPTH,
+                          options={"maxiter": args.iterations, "ftol": 1e-11})
+        angles = np.repeat(result.x[:, None], 2, axis=1)
+        save_pulses(args.output, angles)
+        scores = fidelities(angles, scenarios)
+        print(json.dumps({"mode": "nominal", "nominal_fidelity": float(fidelities(angles)[0]),
+                          "training_min_fidelity": float(scores.min()), "nfev": int(result.nfev),
+                          "iterations": int(result.nit), "submission": str(args.output)}, indent=2))
+        return
+    candidates = [np.zeros((DEPTH, 2)), np.full((DEPTH, 2), np.pi / 2),
+                  np.repeat(np.linspace(np.pi / 2, 0, DEPTH)[:, None], 2, axis=1)]
+    candidates.extend(generator.uniform(-np.pi, np.pi, (args.trials, DEPTH, 2)))
+    best_score = -1.0
+    for angles in candidates:
+        scores = fidelities(angles, scenarios)
+        score = float(np.min(scores))
+        if score > best_score:
+            best_score = score
+            best_angles = angles.copy()
+    save_pulses(args.output, best_angles)
+    print(json.dumps({"training_min_fidelity": best_score, "candidates": len(candidates),
+                      "submission": str(args.output)}, indent=2))
+
+
+if __name__ == "__main__":
+    main()
+import argparse
+import json
+import os
+from pathlib import Path
+
+for variable in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ[variable] = "1"
+
+from simulator import fidelities, load_pulses, training_scenarios
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--submission", type=Path, required=True)
+    args = parser.parse_args()
+    scores = fidelities(load_pulses(args.submission), training_scenarios())
+    print(json.dumps({"public_min_fidelity": float(scores.min()),
+                      "public_mean_fidelity": float(scores.mean()),
+                      "public_fidelities": scores.tolist()}, indent=2))
+
+
+if __name__ == "__main__":
+    main()
+{
+  "schema_version": 1,
+  "angles": [
+    [
+      -1.622229604707626,
+      -1.622229604707626
+    ],
+    [
+      -0.18434342709015128,
+      -0.18434342709015128
+    ],
+    [
+      0.9216927676995241,
+      0.9216927676995241
+    ],
+    [
+      -2.1924603995827137,
+      -2.1924603995827137
+    ],
+    [
+      -2.195457587883838,
+      -2.195457587883838
+    ],
+    [
+      0.12754854233359333,
+      0.12754854233359333
+    ],
+    [
+      1.967835718368497,
+      1.967835718368497
+    ],
+    [
+      0.7480258801398998,
+      0.7480258801398998
+    ],
+    [
+      2.064123111384342,
+      2.064123111384342
+    ],
+    [
+      0.2739932356784935,
+      0.2739932356784935
+    ],
+    [
+      -0.06107499813024762,
+      -0.06107499813024762
+    ],
+    [
+      2.2069747851308286,
+      2.2069747851308286
+    ],
+    [
+      -1.2737660977284084,
+      -1.2737660977284084
+    ],
+    [
+      0.4461878422297514,
+      0.4461878422297514
+    ],
+    [
+      -0.5624174278912333,
+      -0.5624174278912333
+    ],
+    [
+      -0.7573495854417707,
+      -0.7573495854417707
+    ],
+    [
+      1.5129575213583712,
+      1.5129575213583712
+    ],
+    [
+      1.1869246020596633,
+      1.1869246020596633
+    ],
+    [
+      -3.1415119930474207,
+      -3.1415119930474207
+    ],
+    [
+      2.6974452900892385,
+      2.6974452900892385
+    ],
+    [
+      2.5785618551958125,
+      2.5785618551958125
+    ],
+    [
+      1.222543733555314,
+      1.222543733555314
+    ],
+    [
+      -1.0512754831935507,
+      -1.0512754831935507
+    ],
+    [
+      -2.898274354941632,
+      -2.898274354941632
+    ]
+  ]
+}
+input:
+total 32
+-rw-rw-r-- 1 xuandong xuandong  1369 Aug 28 11:18 problem.json
+-rw-rw-r-- 1 xuandong xuandong  5363 Aug 28 11:20 protocol.md
+-rw-rw-r-- 1 xuandong xuandong 17040 Aug 28 11:20 training_scenarios.json
+
+workspace:
+total 16
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:26 __pycache__
+-rw-rw-r-- 1 xuandong xuandong   23 Aug 28 10:24 requirements.txt
+-rw-rw-r-- 1 xuandong xuandong  714 Aug 28 10:24 score_public.py
+-rw-rw-r-- 1 xuandong xuandong 3885 Aug 28 11:18 simulator.py
+
+ succeeded in 61026ms:
+ready
+# Robust cat-state control with static Z drift
+
+Design one open-loop pulse sequence that prepares
+`GHZ+ = (|000000000000> + |111111111111>)/sqrt(2)` from `|+>^12`,
+despite static calibration uncertainty and residual local Z precession.
+Submit a **control witness**, not a
+simulator, fit, proof, or claimed fidelity.
+
+The device is a 12-cycle (one isolated heavy-hex plaquette). Use exactly
+24 alternating bond-matching layers with fixed nominal `exp(+i*pi*ZZ/4)`
+gates, each followed by two-group `Rx` kicks and an uncontrollable static-Z
+drift interval. Each site's drift angle is independently in **[-0.01,0.01]
+radians per layer**, fixed throughout the sequence. Only the 48 kick angles
+are programmable; each must lie in `[-pi, pi]`. This explicitly generalizes the
+all-bond/global-kick protocol of arXiv:2306.14887; see `input/protocol.md`
+for the schedule, symmetry rationale, and precise uncertainty model.
+
+## Assets and interface
+
+- `input/problem.json`: graph, groups, bounds, target, and calibration ranges.
+- `input/protocol.md`: exact mathematical contract and scoring rules.
+- `input/training_scenarios.json`: 31 public examples, not the full test set.
+- `workspace/simulator.py`: exact complex128 forward simulation and fidelity.
+- `baseline/run_baseline.py`: runnable, deliberately nominal-only weak baseline.
+- `baseline/pulses.json`: precomputed weak baseline and optional warm start.
+
+From the participant directory:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python baseline/run_baseline.py --output submission
+python workspace/score_public.py --submission submission
+```
+
+Submit a directory containing `pulses.json`, with exactly
+`{"schema_version": 1, "angles": [[a0,b0], ..., [a23,b23]]}`. Angles are radians.
+No adaptive controls, extra gates, measurements, postselection, adjustable ZZ
+strengths, or scenario-specific sequences are permitted.
+
+## Objective and resources
+
+Pass iff the exact GHZ fidelity is **at least 0.95 in every one of 223 frozen test
+scenarios** and the artifact is valid. The score is the minimum fidelity,
+not the mean. Tests include nominal/axis/corner calibrations, structured
+boundary stress, and held-out local bond/Z-field disorder. The public family/ranges
+are binding; passing is a finite-suite test, not a certificate for the continuum.
+
+Use Python/NumPy/SciPy or other installed local tools; no GPU, network, or
+external data are needed. Keep searches to at most four CPU threads and
+about 2 GiB of working memory. Exact checking uses only 4096 amplitudes per
+scenario. The trusted harness runs
+`python evaluator/evaluate.py --submission DIRECTORY --output JSONPATH`;
+the evaluator and its private assets are not participant inputs.
+
+ succeeded in 76392ms:
+ready
+
+exec
+/bin/bash -c 'cat workspace/simulator.py; cat input/problem.json; tail -30 input/protocol.md; head -90 input/training_scenarios.json; command -v g++; command -v apply_patch; date +%s; ps -eo pid,etime,pcpu,comm | head' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/participant
+**Assessing output limits and setups**
+
+I’m trying to understand why there are discrepancies in output limits and character counts. It seems like the current fixed harness has a limit around 14k characters, while tools are showing some latency or delays. I might need a persistent session for my commands. I’ll also have to write an initial C++ from a known spec without using a simulator and prepare a correct directory for outputs. I’ll keep a close eye on how gradients are calculated as well.
+**Calculating gradients and optimizing**
+
+I'm contemplating how to compute gradients effectively. The first step is to consider using backward evolution to handle the drift and apply the gradient. Calculating separate loops per site is costly, but I might reverse the state after a "kick" to find local derivatives, using the adjoint effectively. I'll consider optimizing memory usage, utilizing C++ for efficiency with specific flags. Also, there's a potential to use public gradients for mean optimization in a two-group setup, enhancing control over the process.
+**Optimizing scenarios and managing time**
+
+I'm working on optimizing additional scenarios, starting with 31 and then scaling up to 200 structured stress tests. Achieving the nominal factor requires precision. I've set a warm start baseline around 0.996, but I need to be cautious because gain drift can be fragile. It's crucial to load this baseline effectively. I should also manage the time wisely since I have a 1-hour budget, and the actual startup might take around 10 minutes. I can check the results soon.
+codex
+I’ll build an adjoint optimizer for calibration and drift robustness.
+
+ succeeded in 37923ms:
+"""Exact complex128 state vectors; site zero is the least significant bit."""
+
+import json
+from pathlib import Path
+
+import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+PROBLEM = json.loads((ROOT / "input" / "problem.json").read_text())
+N_QUBITS = PROBLEM["n_qubits"]
+DEPTH = PROBLEM["depth"]
+GROUPS = np.asarray(PROBLEM["group_by_site"])
+EDGES = PROBLEM["edges"]
+DIMENSION = 1 << N_QUBITS
+BASIS = np.arange(DIMENSION)
+SITE_SIGNS = np.asarray([1 - 2 * ((BASIS >> site) & 1) for site in range(N_QUBITS)])
+EDGE_SIGNS = np.asarray([
+    1 - 2 * (((BASIS >> first) ^ (BASIS >> second)) & 1)
+    for first, second in EDGES
+])
+
+
+def scenario(gain_a=0.0, gain_b=0.0, zz_common=0.0, zz_local=None, z_drift_radians_per_layer=None):
+    return {"gain_a": float(gain_a), "gain_b": float(gain_b),
+            "zz_common": float(zz_common),
+            "zz_local": [0.0] * len(EDGES) if zz_local is None else list(zz_local),
+            "z_drift_radians_per_layer": [0.0] * N_QUBITS if z_drift_radians_per_layer is None
+            else list(z_drift_radians_per_layer)}
+
+
+def simulate(angles, scenarios=None):
+    """Return shape (number of scenarios, 4096), with no truncation."""
+    angles = np.asarray(angles, dtype=np.float64)
+    if angles.shape != (DEPTH, 2) or not np.all(np.isfinite(angles)):
+        raise ValueError("angles must be a finite (24, 2) array")
+    if np.any(np.abs(angles) > np.pi):
+        raise ValueError("angles outside [-pi, pi]")
+    scenarios = [scenario()] if scenarios is None else list(scenarios)
+    if not scenarios:
+        raise ValueError("at least one scenario is required")
+    count = len(scenarios)
+    gains = 1 + np.asarray([[entry["gain_a"], entry["gain_b"]] for entry in scenarios])
+    edge_gains = 1 + np.asarray([
+        np.asarray(entry["zz_local"]) + entry["zz_common"] for entry in scenarios
+    ])
+    phases = [np.exp(1j * np.pi / 4 * (edge_gains[:, matching::2] @ EDGE_SIGNS[matching::2]))
+              for matching in (0, 1)]
+    detunings = np.asarray([entry.get("z_drift_radians_per_layer", [0.0] * N_QUBITS)
+                           for entry in scenarios], dtype=np.float64)
+    if detunings.shape != (count, N_QUBITS) or not np.all(np.isfinite(detunings)):
+        raise ValueError("each scenario needs 12 finite static Z drift angles")
+    if np.any(np.abs(detunings) > 0.01):
+        raise ValueError("static Z drift outside [-0.01, 0.01]")
+    drift_phases = np.exp(-0.5j * (detunings @ SITE_SIGNS))
+    states = np.full((count, DIMENSION), 1 / np.sqrt(DIMENSION), dtype=np.complex128)
+    for layer, controls in enumerate(angles):
+        states *= phases[layer % 2]
+        for site, group in enumerate(GROUPS):
+            half_angle = controls[group] * gains[:, group] / 2
+            cosine = np.cos(half_angle).reshape(count, 1, 1)
+            sine = (-1j * np.sin(half_angle)).reshape(count, 1, 1)
+            blocks = states.reshape(count, -1, 2, 1 << site)
+            lower = blocks[:, :, 0, :].copy()
+            upper = blocks[:, :, 1, :].copy()
+            blocks[:, :, 0, :] = cosine * lower + sine * upper
+            blocks[:, :, 1, :] = sine * lower + cosine * upper
+        states *= drift_phases
+    return states
+
+
+def fidelities(angles, scenarios=None):
+    states = simulate(angles, scenarios)
+    return np.abs((states[:, 0] + states[:, -1]) / np.sqrt(2)) ** 2
+
+
+def load_pulses(directory):
+    return np.asarray(json.loads((Path(directory) / "pulses.json").read_text())["angles"])
+
+
+def save_pulses(directory, angles):
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    payload = {"schema_version": 1, "angles": np.asarray(angles).tolist()}
+    (directory / "pulses.json").write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n")
+
+
+def training_scenarios():
+    return json.loads((ROOT / "input" / "training_scenarios.json").read_text())["scenarios"]
+{
+  "schema_version": 1,
+  "n_qubits": 12,
+  "depth": 24,
+  "edges": [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,0]],
+  "matching_edge_indices": [[0,2,4,6,8,10],[1,3,5,7,9,11]],
+  "group_by_site": [0,0,1,0,1,1,0,1,0,1,1,0],
+  "initial_state": "plus_product",
+  "target_state": "GHZ_plus",
+  "layer_order": "ZZ_matching_then_RX_then_static_RZ",
+  "ratchet_generation": 1,
+  "matching_at_layer": "zero_based_layer_mod_2",
+  "zz_exponent_sign": 1,
+  "zz_exponent_nominal": 0.7853981633974483,
+  "rx_exponent": "-i * actual_angle * X / 2",
+  "angle_bounds": [-3.141592653589793,3.141592653589793],
+  "uncertainty": {
+    "gain_a": [-0.025,0.025],
+    "gain_b": [-0.025,0.025],
+    "zz_common": [-0.015,0.015],
+    "zz_local_each_edge": [-0.005,0.005],
+    "actual_angle": "angles[layer][group] * (1 + gain_group)",
+    "actual_zz_exponent": "pi/4 * (1 + zz_common + zz_local[edge])",
+    "time_dependence": "static for the entire sequence",
+    "z_drift_radians_per_layer_each_site": [-0.01,0.01],
+    "z_drift_exponent": "-i * z_drift_radians_per_layer[site] * Z / 2",
+    "z_drift_placement": "after every layer's RX kicks, including the final layer",
+    "z_drift_model": "fixed-duration lumped residual local precession interval per layer"
+  },
+  "pass_min_fidelity": 0.95,
+  "artifact": "pulses.json",
+  "maximum_artifact_bytes": 65536
+}
+and residual local Z precession. It is a control-design generalization,
+not a reproduction of the original experiment. The matching schedule
+avoids an extra sublattice-parity obstruction of the simultaneous all-bond
+Clifford layer on this ring. The specified input must not be replaced by
+`|0>^12`.
+
+## Artifact and CLI
+
+Submit `pulses.json`: a UTF-8 JSON object with exactly `schema_version`
+(integer 1) and `angles` (24 lists of two finite numbers). The angle
+bounds are strict. Booleans, strings, nulls, duplicate keys, extra fields,
+NaN/infinity, wrong shapes, symlink artifacts, and files over 65536 bytes
+are invalid. Only JSON is read; submission code is never executed.
+
+The trusted harness runs:
+`python evaluator/evaluate.py --submission DIRECTORY --output JSONPATH`.
+Both valid and invalid results include `valid`, `passed`, `score`,
+`core_score`, `worst_family_score`, `resource_score`, `runtime`,
+`runtime_seconds`, and `reason`. Core/worst-family scores are their minimum
+fidelities, or zero for invalid artifacts. Core comprises 31 cases;
+worst-family comprises 104; held-out comprises 88. The overall score still
+requires every case, including held-out cases, to pass.
+
+`resource_score` is 1 for a valid fixed-size artifact completing exact
+checking, otherwise 0. It is not a timing bonus. Runtime is checker wall
+time, not search time. Valid results also include family/subfamily minima,
+hashes, norm errors, and the zero-drift parity-check count. Valid artifacts
+return exit code 0 even below target; malformed artifacts return code 2
+and zero scores. Trusted checker failures are not participant failures.
+Use a separate result path, not the submitted artifact itself.
+{
+  "scenarios": [
+    {
+      "name": "nominal",
+      "family": "training",
+      "gain_a": 0.0,
+      "gain_b": 0.0,
+      "zz_common": 0.0,
+      "zz_local": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "z_drift_radians_per_layer": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "axis_0_-1",
+      "family": "training",
+      "gain_a": -0.025,
+      "gain_b": 0.0,
+      "zz_common": 0.0,
+      "zz_local": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "z_drift_radians_per_layer": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "axis_0_1",
+      "family": "training",
+      "gain_a": 0.025,
+      "gain_b": 0.0,
+      "zz_common": 0.0,
+      "zz_local": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+/usr/bin/g++
+/srv/home/xuandong/.codex/tmp/arg0/codex-arg0kNjGUk/apply_patch
+1787942256
+    PID     ELAPSED %CPU COMMAND
+      1       00:22  3.3 codex-linux-san
+      2       00:01  1.0 bash
+      8       00:00  0.0 ps
+      9       00:00  0.0 head
+
+exec
+/bin/bash -c "apply_patch <<'PATCH'
+*** Begin Patch
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/attempts/v_2/control.cpp
++#include <complex>
++#include <vector>
++#include <cmath>
++#include <algorithm>
++#include <omp.h>
++
++using Complex = std::complex<double>;
++constexpr int size = 4096;
++constexpr int depth = 24;
++const int groups[12] = {0,0,1,0,1,1,0,1,0,1,1,0};
++
++struct Scenario {
++    double gains[2];
++    std::vector<Complex> diagonal[2];
++    std::vector<Complex> drift;
++};
++
++struct Ensemble {
++    std::vector<Scenario> scenarios;
++};
++
++void rotate(Complex* state, int site, double angle) {
++    double cosine = std::cos(angle / 2);
++    Complex sine(0, -std::sin(angle / 2));
++    int stride = 1 << site;
++    for (int base = 0; base < size; base += 2 * stride) {
++        for (int offset = 0; offset < stride; ++offset) {
++            int index = base + offset;
++            Complex first = state[index];
++            Complex second = state[index + stride];
++            state[index] = cosine * first + sine * second;
++            state[index + stride] = sine * first + cosine * second;
++        }
++    }
++}
++
++extern \"C\" void* create_ensemble(const double* parameters, int count) {
++    Ensemble* ensemble = new Ensemble;
++    ensemble->scenarios.resize(count);
++    for (int scenario_index = 0; scenario_index < count; ++scenario_index) {
++        const double* values = parameters + 27 * scenario_index;
++        Scenario& scenario = ensemble->scenarios[scenario_index];
++        scenario.gains[0] = 1 + values[0];
++        scenario.gains[1] = 1 + values[1];
++        scenario.diagonal[0].resize(size);
++        scenario.diagonal[1].resize(size);
++        scenario.drift.resize(size);
++        for (int index = 0; index < size; ++index) {
++            double phase[2] = {0,0};
++            double drift_phase = 0;
++            for (int site = 0; site < 12; ++site) {
++                int sign = 1 - 2 * ((index >> site) & 1);
++                int neighbor_sign = 1 - 2 * ((index >> ((site + 1) % 12)) & 1);
++                phase[site % 2] += M_PI / 4 * (1 + values[2] + values[3 + site]) * sign * neighbor_sign;
++                drift_phase -= values[15 + site] * sign / 2;
++            }
++            scenario.diagonal[0][index] = std::polar(1.0, phase[0]);
++            scenario.diagonal[1][index] = std::polar(1.0, phase[1]);
++            scenario.drift[index] = std::polar(1.0, drift_phase);
++        }
++    }
++    return ensemble;
++}
++
++extern \"C\" void delete_ensemble(void* pointer) {
++    delete static_cast<Ensemble*>(pointer);
++}
++
++extern \"C\" void evaluate(void* pointer, const double* angles, double* fidelities, double* gradients, int threads) {
++    Ensemble& ensemble = *static_cast<Ensemble*>(pointer);
++    int count = ensemble.scenarios.size();
++    #pragma omp parallel for num_threads(threads) schedule(static)
++    for (int scenario_index = 0; scenario_index < count; ++scenario_index) {
++        const Scenario& scenario = ensemble.scenarios[scenario_index];
++        std::vector<Complex> state(size, Complex(1.0/64, 0));
++        std::vector<Complex> history(gradients ? depth * size : 0);
++        for (int layer = 0; layer < depth; ++layer) {
++            for (int index = 0; index < size; ++index) state[index] *= scenario.diagonal[layer % 2][index];
++            for (int site = 0; site < 12; ++site) rotate(state.data(), site, angles[2 * layer + groups[site]] * scenario.gains[groups[site]]);
++            if (gradients) std::copy(state.begin(), state.end(), history.begin() + layer * size);
++            for (int index = 0; index < size; ++index) state[index] *= scenario.drift[index];
++        }
++        Complex amplitude = (state[0] + state[size - 1]) / std::sqrt(2.0);
++        fidelities[scenario_index] = std::norm(amplitude);
++        if ("'!gradients) continue;
++        std::vector<Complex> adjoint(size, 0);
++        adjoint[0] = adjoint[size - 1] = amplitude / std::sqrt(2.0);
++        double* gradient = gradients + scenario_index * 48;
++        std::fill(gradient, gradient + 48, 0);
++        for (int layer = depth - 1; layer >= 0; --layer) {
++            for (int index = 0; index < size; ++index) adjoint[index] *= std::conj(scenario.drift[index]);
++            const Complex* forward = history.data() + layer * size;
++            for (int site = 0; site < 12; ++site) {
++                int stride = 1 << site;
++                double total = 0;
++                for (int base = 0; base < size; base += 2 * stride) {
++                    for (int offset = 0; offset < stride; ++offset) {
++                        int index = base + offset;
++                        total += std::imag(std::conj(adjoint[index]) * forward[index + stride]);
++                        total += std::imag(std::conj(adjoint[index + stride]) * forward[index]);
++                    }
++                }
++                gradient[2 * layer + groups[site]] += scenario.gains[groups[site]] * total;
++            }
++            for (int site = 11; site >= 0; --site) rotate(adjoint.data(), site, -angles[2 * layer + groups[site]] * scenario.gains[groups[site]]);
++            for (int index = 0; index < size; ++index) adjoint[index] *= std::conj(scenario.diagonal[layer % 2][index]);
++        }
++    }
++}
+*** Add File: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/attempts/v_2/optimize.py
++import os
++for variable in ('"'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS', 'OMP_NUM_THREADS'):
++    os.environ[variable] = '1'
++import ctypes
++import json
++import sys
++import time
++from pathlib import Path
++import numpy as np
++from scipy.optimize import minimize
++from scipy.special import logsumexp
++
++ROOT = Path(__file__).resolve().parent
++ASSETS = ROOT.parent.parent.parent / 'participant'
++sys.path.insert(0, str(ASSETS / 'workspace'))
++from simulator import fidelities, training_scenarios
++
++library = ctypes.CDLL(str(ROOT / 'control.so'))
++array_pointer = np.ctypeslib.ndpointer(dtype=np.float64, flags='C_CONTIGUOUS')
++library.create_ensemble.argtypes = [array_pointer, ctypes.c_int]
++library.create_ensemble.restype = ctypes.c_void_p
++library.delete_ensemble.argtypes = [ctypes.c_void_p]
++library.evaluate.argtypes = [ctypes.c_void_p, array_pointer, array_pointer, ctypes.c_void_p, ctypes.c_int]
++
++def encode(scenario):
++    return [scenario['gain_a'], scenario['gain_b'], scenario['zz_common']] + list(scenario['zz_local']) + list(scenario.get('z_drift_radians_per_layer', [0.] * 12))
++
++class Ensemble:
++    def __init__(self, scenarios):
++        self.parameters = np.ascontiguousarray([encode(scenario) for scenario in scenarios], dtype=np.float64)
++        self.pointer = library.create_ensemble(self.parameters, len(scenarios))
++
++    def evaluate(self, angles, gradient=True):
++        angles = np.ascontiguousarray(angles, dtype=np.float64).ravel()
++        scores = np.empty(len(self.parameters))
++        gradients = np.empty((len(scores), 48)) if gradient else None
++        library.evaluate(self.pointer, angles, scores, None if gradients is None else gradients.ctypes.data, 4)
++        return (scores, gradients) if gradient else scores
++
++    def __del__(self):
++        if hasattr(self, 'pointer'):
++            library.delete_ensemble(self.pointer)
++
++def save(angles, filename='pulses.json'):
++    (ROOT / filename).write_text(json.dumps({'schema_version': 1, 'angles': np.asarray(angles).reshape(24, 2).tolist()}, indent=2) + '\\n')
++
++def load(filename):
++    return np.array(json.loads(Path(filename).read_text())['angles']).ravel()
++
++def optimize(angles, scenarios, iterations=500, temperature=.005, filename='pulses.json'):
++    ensemble = Ensemble(scenarios)
++    started = time.time()
++    counter = 0
++    best = -np.inf
++    def objective(controls):
++        nonlocal counter, best
++        scores, gradients = ensemble.evaluate(controls)
++        losses = -scores / temperature
++        weights = np.exp(losses - logsumexp(losses))
++        value = temperature * logsumexp(losses)
++        gradient = -weights @ gradients
++        counter += 1
++        if scores.min() > best:
++            best = float(scores.min())
++            save(controls, filename)
++        if counter % 20 == 0 or counter == 1:
++            print(f'eval={counter} seconds={time.time()-started:.1f} min={scores.min():.9f} mean={scores.mean():.9f} best={best:.9f}', flush=True)
++        return value, gradient
++    result = minimize(objective, angles, jac=True, method='L-BFGS-B', bounds=[(-np.pi, np.pi)] * 48,
++                      options={'maxiter': iterations, 'ftol': 1e-13, 'gtol': 1e-8, 'maxls': 30, 'maxcor': 20})
++    print(result.message, 'iterations', result.nit, flush=True)
++    return load(ROOT / filename)
++
++def main():
++    scenarios = training_scenarios()
++    angles = load(ASSETS / 'baseline' / 'pulses.json')
++    save(angles)
++    ensemble = Ensemble(scenarios)
++    started = time.time()
++    scores, gradients = ensemble.evaluate(angles)
++    reference = fidelities(angles.reshape(24, 2), scenarios)
++    print('reference error', np.max(abs(scores-reference)), 'initial min', scores.min(), 'nominal', scores[0], 'seconds', time.time()-started, flush=True)
++    for index in [0, 13, 47]:
++        shifted = angles.copy()
++        shifted[index] += 1e-6
++        positive = ensemble.evaluate(shifted, False)
++        shifted[index] -= 2e-6
++        negative = ensemble.evaluate(shifted, False)
++        print('gradient', index, np.max(abs((positive-negative)/2e-6-gradients[:,index])), flush=True)
++    angles = optimize(angles, scenarios, 700, .01)
++    angles = optimize(angles, scenarios, 400, .002)
++    scores = fidelities(angles.reshape(24, 2), scenarios)
++    print('FINAL PUBLIC', scores.min(), scores.mean(), flush=True)
++    (ROOT / 'public_validation.json').write_text(json.dumps({'min': float(scores.min()), 'fidelities': scores.tolist()}, indent=2))
++
++if __name__ == '__main__':
++    main()
+*** End Patch
+PATCH
+ g++ -O3 -march=native -fopenmp -shared -fPIC control.cpp -o control.so
+ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -u optimize.py > optimization.log 2>&1" in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/attempts/v_2
+**Evaluating command structure**
+
+I'm trying to work out the command paths in my system, particularly focusing on how to navigate the ROOT outputs. It seems I've written incorrect outputs for "concept3" and "tasks," which need fixing before I run any delayed commands. If I don't address this, there might be failures. Luckily, the baseline saving after importing helps to prevent serious issues. I should sort out the command queue soon to ensure everything runs smoothly.
+**Considering execution delays**
+
+I’m noticing that a 22-second execution time might mean the sandbox creation is delayed by over 200 seconds. I wonder if every execution launches its own container in around 22 seconds by default. It seems like we could run tools in separate namespaces to potentially startup 100. I should also minimize the number of calls. I’ll need to fix the patch separately while ensuring the file exists, then poll soon.
+**Considering an interactive shell**
+
+I need a persistent interactive shell for executing quick commands without the startup delay. The command `exec tty bash` can create an interactive shell, but it seems to just yield a waiting state where I write commands afterward. I see that starting one now involves some overhead, yet it saves time in the long run. It's interesting to weigh the costs and benefits here — I think it's worth it for efficiency!
+exec
+/bin/bash -c '/bin/bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/attempts/v_2
+**Continuing C++ code development**
+
+I'm compiling my first C++ code, ensuring that there's no ambiguity with the `std::size` variable and avoiding using `using std`. Optimization is key, especially for vector groups from the specification. I have to keep the index within bounds, making sure I don't exceed them. I’ll check existing files soon and consider output resources of around 2GB. There's a challenge in maximizing performance efficiently, and I’ll aim to optimize the global parameters as needed. We've still got time, maybe about 45 minutes!
+**Exploring symmetry and rotations**
+
+I'm considering how to use exact symmetries by altering θ by ±2π for nominal equivalents, though this introduces different errors—I've got symmetry considerations on my mind. Global π pulses across layers can affect ZZ interactions and how they commute. Adjusting θ across branches can yield benefits, like improving drift with periodic adjustments. I also think about toggling angles and their effect on robustness. There's a lot happening here regarding discrete gauges and their optimization against drift!
+**Analyzing Clifford operations**
+
+I'm looking into the Clifford group and how the ZZ product relates to global Z at each site. I realize that the pairing of alternating angle transformations can maintain our target states. There’s potential for optimizing a known Clifford cat state involving a systematic π gauge applied layer-wise. Adding π to each θ across layers keeps things aligned in a compact way. But toggling signs and managing shifts introduces complexities, especially when considering how errors propagate. It’s all very interconnected!
+**Calculating time estimates**
+
+I'm assessing the fixed overhead of 300 seconds. First, I need to convert the current time to epoch format. I see the epoch timestamp of 1787942256 corresponds to 2026-08-28 at 19:57 UTC. If the user starts at 11:35, there's a gap there; I'll manually calculate from the epoch. It seems the first task started around 11:35, but I'm estimating actual execution time. I have some time left in my token budget, but I shouldn't panic!
+ exited 1 in 66859ms:
+Success. Updated the following files:
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/attempts/v_2/control.cpp
+A /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/attempts/v_2/optimize.py
+
+**Distinguishing launch times**
+
+I need to figure out the difference between the actual launch time of a shell command, which is 20 seconds, and the first exec call that took 200 seconds. There's a hiccup here, and I'm thinking I can write a new command to launch after using the `cat` command to help manage input. It's a bit of a puzzle, but I'm sure I can sort it out!
+The custom forward simulation matches the public simulator, and adjoint gradients pass finite-difference checks.
+  ✓ Inspect simulator and uncertainty contract
+  → Develop robust pulse optimization
+  • Validate and submit control witness
+**Analyzing stress optimization**
+
+I’m considering how to optimize stress in a uniform setting with drift and gain involved. I’ll add in various combinations of corners and fields and focus on minimizing the stress metrics, aiming for a score higher than 0.95. I note that we have 15 zero drift examples, but not all include corners, which might not represent the full picture. I’ll remember to check the current progress, aiming for something over 0.94 before deciding to optimize further.
+**Analyzing optimization process**
+
+I've loaded an old optimization module that didn't include a new function, which isn’t a problem when running. The C++ file compiles in under one second, but I need to consider the CPU limits — it uses one active CPU thread with up to four. If there's a pause in optimization, I might use a command to stop it when running tests. I want a script that interacts with parameters precisely and tracks local minima while managing valid candidates without freezing. The best metric may depend on a random validation pool.
+**Evaluating calibration errors**
+
+I'm analyzing a minimal sample of the worst physical calibration errors in different corners and structured fields. The pool includes public and boundary parameters with a focus on correlated patterns. I might focus on the worst case with specific aligned signs and gain pairs while incorporating random boundary errors. In terms of training evaluation time, I estimate around six seconds for forward evaluations. I’ll also consider robust optimization with certain efficiency markers. I plan to create a script that iteratively refines error bounds and checks for maximums.
+**Refining gradient updates**
+
+I'm planning to use a bounded coordinate sign gradient update. The new updates can oscillate cross-ways, which is something I need to watch. I’ll apply a projected gradient step to reduce errors toward the corners through multiple iterations across different scenarios. I have to keep in mind that my function approximates symmetric errors around broad maxima at the corners. I’ll begin from all corners and utilize a greedy coordinate descent approach to refine my results effectively.
+**Evaluating code optimization**
+
+I’m considering the time it takes to consume about 7 minutes, and now it's 11:41:56, so that leaves me around 6.5 minutes. I'm aiming for over 0.95 public optimization, but in some private areas, it might be around 0.92. I want to finish up at around 11:46, so I have about six minutes left. I’ve decided that I don't need any extra inline comments for the C++ preprocessor; I’ll keep comments out for Python too.
+**Analyzing optimization parameters**
+
+I'm considering a plateau at .954, with a potential improvement of .02 up to .96. It seems I need a solid baseline since there are many angles to consider, and I can't reduce corners below .91. I'm thinking about integrating robust branches if that plateau holds. There’s a complex relationship with symmetry and error groups, which has implications for effective control. It looks like I might achieve a minimum above .95 with specific strategies, including global pulses.
+**Exploring gain and symmetry**
+
+I'm examining whether two groups with zero drift can maintain the same parameters, especially with π shifts affecting their spins. There’s potential to exploit first-order error derivatives to rank gauges with an approximate quadratic approach. For each layer, I’m thinking of adjusting angles based on certain criteria, and how shifts can affect the overall gain sensitivity. The response seems consistent regarding the effective gain across both groups despite the nominal state derivatives. Overall, I'm intrigued by how these variables interact!
+**Analyzing drift sensitivity**
+
+I'm looking at how drift sensitivity at each layer is affected by the number of global X π toggles. My initial condition is that the sign switches based on the sum of toggles up to that layer. It seems like additional X toggling influences the Z source after the frame transformation. The final state might have an odd first-order drift, but overall, the fidelity remains insensible to drift due to the cumulative effects of X. It feels like I'm unraveling quite the equation here!
+codex
+The public minimum exceeds 0.95; I’m now testing joint-error corners.
+
+**Optimizing process management**
+
+I'm focusing on starting a robust system after optimizing wait times through a shell background wrapper. There's a lot to keep in mind, like managing zombie processes and ensuring proper job control with `kill -0`. It's important to note that certain subprocesses can't be waited on, and I want to make sure I'm not wasting any CPU time.
+
+I’ll need to research candidates for benchmarking the ensemble performance thoroughly for different scenarios. This meticulous approach is to maximize efficiency without wasting time.
+**Optimizing file output and gains**
+
+I'm exploring the output support for multiple files within a 2 GiB limit, focusing on maintaining around 10 MB without issues. There's a crucial corner optimization I might not reach a gain of .95 due to 24 layers. I estimate calibration errors at .86, but public strong performance shows a .954 gain.
+
+Reducing gauge kick norms could significantly improve robustness. By transforming angles to a manageable range, I could potentially achieve a .99 in axes and .95 at corners. I might prioritize gauging early rather than chasing a marginal increase to .957 for full optimization later.
+**Calculating error loss**
+
+I’m looking at how to compute the expected first-order error loss when the target gradient e is zero. This might reveal how adversaries affect the boundary and produce a lower actual function value. There are interesting correlations in the interplay from each corner. I can see that the worst-case gain seems common, and it might always be positive. For configurations like eA±eB, it could lead to some interesting results here.
+exec
+/bin/bash -c 'tail -12 optimization.log; date +%s' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_3/attempts/v_2
+ succeeded in 32232ms:
+eval=180 seconds=54.9 min=0.955375035 mean=0.980552083 best=0.955396372
+eval=200 seconds=61.7 min=0.955372278 mean=0.980560912 best=0.955396372
+eval=220 seconds=67.1 min=0.955372106 mean=0.980566943 best=0.955396372
+eval=240 seconds=72.6 min=0.955373690 mean=0.980564523 best=0.955396372
+eval=260 seconds=80.0 min=0.955373130 mean=0.980563187 best=0.955396372
+eval=280 seconds=86.1 min=0.955373323 mean=0.980562854 best=0.955396372
+eval=300 seconds=92.5 min=0.955373226 mean=0.980563150 best=0.955396372
+eval=320 seconds=100.7 min=0.955373306 mean=0.980563360 best=0.955396372
+eval=340 seconds=107.1 min=0.955373267 mean=0.980563484 best=0.955396372
+eval=360 seconds=112.5 min=0.955373297 mean=0.980563347 best=0.955396372
+CONVERGENCE: REL_REDUCTION_OF_F_<=_FACTR*EPSMCH iterations 335
+FINAL PUBLIC 0.9553963719723377 0.9805345570029019
+1787942757
+
+codex
+Joint-error tests reveal a gap; I’m exploring new pulse families.
+
+**Investigating NFS lag**
+
+I'm noticing some lag with the NFS that could be due to heavy contention. It seems like the tool is reading for about a second, but maybe it’s dealing with I/O stalls from the process that saves JSON in the same inode directory. Frequent background writing of files might be causing this unsynchronized lag of around one second. Hmm, I should explore this further to pinpoint the exact cause of the slowdown.
+codex
+Stress fidelity reaches 0.947; I’m seeking the remaining margin.
+
+**Validating gradients**
+
+I’m thinking we need to validate approximate states of Jacobians against a finite fidelity gradient. It might not be necessary to do full state finite tests. Maybe we should calculate first derivatives where the scalar `2Re <r|J>` equals -gF, which is the loss gradient. I want to project target P since the norm derivative is zero. I’ll go ahead and check on this!
+codex
+Generated stress cases now clear 0.95; I’m checking fresh cases.
+
+The control witness exceeds 0.95 on the generated stress suite and a fresh 176-start adversarial check. I’m tightening the margin and running independent exact validation.
+  ✓ Inspect simulator and uncertainty contract
+  ✓ Develop robust pulse optimization
+  → Validate and submit control witness
+codex
+Exact checks pass so far; I’m completing a broader final validation.
+
+**Assessing pipeline timing**
+
+I’m noticing it’s 12:20, and there's about 15 minutes left. The pipeline task, labeled adve2048, just finished in approximately 20 seconds, while the scan is expected to take about 25 seconds. It looks like I’ll have some fresh results soon. I think we can head first into the lines once the adve completes—this should stabilize everything!
+codex
+Validation is complete: all checked cases exceed 0.95.
+
+The final artifact passes strict schema/bounds checks, all 31 public scenarios, 5,489 generated stress scenarios, 4,096 independent random scenarios, and 32,768 drift-sign checks. The private suite was not accessed.
+  ✓ Inspect simulator and uncertainty contract
+  ✓ Develop robust pulse optimization
+  ✓ Validate and submit control witness
+codex
+Submitted `../attempts/v_2/pulses.json:1` with the 24-layer control witness.
+
+- Public minimum fidelity: **0.983139**
+- Minimum across additional checks: **0.951878**
+
+Validation reports and supporting files are in the same directory. The private frozen suite was not accessed.
+tokens used
+254,855
+Submitted `../attempts/v_2/pulses.json:1` with the 24-layer control witness.
+
+- Public minimum fidelity: **0.983139**
+- Minimum across additional checks: **0.951878**
+
+Validation reports and supporting files are in the same directory. The private frozen suite was not accessed.

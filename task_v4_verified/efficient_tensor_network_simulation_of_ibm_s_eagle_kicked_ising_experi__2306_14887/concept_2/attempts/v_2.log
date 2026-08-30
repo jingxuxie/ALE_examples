@@ -1,0 +1,811 @@
+Reading additional input from stdin...
+OpenAI Codex v0.150.1
+--------
+workdir: /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_2/participant
+model: ultima-alpha
+provider: openai
+approval: never
+sandbox: custom permissions
+reasoning effort: high
+reasoning summaries: none
+session id: 01a049b3-0986-7e93-a35c-3056357dcac8
+--------
+user
+You are a fresh independent participant. Read TASK.md in the current directory and solve the task. Write your final submission and any supporting files into /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_2/attempts/v_2. You have at most 3600 seconds (one hour) of wall-clock time. You may finish sooner when satisfied. Only the participant assets and this initially empty output directory are available; the participant directory is read-only. Do not access sibling directories, evaluator files, other attempts, or outside services. Do not spawn other model sessions. Use the provided executable interface and resource limits. Validate your work using the public assets, and leave the requested artifact even if the full target seems difficult. The final reply should briefly identify what was submitted.
+codex
+I’ll read the task and inspect the provided assets first.
+
+exec
+/bin/bash -lc 'pwd; ls -la; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_2/participant
+**Investigating shell issues**
+
+I’m trying to figure out why the login shell hangs, and it seems likely related to the bash login. Perhaps it’s something in the configuration or a specific setting causing it to stall. I wonder if there’s a misconfiguration or compatibility issue at play. I’ll need to think about the startup files involved and how they might affect the shell's behavior. It’s essential to get to the bottom of this for smoother operation!
+exec
+/bin/bash -c 'pwd; ls -la; cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_2/participant
+exec
+/usr/bin/sh -c '/bin/cat TASK.md' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_2/participant
+ succeeded in 87257ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_2/participant
+total 24
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 10:32 .
+drwx------ 4 xuandong xuandong   80 Aug 28 11:51 ..
+-rw-rw-r-- 1 xuandong xuandong 5513 Aug 28 11:36 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:32 baseline
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:32 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:32 workspace
+# Physical false convergence on one heavy-hex plaquette
+
+## Mission
+Find a **robust counterexample to the supplied finite-bond observable-convergence
+heuristic**, using a real kicked-Ising circuit on the 12-cycle. Verification mode
+is **B: COUNTEREXAMPLE / FALSIFICATION**. This is not a falsification of
+arXiv:2306.14887, its BP algorithm, or a rigorous MPS truncation-error bound.
+That paper distinguishes finite-bond convergence from uncontrolled BP loop error;
+this task isolates a deliberately convergence-only diagnostic for an OBC MPS.
+
+## Physics and interface
+Start in `|000000000000>`. Each layer applies global
+`Rx(theta)=exp(-i theta X/2)`, then `exp(+i pi ZZ/4)` on every cycle edge,
+including `(11,0)`. There are no noise channels or tunable ZZ couplings.
+Measure the spatially averaged nearest-neighbor correlator
+`O = (1/12) sum_j Z_j Z_((j+1) mod 12)` (JSON name `zz1`).
+
+Submit a directory containing **`witness.json`**, with exactly these keys:
+
+```json
+{"schema_version":1,"depth":24,"knots":[0.7,0.7,0.7,0.7,0.7,0.7],"observable":"zz1"}
+```
+
+The example illustrates syntax, not a solution. `depth` is an integer in
+`[12,48]`. Six real knots lie in `[0.12,1.45]`; linearly interpolate them at
+`depth` equally spaced times in `[0,1]`, including both endpoints. The same pulse
+acts on every qubit. Every evaluated waveform must have adjacent-angle changes
+at most `0.12` radians. All pulses are strictly within `(0.1,1.47)`, excluding
+zero-field and exact Clifford echoes. Files are limited to 16 KiB; duplicate keys,
+nonfinite numbers, booleans as numbers, symlinks, and extra keys are invalid.
+
+## Frozen objective: 325 waveforms
+Independently bias the six knots by each vector in
+`{[0,0,0,0,0,0]} union {0.002*s : s in {-1,+1}^6}`: **65 drift vectors**.
+Interpolate the biased knots, then apply each of the original five families:
+nominal `theta(t)`, offsets `theta(t) ± 0.002`, and tilts
+`theta(t) ± 0.002*(2t-1)`. Pass **all 65*5 = 325 combinations**.
+Only commanded knots must lie in `[0.12,1.45]`; every resulting physical waveform
+must satisfy the pulse and slew bounds. Combined displacement can reach 0.004
+radians. This finite suite does not certify the continuous calibration box.
+
+For each family, evolve **three independent MPS states**, at `chi=4,8,16`.
+Let their estimates be `m4,m8,m16` and the exact statevector result be `m*`.
+The supplied heuristic declares convergence when
+`delta = max(abs(m8-m4), abs(m16-m8)) <= 0.008`, and reports `m16`.
+Win by simultaneously making **`delta <= 0.008` and `abs(m16-m*) >= 0.15`**
+in every family: an error at least 18.75 times the allowed convergence spread.
+Discarded weights are reported but intentionally not used by this heuristic.
+
+For each family define `r=min(error/0.15, 0.008/max(delta,1e-15))` and
+`score=100*min(1,r)`. `core_score` is the nominal score;
+`worst_family_score` is the minimum over all 325 waveforms. `passed` requires both
+thresholds in every family. `valid` describes the artifact/physical constraints,
+not success. Invalid submissions score zero. `resource_score=100*12/depth`
+is a deterministic depth-efficiency tie-break, not measured search cost.
+
+## Assets and resources
+- `input/target.json`: complete frozen constants and constraints.
+- `input/example_witness.json`: valid-format starting point.
+- `workspace/simulator.py`: auditable exact and actual circuit-MPS evolution.
+- `workspace/protocol.py`: public interpolation, robustness, and scoring.
+- `baseline/search.py`: runnable grid/random baseline; improve freely.
+
+The MPS represents sites in order `0..11`. Each full layer is applied exactly
+using rank-two ZZ expansions, including a long-range closing-edge MPO.
+Then right-to-left QR establishes the Schmidt metric and left-to-right SVD
+compresses to `chi`, normalizing after each cut. Degenerate Schmidt subspaces
+use deterministic projected-coordinate bases. There is no BP contraction or
+artificial error formula. Final MPS observables are contracted without further
+approximation. Use Linux/Python 3.10+ with NumPy and SciPy; no accelerator or network.
+Use modest CPU parallelism (one BLAS thread per worker; at most four workers).
+The host sets the search budget. Each complete evaluation recomputes 325 exact
+states and 975 MPS states, at depth at most 48. The trusted checker uses at most
+four single-threaded CPU processes and a 600-second wall-time budget; timeout
+returns `passed=false`, zero scores, and `evaluation_complete=false`.
+Measured `elapsed_seconds` is diagnostic, not a speed-dependent score.
+
+From the participant directory:
+
+```bash
+python baseline/search.py --submission submission --trials 48 --seed 14887
+```
+
+The host privately invokes, from the package root,
+`python -I evaluator/evaluate.py --submission DIRECTORY --output JSONPATH`.
+The checker recomputes all results using
+trusted resources, ignores claimed scores, and never executes submission code.
+You may edit workspace search tools; edits cannot change the evaluator's frozen
+simulator, oracle, constraints, or scores. Return only the submission directory.
+
+`workspace.protocol.waveforms` enumerates the complete suite in a fixed order:
+the zero-drift five keep their original names; `corner_00/...` through
+`corner_63/...` use lexicographic sign order with `-1` before `+1`.
+`simulator.compare_waveforms` provides bounded parallel public evaluation.
+The unchanged grid/random proposal baseline ranks finalists on the original
+five families, then reports a full 325-waveform check of its chosen candidate.
+
+ succeeded in 81281ms:
+/srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_2/participant
+total 24
+drwxrwxr-x 5 xuandong xuandong 4096 Aug 28 10:32 .
+drwx------ 4 xuandong xuandong   80 Aug 28 11:52 ..
+-rw-rw-r-- 1 xuandong xuandong 5513 Aug 28 11:36 TASK.md
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:32 baseline
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:32 input
+drwxrwxr-x 2 xuandong xuandong 4096 Aug 28 10:32 workspace
+# Physical false convergence on one heavy-hex plaquette
+
+## Mission
+Find a **robust counterexample to the supplied finite-bond observable-convergence
+heuristic**, using a real kicked-Ising circuit on the 12-cycle. Verification mode
+is **B: COUNTEREXAMPLE / FALSIFICATION**. This is not a falsification of
+arXiv:2306.14887, its BP algorithm, or a rigorous MPS truncation-error bound.
+That paper distinguishes finite-bond convergence from uncontrolled BP loop error;
+this task isolates a deliberately convergence-only diagnostic for an OBC MPS.
+
+## Physics and interface
+Start in `|000000000000>`. Each layer applies global
+`Rx(theta)=exp(-i theta X/2)`, then `exp(+i pi ZZ/4)` on every cycle edge,
+including `(11,0)`. There are no noise channels or tunable ZZ couplings.
+Measure the spatially averaged nearest-neighbor correlator
+`O = (1/12) sum_j Z_j Z_((j+1) mod 12)` (JSON name `zz1`).
+
+Submit a directory containing **`witness.json`**, with exactly these keys:
+
+```json
+{"schema_version":1,"depth":24,"knots":[0.7,0.7,0.7,0.7,0.7,0.7],"observable":"zz1"}
+```
+
+The example illustrates syntax, not a solution. `depth` is an integer in
+`[12,48]`. Six real knots lie in `[0.12,1.45]`; linearly interpolate them at
+`depth` equally spaced times in `[0,1]`, including both endpoints. The same pulse
+acts on every qubit. Every evaluated waveform must have adjacent-angle changes
+at most `0.12` radians. All pulses are strictly within `(0.1,1.47)`, excluding
+zero-field and exact Clifford echoes. Files are limited to 16 KiB; duplicate keys,
+nonfinite numbers, booleans as numbers, symlinks, and extra keys are invalid.
+
+## Frozen objective: 325 waveforms
+Independently bias the six knots by each vector in
+`{[0,0,0,0,0,0]} union {0.002*s : s in {-1,+1}^6}`: **65 drift vectors**.
+Interpolate the biased knots, then apply each of the original five families:
+nominal `theta(t)`, offsets `theta(t) ± 0.002`, and tilts
+`theta(t) ± 0.002*(2t-1)`. Pass **all 65*5 = 325 combinations**.
+Only commanded knots must lie in `[0.12,1.45]`; every resulting physical waveform
+must satisfy the pulse and slew bounds. Combined displacement can reach 0.004
+radians. This finite suite does not certify the continuous calibration box.
+
+For each family, evolve **three independent MPS states**, at `chi=4,8,16`.
+Let their estimates be `m4,m8,m16` and the exact statevector result be `m*`.
+The supplied heuristic declares convergence when
+`delta = max(abs(m8-m4), abs(m16-m8)) <= 0.008`, and reports `m16`.
+Win by simultaneously making **`delta <= 0.008` and `abs(m16-m*) >= 0.15`**
+in every family: an error at least 18.75 times the allowed convergence spread.
+Discarded weights are reported but intentionally not used by this heuristic.
+
+For each family define `r=min(error/0.15, 0.008/max(delta,1e-15))` and
+`score=100*min(1,r)`. `core_score` is the nominal score;
+`worst_family_score` is the minimum over all 325 waveforms. `passed` requires both
+thresholds in every family. `valid` describes the artifact/physical constraints,
+not success. Invalid submissions score zero. `resource_score=100*12/depth`
+is a deterministic depth-efficiency tie-break, not measured search cost.
+
+## Assets and resources
+- `input/target.json`: complete frozen constants and constraints.
+- `input/example_witness.json`: valid-format starting point.
+- `workspace/simulator.py`: auditable exact and actual circuit-MPS evolution.
+- `workspace/protocol.py`: public interpolation, robustness, and scoring.
+- `baseline/search.py`: runnable grid/random baseline; improve freely.
+
+The MPS represents sites in order `0..11`. Each full layer is applied exactly
+using rank-two ZZ expansions, including a long-range closing-edge MPO.
+Then right-to-left QR establishes the Schmidt metric and left-to-right SVD
+compresses to `chi`, normalizing after each cut. Degenerate Schmidt subspaces
+use deterministic projected-coordinate bases. There is no BP contraction or
+artificial error formula. Final MPS observables are contracted without further
+approximation. Use Linux/Python 3.10+ with NumPy and SciPy; no accelerator or network.
+Use modest CPU parallelism (one BLAS thread per worker; at most four workers).
+The host sets the search budget. Each complete evaluation recomputes 325 exact
+states and 975 MPS states, at depth at most 48. The trusted checker uses at most
+four single-threaded CPU processes and a 600-second wall-time budget; timeout
+returns `passed=false`, zero scores, and `evaluation_complete=false`.
+Measured `elapsed_seconds` is diagnostic, not a speed-dependent score.
+
+From the participant directory:
+
+```bash
+python baseline/search.py --submission submission --trials 48 --seed 14887
+```
+
+The host privately invokes, from the package root,
+`python -I evaluator/evaluate.py --submission DIRECTORY --output JSONPATH`.
+The checker recomputes all results using
+trusted resources, ignores claimed scores, and never executes submission code.
+You may edit workspace search tools; edits cannot change the evaluator's frozen
+simulator, oracle, constraints, or scores. Return only the submission directory.
+
+`workspace.protocol.waveforms` enumerates the complete suite in a fixed order:
+the zero-drift five keep their original names; `corner_00/...` through
+`corner_63/...` use lexicographic sign order with `-1` before `+1`.
+`simulator.compare_waveforms` provides bounded parallel public evaluation.
+The unchanged grid/random proposal baseline ranks finalists on the original
+five families, then reports a full 325-waveform check of its chosen candidate.
+
+exec
+/bin/bash -c 'find . -name AGENTS.md -print; cat input/target.json; cat baseline/search.py; cat workspace/protocol.py' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_2/participant
+  → Inspect simulator and search baseline
+  • Search for robust false convergence
+  • Validate all waveforms and submit
+**Optimizing tool startup time**
+
+I’m thinking that if each tool takes around 2 minutes to start, I really need to optimize the process so I can read everything with one command. It seems like there must be a more efficient way to get everything going without waiting that long for each tool individually. I just want to streamline this to minimize downtime! Let’s figure out a better approach!
+exec
+/bin/bash -c 'cat workspace/simulator.py; ls -l workspace baseline; date' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_2/participant
+**Analyzing command execution time**
+
+I’m thinking we spent around 7 minutes so far. Initially, the first command took about 2 minutes, but the others might have a different timing. I wonder if the command is stuck in some directory or if there's some metadata involved. The execution isn’t showing any output, which suggests there might be a launching latency issue. I think I need to wait about 30 more seconds.
+ succeeded in 92923ms:
+# Physical false convergence on one heavy-hex plaquette
+
+## Mission
+Find a **robust counterexample to the supplied finite-bond observable-convergence
+heuristic**, using a real kicked-Ising circuit on the 12-cycle. Verification mode
+is **B: COUNTEREXAMPLE / FALSIFICATION**. This is not a falsification of
+arXiv:2306.14887, its BP algorithm, or a rigorous MPS truncation-error bound.
+That paper distinguishes finite-bond convergence from uncontrolled BP loop error;
+this task isolates a deliberately convergence-only diagnostic for an OBC MPS.
+
+## Physics and interface
+Start in `|000000000000>`. Each layer applies global
+`Rx(theta)=exp(-i theta X/2)`, then `exp(+i pi ZZ/4)` on every cycle edge,
+including `(11,0)`. There are no noise channels or tunable ZZ couplings.
+Measure the spatially averaged nearest-neighbor correlator
+`O = (1/12) sum_j Z_j Z_((j+1) mod 12)` (JSON name `zz1`).
+
+Submit a directory containing **`witness.json`**, with exactly these keys:
+
+```json
+{"schema_version":1,"depth":24,"knots":[0.7,0.7,0.7,0.7,0.7,0.7],"observable":"zz1"}
+```
+
+The example illustrates syntax, not a solution. `depth` is an integer in
+`[12,48]`. Six real knots lie in `[0.12,1.45]`; linearly interpolate them at
+`depth` equally spaced times in `[0,1]`, including both endpoints. The same pulse
+acts on every qubit. Every evaluated waveform must have adjacent-angle changes
+at most `0.12` radians. All pulses are strictly within `(0.1,1.47)`, excluding
+zero-field and exact Clifford echoes. Files are limited to 16 KiB; duplicate keys,
+nonfinite numbers, booleans as numbers, symlinks, and extra keys are invalid.
+
+## Frozen objective: 325 waveforms
+Independently bias the six knots by each vector in
+`{[0,0,0,0,0,0]} union {0.002*s : s in {-1,+1}^6}`: **65 drift vectors**.
+Interpolate the biased knots, then apply each of the original five families:
+nominal `theta(t)`, offsets `theta(t) ± 0.002`, and tilts
+`theta(t) ± 0.002*(2t-1)`. Pass **all 65*5 = 325 combinations**.
+Only commanded knots must lie in `[0.12,1.45]`; every resulting physical waveform
+must satisfy the pulse and slew bounds. Combined displacement can reach 0.004
+radians. This finite suite does not certify the continuous calibration box.
+
+For each family, evolve **three independent MPS states**, at `chi=4,8,16`.
+Let their estimates be `m4,m8,m16` and the exact statevector result be `m*`.
+The supplied heuristic declares convergence when
+`delta = max(abs(m8-m4), abs(m16-m8)) <= 0.008`, and reports `m16`.
+Win by simultaneously making **`delta <= 0.008` and `abs(m16-m*) >= 0.15`**
+in every family: an error at least 18.75 times the allowed convergence spread.
+Discarded weights are reported but intentionally not used by this heuristic.
+
+For each family define `r=min(error/0.15, 0.008/max(delta,1e-15))` and
+`score=100*min(1,r)`. `core_score` is the nominal score;
+`worst_family_score` is the minimum over all 325 waveforms. `passed` requires both
+thresholds in every family. `valid` describes the artifact/physical constraints,
+not success. Invalid submissions score zero. `resource_score=100*12/depth`
+is a deterministic depth-efficiency tie-break, not measured search cost.
+
+## Assets and resources
+- `input/target.json`: complete frozen constants and constraints.
+- `input/example_witness.json`: valid-format starting point.
+- `workspace/simulator.py`: auditable exact and actual circuit-MPS evolution.
+- `workspace/protocol.py`: public interpolation, robustness, and scoring.
+- `baseline/search.py`: runnable grid/random baseline; improve freely.
+
+The MPS represents sites in order `0..11`. Each full layer is applied exactly
+using rank-two ZZ expansions, including a long-range closing-edge MPO.
+Then right-to-left QR establishes the Schmidt metric and left-to-right SVD
+compresses to `chi`, normalizing after each cut. Degenerate Schmidt subspaces
+use deterministic projected-coordinate bases. There is no BP contraction or
+artificial error formula. Final MPS observables are contracted without further
+approximation. Use Linux/Python 3.10+ with NumPy and SciPy; no accelerator or network.
+Use modest CPU parallelism (one BLAS thread per worker; at most four workers).
+The host sets the search budget. Each complete evaluation recomputes 325 exact
+states and 975 MPS states, at depth at most 48. The trusted checker uses at most
+four single-threaded CPU processes and a 600-second wall-time budget; timeout
+returns `passed=false`, zero scores, and `evaluation_complete=false`.
+Measured `elapsed_seconds` is diagnostic, not a speed-dependent score.
+
+From the participant directory:
+
+```bash
+python baseline/search.py --submission submission --trials 48 --seed 14887
+```
+
+The host privately invokes, from the package root,
+`python -I evaluator/evaluate.py --submission DIRECTORY --output JSONPATH`.
+The checker recomputes all results using
+trusted resources, ignores claimed scores, and never executes submission code.
+You may edit workspace search tools; edits cannot change the evaluator's frozen
+simulator, oracle, constraints, or scores. Return only the submission directory.
+
+`workspace.protocol.waveforms` enumerates the complete suite in a fixed order:
+the zero-drift five keep their original names; `corner_00/...` through
+`corner_63/...` use lexicographic sign order with `-1` before `+1`.
+`simulator.compare_waveforms` provides bounded parallel public evaluation.
+The unchanged grid/random proposal baseline ranks finalists on the original
+five families, then reports a full 325-waveform check of its chosen candidate.
+
+exec
+/bin/bash -c 'bash --noprofile --norc' in /srv/home/xuandong/mnt/jingxu/ALE/tasks_v4/efficient_tensor_network_simulation_of_ibm_s_eagle_kicked_ising_experi__2306_14887/concept_2/participant
+ succeeded in 56156ms:
+{
+  "task_id": "2306_14887_concept_2_generation_1_knot_cube_325",
+  "generation": 1,
+  "verification_mode": "B_COUNTEREXAMPLE_FALSIFICATION",
+  "schema_version": 1,
+  "n_sites": 12,
+  "initial_state": "000000000000",
+  "edges": [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],[10,11],[11,0]],
+  "zz_angle": 0.7853981633974483,
+  "chis": [4,8,16],
+  "observable": "zz1",
+  "depth_min": 12,
+  "depth_max": 48,
+  "knot_count": 6,
+  "knot_min": 0.12,
+  "knot_max": 1.45,
+  "max_slew": 0.12,
+  "perturbation": 0.002,
+  "knot_drift": 0.002,
+  "drift_count": 65,
+  "family_count": 325,
+  "checker_workers": 4,
+  "checker_timeout_seconds": 600,
+  "families": ["nominal","offset_minus","offset_plus","tilt_minus","tilt_plus"],
+  "error_min": 0.15,
+  "spread_max": 0.008,
+  "confidence_floor": 0.0001,
+  "algorithm": "exact whole-layer MPO expansion; right QR; left Schmidt compression; deterministic degenerate-subspace basis; normalized per cut",
+  "cutoff_relative": 1e-13,
+  "degeneracy_relative": 1e-11,
+  "pivot_tie_absolute": 1e-10
+}
+"""Reproducible coarse-grid/random search; improve or replace this baseline."""
+
+import argparse
+import json
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "workspace"))
+
+from simulator import compare_waveforms
+from protocol import load_spec, metrics, waveforms
+import numpy as np
+
+
+def assess(witness, spec, robust=False, corners=False, workers=1):
+    records = {}
+    selected = {family: angles for family, angles in waveforms(witness, spec).items()
+                if (robust and (corners or "/" not in family)) or family == "nominal"}
+    for family, result in compare_waveforms(selected, tuple(spec["chis"]), workers).items():
+        observable = spec["observable"]
+        estimates = [result["mps"][str(chi)][observable] for chi in spec["chis"]]
+        records[family] = metrics(result["exact"][observable], estimates, spec)
+    return records
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--submission", type=Path, required=True)
+    parser.add_argument("--trials", type=int, default=48)
+    parser.add_argument("--seed", type=int, default=14887)
+    parser.add_argument("--workers", type=int, choices=range(1, 5), default=4)
+    options = parser.parse_args()
+    if options.trials < 1:
+        parser.error("--trials must be positive")
+    spec = load_spec()
+    random = np.random.default_rng(options.seed)
+    candidates = []
+    for trial in range(options.trials):
+        if trial < 18:
+            depth = [16, 28, 40][trial // 6]
+            knots = np.full(spec["knot_count"], 0.4 + 0.2 * (trial % 6))
+        else:
+            depth = int(random.integers(spec["depth_min"], spec["depth_max"] + 1))
+            center = random.uniform(0.3, 1.35)
+            knots = np.clip(center + random.normal(0, 0.045, spec["knot_count"]),
+                            spec["knot_min"], spec["knot_max"])
+        witness = {"schema_version": 1, "depth": depth, "knots": knots.tolist(), "observable": spec["observable"]}
+        try:
+            record = assess(witness, spec)["nominal"]
+        except ValueError:
+            continue
+        candidates.append((record["margin"], witness))
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        candidates = candidates[:4]
+        print(json.dumps({"trial": trial, "nominal_margin": record["margin"]}), flush=True)
+    best = None
+    for _, witness in candidates:
+        records = assess(witness, spec, robust=True)
+        margin = min(record["margin"] for record in records.values())
+        if best is None or margin > best[0]:
+            best = (margin, witness, records)
+    if best is None:
+        raise SystemExit("no valid candidate")
+    complete = assess(best[1], spec, robust=True, corners=True, workers=options.workers)
+    margin = min(record["margin"] for record in complete.values())
+    options.submission.mkdir(parents=True, exist_ok=True)
+    (options.submission / "witness.json").write_text(json.dumps(best[1], indent=2) + "\n")
+    (options.submission / "search_report.json").write_text(json.dumps(
+        {"seed": options.seed, "trials": options.trials, "screening_policy": "original grid/random proposals and five-family finalist ranking",
+         "family_count": len(complete), "worst_margin": margin, "families": complete}, indent=2) + "\n")
+    print(json.dumps({"worst_margin": margin, "family_count": len(complete), "submission": str(options.submission)}))
+
+
+if __name__ == "__main__":
+    main()
+"""Public waveform constraints and deterministic robustness families."""
+
+import json
+import itertools
+from pathlib import Path
+
+import numpy as np
+
+
+def load_spec():
+    return json.loads((Path(__file__).resolve().parents[1] / "input" / "target.json").read_text())
+
+
+def drift_vectors(spec):
+    result = [("zero", np.zeros(spec["knot_count"]))]
+    for index, signs in enumerate(itertools.product((-1.0, 1.0), repeat=spec["knot_count"])):
+        result.append((f"corner_{index:02d}", spec["knot_drift"] * np.asarray(signs)))
+    return result
+
+
+def waveforms(witness, spec, include_corners=True):
+    if not isinstance(witness, dict) or set(witness) != {"schema_version", "depth", "knots", "observable"}:
+        raise ValueError("expected exactly schema_version, depth, knots, observable")
+    if type(witness["schema_version"]) is not int or witness["schema_version"] != 1:
+        raise ValueError("schema_version must be integer 1")
+    depth = witness["depth"]
+    if type(depth) is not int or not spec["depth_min"] <= depth <= spec["depth_max"]:
+        raise ValueError("depth must be an integer within the public bounds")
+    if witness["observable"] != spec["observable"]:
+        raise ValueError("unsupported observable")
+    knots = witness["knots"]
+    if not isinstance(knots, list) or len(knots) != spec["knot_count"]:
+        raise ValueError("wrong number of control knots")
+    if any(type(value) not in (int, float) or not np.isfinite(value) for value in knots):
+        raise ValueError("knots must be finite real JSON numbers, not booleans")
+    knots = np.asarray(knots, dtype=float)
+    if np.min(knots) < spec["knot_min"] or np.max(knots) > spec["knot_max"]:
+        raise ValueError("control knots outside the public bounds")
+    grid = np.linspace(0, 1, depth)
+    epsilon = spec["perturbation"]
+    families = {}
+    for label, drift in drift_vectors(spec) if include_corners else [("zero", np.zeros(len(knots)))]:
+        nominal = np.interp(grid, np.linspace(0, 1, len(knots)), knots + drift)
+        original = {"nominal": nominal, "offset_minus": nominal - epsilon,
+                    "offset_plus": nominal + epsilon,
+                    "tilt_minus": nominal - epsilon * (2 * grid - 1),
+                    "tilt_plus": nominal + epsilon * (2 * grid - 1)}
+        for family, angles in original.items():
+            name = family if label == "zero" else label + "/" + family
+            families[name] = angles
+    for angles in families.values():
+        if np.min(angles) <= 0.1 or np.max(angles) >= 1.47:
+            raise ValueError("every physical pulse must lie strictly between 0.1 and 1.47")
+        if np.max(np.abs(np.diff(angles))) > spec["max_slew"] + 1e-12:
+            raise ValueError("pulse-to-pulse slew exceeds the public bound")
+    return families
+
+
+def metrics(exact, estimates, spec):
+    spread = max(abs(estimates[index + 1] - estimates[index]) for index in range(len(estimates) - 1))
+    error = abs(estimates[-1] - exact)
+    margin = min(error / spec["error_min"], spec["spread_max"] / max(spread, 1e-15))
+    return {"exact": float(exact), "estimates": [float(value) for value in estimates],
+            "spread": float(spread), "error": float(error), "margin": float(margin),
+            "score": float(100 * min(1, margin)),
+            "heuristic_converged": bool(spread <= spec["spread_max"]),
+            "overconfidence": float(error / max(spread, spec["confidence_floor"])),
+            "passed": bool(error >= spec["error_min"] and spread <= spec["spread_max"])}
+
+**Considering startup needs**
+
+I'm thinking maybe I need to set up a startup or something similar, perhaps using a sandbox queue that lasts about two minutes. I believe this could be interactive and worthwhile for the task at hand. It sounds like an interesting approach! I’m curious if this method will yield the benefits I’m looking for, so I’ll keep exploring and evaluating options.
+**Optimizing waveform strategy**
+
+I'm considering how to optimize a random waveform using SciPy's least squares method. I see that the output ranges (m4-m8) and focus on exactly large values could be important. There seems to be some challenges with MPS discontinuities, especially near chi=4 degeneracies, but those might lead to more stable, smooth regions. I wonder about the runtime being nominally around 1 second, maybe extending from 1 to 5 seconds, or even up to 3600 seconds for about 4000 evaluations. I really need to inspect this further!
+ succeeded in 88716ms:
+"""Physical kicked-Ising circuit and layer-compressed, open-boundary MPS."""
+
+import os
+
+for variable in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ[variable] = "1"
+
+import numpy as np
+from scipy.linalg import qr, svd
+
+
+N_SITES = 12
+CHIS = (4, 8, 16)
+OBSERVABLES = ("magnetization", "zz1", "zz3", "zz6")
+
+
+def diagonals(n_sites=N_SITES):
+    indices = np.arange(1 << n_sites)
+    signs = 1 - 2 * ((indices[:, None] >> np.arange(n_sites - 1, -1, -1)) & 1)
+    values = {"magnetization": signs.mean(axis=1)}
+    for distance in (1, 3, 6):
+        values[f"zz{distance}"] = (signs * np.roll(signs, -distance, axis=1)).mean(axis=1)
+    phase = np.exp(0.25j * np.pi * np.sum(signs * np.roll(signs, -1, axis=1), axis=1))
+    return values, phase
+
+
+def rx(angle):
+    cosine, sine = np.cos(angle / 2), -1j * np.sin(angle / 2)
+    return np.array([[cosine, sine], [sine, cosine]], dtype=np.complex128)
+
+
+def exact_state(angles, n_sites=N_SITES):
+    state = np.zeros(1 << n_sites, dtype=np.complex128)
+    state[0] = 1
+    phase = diagonals(n_sites)[1]
+    for angle in angles:
+        gate = rx(angle)
+        for site in range(n_sites):
+            shaped = state.reshape(1 << site, 2, -1)
+            state = np.einsum("ab,ibj->iaj", gate, shaped).reshape(-1)
+        state *= phase
+    return state
+
+
+def measure(state, n_sites=N_SITES):
+    probabilities = np.abs(state) ** 2
+    probabilities /= probabilities.sum()
+    return {name: float(probabilities @ diagonal) for name, diagonal in diagonals(n_sites)[0].items()}
+
+
+def entangle_ring(tensors):
+    phase_zero, phase_one = np.sqrt(0.5), 1j * np.sqrt(0.5)
+    signs = np.array([1, -1])[None, :, None]
+    for site in range(len(tensors) - 1):
+        left, right = tensors[site], tensors[site + 1]
+        tensors[site] = np.concatenate((phase_zero * left, phase_one * signs * left), axis=2)
+        tensors[site + 1] = np.concatenate((right, signs * right), axis=0)
+    tensors[0] = np.concatenate((phase_zero * tensors[0], phase_one * signs * tensors[0]), axis=2)
+    tensors[-1] = np.concatenate((tensors[-1], signs * tensors[-1]), axis=0)
+    for site in range(1, len(tensors) - 1):
+        tensor = tensors[site]
+        left, physical, right = tensor.shape
+        expanded = np.zeros((2 * left, physical, 2 * right), dtype=np.complex128)
+        expanded[:left, :, :right] = tensor
+        expanded[left:, :, right:] = tensor
+        tensors[site] = expanded
+
+
+def canonical_subspace(vectors, count):
+    projector = vectors @ vectors.conj().T
+    selected = []
+    for _ in range(count):
+        residual = projector.copy()
+        for vector in selected:
+            residual -= np.outer(vector, vector.conj())
+        diagonal = np.real(np.diag(residual))
+        maximum = np.max(diagonal)
+        pivot = int(np.flatnonzero(diagonal >= maximum - 1e-10)[0])
+        direction = residual[:, pivot].copy()
+        for _ in range(2):
+            for vector in selected:
+                direction -= vector * np.vdot(vector, direction)
+        direction /= np.linalg.norm(direction)
+        selected.append(direction)
+    return np.column_stack(selected)
+
+
+def compress(tensors, chi):
+    for site in range(len(tensors) - 1, 0, -1):
+        left, physical, right = tensors[site].shape
+        orthogonal, triangular = qr(tensors[site].reshape(left, physical * right).conj().T,
+                                    mode="economic", check_finite=False)
+        tensors[site] = orthogonal.conj().T.reshape(-1, physical, right)
+        tensors[site - 1] = np.tensordot(tensors[site - 1], triangular.conj().T, axes=(2, 0))
+    discarded, gaps, tie_breaks = [], [], 0
+    for site in range(len(tensors) - 1):
+        left, physical, right = tensors[site].shape
+        matrix = tensors[site].reshape(left * physical, right)
+        vectors, singular, remainder = svd(matrix,
+                                           full_matrices=False, check_finite=False,
+                                           lapack_driver="gesvd")
+        rank = min(chi, max(1, int(np.count_nonzero(singular > 1e-13 * singular[0]))))
+        discarded.append(float(np.sum(singular[rank:] ** 2) / np.sum(singular ** 2)))
+        if rank < len(singular) and discarded[-1] > 1e-12:
+            gaps.append(float((singular[rank - 1] - singular[rank]) / singular[0]))
+        start = 0
+        while start < rank:
+            stop = start + 1
+            while stop < len(singular) and singular[start] - singular[stop] < 1e-11 * singular[0]:
+                stop += 1
+            if stop - start > 1:
+                retained_stop = min(stop, rank)
+                vectors[:, start:retained_stop] = canonical_subspace(vectors[:, start:stop], retained_stop - start)
+                tie_breaks += int(start < rank < stop)
+            start = stop
+        tensors[site] = vectors[:, :rank].reshape(left, physical, rank)
+        transfer = vectors[:, :rank].conj().T @ matrix
+        transfer /= np.linalg.norm(transfer)
+        tensors[site + 1] = np.tensordot(transfer, tensors[site + 1], axes=(1, 0))
+    tensors[-1] /= np.linalg.norm(tensors[-1])
+    return discarded, gaps, tie_breaks
+
+
+def expand_mps(tensors):
+    state = tensors[0]
+    for tensor in tensors[1:]:
+        state = np.tensordot(state, tensor, axes=(-1, 0))
+    return state.reshape(-1)
+
+
+def mps_state(angles, chi, n_sites=N_SITES, return_tensors=False):
+    tensors = [np.array([1, 0], dtype=np.complex128).reshape(1, 2, 1) for _ in range(n_sites)]
+    discarded, gaps, tie_breaks = [], [], 0
+    for angle in angles:
+        gate = rx(angle)
+        tensors = [np.einsum("ab,ibj->iaj", gate, tensor) for tensor in tensors]
+        entangle_ring(tensors)
+        layer_discarded, layer_gaps, layer_ties = compress(tensors, chi)
+        discarded.extend(layer_discarded)
+        gaps.extend(layer_gaps)
+        tie_breaks += layer_ties
+    diagnostics = {"discarded_sum": float(sum(discarded)),
+                   "discarded_max": float(max(discarded, default=0)),
+                   "min_truncation_gap": float(min(gaps, default=1)),
+                   "tie_breaks": tie_breaks,
+                   "max_bond": max(tensor.shape[2] for tensor in tensors)}
+    return (tensors if return_tensors else expand_mps(tensors)), diagnostics
+
+
+def compare(angles, chis=CHIS):
+    result = {"exact": measure(exact_state(angles)), "mps": {}, "diagnostics": {}}
+    for chi in chis:
+        state, diagnostics = mps_state(angles, chi)
+        result["mps"][str(chi)] = measure(state)
+        result["diagnostics"][str(chi)] = diagnostics
+    result["metrics"] = {}
+    for observable in OBSERVABLES:
+        estimates = [result["mps"][str(chi)][observable] for chi in chis]
+        spread = max(abs(estimates[index + 1] - estimates[index]) for index in range(len(chis) - 1))
+        error = abs(estimates[-1] - result["exact"][observable])
+        result["metrics"][observable] = {"spread": spread, "error": error,
+                                         "overconfidence": error / max(spread, 1e-4)}
+    return result
+
+
+def compare_labeled_waveform(job):
+    label, angles, chis = job
+    return label, compare(angles, chis)
+
+
+def compare_waveforms(families, chis=CHIS, workers=4):
+    from concurrent.futures import ProcessPoolExecutor
+    import multiprocessing
+    if type(workers) is not int or not 1 <= workers <= 4:
+        raise ValueError("workers must be an integer from one to four")
+    jobs = [(label, angles, tuple(chis)) for label, angles in families.items()]
+    if workers == 1:
+        return dict(compare_labeled_waveform(job) for job in jobs)
+    with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("fork")) as pool:
+        return dict(pool.map(compare_labeled_waveform, jobs, chunksize=1))
+baseline:
+total 8
+-rw-rw-r-- 1 xuandong xuandong  596 Aug 28 11:27 README.md
+-rw-rw-r-- 1 xuandong xuandong 3486 Aug 28 11:28 search.py
+
+workspace:
+total 16
+-rw-rw-r-- 1 xuandong xuandong 2551 Aug 28 10:32 ALGORITHM.md
+-rw-rw-r-- 1 xuandong xuandong 3536 Aug 28 11:27 protocol.py
+-rw-rw-r-- 1 xuandong xuandong 7758 Aug 28 11:27 simulator.py
+Fri Aug 28 11:54:12 PDT 2026
+
+codex
+I’ll search nominal candidates, then test promising ones against drift.
+
+  ✓ Inspect simulator and search baseline
+  → Search for robust false convergence
+  • Validate all waveforms and submit
+**Considering code optimization**
+
+I’m thinking about how we can optimize the code locally to solve for the difference at the same depth. It seems like the grid results will require a little time to compute—maybe just a minute? I want to make sure I’m gathering all the necessary data efficiently so that I can provide accurate results. It’s intriguing to see how this process unfolds! I’ll keep an eye on the time needed for the calculations.
+**Evaluating fast processing**
+
+I'm looking at a fast evaluation for four CPUs. I think thousands should work in about 55 minutes. I need to ensure I'm generating broad, random, high waveforms. A single 0.35 setup is in place, but with grid multiprocess, it still takes around 30 seconds. I want to get all results, targeting an error maximum of .2 meters spread. If the grid is shallower, it's a bit unusual. I'll get started with finishing the first grid.
+**Evaluating runtime optimization strategies**
+
+I need to improve the search efficiency for my optimization process. I'm thinking about implementing a strategy that uses disjoint files instead of agents. My objective is to minimize margin and handle smoothness at switches. I could use methods like Scipy's Powell or Nelder-Mead. There's a question about whether initial setups affect the results, especially when considering constraints and error margins. Running multiple random trials alongside optimization could yield better results in about 250 seconds for 1500 tasks.
+**Optimizing parameters for testing**
+
+I’ve got a solution with a nominal depth of 36 and an angle of 1.3. I need to test it, but I expect about five likely failures. I should focus on optimizing locally around the parameter of 0.3 to keep the delta margin robust. I think constant optimization of the theta scalar might help for all cubes. My goal is an error of 0.17 with a spread of 0.007, which could be robust at 0.02. Now, I need to check the full grid.
+**Exploring optimization methods**
+
+I’m thinking about the Nelder-Mead method, which often converges to a narrow cusp. It seems like using a full suite objective subset could help. I wonder if shortening the depth at a certain point could enhance the robustness of optimization at theta1.3. Additionally, I noticed some nominal values near .446 and .283, which seem entangled with estimates through various layers. I’m curious about the differences in m4 versus m8 across all corners.
+**Evaluating optimization process**
+
+I’m not facing speed issues, so I can have the optimizer run in the background after a wait in the shell. I'll need to make sure I apply the patch edits correctly using the apply_patch function, instead of just copying files. I could even write a snapshot with Python to search through outputs, as long as generated artifacts are allowed and I’m not manually editing anything. It seems like I should check the optimizer after running it once.
+**Optimizing integration**
+
+I’m considering how to plan for optimizing least squares using gradient samples with scipy's differential evolution in six dimensions. It seems robust and suitable for rugged objectives. I’ve run 2,000 calls on 4 CPUs, taking about 250 seconds nominal. A random search might yield a more reliable solution naturally. While the baseline grid only needed one pass, deep random could be better. I need to test constant full score to confirm these evaluations and timings are accurate.
+codex
+The first candidate passes nominally, but fails under drift.
+
+**Estimating slopes**
+
+I'm considering deriving finite derivatives from current records to estimate slopes, but it seems like I can only do this with uniform and tilted data. I'm worried about how missing oscillatory directions could affect my calculations over 30 steps, which might lead to significant shifts in m4. I also need to collect all 325 records at this interim stage. After 30 seconds, I'll need to perform a time check poll.
+**Considering optimization strategy**
+
+I want to prioritize winning first, then think about reducing the search depth if needed. I’m thinking about adjusting to depths 35 or 34 while preserving interference. I know stability and robustness might require some compression. My goal is to keep the error low, but it's not necessary to optimize everything until I'm sure I've won. I have about 54 minutes, and I plan to give the optimizer around 10 minutes, maybe finishing by 12:11.
+**Providing directory validation**
+
+I’m thinking it’s best to keep our response simple by just returning the directory without any lengthy explanations. It might help to include some computational evidence, but that may not be necessary. The focus should be on providing the relevant path directly. So, I’ll ensure to keep it clear and concise in a format like `concisevalidation.json`. That approach feels efficient!
+**Evaluating command sequences**
+
+I see that I need to assess the command sequence I’m considering. I notice there's a bit of confusion about the order of commands like `kill 37` and `pkill -P37`. It seems that terminating the four workers and their parent might lead to issues with the current writes in safeJSON. I’ll definitely need to ensure the commands run correctly to save the best option into the candidate via my script without any complications.
+**Validating file processes**
+
+I'm thinking about how the patch directs manual files and how selections are generated through the script. Then there's the need for validation to check if it's robust against risk. It feels a bit inefficient given how many resources are wasted. I'm considering stopping after five minutes to assess the finer response and ensure it can handle a robust gradient efficiently. Let's see how this unfolds!
+codex
+The worst-case score improved to 65%; I’ll target failing drifts.
+
+**Evaluating process improvements**
+
+I'm considering letting the system run autonomously after completing the dense grid task and waiting 12 minutes. I think it’s better to limit the operation to six iterations to reach the first-grade target, even though I'm already at 18. I might stop after six actual files are called. There could be an option to add a dynamic configuration for object reads, but since the current process is older code, I don't think it’s necessary. I also need to observe the behavior after 60 iterations.
+**Evaluating tool readiness**
+
+I’m thinking about whether the tools can execute without starting up in an interactive shell. If they need to sleep until the command is done, it could cause delays. I wonder if there's a way to execute a new startup after two minutes even if it's not necessary. Maybe I just need to wait a few more minutes to see if everything settles down. Hm, I'll keep checking!
+**Evaluating optimization options**
+
+I’m noticing that increasing errors in gradient descent while maintaining constraints might be impossible at the current local minimum. To explore other local basins, I’ll need to introduce some random perturbations, around 0.03. Using the Nelder method with different starting points has shown different results. I’m also considering stochastic search to find further optimizations, since aiming for errors above 0.15 could lead to biases when estimating convergence. Smooth control across six variables seems essential here.
+**Evaluating scoring strategies**
+
+I’m looking at Round 2 scores and realizing I need to manage the error margins. A +0.003 error plus a spread of -0.001 seems manageable! I think candidate 2 is strong, which is great to see. Also, fine grid outputs are faster, so that will help me minimize the total time. Now, I really need those top nominal results to ensure everything is running smoothly!
+**Evaluating optimization strategy**
+
+I'm considering some significant coding for effective counterexample optimization. My objective is to check if the result margin is greater than 1.05, especially since I've executed 50 calls. I’m wondering if I should perform a complete suite with sequential early termination for all 329, which take around 150 seconds each. It feels like a lot to process, but it might lead to more efficient coding if I get it right!
+codex
+One candidate reached 88%; I’ll refine its critical drift cases.
+
+**Evaluating optimization approach**
+
+I’m considering an optimization strategy that involves using random seeds around the best options found. I think I need to run 500 trials across 6 families, which might take about 6 minutes and could lead to improvement over the Nelder method. There might be some error boosting from uniform offsets and correlated time controls. I'll ensure to update the plan every 5 minutes as we progress. Let’s see how it goes!
+**Optimizing time management**
+
+I see it’s currently 12:22, and I have about 30 minutes left. I need to optimize the next steps, aiming for a new plan in 6-8 minutes. By 12:24, I want to update my approach without wasting any tokens. Maybe I could add a small poll after 120 seconds to engage effectively! Let’s see how that goes!
+codex
+I’m checking all 325 waveforms for four refined candidates.
+
+codex
+New drift failures appeared. I’ll optimize all 325 constraints directly.
+
+**Analyzing computation time**
+
+I'm observing my recent full batch processing took about 192 seconds from start to finish. I started at 12:37:44, and now it's 12:40:46, so I’m almost done with this task. With the tool running on four threads, things seem to be moving well. It’s nice to see that it’s on track. Let’s just wrap this up smoothly!
+codex
+The full-suite score is now 96%; I’ll try one final refinement.
+
